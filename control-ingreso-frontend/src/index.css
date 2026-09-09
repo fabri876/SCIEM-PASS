@@ -1,1 +1,67 @@
-   @import "tailwindcss";
+/* ==========================================================================
+   1. Importación de la tipografía (Google Fonts)
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600;1,700;1,800&display=swap');
+
+/* ==========================================================================
+   2. Tailwind
+   ========================================================================== */
+@import "tailwindcss";
+
+/* ==========================================================================
+   3. Theme — tipografía (ya definida) + nueva paleta SCIEM-PASS v2.0
+   ========================================================================== */
+@theme {
+   /* --- Tipografía (sin cambios) --- */
+   --font-nunito: "Nunito", system-ui, -apple-system, sans-serif;
+
+   --text-hero: 52px;
+   /* 800 ExtraBold — Hero headline principal */
+   --text-h2: 34px;
+   /* 800 ExtraBold — Títulos de sección / Login H2 */
+   --text-h3: 28px;
+   /* 800 ExtraBold — Subtítulos de sección */
+   --text-card-title: 18px;
+   /* 700 Bold — Encabezados de card */
+   --text-table-name: 16px;
+   /* 700 Bold — Nombre de materia en tabla */
+   --text-body: 15px;
+   /* 400 Regular — Cuerpo de texto / descripción */
+   --text-secondary: 13px;
+   /* 600 SemiBold — Datos secundarios / eventos */
+   --text-badge: 11px;
+   /* 700 Bold — Labels uppercase / badges */
+
+   /* --- Paleta de colores v2.0 (extraída del PDF) --- */
+   --color-primary-navy: #0F172A;
+   /* Encabezados, títulos de card, texto de alto contraste */
+   --color-primary-blue: #2563EB;
+   /* Color institucional, enlaces, badges activos, foco de formularios */
+   --color-accent-red: #D93856;
+   /* Destacados de texto, alertas, extremo de gradiente */
+   --color-text-body: #64748B;
+   /* Cuerpo de texto general y descripciones secundarias */
+   --color-bg-app: #F3F6FC;
+   /* Fondo general de la pantalla */
+   --color-bg-card: #FFFFFF;
+   /* Fondo de tarjetas */
+   --color-border: #E2E8F0;
+   /* Bordes */
+   --color-text-title: #0F172A;
+   /* Texto de títulos (igual a primary-navy) */
+   --color-secondary-data: #475569;
+   /* Datos secundarios */
+
+   /* --- Gradientes (como variables, se usan con bg-[image:var(--...)]) --- */
+   --gradient-button: linear-gradient(90deg, #2563EB 0%, #D93856 100%);
+   --gradient-banner: linear-gradient(120deg, #0B1E3D 0%, #1D4ED8 60%, #B91C1C 100%);
+}
+
+/* ==========================================================================
+   4. Estilos globales base
+   ========================================================================== */
+body {
+   font-family: var(--font-nunito);
+   background-color: var(--color-bg-app);
+   color: var(--color-text-body);
+}
