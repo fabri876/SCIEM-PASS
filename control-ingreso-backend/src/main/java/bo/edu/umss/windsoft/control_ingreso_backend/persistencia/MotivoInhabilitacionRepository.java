@@ -11,4 +11,6 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoInhabilitacion
 public interface MotivoInhabilitacionRepository extends JpaRepository<MotivoInhabilitacion, Integer> {
 
     Optional<MotivoInhabilitacion> findByNombremotivo(String nombremotivo);
+
+    boolean existsByNombremotivo(String nombremotivo);
 }

@@ -6,7 +6,9 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoInhabilitacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.MotivoInhabilitacionRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.MotivoInhabilitacionRequestDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.MotivoInhabilitacionResponseDTO;
 
 @Service
@@ -27,5 +29,25 @@ public class MotivoInhabilitacionService {
                         m.getDescripcionmotivo()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public MotivoInhabilitacionResponseDTO crearMotivo(MotivoInhabilitacionRequestDTO dto) {
+        if (motivoInhabilitacionRepository.existsByNombremotivo(dto.getNombremotivo().trim())) {
+            throw new IllegalArgumentException("Ya existe un motivo de inhabilitación con el nombre: " + dto.getNombremotivo().trim());
+        }
+
+        MotivoInhabilitacion motivo = new MotivoInhabilitacion(
+                dto.getNombremotivo().trim(),
+                dto.getDescripcionmotivo() != null ? dto.getDescripcionmotivo().trim() : null
+        );
+
+        MotivoInhabilitacion guardado = motivoInhabilitacionRepository.save(motivo);
+
+        return new MotivoInhabilitacionResponseDTO(
+                guardado.getIdmotivo(),
+                guardado.getNombremotivo(),
+                guardado.getDescripcionmotivo()
+        );
     }
 }
