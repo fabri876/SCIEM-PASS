@@ -23,8 +23,8 @@ public class HabilitacionService {
     private final MotivoInhabilitacionRepository motivoInhabilitacionRepository;
 
     public HabilitacionService(HabilitacionRepository habilitacionRepository,
-                               EstudianteRepository estudianteRepository,
-                               MotivoInhabilitacionRepository motivoInhabilitacionRepository) {
+            EstudianteRepository estudianteRepository,
+            MotivoInhabilitacionRepository motivoInhabilitacionRepository) {
         this.habilitacionRepository = habilitacionRepository;
         this.estudianteRepository = estudianteRepository;
         this.motivoInhabilitacionRepository = motivoInhabilitacionRepository;
@@ -40,37 +40,43 @@ public class HabilitacionService {
     @Transactional(readOnly = true)
     public HabilitacionResponseDTO obtenerPorId(Integer idhabilitacion) {
         Habilitacion habilitacion = habilitacionRepository.findByIdConDetalles(idhabilitacion)
-                .orElseThrow(() -> new IllegalArgumentException("Habilitación no encontrada con ID: " + idhabilitacion));
+                .orElseThrow(
+                        () -> new RecursoNoEncontradoException("Habilitación no encontrada con ID: " + idhabilitacion));
         return mapearAHabilitacionResponseDTO(habilitacion);
     }
 
     @Transactional(readOnly = true)
     public HabilitacionResponseDTO obtenerUltimaPorEstudiante(Integer codsisestudiante) {
-        Habilitacion habilitacion = habilitacionRepository.findTopByEstudianteCodsisestudianteOrderByFecharegistroDesc(codsisestudiante)
-                .orElseThrow(() -> new IllegalArgumentException("No se encontró registro de habilitación para el estudiante con código SIS: " + codsisestudiante));
+        Habilitacion habilitacion = habilitacionRepository
+                .findTopByEstudianteCodsisestudianteOrderByFecharegistroDesc(codsisestudiante)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No se encontró registro de habilitación para el estudiante con código SIS: "
+                                + codsisestudiante));
         return mapearAHabilitacionResponseDTO(habilitacion);
     }
 
     @Transactional
     public HabilitacionResponseDTO registrarHabilitacion(HabilitacionRequestDTO dto) {
         Estudiante estudiante = estudianteRepository.findById(dto.getCodsisestudiante())
-                .orElseThrow(() -> new IllegalArgumentException("Estudiante no encontrado con código SIS: " + dto.getCodsisestudiante()));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Estudiante no encontrado con código SIS: " + dto.getCodsisestudiante()));
 
         MotivoInhabilitacion motivo = null;
         if (Boolean.FALSE.equals(dto.getEstadohabilitacion())) {
             if (dto.getIdmotivo() == null) {
-                throw new IllegalArgumentException("Debe seleccionar un motivo de inhabilitación cuando el estado es inhabilitado");
+                throw new IllegalArgumentException(
+                        "Debe seleccionar un motivo de inhabilitación cuando el estado es inhabilitado");
             }
             motivo = motivoInhabilitacionRepository.findById(dto.getIdmotivo())
-                    .orElseThrow(() -> new IllegalArgumentException("Motivo de inhabilitación no encontrado con ID: " + dto.getIdmotivo()));
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Motivo de inhabilitación no encontrado con ID: " + dto.getIdmotivo()));
         }
 
         Habilitacion habilitacion = new Habilitacion(
                 estudiante,
                 motivo,
                 dto.getEstadohabilitacion(),
-                dto.getObservacionhabilitacion()
-        );
+                dto.getObservacionhabilitacion());
 
         Habilitacion guardada = habilitacionRepository.save(habilitacion);
         return mapearAHabilitacionResponseDTO(guardada);
@@ -79,17 +85,20 @@ public class HabilitacionService {
     @Transactional
     public HabilitacionResponseDTO actualizarHabilitacion(Integer idhabilitacion, HabilitacionRequestDTO dto) {
         Habilitacion habilitacion = habilitacionRepository.findById(idhabilitacion)
-                .orElseThrow(() -> new IllegalArgumentException("Habilitación no encontrada con ID: " + idhabilitacion));
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Habilitación no encontrada con ID: " + idhabilitacion));
 
         habilitacion.setEstadohabilitacion(dto.getEstadohabilitacion());
         habilitacion.setObservacionhabilitacion(dto.getObservacionhabilitacion());
 
         if (Boolean.FALSE.equals(dto.getEstadohabilitacion())) {
             if (dto.getIdmotivo() == null) {
-                throw new IllegalArgumentException("Debe seleccionar un motivo de inhabilitación cuando el estado es inhabilitado");
+                throw new IllegalArgumentException(
+                        "Debe seleccionar un motivo de inhabilitación cuando el estado es inhabilitado");
             }
             MotivoInhabilitacion motivo = motivoInhabilitacionRepository.findById(dto.getIdmotivo())
-                    .orElseThrow(() -> new IllegalArgumentException("Motivo de inhabilitación no encontrado con ID: " + dto.getIdmotivo()));
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Motivo de inhabilitación no encontrado con ID: " + dto.getIdmotivo()));
             habilitacion.setMotivo(motivo);
         } else {
             habilitacion.setMotivo(null);
@@ -101,11 +110,14 @@ public class HabilitacionService {
 
     private HabilitacionResponseDTO mapearAHabilitacionResponseDTO(Habilitacion h) {
         String nombre = h.getEstudiante() != null && h.getEstudiante().getUsuario() != null
-                ? h.getEstudiante().getUsuario().getNombreusuario() : null;
+                ? h.getEstudiante().getUsuario().getNombreusuario()
+                : null;
         String apellido = h.getEstudiante() != null && h.getEstudiante().getUsuario() != null
-                ? h.getEstudiante().getUsuario().getApellidousuario() : null;
+                ? h.getEstudiante().getUsuario().getApellidousuario()
+                : null;
         String ci = h.getEstudiante() != null && h.getEstudiante().getUsuario() != null
-                ? h.getEstudiante().getUsuario().getCiusuario() : null;
+                ? h.getEstudiante().getUsuario().getCiusuario()
+                : null;
 
         Integer idMotivo = h.getMotivo() != null ? h.getMotivo().getIdmotivo() : null;
         String nombreMotivo = h.getMotivo() != null ? h.getMotivo().getNombremotivo() : null;
@@ -122,7 +134,6 @@ public class HabilitacionService {
                 nombreMotivo,
                 descMotivo,
                 h.getObservacionhabilitacion(),
-                h.getFecharegistro()
-        );
+                h.getFecharegistro());
     }
 }

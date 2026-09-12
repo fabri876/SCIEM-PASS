@@ -26,28 +26,21 @@ public class MotivoInhabilitacionService {
                 .map(m -> new MotivoInhabilitacionResponseDTO(
                         m.getIdmotivo(),
                         m.getNombremotivo(),
-                        m.getDescripcionmotivo()
-                ))
+                        m.getDescripcionmotivo()))
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public MotivoInhabilitacionResponseDTO crearMotivo(MotivoInhabilitacionRequestDTO dto) {
-        if (motivoInhabilitacionRepository.existsByNombremotivo(dto.getNombremotivo().trim())) {
-            throw new IllegalArgumentException("Ya existe un motivo de inhabilitación con el nombre: " + dto.getNombremotivo().trim());
-        }
-
         MotivoInhabilitacion motivo = new MotivoInhabilitacion(
                 dto.getNombremotivo().trim(),
-                dto.getDescripcionmotivo() != null ? dto.getDescripcionmotivo().trim() : null
-        );
+                dto.getDescripcionmotivo() != null ? dto.getDescripcionmotivo().trim() : null);
 
         MotivoInhabilitacion guardado = motivoInhabilitacionRepository.save(motivo);
 
         return new MotivoInhabilitacionResponseDTO(
                 guardado.getIdmotivo(),
                 guardado.getNombremotivo(),
-                guardado.getDescripcionmotivo()
-        );
+                guardado.getDescripcionmotivo());
     }
 }
