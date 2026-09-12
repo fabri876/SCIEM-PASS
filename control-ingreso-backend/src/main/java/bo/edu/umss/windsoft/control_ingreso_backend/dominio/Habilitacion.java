@@ -12,68 +12,57 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(
-    name = "habilitacion",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uq_estudiante_examen", columnNames = {"id_estudiante", "id_examen"})
-    }
-)
+@Table(name = "habilitacion")
 public class Habilitacion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_habilitacion")
-    private Integer idHabilitacion;
+    @Column(name = "idhabilitacion")
+    private Integer idhabilitacion;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_estudiante", nullable = false)
+    @JoinColumn(name = "codsisestudiante", referencedColumnName = "codsisestudiante", nullable = false)
     private Estudiante estudiante;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_examen", nullable = false)
-    private Examen examen;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_motivo")
+    @JoinColumn(name = "idmotivo", referencedColumnName = "idmotivo", nullable = false)
     private MotivoInhabilitacion motivo;
 
-    @Column(name = "estado_habilitacion", nullable = false)
-    private Boolean estadoHabilitacion;
+    @Column(name = "estadohabilitacion", nullable = false)
+    private Boolean estadohabilitacion;
 
-    @Column(name = "observacion_habilitacion", columnDefinition = "TEXT")
-    private String observacionHabilitacion;
+    @Column(name = "observacionhabilitacion")
+    private String observacionhabilitacion;
 
-    @Column(name = "fecha_registro", nullable = false)
-    private LocalDateTime fechaRegistro;
+    @Column(name = "fecharegistro", nullable = false)
+    private LocalDateTime fecharegistro;
 
     @PrePersist
     public void prePersist() {
-        if (this.fechaRegistro == null) {
-            this.fechaRegistro = LocalDateTime.now();
+        if (this.fecharegistro == null) {
+            this.fecharegistro = LocalDateTime.now();
         }
     }
 
     public Habilitacion() {
     }
 
-    public Habilitacion(Estudiante estudiante, Examen examen, MotivoInhabilitacion motivo, Boolean estadoHabilitacion, String observacionHabilitacion) {
+    public Habilitacion(Estudiante estudiante, MotivoInhabilitacion motivo, Boolean estadohabilitacion, String observacionhabilitacion) {
         this.estudiante = estudiante;
-        this.examen = examen;
         this.motivo = motivo;
-        this.estadoHabilitacion = estadoHabilitacion;
-        this.observacionHabilitacion = observacionHabilitacion;
-        this.fechaRegistro = LocalDateTime.now();
+        this.estadohabilitacion = estadohabilitacion;
+        this.observacionhabilitacion = observacionhabilitacion;
+        this.fecharegistro = LocalDateTime.now();
     }
 
-    public Integer getIdHabilitacion() {
-        return idHabilitacion;
+    public Integer getIdhabilitacion() {
+        return idhabilitacion;
     }
 
-    public void setIdHabilitacion(Integer idHabilitacion) {
-        this.idHabilitacion = idHabilitacion;
+    public void setIdhabilitacion(Integer idhabilitacion) {
+        this.idhabilitacion = idhabilitacion;
     }
 
     public Estudiante getEstudiante() {
@@ -84,14 +73,6 @@ public class Habilitacion {
         this.estudiante = estudiante;
     }
 
-    public Examen getExamen() {
-        return examen;
-    }
-
-    public void setExamen(Examen examen) {
-        this.examen = examen;
-    }
-
     public MotivoInhabilitacion getMotivo() {
         return motivo;
     }
@@ -100,27 +81,27 @@ public class Habilitacion {
         this.motivo = motivo;
     }
 
-    public Boolean getEstadoHabilitacion() {
-        return estadoHabilitacion;
+    public Boolean getEstadohabilitacion() {
+        return estadohabilitacion;
     }
 
-    public void setEstadoHabilitacion(Boolean estadoHabilitacion) {
-        this.estadoHabilitacion = estadoHabilitacion;
+    public void setEstadohabilitacion(Boolean estadohabilitacion) {
+        this.estadohabilitacion = estadohabilitacion;
     }
 
-    public String getObservacionHabilitacion() {
-        return observacionHabilitacion;
+    public String getObservacionhabilitacion() {
+        return observacionhabilitacion;
     }
 
-    public void setObservacionHabilitacion(String observacionHabilitacion) {
-        this.observacionHabilitacion = observacionHabilitacion;
+    public void setObservacionhabilitacion(String observacionhabilitacion) {
+        this.observacionhabilitacion = observacionhabilitacion;
     }
 
-    public LocalDateTime getFechaRegistro() {
-        return fechaRegistro;
+    public LocalDateTime getFecharegistro() {
+        return fecharegistro;
     }
 
-    public void setFechaRegistro(LocalDateTime fechaRegistro) {
-        this.fechaRegistro = fechaRegistro;
+    public void setFecharegistro(LocalDateTime fecharegistro) {
+        this.fecharegistro = fecharegistro;
     }
 }
