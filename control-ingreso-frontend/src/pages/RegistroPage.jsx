@@ -1,5 +1,5 @@
 import Header from "../components/layout/Header";
-import HeroBanner from "../components/registro/HeroBanner";
+import HeroBanner from "../components/common/HeroBanner";
 import RegistroForm from "../components/registro/RegistroForm";
 
 /**

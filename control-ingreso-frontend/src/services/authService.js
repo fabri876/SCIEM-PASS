@@ -34,3 +34,26 @@ export async function registrarUsuario(objDatosRegistro) {
 
   return response.json();
 }
+
+/**
+ * ⚠️ Mismo supuesto que registrarUsuario, pendiente de confirmar con
+ * backend: la ruta exacta ("/api/auth/login"), los nombres de campo que
+ * espera el body (acá asumí "correo" y "contrasena", igual que en el
+ * registro) y la forma de la respuesta — lo más probable es que esto
+ * devuelva un token (JWT), que todavía no se está guardando en ningún
+ * lado (falta definir eso junto con el routing, HU16 en adelante).
+ */
+export async function iniciarSesion(objDatosLogin) {
+  const response = await fetch(`${strApiBaseUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(objDatosLogin),
+  });
+
+  if (!response.ok) {
+    const objError = await response.json().catch(() => null);
+    throw new Error(objError?.mensaje || "Correo o contraseña incorrectos.");
+  }
+
+  return response.json();
+}

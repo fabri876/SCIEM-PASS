@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import Logo from "../common/Logo";
 import FormField from "../common/FormField";
 import usePasswordVisibility from "../../hooks/usePasswordVisibility";
@@ -42,7 +43,6 @@ export default function RegistroForm() {
   const [arrRolesSeleccionados, setArrRolesSeleccionados] = useState([]);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strErrorEnvio, setStrErrorEnvio] = useState("");
-  const [strMensajeExito, setStrMensajeExito] = useState("");
 
   const { boolShowPassword, fnToggleShowPassword, strInputType } =
     usePasswordVisibility();
@@ -62,19 +62,12 @@ export default function RegistroForm() {
   const fnManejarEnvio = async (e) => {
     e.preventDefault();
     setStrErrorEnvio("");
-    setStrMensajeExito("");
-
-    if (arrRolesSeleccionados.length === 0) {
-      setStrErrorEnvio("Por favor, selecciona al menos un rol (Estudiante, Docente o Ayudante).");
-      return;
-    }
-
     setBoolIsSubmitting(true);
     try {
-      const respuesta = await registrarUsuario({ ...objFormData, roles: arrRolesSeleccionados });
-      setStrMensajeExito(respuesta?.mensaje || "¡Cuenta creada exitosamente! Ya puedes iniciar sesión.");
-      setObjFormData(objValoresInicialesForm);
-      setArrRolesSeleccionados([]);
+      await registrarUsuario({ ...objFormData, roles: arrRolesSeleccionados });
+      // TODO: reemplazar este alert por la redirección/confirmación real
+      // que defina la Historia de Usuario correspondiente al registro.
+      alert("Cuenta creada. Ya puedes iniciar sesión.");
     } catch (error) {
       setStrErrorEnvio(error.message);
     } finally {
@@ -94,26 +87,10 @@ export default function RegistroForm() {
       </p>
 
       {strErrorEnvio && (
-        <div className="mb-4 p-3.5 rounded-lg bg-red-50 border border-red-200 text-sm font-semibold text-accent-red flex items-center gap-2" role="alert">
-          <svg viewBox="0 0 24 24" className="w-5 h-5 flex-shrink-0 fill-none stroke-current stroke-2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <span>{strErrorEnvio}</span>
-        </div>
+        <p className="mb-4 text-sm font-semibold text-accent-red" role="alert">
+          {strErrorEnvio}
+        </p>
       )}
-
-      {strMensajeExito && (
-        <div className="mb-4 p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-sm font-semibold text-emerald-700 flex items-center gap-2" role="status">
-          <svg viewBox="0 0 24 24" className="w-5 h-5 flex-shrink-0 fill-none stroke-current stroke-2">
-            <circle cx="12" cy="12" r="10" />
-            <path d="m9 12 2 2 4-4" />
-          </svg>
-          <span>{strMensajeExito}</span>
-        </div>
-      )}
-
 
       <form
         className="grid grid-cols-2 gap-x-[30px] gap-y-4"
@@ -277,9 +254,9 @@ export default function RegistroForm() {
           </button>
           <div className="text-center mt-[18px] text-sm text-[#52729D]">
             ¿Ya tienes una cuenta?{" "}
-            <a href="/login" className="text-[#1763C6] font-extrabold no-underline">
+            <Link to="/login" className="text-[#1763C6] font-extrabold no-underline">
               Inicia sesión
-            </a>
+            </Link>
           </div>
         </div>
       </form>
