@@ -16,6 +16,11 @@ import strFotoHero from "../../assets/images/registro-hero.png";
  * "arrBeneficios" es la lista de los tres bloques de la derecha del
  * hero. Está armado como array para no repetir tres veces casi el mismo
  * bloque de <article>.
+ *
+ * "title" y "subtitle" son props porque este mismo panel ahora lo
+ * comparten Registro y Login: solo cambia el texto, la foto, el degradé
+ * y los tres beneficios se quedan igual en las dos pantallas. Por eso
+ * vive en components/common y no en components/registro.
  */
 const arrBeneficios = [
   {
@@ -47,7 +52,16 @@ const arrBeneficios = [
   },
 ];
 
-export default function HeroBanner() {
+export default function HeroBanner({
+  title = (
+    <>
+      Tu futuro académico
+      <br />
+      comienza <span className="text-[#FF5873]">aquí</span>
+    </>
+  ),
+  subtitle = "Regístrate en SCIEM-PASS y accede a un sistema seguro, rápido y confiable para la gestión de exámenes.",
+}) {
   return (
     <section className="relative h-[780px] rounded-[10px] overflow-hidden text-white shadow-[0_10px_35px_rgba(15,23,42,0.10)] bg-primary-navy">
       {/* Foto de fondo, recortada a los primeros 390px de alto */}
@@ -64,13 +78,10 @@ export default function HeroBanner() {
 
       <div className="absolute left-[50px] right-10 bottom-10">
         <h1 className="text-[40px] leading-[1.15] font-extrabold text-white mb-[17px]">
-          Tu futuro académico
-          <br />
-          comienza <span className="text-[#FF5873]">aquí</span>
+          {title}
         </h1>
         <p className="text-lg leading-[1.5] text-white mb-[43px] max-w-[480px]">
-          Regístrate en SCIEM-PASS y accede a un sistema seguro, rápido y
-          confiable para la gestión de exámenes.
+          {subtitle}
         </p>
 
         <div className="grid grid-cols-3">
