@@ -2,9 +2,11 @@ package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.MapsId;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -12,82 +14,65 @@ import jakarta.persistence.Table;
 public class Estudiante {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_estudiante")
-    private Integer idEstudiante;
+    @Column(name = "codsisestudiante")
+    private Integer codsisestudiante;
 
-    @Column(name = "ci")
-    private String ci;
+    @OneToOne(fetch = FetchType.LAZY)
+    @MapsId
+    @JoinColumn(name = "codsisestudiante")
+    private Usuario usuario;
 
-    @Column(name = "nombre")
-    private String nombre;
+    @Column(name = "foto_url", columnDefinition = "TEXT")
+    private String fotoUrl;
 
-    @Column(name = "apellido")
-    private String apellido;
-
-    @Column(name = "cod_sis_estudiante")
-    private Integer codSisEstudiante;
-
-    @Column(name = "id_usuario")
-    private Integer idUsuario;
+    @Column(name = "codigo_qr", columnDefinition = "TEXT")
+    private String codigoQr;
 
     public Estudiante() {
     }
 
-    public Estudiante(Integer idEstudiante, String ci, String nombre, String apellido, Integer codSisEstudiante, Integer idUsuario) {
-        this.idEstudiante = idEstudiante;
-        this.ci = ci;
-        this.nombre = nombre;
-        this.apellido = apellido;
-        this.codSisEstudiante = codSisEstudiante;
-        this.idUsuario = idUsuario;
+    public Estudiante(Usuario usuario, String fotoUrl, String codigoQr) {
+        this.usuario = usuario;
+        this.fotoUrl = fotoUrl;
+        this.codigoQr = codigoQr;
     }
 
-    public Integer getIdEstudiante() {
-        return idEstudiante;
+    public Estudiante(Integer codsisestudiante, Usuario usuario, String fotoUrl, String codigoQr) {
+        this.codsisestudiante = codsisestudiante;
+        this.usuario = usuario;
+        this.fotoUrl = fotoUrl;
+        this.codigoQr = codigoQr;
     }
 
-    public void setIdEstudiante(Integer idEstudiante) {
-        this.idEstudiante = idEstudiante;
+    public Integer getCodsisestudiante() {
+        return codsisestudiante;
     }
 
-    public String getCi() {
-        return ci;
+    public void setCodsisestudiante(Integer codsisestudiante) {
+        this.codsisestudiante = codsisestudiante;
     }
 
-    public void setCi(String ci) {
-        this.ci = ci;
+    public Usuario getUsuario() {
+        return usuario;
     }
 
-    public String getNombre() {
-        return nombre;
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
     }
 
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
+    public String getFotoUrl() {
+        return fotoUrl;
     }
 
-    public String getApellido() {
-        return apellido;
+    public void setFotoUrl(String fotoUrl) {
+        this.fotoUrl = fotoUrl;
     }
 
-    public void setApellido(String apellido) {
-        this.apellido = apellido;
+    public String getCodigoQr() {
+        return codigoQr;
     }
 
-    public Integer getCodSisEstudiante() {
-        return codSisEstudiante;
-    }
-
-    public void setCodSisEstudiante(Integer codSisEstudiante) {
-        this.codSisEstudiante = codSisEstudiante;
-    }
-
-    public Integer getIdUsuario() {
-        return idUsuario;
-    }
-
-    public void setIdUsuario(Integer idUsuario) {
-        this.idUsuario = idUsuario;
+    public void setCodigoQr(String codigoQr) {
+        this.codigoQr = codigoQr;
     }
 }

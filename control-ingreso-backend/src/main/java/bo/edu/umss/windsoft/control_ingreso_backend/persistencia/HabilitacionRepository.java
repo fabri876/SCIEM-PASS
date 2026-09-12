@@ -13,13 +13,13 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
 @Repository
 public interface HabilitacionRepository extends JpaRepository<Habilitacion, Integer> {
 
-    boolean existsByEstudianteIdEstudianteAndExamenIdExamen(Integer idEstudiante, Integer idExamen);
+    List<Habilitacion> findByEstudianteCodsisestudiante(Integer codsisestudiante);
 
-    Optional<Habilitacion> findByEstudianteIdEstudianteAndExamenIdExamen(Integer idEstudiante, Integer idExamen);
+    Optional<Habilitacion> findTopByEstudianteCodsisestudianteOrderByFecharegistroDesc(Integer codsisestudiante);
 
-    @Query("SELECT h FROM Habilitacion h JOIN FETCH h.estudiante e JOIN FETCH h.examen x LEFT JOIN FETCH h.motivo m WHERE x.idExamen = :idExamen ORDER BY e.apellido ASC, e.nombre ASC")
-    List<Habilitacion> findByExamenIdExamenConDetalles(@Param("idExamen") Integer idExamen);
+    @Query("SELECT h FROM Habilitacion h JOIN FETCH h.estudiante e JOIN FETCH e.usuario u LEFT JOIN FETCH h.motivo m WHERE h.idhabilitacion = :idhabilitacion")
+    Optional<Habilitacion> findByIdConDetalles(@Param("idhabilitacion") Integer idhabilitacion);
 
-    @Query("SELECT h FROM Habilitacion h JOIN FETCH h.estudiante e JOIN FETCH h.examen x LEFT JOIN FETCH h.motivo m WHERE h.idHabilitacion = :idHabilitacion")
-    Optional<Habilitacion> findByIdConDetalles(@Param("idHabilitacion") Integer idHabilitacion);
+    @Query("SELECT h FROM Habilitacion h JOIN FETCH h.estudiante e JOIN FETCH e.usuario u LEFT JOIN FETCH h.motivo m ORDER BY u.apellidousuario ASC, u.nombreusuario ASC")
+    List<Habilitacion> findAllConDetalles();
 }

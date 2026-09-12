@@ -8,55 +8,55 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "motivo_inhabilitacion")
+@Table(name = "motivoinhabilitacion")
 public class MotivoInhabilitacion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_motivo")
-    private Integer idMotivo;
+    @Column(name = "idmotivo")
+    private Integer idmotivo;
 
-    @Column(name = "nombre_motivo", nullable = false, length = 100)
-    private String nombreMotivo;
+    @Column(name = "nombremotivo", nullable = false, columnDefinition = "TEXT")
+    private String nombremotivo;
 
-    @Column(name = "descripcion_motivo", columnDefinition = "TEXT")
-    private String descripcionMotivo;
+    @Column(name = "descripcionmotivo", columnDefinition = "TEXT")
+    private String descripcionmotivo;
 
     public MotivoInhabilitacion() {
     }
 
-    public MotivoInhabilitacion(Integer idMotivo, String nombreMotivo, String descripcionMotivo) {
-        this.idMotivo = idMotivo;
-        this.nombreMotivo = nombreMotivo;
-        this.descripcionMotivo = descripcionMotivo;
+    public MotivoInhabilitacion(String nombremotivo, String descripcionmotivo) {
+        this.nombremotivo = nombremotivo;
+        this.descripcionmotivo = descripcionmotivo;
     }
 
-    public MotivoInhabilitacion(String nombreMotivo, String descripcionMotivo) {
-        this.nombreMotivo = nombreMotivo;
-        this.descripcionMotivo = descripcionMotivo;
+    public MotivoInhabilitacion(Integer idmotivo, String nombremotivo, String descripcionmotivo) {
+        this.idmotivo = idmotivo;
+        this.nombremotivo = nombremotivo;
+        this.descripcionmotivo = descripcionmotivo;
     }
 
-    public Integer getIdMotivo() {
-        return idMotivo;
+    public Integer getIdmotivo() {
+        return idmotivo;
     }
 
-    public void setIdMotivo(Integer idMotivo) {
-        this.idMotivo = idMotivo;
+    public void setIdmotivo(Integer idmotivo) {
+        this.idmotivo = idmotivo;
     }
 
-    public String getNombreMotivo() {
-        return nombreMotivo;
+    public String getNombremotivo() {
+        return nombremotivo;
     }
 
-    public void setNombreMotivo(String nombreMotivo) {
-        this.nombreMotivo = nombreMotivo;
+    public void setNombremotivo(String nombremotivo) {
+        this.nombremotivo = nombremotivo;
     }
 
-    public String getDescripcionMotivo() {
-        return descripcionMotivo;
+    public String getDescripcionmotivo() {
+        return descripcionmotivo;
     }
 
-    public void setDescripcionMotivo(String descripcionMotivo) {
-        this.descripcionMotivo = descripcionMotivo;
+    public void setDescripcionmotivo(String descripcionmotivo) {
+        this.descripcionmotivo = descripcionmotivo;
     }
 }

@@ -1,0 +1,52 @@
+package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.MapsId;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "docente")
+public class Docente {
+
+    @Id
+    @Column(name = "codsisdocente")
+    private Integer codsisdocente;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @MapsId
+    @JoinColumn(name = "codsisdocente")
+    private Usuario usuario;
+
+    public Docente() {
+    }
+
+    public Docente(Usuario usuario) {
+        this.usuario = usuario;
+    }
+
+    public Docente(Integer codsisdocente, Usuario usuario) {
+        this.codsisdocente = codsisdocente;
+        this.usuario = usuario;
+    }
+
+    public Integer getCodsisdocente() {
+        return codsisdocente;
+    }
+
+    public void setCodsisdocente(Integer codsisdocente) {
+        this.codsisdocente = codsisdocente;
+    }
+
+    public Usuario getUsuario() {
+        return usuario;
+    }
+
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
+    }
+}
