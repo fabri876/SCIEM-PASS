@@ -1,26 +1,37 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+// Páginas comunes
 import RegistroPage from "./pages/RegistroPage";
 import LoginPage from "./pages/LoginPage";
+
+// Páginas de Administrador
+import AdminDashboard from "./pages/admin/AdminDashboard";
+
+// Páginas de Docente
 import HomeDocente from "./pages/docente/HomeDocente";
 import GestionHabilitaciones from "./pages/docente/GestionHabilitaciones";
 
 function App() {
-    return (
-        <BrowserRouter>
-            <Routes>
-                <Route path="/registro" element={<RegistroPage />} />
-                <Route path="/login" element={<LoginPage />} />
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Rutas Públicas */}
+        <Route path="/registro" element={<RegistroPage />} />
+        <Route path="/login" element={<LoginPage />} />
 
-                {/* Rutas del Docente */}
-                <Route path="/home/docente" element={<HomeDocente />} />
-                <Route path="/home/docente/examenes/:idExamen/habilitaciones" element={<GestionHabilitaciones />} />
+        {/* Ruta de Administrador */}
+        <Route path="/admin" element={<AdminDashboard />} />
 
-                {/* Ruta por defecto */}
-                <Route path="/" element={<Navigate to="/home/docente" replace />} />
-            </Routes>
-        </BrowserRouter>
-    );
+        {/* Rutas del Docente */}
+        <Route path="/home/docente" element={<HomeDocente />} />
+        <Route path="/home/docente/examenes/:idExamen/habilitaciones" element={<GestionHabilitaciones />} />
+
+        {/* Redirección por defecto */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;
