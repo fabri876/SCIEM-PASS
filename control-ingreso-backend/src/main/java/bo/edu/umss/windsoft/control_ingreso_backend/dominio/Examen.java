@@ -1,13 +1,8 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 
-import java.time.LocalDate;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "examen")
@@ -18,24 +13,25 @@ public class Examen {
     @Column(name = "id_examen")
     private Integer idExamen;
 
-    @Column(name = "nombre")
-    private String nombre;
+    @Column(name = "fecha_examen", nullable = false)
+    private LocalDateTime fechaExamen;
 
-    @Column(name = "fecha")
-    private LocalDate fecha;
+    @Column(name = "duracion_examen", nullable = false)
+    private LocalTime duracionExamen;
+
+    @Column(name = "fecha_creacion_examen", nullable = false)
+    private LocalDateTime fechaCreacionExamen;
+
+    @Column(name = "normas_examen", columnDefinition = "TEXT")
+    private String normasExamen;
+
+    @Column(name = "estado_examen", nullable = false)
+    private Boolean estadoExamen;
+
+    @Column(name = "id_asignatura", nullable = false)
+    private Integer idAsignatura;
 
     public Examen() {
-    }
-
-    public Examen(Integer idExamen, String nombre, LocalDate fecha) {
-        this.idExamen = idExamen;
-        this.nombre = nombre;
-        this.fecha = fecha;
-    }
-
-    public Examen(String nombre, LocalDate fecha) {
-        this.nombre = nombre;
-        this.fecha = fecha;
     }
 
     public Integer getIdExamen() {
@@ -46,19 +42,51 @@ public class Examen {
         this.idExamen = idExamen;
     }
 
-    public String getNombre() {
-        return nombre;
+    public LocalDateTime getFechaExamen() {
+        return fechaExamen;
     }
 
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
+    public void setFechaExamen(LocalDateTime fechaExamen) {
+        this.fechaExamen = fechaExamen;
     }
 
-    public LocalDate getFecha() {
-        return fecha;
+    public LocalTime getDuracionExamen() {
+        return duracionExamen;
     }
 
-    public void setFecha(LocalDate fecha) {
-        this.fecha = fecha;
+    public void setDuracionExamen(LocalTime duracionExamen) {
+        this.duracionExamen = duracionExamen;
+    }
+
+    public LocalDateTime getFechaCreacionExamen() {
+        return fechaCreacionExamen;
+    }
+
+    public void setFechaCreacionExamen(LocalDateTime fechaCreacionExamen) {
+        this.fechaCreacionExamen = fechaCreacionExamen;
+    }
+
+    public String getNormasExamen() {
+        return normasExamen;
+    }
+
+    public void setNormasExamen(String normasExamen) {
+        this.normasExamen = normasExamen;
+    }
+
+    public Boolean getEstadoExamen() {
+        return estadoExamen;
+    }
+
+    public void setEstadoExamen(Boolean estadoExamen) {
+        this.estadoExamen = estadoExamen;
+    }
+
+    public Integer getIdAsignatura() {
+        return idAsignatura;
+    }
+
+    public void setIdAsignatura(Integer idAsignatura) {
+        this.idAsignatura = idAsignatura;
     }
 }
