@@ -1,15 +1,8 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "examen")
@@ -38,38 +31,7 @@ public class Examen {
     @Column(name = "id_asignatura", nullable = false)
     private Integer idAsignatura;
 
-    @PrePersist
-    public void prePersist() {
-        if (this.fechaCreacionExamen == null) {
-            this.fechaCreacionExamen = LocalDateTime.now();
-        }
-        if (this.estadoExamen == null) {
-            this.estadoExamen = true;
-        }
-    }
-
     public Examen() {
-    }
-
-    public Examen(LocalDateTime fechaExamen, LocalTime duracionExamen, LocalDateTime fechaCreacionExamen,
-                  String normasExamen, Boolean estadoExamen, Integer idAsignatura) {
-        this.fechaExamen = fechaExamen;
-        this.duracionExamen = duracionExamen;
-        this.fechaCreacionExamen = fechaCreacionExamen;
-        this.normasExamen = normasExamen;
-        this.estadoExamen = estadoExamen;
-        this.idAsignatura = idAsignatura;
-    }
-
-    public Examen(Integer idExamen, LocalDateTime fechaExamen, LocalTime duracionExamen, LocalDateTime fechaCreacionExamen,
-                  String normasExamen, Boolean estadoExamen, Integer idAsignatura) {
-        this.idExamen = idExamen;
-        this.fechaExamen = fechaExamen;
-        this.duracionExamen = duracionExamen;
-        this.fechaCreacionExamen = fechaCreacionExamen;
-        this.normasExamen = normasExamen;
-        this.estadoExamen = estadoExamen;
-        this.idAsignatura = idAsignatura;
     }
 
     public Integer getIdExamen() {
