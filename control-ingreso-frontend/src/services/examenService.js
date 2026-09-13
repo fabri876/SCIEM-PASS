@@ -1,9 +1,5 @@
 /**
  * examenService.js
- *
- * Funciones que hacen las llamadas HTTP al backend para el módulo de
- * exámenes (HU2). Centralizado acá para no repetir fetch() en cada
- * componente, igual que hace apiConfig con la URL base.
  */
 import { strApiBaseUrl } from "./apiConfig";
 

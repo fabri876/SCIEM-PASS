@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 // Páginas comunes
 import RegistroPage from "./pages/RegistroPage";
 import LoginPage from "./pages/LoginPage";
+import RegistroExamenPage from "./pages/RegistroExamenPage";
 
 // Páginas de Administrador
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -19,6 +20,7 @@ function App() {
         {/* Rutas Públicas */}
         <Route path="/registro" element={<RegistroPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/registro-examen" element={<RegistroExamenPage />} />
 
         {/* Ruta de Administrador */}
         <Route path="/admin" element={<AdminDashboard />} />
