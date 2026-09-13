@@ -1,105 +1,91 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class ExamenResponseDTO {
 
-    private Long idExamen;
-    private String asignatura;
-    private LocalDateTime fechaHoraInicio;
-    private Integer duracionMinutos;
-    private String ambiente;
-    private String normas;
-    private String estado;
-    private Integer idUsuarioDocente;
-    private String nombreDocente;
+    private Integer idExamen;
+    private LocalDateTime fechaExamen;
+
+    @JsonFormat(pattern = "HH:mm:ss")
+    private LocalTime duracionExamen;
+
+    private LocalDateTime fechaCreacionExamen;
+    private String normasExamen;
+    private Boolean estadoExamen;
+    private Integer idAsignatura;
 
     public ExamenResponseDTO() {
     }
 
-    public ExamenResponseDTO(Long idExamen, String asignatura, LocalDateTime fechaHoraInicio,
-                             Integer duracionMinutos, String ambiente, String normas, String estado,
-                             Integer idUsuarioDocente, String nombreDocente) {
+    public ExamenResponseDTO(Integer idExamen, LocalDateTime fechaExamen, LocalTime duracionExamen,
+                             LocalDateTime fechaCreacionExamen, String normasExamen, Boolean estadoExamen,
+                             Integer idAsignatura) {
         this.idExamen = idExamen;
-        this.asignatura = asignatura;
-        this.fechaHoraInicio = fechaHoraInicio;
-        this.duracionMinutos = duracionMinutos;
-        this.ambiente = ambiente;
-        this.normas = normas;
-        this.estado = estado;
-        this.idUsuarioDocente = idUsuarioDocente;
-        this.nombreDocente = nombreDocente;
+        this.fechaExamen = fechaExamen;
+        this.duracionExamen = duracionExamen;
+        this.fechaCreacionExamen = fechaCreacionExamen;
+        this.normasExamen = normasExamen;
+        this.estadoExamen = estadoExamen;
+        this.idAsignatura = idAsignatura;
     }
 
-    public Long getIdExamen() {
+    public Integer getIdExamen() {
         return idExamen;
     }
 
-    public void setIdExamen(Long idExamen) {
+    public void setIdExamen(Integer idExamen) {
         this.idExamen = idExamen;
     }
 
-    public String getAsignatura() {
-        return asignatura;
+    public LocalDateTime getFechaExamen() {
+        return fechaExamen;
     }
 
-    public void setAsignatura(String asignatura) {
-        this.asignatura = asignatura;
+    public void setFechaExamen(LocalDateTime fechaExamen) {
+        this.fechaExamen = fechaExamen;
     }
 
-    public LocalDateTime getFechaHoraInicio() {
-        return fechaHoraInicio;
+    public LocalTime getDuracionExamen() {
+        return duracionExamen;
     }
 
-    public void setFechaHoraInicio(LocalDateTime fechaHoraInicio) {
-        this.fechaHoraInicio = fechaHoraInicio;
+    public void setDuracionExamen(LocalTime duracionExamen) {
+        this.duracionExamen = duracionExamen;
     }
 
-    public Integer getDuracionMinutos() {
-        return duracionMinutos;
+    public LocalDateTime getFechaCreacionExamen() {
+        return fechaCreacionExamen;
     }
 
-    public void setDuracionMinutos(Integer duracionMinutos) {
-        this.duracionMinutos = duracionMinutos;
+    public void setFechaCreacionExamen(LocalDateTime fechaCreacionExamen) {
+        this.fechaCreacionExamen = fechaCreacionExamen;
     }
 
-    public String getAmbiente() {
-        return ambiente;
+    public String getNormasExamen() {
+        return normasExamen;
     }
 
-    public void setAmbiente(String ambiente) {
-        this.ambiente = ambiente;
+    public void setNormasExamen(String normasExamen) {
+        this.normasExamen = normasExamen;
     }
 
-    public String getNormas() {
-        return normas;
+    public Boolean getEstadoExamen() {
+        return estadoExamen;
     }
 
-    public void setNormas(String normas) {
-        this.normas = normas;
+    public void setEstadoExamen(Boolean estadoExamen) {
+        this.estadoExamen = estadoExamen;
     }
 
-    public String getEstado() {
-        return estado;
+    public Integer getIdAsignatura() {
+        return idAsignatura;
     }
 
-    public void setEstado(String estado) {
-        this.estado = estado;
-    }
-
-    public Integer getIdUsuarioDocente() {
-        return idUsuarioDocente;
-    }
-
-    public void setIdUsuarioDocente(Integer idUsuarioDocente) {
-        this.idUsuarioDocente = idUsuarioDocente;
-    }
-
-    public String getNombreDocente() {
-        return nombreDocente;
-    }
-
-    public void setNombreDocente(String nombreDocente) {
-        this.nombreDocente = nombreDocente;
+    public void setIdAsignatura(Integer idAsignatura) {
+        this.idAsignatura = idAsignatura;
     }
 }

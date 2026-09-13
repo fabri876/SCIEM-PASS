@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ExamenService;
@@ -27,12 +28,16 @@ public class ExamenController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ExamenResponseDTO>> listarExamenes() {
+    public ResponseEntity<List<ExamenResponseDTO>> listarExamenes(
+            @RequestParam(name = "idAsignatura", required = false) Integer idAsignatura) {
+        if (idAsignatura != null) {
+            return ResponseEntity.ok(examenService.listarPorAsignatura(idAsignatura));
+        }
         return ResponseEntity.ok(examenService.listarExamenes());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ExamenResponseDTO> obtenerPorId(@PathVariable("id") Long id) {
+    public ResponseEntity<ExamenResponseDTO> obtenerPorId(@PathVariable("id") Integer id) {
         return ResponseEntity.ok(examenService.obtenerPorId(id));
     }
 

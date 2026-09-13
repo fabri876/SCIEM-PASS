@@ -1,99 +1,87 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
-import jakarta.validation.constraints.NotBlank;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotNull;
 
 public class ExamenRequestDTO {
 
-    @NotBlank(message = "La asignatura es obligatoria")
-    private String asignatura;
+    @NotNull(message = "El ID de la asignatura es obligatorio")
+    private Integer idAsignatura;
 
-    @NotNull(message = "La fecha y hora de inicio es obligatoria")
-    private LocalDateTime fechaHoraInicio;
+    @NotNull(message = "La fecha del examen es obligatoria")
+    private LocalDateTime fechaExamen;
 
-    @NotNull(message = "La duración en minutos es obligatoria")
-    private Integer duracionMinutos;
+    @NotNull(message = "La duración del examen es obligatoria")
+    @JsonFormat(pattern = "HH:mm:ss")
+    private LocalTime duracionExamen;
 
-    @NotBlank(message = "El ambiente o aula es obligatorio")
-    private String ambiente;
+    private LocalDateTime fechaCreacionExamen;
 
-    private String normas;
+    private String normasExamen;
 
-    @NotBlank(message = "El estado del examen es obligatorio")
-    private String estado;
-
-    @NotNull(message = "El ID del docente es obligatorio")
-    private Integer idUsuarioDocente;
+    private Boolean estadoExamen;
 
     public ExamenRequestDTO() {
     }
 
-    public ExamenRequestDTO(String asignatura, LocalDateTime fechaHoraInicio, Integer duracionMinutos,
-                            String ambiente, String normas, String estado, Integer idUsuarioDocente) {
-        this.asignatura = asignatura;
-        this.fechaHoraInicio = fechaHoraInicio;
-        this.duracionMinutos = duracionMinutos;
-        this.ambiente = ambiente;
-        this.normas = normas;
-        this.estado = estado;
-        this.idUsuarioDocente = idUsuarioDocente;
+    public ExamenRequestDTO(Integer idAsignatura, LocalDateTime fechaExamen, LocalTime duracionExamen,
+                            LocalDateTime fechaCreacionExamen, String normasExamen, Boolean estadoExamen) {
+        this.idAsignatura = idAsignatura;
+        this.fechaExamen = fechaExamen;
+        this.duracionExamen = duracionExamen;
+        this.fechaCreacionExamen = fechaCreacionExamen;
+        this.normasExamen = normasExamen;
+        this.estadoExamen = estadoExamen;
     }
 
-    public String getAsignatura() {
-        return asignatura;
+    public Integer getIdAsignatura() {
+        return idAsignatura;
     }
 
-    public void setAsignatura(String asignatura) {
-        this.asignatura = asignatura;
+    public void setIdAsignatura(Integer idAsignatura) {
+        this.idAsignatura = idAsignatura;
     }
 
-    public LocalDateTime getFechaHoraInicio() {
-        return fechaHoraInicio;
+    public LocalDateTime getFechaExamen() {
+        return fechaExamen;
     }
 
-    public void setFechaHoraInicio(LocalDateTime fechaHoraInicio) {
-        this.fechaHoraInicio = fechaHoraInicio;
+    public void setFechaExamen(LocalDateTime fechaExamen) {
+        this.fechaExamen = fechaExamen;
     }
 
-    public Integer getDuracionMinutos() {
-        return duracionMinutos;
+    public LocalTime getDuracionExamen() {
+        return duracionExamen;
     }
 
-    public void setDuracionMinutos(Integer duracionMinutos) {
-        this.duracionMinutos = duracionMinutos;
+    public void setDuracionExamen(LocalTime duracionExamen) {
+        this.duracionExamen = duracionExamen;
     }
 
-    public String getAmbiente() {
-        return ambiente;
+    public LocalDateTime getFechaCreacionExamen() {
+        return fechaCreacionExamen;
     }
 
-    public void setAmbiente(String ambiente) {
-        this.ambiente = ambiente;
+    public void setFechaCreacionExamen(LocalDateTime fechaCreacionExamen) {
+        this.fechaCreacionExamen = fechaCreacionExamen;
     }
 
-    public String getNormas() {
-        return normas;
+    public String getNormasExamen() {
+        return normasExamen;
     }
 
-    public void setNormas(String normas) {
-        this.normas = normas;
+    public void setNormasExamen(String normasExamen) {
+        this.normasExamen = normasExamen;
     }
 
-    public String getEstado() {
-        return estado;
+    public Boolean getEstadoExamen() {
+        return estadoExamen;
     }
 
-    public void setEstado(String estado) {
-        this.estado = estado;
-    }
-
-    public Integer getIdUsuarioDocente() {
-        return idUsuarioDocente;
-    }
-
-    public void setIdUsuarioDocente(Integer idUsuarioDocente) {
-        this.idUsuarioDocente = idUsuarioDocente;
+    public void setEstadoExamen(Boolean estadoExamen) {
+        this.estadoExamen = estadoExamen;
     }
 }

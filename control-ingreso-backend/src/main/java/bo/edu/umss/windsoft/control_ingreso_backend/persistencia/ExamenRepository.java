@@ -8,9 +8,9 @@ import org.springframework.stereotype.Repository;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 
 @Repository
-public interface ExamenRepository extends JpaRepository<Examen, Long> {
+public interface ExamenRepository extends JpaRepository<Examen, Integer> {
 
-    List<Examen> findByDocenteIdusuario(Integer idUsuarioDocente);
+    List<Examen> findByIdAsignatura(Integer idAsignatura);
 
-    List<Examen> findByEstado(String estado);
+    List<Examen> findByEstadoExamen(Boolean estadoExamen);
 }
