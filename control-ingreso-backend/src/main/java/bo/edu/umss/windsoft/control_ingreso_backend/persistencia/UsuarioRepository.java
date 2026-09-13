@@ -1,20 +1,39 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.persistencia;
 
-import java.util.Optional;
-
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
+
+    Optional<Usuario> findByCorreousuario(String correousuario);
+
+    Optional<Usuario> findByCiusuario(String ciusuario);
 
     boolean existsByCorreousuario(String correousuario);
 
     boolean existsByCiusuario(String ciusuario);
 
-    Optional<Usuario> findByCorreousuario(String correousuario);
+    List<Usuario> findByEstadousuario(Boolean estadousuario);
 
-    Optional<Usuario> findByCiusuario(String ciusuario);
+    // El "rol" no vive en esta tabla (lo da la tabla hija en la que el usuario
+    // tiene fila: admin/docente/ayudante/estudiante), así que ese filtro se
+    // aplica en Java después de resolver el tipo de cada usuario (ver
+    // UsuarioService.listar).
+    @Query("SELECT u FROM Usuario u WHERE " +
+           "(:estado IS NULL OR u.estadousuario = :estado) AND " +
+           "(:busqueda IS NULL OR " +
+           " LOWER(u.nombreusuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
+           " LOWER(u.apellidousuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
+           " u.ciusuario LIKE CONCAT('%', :busqueda, '%') OR " +
+           " LOWER(u.correousuario) LIKE LOWER(CONCAT('%', :busqueda, '%'))) " +
+           "ORDER BY u.idusuario ASC")
+    List<Usuario> filtrarUsuarios(@Param("estado") Boolean estado,
+                                  @Param("busqueda") String busqueda);
 }

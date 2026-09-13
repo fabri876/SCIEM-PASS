@@ -1,6 +1,6 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,19 +21,19 @@ public class Examen {
     @Column(name = "nombre")
     private String nombre;
 
-    @Column(name = "fecha")
-    private LocalDate fecha;
+    @Column(name = "fecha_examen")
+    private LocalDateTime fecha;
 
     public Examen() {
     }
 
-    public Examen(Integer idExamen, String nombre, LocalDate fecha) {
+    public Examen(Integer idExamen, String nombre, LocalDateTime fecha) {
         this.idExamen = idExamen;
         this.nombre = nombre;
         this.fecha = fecha;
     }
 
-    public Examen(String nombre, LocalDate fecha) {
+    public Examen(String nombre, LocalDateTime fecha) {
         this.nombre = nombre;
         this.fecha = fecha;
     }
@@ -54,11 +54,11 @@ public class Examen {
         this.nombre = nombre;
     }
 
-    public LocalDate getFecha() {
+    public LocalDateTime getFecha() {
         return fecha;
     }
 
-    public void setFecha(LocalDate fecha) {
+    public void setFecha(LocalDateTime fecha) {
         this.fecha = fecha;
     }
 }
