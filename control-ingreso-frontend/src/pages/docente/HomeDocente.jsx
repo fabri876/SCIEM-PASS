@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Header from "../../components/layout/Header";
+import Logo from "../../components/common/Logo";
 
 export default function HomeDocente() {
     const navigate = useNavigate();
@@ -35,57 +37,23 @@ export default function HomeDocente() {
     return (
         <div className="min-h-screen bg-bg-app text-text-body font-nunito pb-16">
 
-            {/* ===== HEADER / NAVBAR SUPERIOR ===== */}
-            <header className="flex items-center justify-between px-8 py-3.5 bg-bg-card border-b border-border shadow-xs sticky top-0 z-30">
-                <div className="flex items-center gap-3">
-                    <span className="text-2xl">🛡️</span>
-                    <div>
-                        <h1 className="text-lg font-black tracking-wider text-primary-navy leading-none">
-                            SCIEM-PASS
-                        </h1>
-                        <p className="text-[9px] text-text-body font-extrabold tracking-tight mt-0.5">
-                            Sistema de Control de Ingreso a Exámenes Masivos
-                        </p>
-                    </div>
-                </div>
-
-                {/* Navegación central del menú superior */}
-                <nav className="hidden md:flex items-center gap-6 text-xs font-bold">
-                    <button className="flex items-center gap-1.5 text-primary-blue border-b-2 border-primary-blue pb-1 cursor-pointer">
-                        <span>🏠</span> Inicio
-                    </button>
-                    <button onClick={() => navigate('/Home/Docente/Examenes')} className="flex items-center gap-1.5 text-text-body hover:text-primary-navy pb-1 cursor-pointer">
-                        <span>📋</span> Mis exámenes
-                    </button>
-                    <button className="flex items-center gap-1.5 text-text-body hover:text-primary-navy pb-1 cursor-pointer">
-                        <span>👤</span> Habilitaciones
-                    </button>
-                    <button className="flex items-center gap-1.5 text-text-body hover:text-primary-navy pb-1 cursor-pointer">
-                        <span>📊</span> Reportes
-                    </button>
-                </nav>
-
-                {/* Perfil de usuario */}
-                <div className="flex items-center gap-3 bg-bg-app py-1 px-3 rounded-full border border-border">
-                    <div className="w-7 h-7 rounded-full bg-primary-navy text-white flex items-center justify-center text-[10px] font-black">
-                        PR
-                    </div>
-                    <div className="text-xs leading-tight">
-                        <span className="font-extrabold text-primary-navy block">Patricia Rodríguez</span>
-                        <span className="text-text-body font-bold block text-[9px]">Docente</span>
-                    </div>
-                </div>
-            </header>
+            {/* ===== HEADER UNIFICADO DEL EQUIPO ===== */}
+            <Header strRutaActiva="Docente" />
 
             {/* ===== CONTENIDO PRINCIPAL ===== */}
             <main className="px-8 pt-8 max-w-7xl mx-auto">
 
-                {/* Saludo y fecha */}
-                <div className="mb-6">
-                    <h2 className="text-2xl font-black text-primary-navy tracking-tight">Hola, Patricia</h2>
-                    <p className="text-xs text-text-body font-medium mt-0.5">
-                        Viernes, 5 de septiembre de 2026 – <span className="font-bold text-primary-navy">2 exámenes programados hoy</span>
-                    </p>
+                {/* Saludo, fecha y Logo compacto opcional */}
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <Logo boolCompact={true} />
+                        </div>
+                        <h2 className="text-2xl font-black text-primary-navy tracking-tight">Hola, Patricia</h2>
+                        <p className="text-xs text-text-body font-medium mt-0.5">
+                            Viernes, 5 de septiembre de 2026 – <span className="font-bold text-primary-navy">2 exámenes programados hoy</span>
+                        </p>
+                    </div>
                 </div>
 
                 {/* ===== TARJETAS DE MÉTRICAS SUPERIORES ===== */}
@@ -192,7 +160,7 @@ export default function HomeDocente() {
                                             {examen.inhabilitados} Inhabilitados
                                         </div>
                                         <button
-                                            onClick={() => navigate(`/Home/Docente/Examenes/${examen.idExamen}`)}
+                                            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`)}
                                             className="bg-[image:var(--gradient-button)] text-white font-bold text-xs py-2 px-5 rounded-xl hover:opacity-90 transition shadow-xs cursor-pointer"
                                         >
                                             Gestionar
