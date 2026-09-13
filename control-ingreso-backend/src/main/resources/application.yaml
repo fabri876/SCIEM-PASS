@@ -1,8 +1,10 @@
 spring:
   datasource:
-    url: jdbc:postgresql://aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+    url: jdbc:postgresql://aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require
     username: postgres.xuyfxhrofzavamwxwpeb
     driver-class-name: org.postgresql.Driver
+  config:
+    import: "optional:application-local.yaml"
   jpa:
     hibernate:
       ddl-auto: validate
@@ -10,9 +12,19 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
 
 server:
   port: 8080
-# cloudinary:
-#   Configuración en application-local.yaml (credenciales)
-#   Ver cloudinary.cloud-name, cloudinary.api-key, cloudinary.api-secret
+
+jwt:
+  secret: ${JWT_SECRET:WindSoftTIS2026ClaveSecretaParaTokensSuperSegura123456789ABCDEF}
+  expiration: ${JWT_EXPIRATION:1800000}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}

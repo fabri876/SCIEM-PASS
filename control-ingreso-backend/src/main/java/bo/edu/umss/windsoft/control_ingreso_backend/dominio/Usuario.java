@@ -7,6 +7,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "usuario")
 public class Usuario {
@@ -16,7 +18,7 @@ public class Usuario {
     @Column(name = "idusuario")
     private Integer idusuario;
 
-    @Column(name = "ciusuario", nullable = false)
+    @Column(name = "ciusuario", nullable = false, unique = true)
     private String ciusuario;
 
     @Column(name = "nombreusuario", nullable = false)
@@ -36,6 +38,16 @@ public class Usuario {
 
     @Column(name = "estadousuario", nullable = false)
     private Boolean estadousuario = true;
+
+    // Control de intentos fallidos de login (HU16, criterio #10). El "tipo" de
+    // usuario (rol) ya NO se guarda en esta tabla: lo determina en qué tabla
+    // hija (admin/docente/ayudante/estudiante) tiene fila este usuario — ver
+    // TipoUsuarioResolver.
+    @Column(name = "intentos_fallidos", nullable = false)
+    private int intentosFallidos = 0;
+
+    @Column(name = "fecha_bloqueo")
+    private LocalDateTime fechaBloqueo;
 
     public Usuario() {
     }
@@ -112,5 +124,48 @@ public class Usuario {
 
     public void setEstadousuario(Boolean estadousuario) {
         this.estadousuario = estadousuario;
+    }
+
+    public int getIntentosFallidos() {
+        return intentosFallidos;
+    }
+
+    public void setIntentosFallidos(int intentosFallidos) {
+        this.intentosFallidos = intentosFallidos;
+    }
+
+    public LocalDateTime getFechaBloqueo() {
+        return fechaBloqueo;
+    }
+
+    public void setFechaBloqueo(LocalDateTime fechaBloqueo) {
+        this.fechaBloqueo = fechaBloqueo;
+    }
+
+    // Métodos de negocio usados por el módulo de administración de usuarios (HU16).
+    public void registrarIntentoFallido() {
+        this.intentosFallidos++;
+        if (this.intentosFallidos >= 5) {
+            this.fechaBloqueo = LocalDateTime.now();
+        }
+    }
+
+    public void reiniciarIntentosFallidos() {
+        this.intentosFallidos = 0;
+        this.fechaBloqueo = null;
+    }
+
+    public boolean isBloqueado() {
+        if (this.intentosFallidos >= 5 && this.fechaBloqueo != null) {
+            // Bloqueo temporal por 15 minutos tras 5 intentos fallidos
+            if (this.fechaBloqueo.plusMinutes(15).isAfter(LocalDateTime.now())) {
+                return true;
+            } else {
+                // El tiempo de bloqueo ya expiró, reiniciamos automáticamente
+                reiniciarIntentosFallidos();
+                return false;
+            }
+        }
+        return false;
     }
 }
