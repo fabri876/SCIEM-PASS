@@ -48,7 +48,15 @@ public class SecurityConfig {
                         // 401 antes de que llegue la petición real, y el fetch() del frontend
                         // falla como error de CORS sin ni siquiera intentar autenticar.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/api/ping").permitAll()
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/ping",
+                                "/api/motivos-inhabilitacion/**",
+                                "/api/motivosinhabilitacion/**",
+                                "/api/habilitaciones/**",
+                                "/api/habilitacion/**",
+                                "/habilitacion/**"
+                        ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRADOR")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
