@@ -1,6 +1,10 @@
 spring:
   datasource:
-    url: jdbc:postgresql://aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+    # prepareThreshold=0 desactiva los "prepared statements" del lado del servidor:
+    # el pooler de Supabase en :6543 es modo "transaction" (recicla la conexión física
+    # entre transacciones), y esos prepared statements de Hibernate quedan huérfanos
+    # cuando eso pasa, causando "bad SQL grammar" al hacer commit.
+    url: jdbc:postgresql://aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
     username: postgres.xuyfxhrofzavamwxwpeb
     driver-class-name: org.postgresql.Driver
   config:
