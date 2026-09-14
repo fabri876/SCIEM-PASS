@@ -156,16 +156,22 @@ public class Usuario {
     }
 
     public boolean isBloqueado() {
-        if (this.intentosFallidos >= 5 && this.fechaBloqueo != null) {
-            // Bloqueo temporal por 15 minutos tras 5 intentos fallidos
-            if (this.fechaBloqueo.plusMinutes(15).isAfter(LocalDateTime.now())) {
-                return true;
-            } else {
-                // El tiempo de bloqueo ya expiró, reiniciamos automáticamente
-                reiniciarIntentosFallidos();
-                return false;
-            }
+        if (this.intentosFallidos < 5) {
+            return false;
         }
+        if (this.fechaBloqueo == null) {
+            // 5+ intentos fallidos sin marca de tiempo (dato cargado a mano,
+            // no a través de registrarIntentoFallido()): se mantiene bloqueado
+            // hasta que el administrador reactive la cuenta, en vez de dejar
+            // pasar el intento de login por no tener con qué medir los 15 minutos.
+            return true;
+        }
+        // Bloqueo temporal por 15 minutos tras 5 intentos fallidos
+        if (this.fechaBloqueo.plusMinutes(15).isAfter(LocalDateTime.now())) {
+            return true;
+        }
+        // El tiempo de bloqueo ya expiró, reiniciamos automáticamente
+        reiniciarIntentosFallidos();
         return false;
     }
 }

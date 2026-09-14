@@ -5,6 +5,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.Jwt
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -41,7 +42,21 @@ public class SecurityConfig {
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                         .accessDeniedHandler(jwtAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/api/ping").permitAll()
+                        // El navegador manda un preflight OPTIONS sin el header Authorization
+                        // antes de cualquier POST/PUT/PATCH (o de cualquier request con ese
+                        // header). Si no se deja pasar libre, Spring Security lo bloquea con
+                        // 401 antes de que llegue la petición real, y el fetch() del frontend
+                        // falla como error de CORS sin ni siquiera intentar autenticar.
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/ping",
+                                "/api/motivos-inhabilitacion/**",
+                                "/api/motivosinhabilitacion/**",
+                                "/api/habilitaciones/**",
+                                "/api/habilitacion/**",
+                                "/habilitacion/**"
+                        ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRADOR")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

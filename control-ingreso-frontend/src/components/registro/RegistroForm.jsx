@@ -40,7 +40,7 @@ const arrOpcionesRol = [
  */
 export default function RegistroForm() {
   const [objFormData, setObjFormData] = useState(objValoresInicialesForm);
-  const [arrRolesSeleccionados, setArrRolesSeleccionados] = useState([]);
+  const [strRolSeleccionado, setStrRolSeleccionado] = useState("");
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strErrorEnvio, setStrErrorEnvio] = useState("");
 
@@ -51,20 +51,15 @@ export default function RegistroForm() {
     setObjFormData((prev) => ({ ...prev, [strCampo]: e.target.value }));
   };
 
-  const fnToggleRol = (strValorRol) => {
-    setArrRolesSeleccionados((prev) =>
-      prev.includes(strValorRol)
-        ? prev.filter((valor) => valor !== strValorRol)
-        : [...prev, strValorRol]
-    );
-  };
-
   const fnManejarEnvio = async (e) => {
     e.preventDefault();
     setStrErrorEnvio("");
     setBoolIsSubmitting(true);
     try {
-      await registrarUsuario({ ...objFormData, roles: arrRolesSeleccionados });
+      await registrarUsuario({
+        ...objFormData,
+        roles: strRolSeleccionado ? [strRolSeleccionado] : [],
+      });
       // TODO: reemplazar este alert por la redirección/confirmación real
       // que defina la Historia de Usuario correspondiente al registro.
       alert("Cuenta creada. Ya puedes iniciar sesión.");
@@ -108,7 +103,7 @@ export default function RegistroForm() {
               onChange={fnActualizarCampo("primerNombre")}
             />
             <FormField
-              placeholder="Segundo nombre (si tiene)"
+              placeholder="Segundo nombre (Si tiene)"
               aria-label="Segundo nombre"
               value={objFormData.segundoNombre}
               onChange={fnActualizarCampo("segundoNombre")}
@@ -183,7 +178,7 @@ export default function RegistroForm() {
               type="button"
               aria-label={boolShowPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
               onClick={fnToggleShowPassword}
-              className="w-[22px] h-[22px] text-sciem-navy"
+              className="w-[22px] h-[22px] text-primary-navy"
             >
               <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.7]">
                 <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
@@ -210,7 +205,7 @@ export default function RegistroForm() {
 
         <FormField
           id="codigo-sis"
-          label="Código SIS"
+          label="Código SIS (Si tiene)"
           placeholder="Ej. 123456"
           value={objFormData.codigoSis}
           onChange={fnActualizarCampo("codigoSis")}
@@ -233,10 +228,11 @@ export default function RegistroForm() {
                 className="flex items-center gap-2.5 text-[#173F77] text-[15px] font-semibold cursor-pointer"
               >
                 <input
-                  type="checkbox"
-                  className="w-[19px] h-[19px] rounded border-2 border-[#7190B7] accent-primary-blue"
-                  checked={arrRolesSeleccionados.includes(opcion.strValor)}
-                  onChange={() => fnToggleRol(opcion.strValor)}
+                  type="radio"
+                  name="rol"
+                  className="w-[19px] h-[19px] border-2 border-[#7190B7] accent-primary-blue"
+                  checked={strRolSeleccionado === opcion.strValor}
+                  onChange={() => setStrRolSeleccionado(opcion.strValor)}
                 />
                 {opcion.strEtiqueta}
               </label>
