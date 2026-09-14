@@ -1,12 +1,12 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Logo from "../../components/common/Logo";
+import { obtenerHabilitaciones, obtenerMotivosInhabilitacion, crearMotivoInhabilitacion } from "../../services/habilitacionService";
 
 // ---------------------------------------------------------------------------
 // Header propio de esta pantalla (NO el components/layout/Header compartido).
 // Mismos ítems de navegación y misma paleta hex que ese archivo, más la
-// campanita de notificaciones y el bloque de perfil que pediste agregar
-// solo aquí, sin tocar el componente compartido.
+// campanita de notificaciones y el bloque de perfil.
 // ---------------------------------------------------------------------------
 const arrNavItemsPagina = [
     {
@@ -43,7 +43,7 @@ const arrNavItemsPagina = [
     },
 ];
 
-// Usuario logueado, fijo por ahora (mismo criterio que arrNavItemsPagina).
+// Usuario logueado, fijo por ahora
 const objUsuarioPagina = {
     strIniciales: "PR",
     strNombre: "Patricia Rodríguez",
@@ -93,13 +93,13 @@ function UserProfilePagina({ strIniciales, strNombre, strRol }) {
             type="button"
             className="flex items-center gap-2.5 pl-1 pr-1 py-1 rounded-full hover:bg-[#F0F6FC] transition cursor-pointer"
         >
-      <span className="w-9 h-9 rounded-full bg-[#123F7B] text-white flex items-center justify-center text-xs font-black flex-shrink-0">
-        {strIniciales}
-      </span>
+            <span className="w-9 h-9 rounded-full bg-[#123F7B] text-white flex items-center justify-center text-xs font-black flex-shrink-0">
+                {strIniciales}
+            </span>
             <span className="flex flex-col items-start leading-tight">
-        <span className="text-sm font-extrabold text-[#123F7B]">{strNombre}</span>
-        <span className="text-xs font-semibold text-[#7A8BA0]">{strRol}</span>
-      </span>
+                <span className="text-sm font-extrabold text-[#123F7B]">{strNombre}</span>
+                <span className="text-xs font-semibold text-[#7A8BA0]">{strRol}</span>
+            </span>
             <svg className="w-4 h-4 stroke-[#7A8BA0] fill-none stroke-[2] ml-0.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
             </svg>
@@ -107,7 +107,7 @@ function UserProfilePagina({ strIniciales, strNombre, strRol }) {
     );
 }
 
-function HeaderPagina({ strRutaActiva }) {
+function HeaderPagina({ strRutaActiva = "Docente" }) {
     return (
         <header className="h-[98px] flex items-center px-[55px] bg-white/72 border-b border-[#E2E8F0]/75">
             <Logo />
@@ -132,33 +132,13 @@ function HeaderPagina({ strRutaActiva }) {
 }
 
 // ---------------------------------------------------------------------------
-// Catálogo inicial de motivos (estático)
+// Catálogo inicial de motivos base (fallback)
 // ---------------------------------------------------------------------------
 const MOTIVOS_CATALOGO_INICIAL = [
     { idMotivo: 1, nombreMotivo: 'No cumple requisitos académicos' },
     { idMotivo: 2, nombreMotivo: 'Documentación pendiente' },
     { idMotivo: 3, nombreMotivo: 'Deuda administrativa' },
 ];
-
-// Estudiantes de ejemplo, agrupados por examen.
-const ESTUDIANTES_POR_EXAMEN = {
-    1: {
-        nombreExamen: 'Inteligencia Artificial',
-        estudiantes: [
-            { idHabilitacion: 1, nombreEstudiante: 'María José', apellidoEstudiante: 'Flores', codSisEstudiante: '12345678', ciEstudiante: '12345678', estadoHabilitacion: true, motivoId: null, nombreMotivo: null, observacion: '' },
-            { idHabilitacion: 2, nombreEstudiante: 'Carlos Andrés', apellidoEstudiante: 'Díaz', codSisEstudiante: '87654321', ciEstudiante: '87654321', estadoHabilitacion: true, motivoId: null, nombreMotivo: null, observacion: '' },
-            { idHabilitacion: 3, nombreEstudiante: 'Valeria', apellidoEstudiante: 'Quispe', codSisEstudiante: '11223344', ciEstudiante: '11223344', estadoHabilitacion: false, motivoId: 1, nombreMotivo: 'No cumple requisitos académicos', observacion: '' },
-            { idHabilitacion: 4, nombreEstudiante: 'Jhonny', apellidoEstudiante: 'Mamani', codSisEstudiante: '98765432', ciEstudiante: '98765432', estadoHabilitacion: true, motivoId: null, nombreMotivo: null, observacion: '' },
-        ],
-    },
-    2: {
-        nombreExamen: 'Machine Learning',
-        estudiantes: [
-            { idHabilitacion: 5, nombreEstudiante: 'Esteban', apellidoEstudiante: 'Vargas', codSisEstudiante: '55667788', ciEstudiante: '55667788', estadoHabilitacion: true, motivoId: null, nombreMotivo: null, observacion: '' },
-            { idHabilitacion: 6, nombreEstudiante: 'Lucía', apellidoEstudiante: 'Beltrán', codSisEstudiante: '44556677', ciEstudiante: '44556677', estadoHabilitacion: false, motivoId: 2, nombreMotivo: 'Documentación pendiente', observacion: '' },
-        ],
-    },
-};
 
 // ---------------------------------------------------------------------------
 // Toast: notificación flotante
@@ -180,7 +160,7 @@ function Toast({ toast, onClose }) {
 }
 
 // ---------------------------------------------------------------------------
-// Modal: Crear Nuevo Motivo (Consume POST http://localhost:8080/api/motivos-inhabilitacion)
+// Modal: Crear Nuevo Motivo (Consume POST /api/motivos-inhabilitacion)
 // ---------------------------------------------------------------------------
 function ModalNuevoMotivo({ onCancelar, onMotivoCreado }) {
     const [nombreMotivo, setNombreMotivo] = useState('');
@@ -199,24 +179,14 @@ function ModalNuevoMotivo({ onCancelar, onMotivoCreado }) {
         setError(null);
 
         try {
-            const response = await fetch('http://localhost:8080/api/motivos-inhabilitacion', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nombreMotivo: nombreMotivo.trim(),
-                    descripcionMotivo: descripcionMotivo.trim()
-                })
+            const nuevoMotivo = await crearMotivoInhabilitacion({
+                nombreMotivo,
+                descripcionMotivo
             });
-
-            if (!response.ok) {
-                throw new Error('Error al registrar el motivo en el servidor.');
-            }
-
-            const nuevoMotivo = await response.json();
             onMotivoCreado(nuevoMotivo);
         } catch (err) {
             console.error(err);
-            setError('No se pudo conectar con el servidor para crear el motivo.');
+            setError(err.message || 'No se pudo conectar con el servidor para crear el motivo.');
         } finally {
             setCargando(false);
         }
@@ -307,7 +277,7 @@ function ModalInhabilitacion({ estudiante, motivosCat, onCancelar, onConfirmar, 
                     <button onClick={onCancelar} className="text-text-body hover:text-primary-navy font-bold p-1 rounded-lg hover:bg-bg-app transition cursor-pointer">✕</button>
                 </div>
                 <p className="text-xs text-text-body font-medium mb-5">
-                    Vas a inhabilitar a <span className="font-bold text-primary-navy">{estudiante.nombreEstudiante} {estudiante.apellidoEstudiante}</span>. Este estudiante no podrá ingresar al examen.
+                    Vas a inhabilitar a <span className="font-bold text-primary-navy">{estudiante.nombreEstudiante || ''} {estudiante.apellidoEstudiante || ''}</span>. Este estudiante no podrá ingresar al examen.
                 </p>
 
                 <div className="mb-4">
@@ -377,16 +347,50 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
 
     const handleVolver = propOnVolver || (() => navigate('/Home/Docente'));
 
-    const examenData = ESTUDIANTES_POR_EXAMEN[examenId] || { nombreExamen: 'Examen no encontrado', estudiantes: [] };
+    const nombreExamen = examenId === 2 ? 'Machine Learning' : 'Inteligencia Artificial';
 
-    const [estudiantes, setEstudiantes] = useState(examenData.estudiantes);
-    const [motivosCatalogo, setMotivosCatalogo] = useState(MOTIVOS_CATALOGO_INICIAL);
+    const [estudiantes, setEstudiantes] = useState([]);
+    const [cargando, setCargando] = useState(true);
+    const [errorCarga, setErrorCarga] = useState(null);
+    const [motivos, setMotivos] = useState(MOTIVOS_CATALOGO_INICIAL);
+
     const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
     const [mostrarModalInhabilitar, setMostrarModalInhabilitar] = useState(false);
     const [mostrarModalCrearMotivo, setMostrarModalCrearMotivo] = useState(false);
     const [guardando, setGuardando] = useState(false);
     const [toast, setToast] = useState(null);
     const toastTimer = useRef(null);
+
+    // Cargar datos reales desde el backend
+    const cargarDatos = async () => {
+        setCargando(true);
+        setErrorCarga(null);
+        try {
+            const data = await obtenerHabilitaciones();
+            if (Array.isArray(data)) {
+                setEstudiantes(data);
+            } else {
+                setEstudiantes([]);
+            }
+        } catch (err) {
+            console.error("Error al cargar habilitaciones del backend:", err);
+            setErrorCarga(err.message || "No se pudo conectar con el servidor para cargar las habilitaciones.");
+            setEstudiantes([]);
+        } finally {
+            setCargando(false);
+        }
+    };
+
+    useEffect(() => {
+        cargarDatos();
+        obtenerMotivosInhabilitacion()
+            .then((res) => {
+                if (Array.isArray(res) && res.length > 0) {
+                    setMotivos(res);
+                }
+            })
+            .catch(() => { });
+    }, [examenId]);
 
     // ------------------- Buscador y filtros -------------------
     const [busqueda, setBusqueda] = useState('');
@@ -395,10 +399,14 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
     const estudiantesFiltrados = useMemo(() => {
         const q = busqueda.trim().toLowerCase();
         return estudiantes.filter((e) => {
+            const nombreCompleto = `${e.nombreEstudiante || ''} ${e.apellidoEstudiante || ''}`.toLowerCase();
+            const codSis = String(e.codSisEstudiante || '').toLowerCase();
+            const ci = String(e.ciEstudiante || '').toLowerCase();
             const coincideBusqueda =
                 !q ||
-                `${e.nombreEstudiante} ${e.apellidoEstudiante}`.toLowerCase().includes(q) ||
-                e.codSisEstudiante.toLowerCase().includes(q);
+                nombreCompleto.includes(q) ||
+                codSis.includes(q) ||
+                ci.includes(q);
             const coincideFiltro =
                 filtroEstado === 'todos' ||
                 (filtroEstado === 'habilitado' && e.estadoHabilitacion) ||
@@ -414,13 +422,17 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
     }
 
     const handleMotivoCreadoExitosamente = (nuevoMotivo) => {
-        setMotivosCatalogo((prev) => [...prev, nuevoMotivo]);
+        setMotivos((prev) => [...prev, nuevoMotivo]);
         setMostrarModalCrearMotivo(false);
         mostrarToast('success', '¡Motivo creado y registrado correctamente!');
 
         const idCreado = nuevoMotivo.idMotivo || nuevoMotivo.id;
         if (estudianteSeleccionado) {
-            setEstudianteSeleccionado((prev) => ({ ...prev, motivoId: idCreado }));
+            setEstudianteSeleccionado((prev) => ({
+                ...prev,
+                motivoId: idCreado,
+                nombreMotivo: nuevoMotivo.nombreMotivo || prev.nombreMotivo
+            }));
         }
     };
 
@@ -458,7 +470,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
     };
 
     const handleConfirmarInhabilitacion = ({ motivoId, observacion }) => {
-        const motivo = motivosCatalogo.find((m) => (m.idMotivo || m.id) === motivoId);
+        const motivo = motivos.find((m) => (m.idMotivo || m.id) === motivoId);
         persistirCambio(estudianteSeleccionado.idHabilitacion, {
             estadoHabilitacion: false,
             motivoId,
@@ -472,7 +484,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
 
     return (
         <div className="min-h-screen bg-bg-app text-text-body font-nunito pb-12 relative overflow-x-hidden">
-            <HeaderPagina />
+            <HeaderPagina strRutaActiva="Docente" />
 
             <main className="px-8 pt-6 max-w-7xl mx-auto">
                 <div className="flex items-center gap-2 text-xs font-bold text-primary-blue mb-4">
@@ -487,9 +499,9 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                             <Logo boolCompact={true} />
                         </div>
                         <span className="text-[10px] font-black tracking-widest text-primary-blue uppercase block mb-1">
-              Examen Seleccionado
-            </span>
-                        <h2 className="text-2xl font-black text-primary-navy tracking-tight">{examenData.nombreExamen}</h2>
+                            Examen Seleccionado
+                        </span>
+                        <h2 className="text-2xl font-black text-primary-navy tracking-tight">{nombreExamen}</h2>
                         <div className="flex items-center gap-3 mt-4">
                             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2">
                                 <span>Habilitados</span>
@@ -546,9 +558,26 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                         </div>
                     </div>
 
-                    {estudiantesFiltrados.length === 0 ? (
+                    {cargando ? (
+                        <div className="p-16 text-center text-xs font-bold text-text-body flex flex-col items-center justify-center gap-3">
+                            <div className="w-8 h-8 border-3 border-primary-blue border-t-transparent rounded-full animate-spin"></div>
+                            <span>Cargando estudiantes desde el servidor...</span>
+                        </div>
+                    ) : errorCarga && estudiantes.length === 0 ? (
+                        <div className="p-12 text-center text-xs font-bold text-accent-red flex flex-col items-center justify-center gap-3">
+                            <span>⚠️ {errorCarga}</span>
+                            <button
+                                onClick={cargarDatos}
+                                className="bg-primary-navy text-white text-xs px-4 py-2 rounded-xl font-bold hover:opacity-90 transition cursor-pointer shadow-xs"
+                            >
+                                Reintentar conexión
+                            </button>
+                        </div>
+                    ) : estudiantesFiltrados.length === 0 ? (
                         <div className="p-12 text-center text-xs font-bold text-text-body">
-                            No se encontraron estudiantes con ese criterio.
+                            {estudiantes.length === 0
+                                ? "No hay estudiantes registrados en la base de datos para este endpoint."
+                                : "No se encontraron estudiantes con ese criterio de búsqueda o filtro."}
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -565,9 +594,13 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                                 <tbody className="divide-y divide-border font-medium">
                                 {estudiantesFiltrados.map((est) => (
                                     <tr key={est.idHabilitacion} className="hover:bg-bg-app transition">
-                                        <td className="py-4 px-6 font-bold text-primary-navy">{est.nombreEstudiante} {est.apellidoEstudiante}</td>
+                                        <td className="py-4 px-6 font-bold text-primary-navy">
+                                            {(est.nombreEstudiante || est.apellidoEstudiante)
+                                                ? `${est.nombreEstudiante || ''} ${est.apellidoEstudiante || ''}`.trim()
+                                                : `Estudiante SIS #${est.codSisEstudiante}`}
+                                        </td>
                                         <td className="py-4 px-6 text-text-body font-mono">{est.codSisEstudiante}</td>
-                                        <td className="py-4 px-6 text-text-body">{est.ciEstudiante}</td>
+                                        <td className="py-4 px-6 text-text-body">{est.ciEstudiante || '-'}</td>
                                         <td className="py-4 px-6">
                                             {est.estadoHabilitacion ? (
                                                 <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-md text-[11px]">• Habilitado</span>
@@ -593,8 +626,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
             </main>
 
             {/* DRAWER LATERAL */}
-            <div className={`fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-300 ease-out ${estudianteSeleccionado && !mostrarModalInhabilitar ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-                <div className={`w-full max-w-md bg-bg-card h-full shadow-2xl flex flex-col justify-between border-l border-border p-6 overflow-y-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${estudianteSeleccionado && !mostrarModalInhabilitar ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-300 ease-out ${estudianteSeleccionado && !mostrarModalInhabilitar && !mostrarModalCrearMotivo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+                <div className={`w-full max-w-md bg-bg-card h-full shadow-2xl flex flex-col justify-between border-l border-border p-6 overflow-y-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${estudianteSeleccionado && !mostrarModalInhabilitar && !mostrarModalCrearMotivo ? 'translate-x-0' : 'translate-x-full'}`}>
                     {estudianteSeleccionado && (
                         <>
                             <div>
@@ -607,7 +640,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                                 </div>
 
                                 <div className="bg-bg-app border border-border p-4 rounded-2xl mb-6">
-                                    <h4 className="font-extrabold text-sm text-primary-navy">{estudianteSeleccionado.nombreEstudiante} {estudianteSeleccionado.apellidoEstudiante}</h4>
+                                    <h4 className="font-extrabold text-sm text-primary-navy">{estudianteSeleccionado.nombreEstudiante || ''} {estudianteSeleccionado.apellidoEstudiante || ''}</h4>
                                     <p className="text-xs text-text-body font-mono mt-0.5">Código SIS: {estudianteSeleccionado.codSisEstudiante}</p>
                                 </div>
 
@@ -649,7 +682,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                                                 className="w-full bg-bg-app border border-border rounded-xl p-2.5 text-xs font-bold text-primary-navy focus:outline-none cursor-pointer"
                                             >
                                                 <option value="" disabled>Seleccionar motivo</option>
-                                                {motivosCatalogo.map((m) => (
+                                                {motivos.map((m) => (
                                                     <option key={m.idMotivo || m.id} value={m.idMotivo || m.id}>{m.nombreMotivo}</option>
                                                 ))}
                                             </select>
@@ -677,7 +710,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
             {mostrarModalInhabilitar && estudianteSeleccionado && (
                 <ModalInhabilitacion
                     estudiante={estudianteSeleccionado}
-                    motivosCat={motivosCatalogo}
+                    motivosCat={motivos}
                     guardando={guardando}
                     onCancelar={() => setMostrarModalInhabilitar(false)}
                     onConfirmar={handleConfirmarInhabilitacion}
