@@ -41,7 +41,15 @@ public class SecurityConfig {
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                         .accessDeniedHandler(jwtAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/api/ping").permitAll()
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/ping",
+                                "/api/motivos-inhabilitacion/**",
+                                "/api/motivosinhabilitacion/**",
+                                "/api/habilitaciones/**",
+                                "/api/habilitacion/**",
+                                "/habilitacion/**"
+                        ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRADOR")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
