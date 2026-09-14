@@ -16,6 +16,12 @@ import Logo from "../common/Logo";
  * tal como estaba en el mockup estático. Cuando el equipo defina el
  * router (React Router u otro), esto se puede reemplazar por la ruta
  * actual real.
+ *
+ * "Cuenta" (extremo derecho, después del separador) todavía NO está
+ * implementado a propósito — es solo el espacio reservado para el día
+ * que se arme esa pantalla/menú (probablemente con el avatar o nombre
+ * del usuario logueado). No tiene ícono activo ni lógica de ruta como
+ * los demás ítems.
  */
 const arrNavItems = [
   {
@@ -29,7 +35,7 @@ const arrNavItems = [
     ),
   },
   {
-    strTexto: "Mis exámenes",
+    strTexto: "Exámenes",
     svgIcono: (
       <>
         <rect x="4" y="5" width="16" height="15" rx="2" />
@@ -38,38 +44,30 @@ const arrNavItems = [
     ),
   },
   {
-    strTexto: "Resultados",
+    strTexto: "Noticias",
     svgIcono: (
       <>
-        <circle cx="12" cy="8" r="3" />
-        <path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6" />
+        <rect x="3" y="5" width="14" height="16" rx="1" />
+        <path d="M7 9h6M7 13h6M7 17h4" />
+        <path d="M17 8h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7" />
       </>
     ),
   },
   {
-    strTexto: "Reportes",
-    svgIcono: <path d="M5 20V10M12 20V4M19 20v-7" />,
-  },
-];
-
-const arrNavItemsSecundarios = [
-  {
-    strTexto: "Preguntas frecuentes",
+    strTexto: "Aulas",
     svgIcono: (
       <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M9.5 9a2.6 2.6 0 1 1 4.7 1.6c-.9 1-2.2 1.2-2.2 2.8" />
-        <path d="M12 17h.01" />
+        <rect x="4" y="4" width="16" height="17" rx="1" />
+        <path d="M9 21v-5h6v5M9 8h1M14 8h1M9 12h1M14 12h1" />
       </>
     ),
   },
   {
-    strTexto: "Soporte técnico",
+    strTexto: "Notificaciones",
     svgIcono: (
       <>
-        <path d="M6 15v-4a6 6 0 0 1 12 0v4" />
-        <path d="M4 14h2v5H4zM18 14h2v5h-2z" />
-        <path d="M20 19c0 2-3 2-5 2" />
+        <path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Z" />
+        <path d="M10 20a2 2 0 0 0 4 0" />
       </>
     ),
   },
@@ -78,9 +76,8 @@ const arrNavItemsSecundarios = [
 function NavItem({ strTexto, svgIcono, boolActivo = false }) {
   return (
     <div
-      className={`relative flex items-center gap-2.5 h-full text-sm whitespace-nowrap ${
-        boolActivo ? "font-extrabold text-[#123F7B]" : "text-[#294B7C]"
-      }`}
+      className={`relative flex items-center gap-2.5 h-full text-sm whitespace-nowrap ${boolActivo ? "font-extrabold text-[#123F7B]" : "text-[#294B7C]"
+        }`}
     >
       <svg
         className="w-5 h-5 stroke-[#123F7B] fill-none stroke-[1.8]"
@@ -112,13 +109,15 @@ export default function Header({ strRutaActiva = "Inicio" }) {
             boolActivo={item.strTexto === strRutaActiva}
           />
         ))}
-
-        <div className="h-[30px] border-l border-[#CBD5E1]" />
-
-        {arrNavItemsSecundarios.map((item) => (
-          <NavItem key={item.strTexto} {...item} />
-        ))}
       </nav>
+
+      <div className="ml-10 pl-10 h-full flex items-center border-l border-[#CBD5E1]">
+        {/* TODO: acá va "Cuenta" cuando se implemente (avatar/nombre del
+            usuario + menú). Por ahora es solo el espacio reservado. */}
+        <span className="text-sm font-semibold text-[#294B7C] whitespace-nowrap">
+          Cuenta
+        </span>
+      </div>
     </header>
   );
 }
