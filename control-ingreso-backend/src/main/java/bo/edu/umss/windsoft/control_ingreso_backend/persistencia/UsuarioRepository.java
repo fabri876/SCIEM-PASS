@@ -26,9 +26,15 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     // tiene fila: admin/docente/ayudante/estudiante), así que ese filtro se
     // aplica en Java después de resolver el tipo de cada usuario (ver
     // UsuarioService.listar).
+    //
+    // "busqueda" se compara contra '' (no "IS NULL"): cuando Hibernate liga un
+    // parámetro nulo dentro de un CONCAT(), el driver de Postgres no puede
+    // inferirle un tipo y termina tratándolo como bytea, lo que rompe LOWER()
+    // con "function lower(bytea) does not exist". UsuarioService.listar ya
+    // convierte null a "" antes de llamar este método para evitarlo.
     @Query("SELECT u FROM Usuario u WHERE " +
            "(:estado IS NULL OR u.estadousuario = :estado) AND " +
-           "(:busqueda IS NULL OR " +
+           "(:busqueda = '' OR " +
            " LOWER(u.nombreusuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
            " LOWER(u.apellidousuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
            " u.ciusuario LIKE CONCAT('%', :busqueda, '%') OR " +
