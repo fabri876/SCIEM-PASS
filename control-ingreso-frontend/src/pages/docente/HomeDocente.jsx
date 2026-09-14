@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from "../../components/layout/Header";
 import Logo from "../../components/common/Logo";
+import VentanaEmergente from "../../components/common/VentanaEmergente";
+import ExamenForm from "../../components/examenes/ExamenForm";
 
 export default function HomeDocente() {
     const navigate = useNavigate();
@@ -33,6 +35,8 @@ export default function HomeDocente() {
             icono: '⚛️'
         }
     ]);
+
+    const [boolModalAbierto, setBoolModalAbierto] = useState(false);
 
     return (
         <div className="min-h-screen bg-bg-app text-text-body font-nunito pb-16">
@@ -124,7 +128,10 @@ export default function HomeDocente() {
                         <button className="bg-bg-card border border-border text-primary-navy font-bold text-xs py-2 px-4 rounded-xl hover:bg-bg-app transition cursor-pointer">
                             Ver todos
                         </button>
-                        <button className="bg-[image:var(--gradient-button)] text-white font-bold text-xs py-2 px-4 rounded-xl hover:opacity-90 transition shadow-xs cursor-pointer">
+                        <button
+                            onClick={() => setBoolModalAbierto(true)}
+                            className="bg-[image:var(--gradient-button)] text-white font-bold text-xs py-2 px-4 rounded-xl hover:opacity-90 transition shadow-xs cursor-pointer"
+                        >
                             + Registrar examen
                         </button>
                     </div>
@@ -274,6 +281,11 @@ export default function HomeDocente() {
                 </div>
 
             </main>
+
+            <VentanaEmergente boolAbierto={boolModalAbierto} onCerrar={() => setBoolModalAbierto(false)}>
+                <ExamenForm />
+            </VentanaEmergente>
+
         </div>
     );
 }
