@@ -16,21 +16,18 @@ import strLogoSciemPass from "../../assets/images/logo-sciem-pass.png";
  * ve "flotando" mal encajado. Ahora se ajusta directo con una altura
  * más chica, sin transform.
  *
- * "self-start" es necesario porque LoginForm envuelve este componente
- * en un contenedor flex-col (para centrar el resto del formulario más
- * abajo): sin esto, el align-items:stretch por defecto de flexbox
- * estira la imagen al ancho completo del contenedor y la deforma. En
- * cualquier otro lugar donde se use Logo (Header, RegistroForm, que no
- * son flex-col) esta clase simplemente no tiene efecto.
+ * Nota: este componente NO lleva "self-start" ni ninguna clase de
+ * alineación — eso se decide en cada lugar donde se usa (por ejemplo,
+ * LoginForm lo envuelve en un div con self-start para que no se estire
+ * dentro de su contenedor flex-col). Ponerlo acá adentro rompía el
+ * centrado vertical del Header, que también es flex.
  */
 export default function Logo({ boolCompact = false }) {
   return (
     <img
       src={strLogoSciemPass}
       alt="SCIEM-PASS"
-      className={
-        boolCompact ? "h-[51px] w-auto self-start" : "h-[62px] w-auto self-start"
-      }
+      className={boolCompact ? "h-[51px] w-auto" : "h-[62px] w-auto"}
     />
   );
 }
