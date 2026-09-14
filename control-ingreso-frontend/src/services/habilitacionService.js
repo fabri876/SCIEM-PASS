@@ -39,3 +39,29 @@ export async function obtenerMotivosInhabilitacion() {
         throw error;
     }
 }
+
+/**
+ * Registra un nuevo motivo de inhabilitación en el backend.
+ */
+export async function crearMotivoInhabilitacion({ nombreMotivo, descripcionMotivo }) {
+    try {
+        const response = await fetch(`${strApiBaseUrl}/api/motivos-inhabilitacion`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                nombreMotivo: nombreMotivo.trim(),
+                descripcionMotivo: descripcionMotivo ? descripcionMotivo.trim() : null
+            })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.mensaje || 'Error al registrar el motivo en el servidor.');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("Error en crearMotivoInhabilitacion:", error);
+        throw error;
+    }
+}
