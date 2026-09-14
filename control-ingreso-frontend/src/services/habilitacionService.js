@@ -1,0 +1,41 @@
+/**
+ * habilitacionService.js
+ *
+ * Funciones para interactuar con los endpoints de habilitación y motivos
+ * de inhabilitación del backend en Spring Boot.
+ */
+import { strApiBaseUrl } from "./apiConfig";
+
+/**
+ * Obtiene la lista completa de habilitaciones desde el backend.
+ * Usa /api/habilitaciones (con soporte CORS).
+ */
+export async function obtenerHabilitaciones() {
+    try {
+        const response = await fetch(`${strApiBaseUrl}/api/habilitaciones`);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.mensaje || `Error ${response.status}: No se pudo obtener la lista de habilitaciones`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error en obtenerHabilitaciones:", error);
+        throw error;
+    }
+}
+
+/**
+ * Obtiene el catálogo de motivos de inhabilitación.
+ */
+export async function obtenerMotivosInhabilitacion() {
+    try {
+        const response = await fetch(`${strApiBaseUrl}/api/motivos-inhabilitacion`);
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: No se pudieron cargar los motivos`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error en obtenerMotivosInhabilitacion:", error);
+        throw error;
+    }
+}

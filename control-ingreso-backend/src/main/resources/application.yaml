@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require
+    url: jdbc:postgresql://aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
     username: postgres.xuyfxhrofzavamwxwpeb
     driver-class-name: org.postgresql.Driver
   config:
@@ -19,12 +19,3 @@ spring:
 
 server:
   port: 8080
-
-jwt:
-  secret: ${JWT_SECRET:WindSoftTIS2026ClaveSecretaParaTokensSuperSegura123456789ABCDEF}
-  expiration: ${JWT_EXPIRATION:1800000}
-
-cloudinary:
-  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
-  api-key: ${CLOUDINARY_API_KEY:}
-  api-secret: ${CLOUDINARY_API_SECRET:}
