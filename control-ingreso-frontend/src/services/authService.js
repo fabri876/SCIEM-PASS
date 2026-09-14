@@ -55,5 +55,46 @@ export async function iniciarSesion(objDatosLogin) {
     throw new Error(objError?.mensaje || "Correo o contraseña incorrectos.");
   }
 
-  return response.json();
+  const data = await response.json();
+  if (data?.token) {
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("usuario", JSON.stringify(data.usuario));
+  }
+  return data;
 }
+
+export function obtenerToken() {
+  return localStorage.getItem("token");
+}
+
+export function obtenerUsuarioActual() {
+  const strUsuario = localStorage.getItem("usuario");
+  if (!strUsuario) return null;
+  try {
+    return JSON.parse(strUsuario);
+  } catch {
+    return null;
+  }
+}
+
+export function cerrarSesion() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("usuario");
+}
+
+export function obtenerRutaPorRol(strRol) {
+  switch (strRol) {
+    case "ADMINISTRADOR":
+      return "/admin";
+    case "DOCENTE":
+      return "/home/docente";
+    case "OPERADOR":
+      return "/control";
+    case "ESTUDIANTE":
+      return "/estudiante";
+    default:
+      return "/estudiante";
+  }
+}
+
+
