@@ -5,17 +5,7 @@ import { registrarExamen } from "../../services/examenService";
  * ExamenForm.jsx
  *
  * Formulario de registro de examen (HU2)
- *
- * Fecha y hora se capturan en dos campos separados por claridad visual,
- * pero se combinan en un solo valor datetime antes de enviarlos,
- * porque fecha_examen en la BD es un solo TIMESTAMP.
- *
- * Duración se captura en minutos y se convierte a
- * formato HH:MM:SS antes de enviarla, porque duracion_examen en la
- * BD es de tipo TIME.
- *
- * Ambiente: selección múltiple (checkboxes), por 
- * tabla intermedia examen_ambiente (un examen puede usar varias aulas
+
 
 **/
 
@@ -127,7 +117,7 @@ export default function ExamenForm() {
             });
             setStrMensaje("Examen registrado correctamente.");
             setObjFormData({ idAsignatura: "", fecha: "", hora: "", duracion: "", normas: "" });
-            ssetArrIdAmbientesSeleccionados([]);
+            setArrIdAmbientesSeleccionados([]);
         } catch (error) {
             setStrMensaje("Ocurrió un error al registrar el examen.");
         } finally {
@@ -136,8 +126,8 @@ export default function ExamenForm() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto">
-            <div className="flex items-center gap-3 mb-1">
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg overflow-hidden">
+            <div className="flex items-center gap-3 p-6 pb-0">
                 <div className="w-10 h-10 rounded-lg bg-[#163F79] flex items-center justify-center text-white">
                     <IconoDocumento />
                 </div>
@@ -149,98 +139,51 @@ export default function ExamenForm() {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-6 bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="bg-[#EEF3FA] px-6 py-3 font-extrabold text-[#163F79]">
-                    Información del examen
+            <div className="bg-[#EEF3FA] px-6 py-3 mt-6 font-extrabold text-[#163F79]">
+                Información del examen
+            </div>
+            <div className="p-6 space-y-5">
+                <div>
+                    <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
+                        Asignatura <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                        <select
+                            name="idAsignatura"
+                            value={objFormData.idAsignatura}
+                            onChange={handleChange}
+                            required
+                            className="h-12 w-full border border-[#C8D6E8] rounded-md bg-white
+                font-nunito text-[15px] text-text-body outline-none pl-[15px] pr-10
+                appearance-none
+                focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10"
+                        >
+                            <option value="" disabled>Selecciona una asignatura</option>
+                            {ARR_ASIGNATURAS_TEMP.map((a) => (
+                                <option key={a.idAsignatura} value={a.idAsignatura}>{a.nombre}</option>
+                            ))}
+                        </select>
+                        <span className="absolute right-4 top-[18px] text-primary-navy pointer-events-none">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </span>
+                    </div>
                 </div>
-                <div className="p-6 space-y-5">
+
+                <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
-                            Asignatura <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                            <select
-                                name="idAsignatura"
-                                value={objFormData.idAsignatura}
-                                onChange={handleChange}
-                                required
-                                className="h-12 w-full border border-[#C8D6E8] rounded-md bg-white
-                  font-nunito text-[15px] text-text-body outline-none pl-[15px] pr-10
-                  appearance-none
-                  focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10"
-                            >
-                                <option value="" disabled>Selecciona una asignatura</option>
-                                {ARR_ASIGNATURAS_TEMP.map((a) => (
-                                    <option key={a.idAsignatura} value={a.idAsignatura}>{a.nombre}</option>
-                                ))}
-                            </select>
-                            <span className="absolute right-4 top-[18px] text-primary-navy pointer-events-none">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                </svg>
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
-                                Fecha del examen <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                                <span className="absolute left-[15px] top-[14px] text-primary-navy pointer-events-none">
-                                    <IconoCalendario />
-                                </span>
-                                <input
-                                    type="date"
-                                    name="fecha"
-                                    value={objFormData.fecha}
-                                    onChange={handleChange}
-                                    required
-                                    className="h-12 w-full border border-[#C8D6E8] rounded-md bg-white
-                    font-nunito text-[15px] text-text-body outline-none pl-[46px] pr-[15px]
-                    focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
-                                Hora de inicio <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                                <span className="absolute left-[15px] top-[14px] text-primary-navy pointer-events-none">
-                                    <IconoReloj />
-                                </span>
-                                <input
-                                    type="time"
-                                    name="hora"
-                                    value={objFormData.hora}
-                                    onChange={handleChange}
-                                    required
-                                    className="h-12 w-full border border-[#C8D6E8] rounded-md bg-white
-                    font-nunito text-[15px] text-text-body outline-none pl-[46px] pr-[15px]
-                    focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="w-1/2 pr-2">
-                        <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
-                            Duración del examen (minutos) <span className="text-red-500">*</span>
+                            Fecha del examen <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                             <span className="absolute left-[15px] top-[14px] text-primary-navy pointer-events-none">
-                                <IconoReloj />
+                                <IconoCalendario />
                             </span>
                             <input
-                                type="number"
-                                name="duracion"
-                                min="1"
-                                max="480"
-                                placeholder="Ej: 90"
-                                value={objFormData.duracion}
+                                type="date"
+                                name="fecha"
+                                value={objFormData.fecha}
                                 onChange={handleChange}
                                 required
                                 className="h-12 w-full border border-[#C8D6E8] rounded-md bg-white
@@ -248,75 +191,118 @@ export default function ExamenForm() {
                   focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10"
                             />
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">Máximo 480 minutos (8 horas)</p>
                     </div>
 
                     <div>
                         <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
-                            Ambiente(s) <span className="text-red-500">*</span>
+                            Hora de inicio <span className="text-red-500">*</span>
                         </label>
-                        <div className="border border-[#C8D6E8] rounded-md p-4 grid grid-cols-2 gap-3">
-                            {ARR_AMBIENTES_TEMP.map((ambiente) => (
-                                <label
-                                    key={ambiente.idAmbiente}
-                                    className="flex items-center gap-2 text-[15px] font-nunito text-text-body cursor-pointer"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={arrIdAmbientesSeleccionados.includes(ambiente.idAmbiente)}
-                                        onChange={() => handleToggleAmbiente(ambiente.idAmbiente)}
-                                        className="w-4 h-4 accent-primary-blue"
-                                    />
-                                    <IconoAmbiente />
-                                    {ambiente.nombre}
-                                </label>
-                            ))}
+                        <div className="relative">
+                            <span className="absolute left-[15px] top-[14px] text-primary-navy pointer-events-none">
+                                <IconoReloj />
+                            </span>
+                            <input
+                                type="time"
+                                name="hora"
+                                value={objFormData.hora}
+                                onChange={handleChange}
+                                required
+                                className="h-12 w-full border border-[#C8D6E8] rounded-md bg-white
+                  font-nunito text-[15px] text-text-body outline-none pl-[46px] pr-[15px]
+                  focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10"
+                            />
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">
-                            Selecciona uno o más ambientes según la capacidad requerida.
-                        </p>
                     </div>
                 </div>
 
-                <div className="bg-[#EEF3FA] px-6 py-3 font-extrabold text-[#163F79]">
-                    Normas e indicaciones
+                <div className="w-1/2 pr-2">
+                    <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
+                        Duración del examen (minutos) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                        <span className="absolute left-[15px] top-[14px] text-primary-navy pointer-events-none">
+                            <IconoReloj />
+                        </span>
+                        <input
+                            type="number"
+                            name="duracion"
+                            min="1"
+                            max="480"
+                            placeholder="Ej: 90"
+                            value={objFormData.duracion}
+                            onChange={handleChange}
+                            required
+                            className="h-12 w-full border border-[#C8D6E8] rounded-md bg-white
+                font-nunito text-[15px] text-text-body outline-none pl-[46px] pr-[15px]
+                focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10"
+                        />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">Máximo 480 minutos (8 horas)</p>
                 </div>
-                <div className="p-6">
-                    <textarea
-                        name="normas"
-                        rows={4}
-                        value={objFormData.normas}
-                        onChange={handleChange}
-                        placeholder="Escribe las instrucciones que los estudiantes deberán seguir durante el examen..."
-                        className="w-full border border-[#C8D6E8] rounded-md bg-white
-              font-nunito text-[15px] text-text-body outline-none p-[15px]
-              focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10"
-                    />
-                    <p className="text-xs text-gray-400 mt-2">
-                        Ej.: No utilizar celulares. Tiempo máximo: 90 minutos.
+
+                <div>
+                    <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
+                        Ambiente(s) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="border border-[#C8D6E8] rounded-md p-4 grid grid-cols-2 gap-3">
+                        {ARR_AMBIENTES_TEMP.map((ambiente) => (
+                            <label
+                                key={ambiente.idAmbiente}
+                                className="flex items-center gap-2 text-[15px] font-nunito text-text-body cursor-pointer"
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={arrIdAmbientesSeleccionados.includes(ambiente.idAmbiente)}
+                                    onChange={() => handleToggleAmbiente(ambiente.idAmbiente)}
+                                    className="w-4 h-4 accent-primary-blue"
+                                />
+                                <IconoAmbiente />
+                                {ambiente.nombre}
+                            </label>
+                        ))}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                        Selecciona uno o más ambientes según la capacidad requerida.
                     </p>
                 </div>
+            </div>
 
-                {strMensaje && (
-                    <p className="px-6 text-sm font-semibold text-[#163F79]">{strMensaje}</p>
-                )}
+            <div className="bg-[#EEF3FA] px-6 py-3 font-extrabold text-[#163F79]">
+                Normas e indicaciones
+            </div>
+            <div className="p-6">
+                <textarea
+                    name="normas"
+                    rows={4}
+                    value={objFormData.normas}
+                    onChange={handleChange}
+                    placeholder="Escribe las instrucciones que los estudiantes deberán seguir durante el examen..."
+                    className="w-full border border-[#C8D6E8] rounded-md bg-white
+            font-nunito text-[15px] text-text-body outline-none p-[15px]
+            focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10"
+                />
 
-                <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
-                    <button
-                        type="button"
-                        className="h-11 px-5 rounded-md border border-[#C8D6E8] text-[#163F79] font-bold"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={boolEnviando}
-                        className="h-11 px-5 rounded-md bg-primary-blue text-white font-bold disabled:opacity-60"
-                    >
-                        {boolEnviando ? "Registrando..." : "Registrar examen"}
-                    </button>
-                </div>
-            </form>
-        </div>
+            </div>
+
+            {strMensaje && (
+                <p className="px-6 text-sm font-semibold text-[#163F79]">{strMensaje}</p>
+            )}
+
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+                <button
+                    type="button"
+                    className="h-11 px-5 rounded-md border border-[#C8D6E8] text-[#163F79] font-bold"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="submit"
+                    disabled={boolEnviando}
+                    className="h-11 px-5 rounded-md bg-primary-blue text-white font-bold disabled:opacity-60"
+                >
+                    {boolEnviando ? "Registrando..." : "Registrar examen"}
+                </button>
+            </div>
+        </form>
     );
 }
