@@ -52,8 +52,9 @@ public class UsuarioService {
 
     public List<UsuarioRespuestaDto> listar(String rol, Boolean estado, String busqueda) {
         String rolNormalizado = rol == null || rol.isBlank() ? null : rol.trim().toUpperCase();
-        return usuarioRepository.filtrarUsuarios(estado, busqueda).stream()
-                .map(usuarioRespuestaMapper::mapear)
+        String busquedaSegura = busqueda == null ? "" : busqueda;
+        List<Usuario> usuarios = usuarioRepository.filtrarUsuarios(estado, busquedaSegura);
+        return usuarioRespuestaMapper.mapearTodos(usuarios).stream()
                 .filter(dto -> rolNormalizado == null || rolNormalizado.equals(dto.getRol()))
                 .toList();
     }

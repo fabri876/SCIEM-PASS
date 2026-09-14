@@ -1,31 +1,62 @@
 import React, { useState } from "react";
-import { Search, Plus, Filter, ChevronLeft, ChevronRight, Pencil, Ban } from "lucide-react";
+import { Search, Plus, Pencil, Ban, CheckCircle2 } from "lucide-react";
+import VentanaEmergente from "../../../components/common/VentanaEmergente";
+import UsuarioFormModal from "./UsuarioFormModal";
 
-const DEFAULT_USERS = [
-  { id: 1, nombre: "Rodrigo Zárate", ci: "12345678", correo: "rodrigo.zarate@umss.edu.bo", rol: "Administrador", estado: "Activo", avatarBg: "bg-[#032B69]" },
-  { id: 2, nombre: "Ana Torres", ci: "87654321", correo: "ana.torres@umss.edu.bo", rol: "Docente", estado: "Activo", avatarBg: "bg-[#B01246]" },
-  { id: 3, nombre: "Luis Fernández", ci: "11223344", correo: "luis.fernandez@umss.edu.bo", rol: "Estudiante", estado: "Activo", avatarBg: "bg-[#00A86B]" },
-  { id: 4, nombre: "Carla Mendoza", ci: "55667788", correo: "carla.mendoza@umss.edu.bo", rol: "Operador", estado: "Activo", avatarBg: "bg-[#F59E0B]" },
-  { id: 5, nombre: "Jorge Silva", ci: "99887766", correo: "jorge.silva@umss.edu.bo", rol: "Docente", estado: "Activo", avatarBg: "bg-[#6366F1]" },
-  { id: 6, nombre: "María López", ci: "44332211", correo: "maria.lopez@umss.edu.bo", rol: "Estudiante", estado: "Inactivo", avatarBg: "bg-[#EF4444]" },
-  { id: 7, nombre: "Diego Rojas", ci: "66778899", correo: "diego.rojas@umss.edu.bo", rol: "Operador", estado: "Activo", avatarBg: "bg-[#0284C7]" },
-  { id: 8, nombre: "Valentina Cruz", ci: "55443322", correo: "valentina.cruz@umss.edu.bo", rol: "Docente", estado: "Activo", avatarBg: "bg-[#0D9488]" },
-  { id: 9, nombre: "Andrés Vargas", ci: "22334455", correo: "andres.vargas@umss.edu.bo", rol: "Estudiante", estado: "Activo", avatarBg: "bg-[#D97706]" },
-  { id: 10, nombre: "Paola Gutiérrez", ci: "77889900", correo: "paola.gutierrez@umss.edu.bo", rol: "Operador", estado: "Inactivo", avatarBg: "bg-[#A855F7]" },
+const COLORES_AVATAR = [
+  "bg-[#032B69]", "bg-[#B01246]", "bg-[#00A86B]", "bg-[#F59E0B]",
+  "bg-[#6366F1]", "bg-[#0284C7]", "bg-[#0D9488]", "bg-[#D97706]", "bg-[#A855F7]",
 ];
 
-export default function UserTableCard({ users }) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const safeUsers = Array.isArray(users) && users.length > 0 ? users : DEFAULT_USERS;
+function colorAvatar(idUsuario) {
+  const idx = Math.abs(Number(idUsuario) || 0) % COLORES_AVATAR.length;
+  return COLORES_AVATAR[idx];
+}
 
-  const filteredUsers = safeUsers.filter((u) => {
+/**
+ * Tabla de administración de usuarios (HU16). Recibe la lista ya traída
+ * del backend (GET /api/admin/usuarios) por AdminDashboard y expone las
+ * 3 acciones que sí soporta el backend: crear, editar datos básicos, y
+ * activar/desactivar (ya no existe "cambiar rol" — el rol se fija desde
+ * el registro, ver docs/Contrato-API-HU-Usuarios-Roles-Auditoria.md).
+ */
+export default function UserTableCard({ usuarios, boolCargando, strError, onCrear, onEditar, onCambiarEstado }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [modalUsuario, setModalUsuario] = useState(null); // { modo: "crear"|"editar", usuario }
+  const [usuarioParaCambiarEstado, setUsuarioParaCambiarEstado] = useState(null);
+  const [boolProcesando, setBoolProcesando] = useState(false);
+
+  const listaSegura = Array.isArray(usuarios) ? usuarios : [];
+
+  const filteredUsers = listaSegura.filter((u) => {
     const search = searchTerm.toLowerCase();
+    const nombreCompleto = `${u?.nombre || ""} ${u?.apellido || ""}`.toLowerCase();
     return (
-      (u?.nombre?.toLowerCase() || "").includes(search) ||
+      nombreCompleto.includes(search) ||
       (u?.ci || "").includes(search) ||
       (u?.correo?.toLowerCase() || "").includes(search)
     );
   });
+
+  const fnGuardarUsuario = async (datos) => {
+    if (modalUsuario.modo === "editar") {
+      await onEditar(modalUsuario.usuario.idUsuario, datos);
+    } else {
+      await onCrear(datos);
+    }
+    setModalUsuario(null);
+  };
+
+  const fnConfirmarCambioEstado = async () => {
+    setBoolProcesando(true);
+    try {
+      const nuevoEstado = usuarioParaCambiarEstado.estado ? "INACTIVO" : "ACTIVO";
+      await onCambiarEstado(usuarioParaCambiarEstado.idUsuario, nuevoEstado);
+      setUsuarioParaCambiarEstado(null);
+    } finally {
+      setBoolProcesando(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between h-full">
@@ -37,17 +68,20 @@ export default function UserTableCard({ users }) {
               Administración de Usuarios y Roles
             </h2>
             <p className="text-xs text-slate-500 font-medium">
-              Crea, asigna permisos y gestiona los accesos del sistema.
+              Crea, edita y activa/desactiva las cuentas del sistema.
             </p>
           </div>
 
-          <button className="flex items-center justify-center gap-2 bg-gradient-to-r from-[#0066FF] to-[#021B3B] hover:from-[#0052CC] hover:to-[#011229] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md hover:shadow-blue-500/20 active:scale-[0.98] transition-all shrink-0 border border-blue-400/20">
+          <button
+            onClick={() => setModalUsuario({ modo: "crear", usuario: null })}
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-[#0066FF] to-[#021B3B] hover:from-[#0052CC] hover:to-[#011229] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md hover:shadow-blue-500/20 active:scale-[0.98] transition-all shrink-0 border border-blue-400/20"
+          >
             <Plus className="w-4 h-4" />
             <span>Nuevo Usuario</span>
           </button>
         </div>
 
-        {/* Buscador y Filtro */}
+        {/* Buscador */}
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -59,12 +93,13 @@ export default function UserTableCard({ users }) {
               className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0066FF]/30 focus:border-[#0066FF] text-slate-700"
             />
           </div>
-
-          <button className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-100 transition-all">
-            <Filter className="w-3.5 h-3.5" />
-            <span>Filtrar</span>
-          </button>
         </div>
+
+        {strError && (
+          <p className="mb-4 text-sm font-semibold text-rose-600" role="alert">
+            {strError}
+          </p>
+        )}
 
         {/* Tabla */}
         <div className="overflow-x-auto rounded-xl border border-slate-200">
@@ -80,53 +115,59 @@ export default function UserTableCard({ users }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {filteredUsers.length > 0 ? (
+              {boolCargando ? (
+                <tr>
+                  <td colSpan="6" className="py-8 text-center text-xs text-slate-400">
+                    Cargando usuarios…
+                  </td>
+                </tr>
+              ) : filteredUsers.length > 0 ? (
                 filteredUsers.map((user) => {
-                  const initials = user?.nombre
-                    ? user.nombre.split(" ").map((n) => n[0]).join("").substring(0, 2)
+                  const nombreCompleto = `${user?.nombre || ""} ${user?.apellido || ""}`.trim();
+                  const initials = nombreCompleto
+                    ? nombreCompleto.split(" ").map((n) => n[0]).join("").substring(0, 2)
                     : "U";
 
                   return (
-                    <tr key={user.id} className="hover:bg-slate-50/80 transition-colors text-xs text-slate-700">
+                    <tr key={user.idUsuario} className="hover:bg-slate-50/80 transition-colors text-xs text-slate-700">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full ${user.avatarBg || "bg-[#032B69]"} text-white font-bold text-[11px] flex items-center justify-center shrink-0`}>
+                          <div className={`w-8 h-8 rounded-full ${colorAvatar(user.idUsuario)} text-white font-bold text-[11px] flex items-center justify-center shrink-0`}>
                             {initials}
                           </div>
-                          <span className="font-bold text-slate-800 truncate">{user.nombre}</span>
+                          <span className="font-bold text-slate-800 truncate">{nombreCompleto}</span>
                         </div>
                       </td>
                       <td className="py-3 px-4 font-semibold text-slate-600">{user.ci}</td>
                       <td className="py-3 px-4 text-slate-500">{user.correo}</td>
                       <td className="py-3 px-4">
-                        {/* Dropdown de Rol */}
-                        <select
-                          defaultValue={user.rol}
-                          className="bg-slate-50 border border-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#0066FF] cursor-pointer"
-                        >
-                          <option value="Administrador">Administrador</option>
-                          <option value="Docente">Docente</option>
-                          <option value="Estudiante">Estudiante</option>
-                          <option value="Operador">Operador</option>
-                        </select>
+                        <span className="bg-slate-50 border border-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-xl text-xs">
+                          {user.rol || "PENDIENTE"}
+                        </span>
                       </td>
                       <td className="py-3 px-4">
-                        {/* Badge de Estado pill ligero */}
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${user.estado === "Activo"
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${user.estado
                             ? "bg-emerald-100/70 text-emerald-600"
                             : "bg-rose-100/70 text-rose-500"
                           }`}>
-                          {user.estado}
+                          {user.estado ? "Activo" : "Inactivo"}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {/* Botones de Editar y Bloquear */}
                         <div className="flex items-center justify-end gap-2">
-                          <button className="p-1 text-[#0066FF] hover:bg-blue-50 rounded-md transition-colors">
+                          <button
+                            onClick={() => setModalUsuario({ modo: "editar", usuario: user })}
+                            title="Editar"
+                            className="p-1 text-[#0066FF] hover:bg-blue-50 rounded-md transition-colors"
+                          >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button className="p-1 text-rose-500 hover:bg-rose-50 rounded-md transition-colors">
-                            <Ban className="w-4 h-4" />
+                          <button
+                            onClick={() => setUsuarioParaCambiarEstado(user)}
+                            title={user.estado ? "Desactivar" : "Activar"}
+                            className={user.estado ? "p-1 text-rose-500 hover:bg-rose-50 rounded-md transition-colors" : "p-1 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"}
+                          >
+                            {user.estado ? <Ban className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                           </button>
                         </div>
                       </td>
@@ -145,41 +186,43 @@ export default function UserTableCard({ users }) {
         </div>
       </div>
 
-      {/* Footer original con paginación numérica completa */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-2 border-t border-slate-100 text-xs text-slate-500 font-medium">
-        <span>Mostrando 1 - 10 de 1,240 usuarios</span>
-
-        {/* Componente de Paginación Numérica */}
-        <div className="flex items-center gap-1">
-          <button className="w-7 h-7 flex items-center justify-center border border-slate-200 rounded-lg text-slate-400 hover:bg-slate-50 transition-colors">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <button className="w-7 h-7 flex items-center justify-center bg-[#0066FF] text-white font-bold rounded-lg shadow-sm">
-            1
-          </button>
-          <button className="w-7 h-7 flex items-center justify-center border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-            2
-          </button>
-          <button className="w-7 h-7 flex items-center justify-center border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-            3
-          </button>
-          <button className="w-7 h-7 flex items-center justify-center border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-            4
-          </button>
-          <button className="w-7 h-7 flex items-center justify-center border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-            5
-          </button>
-          <span className="px-1 text-slate-400">...</span>
-          <button className="w-8 h-7 flex items-center justify-center border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-            124
-          </button>
-
-          <button className="w-7 h-7 flex items-center justify-center border border-slate-200 rounded-lg text-slate-400 hover:bg-slate-50 transition-colors">
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="flex items-center justify-between gap-3 pt-4 mt-2 border-t border-slate-100 text-xs text-slate-500 font-medium">
+        <span>Mostrando {filteredUsers.length} de {listaSegura.length} usuarios</span>
       </div>
+
+      <UsuarioFormModal
+        boolAbierto={!!modalUsuario}
+        modo={modalUsuario?.modo}
+        usuarioInicial={modalUsuario?.usuario}
+        onCerrar={() => setModalUsuario(null)}
+        onGuardar={fnGuardarUsuario}
+      />
+
+      <VentanaEmergente boolAbierto={!!usuarioParaCambiarEstado} onCerrar={() => setUsuarioParaCambiarEstado(null)}>
+        <div className="p-6">
+          <h2 className="text-lg font-extrabold text-[#021B3B] mb-2">
+            {usuarioParaCambiarEstado?.estado ? "¿Está seguro de desactivar a este usuario?" : "¿Está seguro de activar a este usuario?"}
+          </h2>
+          <p className="text-xs text-slate-500 mb-5">
+            {usuarioParaCambiarEstado?.nombre} {usuarioParaCambiarEstado?.apellido} ({usuarioParaCambiarEstado?.correo})
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setUsuarioParaCambiarEstado(null)}
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={fnConfirmarCambioEstado}
+              disabled={boolProcesando}
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-md disabled:opacity-60 ${usuarioParaCambiarEstado?.estado ? "bg-rose-600" : "bg-emerald-600"}`}
+            >
+              {boolProcesando ? "Procesando…" : "Confirmar"}
+            </button>
+          </div>
+        </div>
+      </VentanaEmergente>
     </div>
   );
 }

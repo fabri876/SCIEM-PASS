@@ -9,10 +9,13 @@ import {
     Clock
 } from "lucide-react";
 
-export default function AdminMetricsCards() {
+export default function AdminMetricsCards({ usuarios }) {
+    const listaSegura = Array.isArray(usuarios) ? usuarios : [];
+    const contarPorRol = (rol) => listaSegura.filter((u) => u.rol === rol).length;
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* 1. Tarjeta Total Usuarios (Ajustada según el modelo enviado) */}
+            {/* 1. Tarjeta Total Usuarios (datos reales de GET /api/admin/usuarios) */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
                 {/* Parte Superior: Ícono circular a la izquierda + Título y Número */}
                 <div className="flex items-center gap-4">
@@ -22,7 +25,7 @@ export default function AdminMetricsCards() {
                     <div>
                         <span className="text-sm font-bold text-[#021B3B]">Total Usuarios</span>
                         <div className="text-3xl font-black text-[#021B3B] tracking-tight leading-none mt-1">
-                            1,240
+                            {listaSegura.length}
                         </div>
                     </div>
                 </div>
@@ -33,7 +36,7 @@ export default function AdminMetricsCards() {
                     <div className="flex items-center gap-1.5 px-1.5 first:pl-0">
                         <ShieldCheck className="w-4 h-4 text-[#0066FF] shrink-0" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-xs font-bold text-slate-800">42</span>
+                            <span className="text-xs font-bold text-slate-800">{contarPorRol("ADMINISTRADOR")}</span>
                             <span className="text-[10px] text-slate-400 font-medium">Admins</span>
                         </div>
                     </div>
@@ -42,7 +45,7 @@ export default function AdminMetricsCards() {
                     <div className="flex items-center gap-1.5 px-1.5">
                         <GraduationCap className="w-4 h-4 text-[#0066FF] shrink-0" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-xs font-bold text-slate-800">382</span>
+                            <span className="text-xs font-bold text-slate-800">{contarPorRol("DOCENTE")}</span>
                             <span className="text-[10px] text-slate-400 font-medium">Docentes</span>
                         </div>
                     </div>
@@ -51,7 +54,7 @@ export default function AdminMetricsCards() {
                     <div className="flex items-center gap-1.5 px-1.5">
                         <UserCheck className="w-4 h-4 text-[#0066FF] shrink-0" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-xs font-bold text-slate-800">756</span>
+                            <span className="text-xs font-bold text-slate-800">{contarPorRol("ESTUDIANTE")}</span>
                             <span className="text-[10px] text-slate-400 font-medium">Estudiantes</span>
                         </div>
                     </div>
@@ -60,7 +63,7 @@ export default function AdminMetricsCards() {
                     <div className="flex items-center gap-1.5 px-1.5 last:pr-0">
                         <UserCog className="w-4 h-4 text-[#0066FF] shrink-0" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-xs font-bold text-slate-800">60</span>
+                            <span className="text-xs font-bold text-slate-800">{contarPorRol("OPERADOR")}</span>
                             <span className="text-[10px] text-slate-400 font-medium">Operadores</span>
                         </div>
                     </div>

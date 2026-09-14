@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../common/Logo";
 import FormField from "../common/FormField";
@@ -15,6 +15,16 @@ export default function LoginForm() {
   const [objFormData, setObjFormData] = useState(objValoresInicialesForm);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strErrorEnvio, setStrErrorEnvio] = useState("");
+
+  // Si adminService.js (u otro service autenticado) detectó un 401 por token
+  // vencido, dejó este mensaje antes de redirigir acá (HU16, criterio #9).
+  useEffect(() => {
+    const strMensajeSesion = sessionStorage.getItem("mensajeSesion");
+    if (strMensajeSesion) {
+      setStrErrorEnvio(strMensajeSesion);
+      sessionStorage.removeItem("mensajeSesion");
+    }
+  }, []);
 
   const { boolShowPassword, fnToggleShowPassword, strInputType } =
     usePasswordVisibility();
