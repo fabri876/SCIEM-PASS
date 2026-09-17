@@ -1,12 +1,16 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Logo from "../../components/common/Logo";
-import { obtenerHabilitaciones, obtenerMotivosInhabilitacion, crearMotivoInhabilitacion } from "../../services/habilitacionService";
+import {
+    obtenerHabilitaciones,
+    obtenerMotivosInhabilitacion,
+    crearMotivoInhabilitacion,
+    actualizarMotivoInhabilitacion,
+    eliminarMotivoInhabilitacion,
+} from "../../services/habilitacionService";
 
 // ---------------------------------------------------------------------------
 // Header propio de esta pantalla (NO el components/layout/Header compartido).
-// Mismos ítems de navegación y misma paleta hex que ese archivo, más la
-// campanita de notificaciones y el bloque de perfil.
 // ---------------------------------------------------------------------------
 const arrNavItemsPagina = [
     {
@@ -43,7 +47,6 @@ const arrNavItemsPagina = [
     },
 ];
 
-// Usuario logueado, fijo por ahora
 const objUsuarioPagina = {
     strIniciales: "PR",
     strNombre: "Patricia Rodríguez",
@@ -107,7 +110,7 @@ function UserProfilePagina({ strIniciales, strNombre, strRol }) {
     );
 }
 
-function HeaderPagina({ strRutaActiva = "Docente" }) {
+function HeaderPagina({ strRutaActiva }) {
     return (
         <header className="h-[98px] flex items-center px-[55px] bg-white/72 border-b border-[#E2E8F0]/75">
             <Logo />
@@ -160,7 +163,7 @@ function Toast({ toast, onClose }) {
 }
 
 // ---------------------------------------------------------------------------
-// Modal: Crear Nuevo Motivo (Consume POST /api/motivos-inhabilitacion)
+// Modal: Crear Nuevo Motivo — SIN CAMBIOS, tal como estaba.
 // ---------------------------------------------------------------------------
 function ModalNuevoMotivo({ onCancelar, onMotivoCreado }) {
     const [nombreMotivo, setNombreMotivo] = useState('');
@@ -253,9 +256,206 @@ function ModalNuevoMotivo({ onCancelar, onMotivoCreado }) {
 }
 
 // ---------------------------------------------------------------------------
+// NUEVO — Modal: Gestionar Motivos (editar / eliminar los ya existentes)
+// ---------------------------------------------------------------------------
+function ModalGestionMotivos({ motivos, onCerrar, onMotivoActualizado, onMotivoEliminado, onAbrirCrear }) {
+    const [idEditando, setIdEditando] = useState(null);
+    const [borradorNombre, setBorradorNombre] = useState('');
+    const [borradorDescripcion, setBorradorDescripcion] = useState('');
+    const [idConfirmandoEliminar, setIdConfirmandoEliminar] = useState(null);
+    const [idProcesando, setIdProcesando] = useState(null);
+    const [error, setError] = useState(null);
+
+    const idDe = (m) => m.idMotivo ?? m.id;
+
+    const iniciarEdicion = (motivo) => {
+        setError(null);
+        setIdConfirmandoEliminar(null);
+        setIdEditando(idDe(motivo));
+        setBorradorNombre(motivo.nombreMotivo || '');
+        setBorradorDescripcion(motivo.descripcionMotivo || '');
+    };
+
+    const cancelarEdicion = () => {
+        setIdEditando(null);
+        setBorradorNombre('');
+        setBorradorDescripcion('');
+        setError(null);
+    };
+
+    const guardarEdicion = async (motivo) => {
+        if (!borradorNombre.trim()) {
+            setError('El nombre del motivo no puede quedar vacío.');
+            return;
+        }
+        const id = idDe(motivo);
+        setIdProcesando(id);
+        setError(null);
+        try {
+            const actualizado = await actualizarMotivoInhabilitacion(id, {
+                nombreMotivo: borradorNombre.trim(),
+                descripcionMotivo: borradorDescripcion.trim(),
+            });
+            onMotivoActualizado(actualizado || { ...motivo, nombreMotivo: borradorNombre.trim(), descripcionMotivo: borradorDescripcion.trim() });
+            cancelarEdicion();
+        } catch (err) {
+            setError(err.message || 'No se pudo actualizar el motivo.');
+        } finally {
+            setIdProcesando(null);
+        }
+    };
+
+    const confirmarEliminar = async (motivo) => {
+        const id = idDe(motivo);
+        setIdProcesando(id);
+        setError(null);
+        try {
+            await eliminarMotivoInhabilitacion(id);
+            onMotivoEliminado(id);
+            setIdConfirmandoEliminar(null);
+        } catch (err) {
+            setError(err.message || 'No se pudo eliminar el motivo. Puede que ya esté en uso por algún estudiante inhabilitado.');
+        } finally {
+            setIdProcesando(null);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-xs px-4">
+            <div className="w-full max-w-lg bg-bg-card rounded-2xl shadow-2xl border border-border p-6 max-h-[85vh] flex flex-col">
+                <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-black text-lg text-primary-navy">Gestionar motivos</h3>
+                    <button onClick={onCerrar} className="text-text-body hover:text-primary-navy font-bold p-1 rounded-lg hover:bg-bg-app transition cursor-pointer">✕</button>
+                </div>
+                <p className="text-xs text-text-body font-medium mb-4">
+                    Edita o elimina los motivos de inhabilitación existentes.
+                </p>
+
+                {error && <p className="text-xs font-bold text-accent-red mb-3 bg-red-50 border border-red-200 rounded-lg p-2.5">⚠️ {error}</p>}
+
+                <div className="flex-1 overflow-y-auto -mx-2 px-2 space-y-2">
+                    {motivos.length === 0 && (
+                        <p className="text-xs text-text-body font-medium text-center py-6">No hay motivos registrados todavía.</p>
+                    )}
+
+                    {motivos.map((m) => {
+                        const id = idDe(m);
+                        const enEdicion = idEditando === id;
+                        const confirmandoEliminar = idConfirmandoEliminar === id;
+                        const procesando = idProcesando === id;
+
+                        return (
+                            <div key={id} className="border border-border rounded-xl p-3 bg-bg-app">
+                                {enEdicion ? (
+                                    <div className="space-y-2">
+                                        <input
+                                            type="text"
+                                            value={borradorNombre}
+                                            onChange={(e) => setBorradorNombre(e.target.value)}
+                                            placeholder="Nombre del motivo"
+                                            className="w-full bg-bg-card border border-border rounded-lg p-2 text-xs font-bold text-primary-navy focus:outline-none focus:border-primary-blue"
+                                        />
+                                        <textarea
+                                            rows="2"
+                                            value={borradorDescripcion}
+                                            onChange={(e) => setBorradorDescripcion(e.target.value)}
+                                            placeholder="Descripción (opcional)"
+                                            className="w-full bg-bg-card border border-border rounded-lg p-2 text-xs font-medium text-primary-navy focus:outline-none"
+                                        />
+                                        <div className="flex gap-2 justify-end">
+                                            <button
+                                                onClick={cancelarEdicion}
+                                                disabled={procesando}
+                                                className="text-[11px] font-bold text-text-body px-3 py-1.5 rounded-lg hover:bg-bg-card transition cursor-pointer disabled:opacity-50"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={() => guardarEdicion(m)}
+                                                disabled={procesando}
+                                                className="text-[11px] font-bold text-white bg-primary-navy px-3 py-1.5 rounded-lg hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                                            >
+                                                {procesando ? 'Guardando...' : 'Guardar'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : confirmandoEliminar ? (
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-xs font-bold text-accent-red">¿Eliminar "{m.nombreMotivo}"?</p>
+                                        <div className="flex gap-2 flex-shrink-0">
+                                            <button
+                                                onClick={() => setIdConfirmandoEliminar(null)}
+                                                disabled={procesando}
+                                                className="text-[11px] font-bold text-text-body px-3 py-1.5 rounded-lg hover:bg-bg-card transition cursor-pointer disabled:opacity-50"
+                                            >
+                                                No
+                                            </button>
+                                            <button
+                                                onClick={() => confirmarEliminar(m)}
+                                                disabled={procesando}
+                                                className="text-[11px] font-bold text-white bg-accent-red px-3 py-1.5 rounded-lg hover:opacity-90 transition cursor-pointer disabled:opacity-50"
+                                            >
+                                                {procesando ? 'Eliminando...' : 'Sí, eliminar'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-bold text-primary-navy truncate">{m.nombreMotivo}</p>
+                                            {m.descripcionMotivo && (
+                                                <p className="text-[11px] text-text-body font-medium truncate">{m.descripcionMotivo}</p>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-1 flex-shrink-0">
+                                            <button
+                                                type="button"
+                                                aria-label="Editar motivo"
+                                                onClick={() => iniciarEdicion(m)}
+                                                className="w-8 h-8 flex items-center justify-center rounded-lg text-primary-blue hover:bg-bg-card transition cursor-pointer"
+                                            >
+                                                ✏️
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Eliminar motivo"
+                                                onClick={() => { setIdConfirmandoEliminar(id); setError(null); }}
+                                                className="w-8 h-8 flex items-center justify-center rounded-lg text-accent-red hover:bg-bg-card transition cursor-pointer"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <div className="pt-4 mt-2 border-t border-border flex items-center justify-between">
+                    <button
+                        type="button"
+                        onClick={onAbrirCrear}
+                        className="text-xs font-bold text-primary-blue hover:underline cursor-pointer"
+                    >
+                        + Crear un motivo nuevo
+                    </button>
+                    <button
+                        onClick={onCerrar}
+                        className="bg-bg-app border border-border text-primary-navy text-xs font-bold py-2 px-5 rounded-xl hover:bg-bg-card transition cursor-pointer"
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Modal de inhabilitación
 // ---------------------------------------------------------------------------
-function ModalInhabilitacion({ estudiante, motivosCat, onCancelar, onConfirmar, guardando, onAbrirNuevoMotivo }) {
+function ModalInhabilitacion({ estudiante, motivosCat, onCancelar, onConfirmar, guardando, onAbrirNuevoMotivo, onAbrirGestionMotivos }) {
     const [motivoId, setMotivoId] = useState(estudiante.motivoId || '');
     const [observacion, setObservacion] = useState(estudiante.observacion || '');
     const [error, setError] = useState(null);
@@ -285,13 +485,22 @@ function ModalInhabilitacion({ estudiante, motivosCat, onCancelar, onConfirmar, 
                         <label className="block text-xs font-bold text-primary-navy uppercase tracking-wider">
                             Motivo <span className="text-accent-red">*</span>
                         </label>
-                        <button
-                            type="button"
-                            onClick={onAbrirNuevoMotivo}
-                            className="text-[11px] font-bold text-primary-blue hover:underline cursor-pointer"
-                        >
-                            + Nuevo motivo
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={onAbrirGestionMotivos}
+                                className="text-[11px] font-bold text-primary-blue hover:underline cursor-pointer"
+                            >
+                                ⚙ Gestionar motivos
+                            </button>
+                            <button
+                                type="button"
+                                onClick={onAbrirNuevoMotivo}
+                                className="text-[11px] font-bold text-primary-blue hover:underline cursor-pointer"
+                            >
+                                + Nuevo motivo
+                            </button>
+                        </div>
                     </div>
                     <select
                         value={motivoId}
@@ -357,21 +566,17 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
     const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
     const [mostrarModalInhabilitar, setMostrarModalInhabilitar] = useState(false);
     const [mostrarModalCrearMotivo, setMostrarModalCrearMotivo] = useState(false);
+    const [mostrarModalGestionMotivos, setMostrarModalGestionMotivos] = useState(false);
     const [guardando, setGuardando] = useState(false);
     const [toast, setToast] = useState(null);
     const toastTimer = useRef(null);
 
-    // Cargar datos reales desde el backend
     const cargarDatos = async () => {
         setCargando(true);
         setErrorCarga(null);
         try {
             const data = await obtenerHabilitaciones();
-            if (Array.isArray(data)) {
-                setEstudiantes(data);
-            } else {
-                setEstudiantes([]);
-            }
+            setEstudiantes(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Error al cargar habilitaciones del backend:", err);
             setErrorCarga(err.message || "No se pudo conectar con el servidor para cargar las habilitaciones.");
@@ -402,11 +607,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
             const nombreCompleto = `${e.nombreEstudiante || ''} ${e.apellidoEstudiante || ''}`.toLowerCase();
             const codSis = String(e.codSisEstudiante || '').toLowerCase();
             const ci = String(e.ciEstudiante || '').toLowerCase();
-            const coincideBusqueda =
-                !q ||
-                nombreCompleto.includes(q) ||
-                codSis.includes(q) ||
-                ci.includes(q);
+            const coincideBusqueda = !q || nombreCompleto.includes(q) || codSis.includes(q) || ci.includes(q);
             const coincideFiltro =
                 filtroEstado === 'todos' ||
                 (filtroEstado === 'habilitado' && e.estadoHabilitacion) ||
@@ -421,12 +622,14 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
         toastTimer.current = setTimeout(() => setToast(null), 3500);
     }
 
+    const idDeMotivo = (m) => m.idMotivo ?? m.id;
+
     const handleMotivoCreadoExitosamente = (nuevoMotivo) => {
         setMotivos((prev) => [...prev, nuevoMotivo]);
         setMostrarModalCrearMotivo(false);
         mostrarToast('success', '¡Motivo creado y registrado correctamente!');
 
-        const idCreado = nuevoMotivo.idMotivo || nuevoMotivo.id;
+        const idCreado = idDeMotivo(nuevoMotivo);
         if (estudianteSeleccionado) {
             setEstudianteSeleccionado((prev) => ({
                 ...prev,
@@ -434,6 +637,21 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                 nombreMotivo: nuevoMotivo.nombreMotivo || prev.nombreMotivo
             }));
         }
+    };
+
+    // NUEVO — callback cuando se edita un motivo desde ModalGestionMotivos
+    const handleMotivoActualizado = (motivoActualizado) => {
+        const id = idDeMotivo(motivoActualizado);
+        setMotivos((prev) => prev.map((m) => (idDeMotivo(m) === id ? { ...m, ...motivoActualizado } : m)));
+        mostrarToast('success', 'Motivo actualizado correctamente.');
+    };
+
+    // NUEVO — callback cuando se elimina un motivo desde ModalGestionMotivos
+    const handleMotivoEliminado = (idEliminado) => {
+        setMotivos((prev) => prev.filter((m) => idDeMotivo(m) !== idEliminado));
+        // Si el estudiante que se está gestionando tenía ese motivo seleccionado, se limpia.
+        setEstudianteSeleccionado((prev) => (prev && prev.motivoId === idEliminado ? { ...prev, motivoId: null } : prev));
+        mostrarToast('success', 'Motivo eliminado correctamente.');
     };
 
     async function persistirCambio(idHabilitacion, payload) {
@@ -470,7 +688,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
     };
 
     const handleConfirmarInhabilitacion = ({ motivoId, observacion }) => {
-        const motivo = motivos.find((m) => (m.idMotivo || m.id) === motivoId);
+        const motivo = motivos.find((m) => idDeMotivo(m) === motivoId);
         persistirCambio(estudianteSeleccionado.idHabilitacion, {
             estadoHabilitacion: false,
             motivoId,
@@ -484,7 +702,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
 
     return (
         <div className="min-h-screen bg-bg-app text-text-body font-nunito pb-12 relative overflow-x-hidden">
-            <HeaderPagina strRutaActiva="Docente" />
+            <HeaderPagina />
 
             <main className="px-8 pt-6 max-w-7xl mx-auto">
                 <div className="flex items-center gap-2 text-xs font-bold text-primary-blue mb-4">
@@ -514,12 +732,20 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleVolver}
-                        className="bg-bg-card border border-border text-primary-navy text-xs font-bold py-2.5 px-5 rounded-xl hover:bg-bg-app transition shadow-xs cursor-pointer flex items-center gap-2"
-                    >
-                        ← Volver a exámenes
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setMostrarModalGestionMotivos(true)}
+                            className="bg-bg-card border border-border text-primary-navy text-xs font-bold py-2.5 px-5 rounded-xl hover:bg-bg-app transition shadow-xs cursor-pointer flex items-center gap-2"
+                        >
+                            ⚙ Gestionar motivos
+                        </button>
+                        <button
+                            onClick={handleVolver}
+                            className="bg-bg-card border border-border text-primary-navy text-xs font-bold py-2.5 px-5 rounded-xl hover:bg-bg-app transition shadow-xs cursor-pointer flex items-center gap-2"
+                        >
+                            ← Volver a exámenes
+                        </button>
+                    </div>
                 </div>
 
                 <div className="bg-bg-card rounded-2xl shadow-xs border border-border overflow-hidden">
@@ -626,8 +852,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
             </main>
 
             {/* DRAWER LATERAL */}
-            <div className={`fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-300 ease-out ${estudianteSeleccionado && !mostrarModalInhabilitar && !mostrarModalCrearMotivo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-                <div className={`w-full max-w-md bg-bg-card h-full shadow-2xl flex flex-col justify-between border-l border-border p-6 overflow-y-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${estudianteSeleccionado && !mostrarModalInhabilitar && !mostrarModalCrearMotivo ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-300 ease-out ${estudianteSeleccionado && !mostrarModalInhabilitar && !mostrarModalCrearMotivo && !mostrarModalGestionMotivos ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+                <div className={`w-full max-w-md bg-bg-card h-full shadow-2xl flex flex-col justify-between border-l border-border p-6 overflow-y-auto transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${estudianteSeleccionado && !mostrarModalInhabilitar && !mostrarModalCrearMotivo && !mostrarModalGestionMotivos ? 'translate-x-0' : 'translate-x-full'}`}>
                     {estudianteSeleccionado && (
                         <>
                             <div>
@@ -668,13 +894,22 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                                                 <label className="block text-xs font-bold text-primary-navy uppercase tracking-wider">
                                                     Motivo de inhabilitación <span className="text-accent-red">*</span>
                                                 </label>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setMostrarModalCrearMotivo(true)}
-                                                    className="text-[11px] font-bold text-primary-blue hover:underline cursor-pointer"
-                                                >
-                                                    + Nuevo motivo
-                                                </button>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setMostrarModalGestionMotivos(true)}
+                                                        className="text-[11px] font-bold text-primary-blue hover:underline cursor-pointer"
+                                                    >
+                                                        ⚙ Gestionar
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setMostrarModalCrearMotivo(true)}
+                                                        className="text-[11px] font-bold text-primary-blue hover:underline cursor-pointer"
+                                                    >
+                                                        + Nuevo motivo
+                                                    </button>
+                                                </div>
                                             </div>
                                             <select
                                                 value={estudianteSeleccionado.motivoId || ''}
@@ -715,14 +950,26 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                     onCancelar={() => setMostrarModalInhabilitar(false)}
                     onConfirmar={handleConfirmarInhabilitacion}
                     onAbrirNuevoMotivo={() => setMostrarModalCrearMotivo(true)}
+                    onAbrirGestionMotivos={() => setMostrarModalGestionMotivos(true)}
                 />
             )}
 
-            {/* MODAL PARA CREAR NUEVO MOTIVO */}
+            {/* MODAL PARA CREAR NUEVO MOTIVO — sin cambios */}
             {mostrarModalCrearMotivo && (
                 <ModalNuevoMotivo
                     onCancelar={() => setMostrarModalCrearMotivo(false)}
                     onMotivoCreado={handleMotivoCreadoExitosamente}
+                />
+            )}
+
+            {/* NUEVO — MODAL PARA EDITAR / ELIMINAR MOTIVOS */}
+            {mostrarModalGestionMotivos && (
+                <ModalGestionMotivos
+                    motivos={motivos}
+                    onCerrar={() => setMostrarModalGestionMotivos(false)}
+                    onMotivoActualizado={handleMotivoActualizado}
+                    onMotivoEliminado={handleMotivoEliminado}
+                    onAbrirCrear={() => { setMostrarModalGestionMotivos(false); setMostrarModalCrearMotivo(true); }}
                 />
             )}
 
