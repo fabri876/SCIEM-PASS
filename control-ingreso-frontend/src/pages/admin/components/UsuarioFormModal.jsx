@@ -84,18 +84,18 @@ export default function UsuarioFormModal({ boolAbierto, modo, usuarioInicial, on
 
   return (
     <VentanaEmergente boolAbierto={boolAbierto} onCerrar={onCerrar}>
-      <div className="p-6">
-        <h2 className="text-lg font-extrabold text-[#021B3B] mb-1">
+      <div className="p-6 bg-bg-card rounded-2xl">
+        <h2 className="text-sub font-extrabold text-primary-navy mb-1">
           {boolEsEdicion ? "Editar usuario" : "Nuevo usuario"}
         </h2>
-        <p className="text-xs text-slate-500 mb-5">
+        <p className="text-secondary text-text-body/70 mb-5">
           {boolEsEdicion
             ? "Actualiza los datos básicos de la cuenta."
             : "Se crea con estado ACTIVO de inmediato (los estudiantes se auto-registran, no se crean acá)."}
         </p>
 
         {strError && (
-          <p className="mb-4 text-sm font-semibold text-rose-600" role="alert">
+          <p className="mb-4 text-secondary font-semibold text-accent-red" role="alert">
             {strError}
           </p>
         )}
@@ -151,11 +151,13 @@ export default function UsuarioFormModal({ boolAbierto, modo, usuarioInicial, on
 
           {!boolEsEdicion && (
             <div className="col-span-2">
-              <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">Rol</label>
+              <label className="block text-secondary font-extrabold text-primary-navy mb-1.5">
+                Rol
+              </label>
               <select
                 value={objFormData.rol}
                 onChange={fnActualizarCampo("rol")}
-                className="h-12 w-full border border-[#C8D6E8] rounded-md bg-white px-3 text-[15px] text-text-body outline-none focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10"
+                className="h-12 w-full border border-border rounded-xl bg-bg-card px-3 text-secondary text-text-body outline-none focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10 transition-colors"
               >
                 {ROLES_CREABLES.map((rol) => (
                   <option key={rol} value={rol}>
@@ -170,14 +172,14 @@ export default function UsuarioFormModal({ boolAbierto, modo, usuarioInicial, on
             <button
               type="button"
               onClick={onCerrar}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              className="px-4 py-2.5 rounded-xl text-secondary font-bold text-text-body/70 hover:bg-bg-app transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={boolIsSubmitting}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#0066FF] to-[#021B3B] shadow-md disabled:opacity-60"
+              className="px-5 py-2.5 rounded-xl text-secondary font-bold text-bg-card bg-gradient-to-r from-primary-blue to-primary-navy shadow-xs hover:opacity-95 transition-all disabled:opacity-60 active:scale-[0.99]"
             >
               {boolIsSubmitting ? "Guardando…" : "Guardar"}
             </button>

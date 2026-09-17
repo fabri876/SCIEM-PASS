@@ -2,11 +2,17 @@
  * examenService.js
  */
 import { strApiBaseUrl } from "./apiConfig";
+import { obtenerToken } from "./authService";
 
 export async function registrarExamen(objExamen) {
+    const strToken = obtenerToken();
+
     const response = await fetch(`${strApiBaseUrl}/api/examenes`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${strToken}`,
+        },
         body: JSON.stringify(objExamen),
     });
 

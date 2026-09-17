@@ -1,30 +1,40 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import Logo from "../common/Logo";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import imgLogoUmss from "../../assets/images/logo-umss.png";
 import FormField from "../common/FormField";
 import usePasswordVisibility from "../../hooks/usePasswordVisibility";
-import { iniciarSesion, obtenerRutaPorRol } from "../../services/authService";
+import { iniciarSesion } from "../../services/authService";
 
 const objValoresInicialesForm = {
   correo: "",
   contrasena: "",
 };
 
+/**
+ * LoginForm.jsx
+ *
+ * Formulario de la tarjeta derecha de la pantalla de Login. Mismo
+ * patrón que RegistroForm.jsx: inputs controlados (objFormData) y el
+ * submit llama de verdad al servicio de autenticación en vez de un
+ * alert.
+ *
+ * A diferencia de RegistroForm, la tarjeta tiene solo dos campos, así
+ * que en vez de dejar un hueco vacío abajo (para igualar la altura del
+ * HeroBanner de al lado), el contenido del formulario queda centrado
+ * verticalmente dentro de la tarjeta (ver el div "flex-1 justify-center"
+ * más abajo). El logo se queda arriba, igual que en Registro.
+ *
+ * ⚠️ Asume que services/authService.js ya tiene (o va a tener) una
+ * función iniciarSesion(datos) con el mismo patrón que
+ * registrarUsuario(datos): recibe { correo, contrasena } y lanza un
+ * Error con .message si la petición falla. No tengo ese archivo, así
+ * que no pude agregarla yo — el snippet sugerido queda en la respuesta,
+ * fuera de este archivo.
+ */
 export default function LoginForm() {
-  const navigate = useNavigate();
   const [objFormData, setObjFormData] = useState(objValoresInicialesForm);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strErrorEnvio, setStrErrorEnvio] = useState("");
-
-  // Si adminService.js (u otro service autenticado) detectó un 401 por token
-  // vencido, dejó este mensaje antes de redirigir acá (HU16, criterio #9).
-  useEffect(() => {
-    const strMensajeSesion = sessionStorage.getItem("mensajeSesion");
-    if (strMensajeSesion) {
-      setStrErrorEnvio(strMensajeSesion);
-      sessionStorage.removeItem("mensajeSesion");
-    }
-  }, []);
 
   const { boolShowPassword, fnToggleShowPassword, strInputType } =
     usePasswordVisibility();
@@ -38,12 +48,9 @@ export default function LoginForm() {
     setStrErrorEnvio("");
     setBoolIsSubmitting(true);
     try {
-      const respuesta = await iniciarSesion(objFormData);
-      const strRol = respuesta?.usuario?.rol;
-      const strRutaDestino = obtenerRutaPorRol(strRol);
-
-      // replace: true elimina /login del historial para que al dar "atrás" no vuelva a login
-      navigate(strRutaDestino, { replace: true });
+      await iniciarSesion(objFormData);
+      // TODO: reemplazar por la redirección real al dashboard cuando el
+      // equipo defina el flujo de sesión (JWT, HU16 en adelante).
     } catch (error) {
       setStrErrorEnvio(error.message);
     } finally {
@@ -53,7 +60,15 @@ export default function LoginForm() {
 
   return (
     <section className="min-h-[780px] bg-white/97 border border-border/75 rounded-[10px] shadow-[0_10px_35px_rgba(15,23,42,0.07)] px-[80px] pt-[90px] pb-7 flex flex-col">
-      <Logo boolCompact />
+      <div
+        className="self-center"
+        style={{
+          transform: "scale(6) translateY(-17px)",
+          transformOrigin: "center top",
+        }}
+      >
+        <img src={imgLogoUmss} alt="Universidad Mayor de San Simón" className="h-[51px] w-auto" />
+      </div>
 
       <div className="flex-1 flex flex-col justify-center">
         <h2 className="text-[34px] font-extrabold text-primary-navy mt-0.5 mb-0">
@@ -117,7 +132,7 @@ export default function LoginForm() {
             <button
               type="submit"
               disabled={boolIsSubmitting}
-              className="w-full h-[52px] rounded-md bg-[image:var(--gradient-button)] text-white font-extrabold text-base shadow-[0_7px_16px_rgba(37,99,235,0.18)] disabled:opacity-60"
+              className="w-full h-[52px] rounded-md bg-primary-navy text-white font-extrabold text-base shadow-[0_7px_16px_rgba(15,23,42,0.25)] transition-all duration-300 hover:shadow-[0_0_28px_6px_rgba(96,165,250,0.6)] hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:shadow-[0_7px_16px_rgba(15,23,42,0.25)] disabled:hover:translate-y-0"
             >
               {boolIsSubmitting ? "Ingresando…" : "Iniciar sesión   →"}
             </button>

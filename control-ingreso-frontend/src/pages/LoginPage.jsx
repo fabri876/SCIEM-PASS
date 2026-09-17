@@ -21,6 +21,7 @@ export default function LoginPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[594px_1fr] gap-[23px] px-[55px] pt-9 pb-[60px]">
           <HeroBanner
+            boolShowPhoto={false}
             title={
               <>
                 Bienvenido

@@ -19,10 +19,12 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
     };
 
     return (
-        <aside className="w-64 bg-[#011632] text-white p-4 flex flex-col justify-between h-screen shrink-0 border-r border-slate-800">
+        <div className="w-full h-full bg-primary-navy text-bg-card p-4 flex flex-col justify-between shrink-0 border-r border-border/20">
             <div className="space-y-2">
                 <div className="px-4 py-3 mb-2">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-400">Menú Principal</span>
+                    <span className="text-badge font-black uppercase tracking-wider text-bg-card/60">
+                        Menú Principal
+                    </span>
                 </div>
 
                 {menuItems.map((item) => {
@@ -33,27 +35,21 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
                         <button
                             key={item.id}
                             onClick={() => setActiveMenu && setActiveMenu(item.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${isActive
-                                ? "bg-gradient-to-r from-[#0066FF] to-[#021B3B] text-white shadow-md shadow-blue-500/20 border border-blue-400/20"
-                                : "text-slate-300 hover:text-white hover:bg-white/5 font-semibold"
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-secondary font-bold transition-all cursor-pointer ${isActive
+                                ? "bg-gradient-to-r from-primary-blue to-primary-navy text-bg-card shadow-md border border-bg-card/20"
+                                : "text-bg-card/80 hover:text-bg-card hover:bg-bg-card/10 font-semibold"
                                 }`}
                         >
-                            <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                            <Icon className={`w-4 h-4 ${isActive ? "text-bg-card" : "text-bg-card/60"}`} />
                             <span>{item.label}</span>
                         </button>
                     );
                 })}
             </div>
 
-            <div className="pt-4 border-t border-slate-800/80">
-                <button
-                    onClick={fnCerrarSesion}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all text-xs font-semibold"
-                >
-                    <LogOut className="w-4 h-4" />
-                    <span>Cerrar Sesión</span>
-                </button>
+            <div className="pt-4 border-t border-border/20">
+
             </div>
-        </aside>
+        </div>
     );
 }
