@@ -54,9 +54,8 @@ const objUsuarioPagina = {
 function NavItemPagina({ strTexto, svgIcono, boolActivo = false }) {
     return (
         <div
-            className={`relative flex items-center gap-2.5 h-full text-sm whitespace-nowrap ${
-                boolActivo ? "font-extrabold text-[#123F7B]" : "text-[#294B7C]"
-            }`}
+            className={`relative flex items-center gap-2.5 h-full text-sm whitespace-nowrap ${boolActivo ? "font-extrabold text-[#123F7B]" : "text-[#294B7C]"
+                }`}
         >
             <svg className="w-5 h-5 stroke-[#123F7B] fill-none stroke-[1.8]" viewBox="0 0 24 24">
                 {svgIcono}
@@ -547,9 +546,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                                     <button
                                         key={f.key}
                                         onClick={() => setFiltroEstado(f.key)}
-                                        className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                                            filtroEstado === f.key ? 'bg-primary-navy text-white' : 'text-text-body hover:bg-bg-card'
-                                        }`}
+                                        className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition cursor-pointer ${filtroEstado === f.key ? 'bg-primary-navy text-white' : 'text-text-body hover:bg-bg-card'
+                                            }`}
                                     >
                                         {f.label}
                                     </button>
