@@ -95,6 +95,7 @@ export function obtenerRutaPorRol(strRol) {
     default:
       return "/estudiante";
   }
+
 }
 
 

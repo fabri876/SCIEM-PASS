@@ -72,7 +72,6 @@ export default function RegistroForm() {
 
   return (
     <section className="min-h-[780px] bg-white/97 border border-border/75 rounded-[10px] shadow-[0_10px_35px_rgba(15,23,42,0.07)] px-[42px] pt-[30px] pb-7">
-      <Logo boolCompact />
 
       <h2 className="text-[34px] font-extrabold text-primary-navy mt-0.5 mb-0">
         Crear una cuenta
@@ -244,7 +243,7 @@ export default function RegistroForm() {
           <button
             type="submit"
             disabled={boolIsSubmitting}
-            className="w-full h-[52px] rounded-md bg-[image:var(--gradient-button)] text-white font-extrabold text-base shadow-[0_7px_16px_rgba(37,99,235,0.18)] disabled:opacity-60"
+            className="w-full h-[52px] rounded-md bg-primary-navy text-white font-extrabold text-base shadow-[0_7px_16px_rgba(15,23,42,0.25)] transition-all duration-300 hover:shadow-[0_0_28px_6px_rgba(96,165,250,0.6)] hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:shadow-[0_7px_16px_rgba(15,23,42,0.25)] disabled:hover:translate-y-0"
           >
             {boolIsSubmitting ? "Creando cuenta…" : "Crear cuenta   →"}
           </button>
