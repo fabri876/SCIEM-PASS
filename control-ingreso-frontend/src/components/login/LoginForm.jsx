@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import Logo from "../common/Logo";
+import imgLogoUmss from "../../assets/images/logo-umss.png";
 import FormField from "../common/FormField";
 import usePasswordVisibility from "../../hooks/usePasswordVisibility";
 import { iniciarSesion } from "../../services/authService";
@@ -63,11 +63,11 @@ export default function LoginForm() {
       <div
         className="self-center"
         style={{
-          transform: "scale(2.5)",
+          transform: "scale(6) translateY(-17px)",
           transformOrigin: "center top",
         }}
       >
-        <Logo boolCompact />
+        <img src={imgLogoUmss} alt="Universidad Mayor de San Simón" className="h-[51px] w-auto" />
       </div>
 
       <div className="flex-1 flex flex-col justify-center">
@@ -132,7 +132,7 @@ export default function LoginForm() {
             <button
               type="submit"
               disabled={boolIsSubmitting}
-              className="w-full h-[52px] rounded-md bg-[image:var(--gradient-button)] text-white font-extrabold text-base shadow-[0_7px_16px_rgba(37,99,235,0.18)] disabled:opacity-60"
+              className="w-full h-[52px] rounded-md bg-primary-navy text-white font-extrabold text-base shadow-[0_7px_16px_rgba(15,23,42,0.25)] transition-all duration-300 hover:shadow-[0_0_28px_6px_rgba(96,165,250,0.6)] hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:shadow-[0_7px_16px_rgba(15,23,42,0.25)] disabled:hover:translate-y-0"
             >
               {boolIsSubmitting ? "Ingresando…" : "Iniciar sesión   →"}
             </button>
