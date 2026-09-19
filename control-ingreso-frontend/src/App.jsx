@@ -6,6 +6,8 @@ import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, registrarActivid
 import RegistroPage from "./pages/RegistroPage";
 import LoginPage from "./pages/LoginPage";
 import RegistroExamenPage from "./pages/RegistroExamenPage";
+import HomePage from "./pages/HomePage";
+import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
 // Páginas de Administrador
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -109,6 +111,16 @@ function App() {
         />
         <Route path="/registro-examen" element={<RegistroExamenPage />} />
 
+        {/* Home público: la puerta de entrada del sistema, visible haya
+            o no sesión iniciada. Los 4 apartados del Header que todavía
+            no tienen pantalla propia van a una página en blanco por
+            ahora. */}
+        <Route path="/inicio" element={<HomePage />} />
+        <Route path="/examenes" element={<PaginaEnConstruccion />} />
+        <Route path="/noticias" element={<PaginaEnConstruccion />} />
+        <Route path="/aulas" element={<PaginaEnConstruccion />} />
+        <Route path="/notificaciones" element={<PaginaEnConstruccion />} />
+
         {/* Ruta de Administrador */}
         <Route
           path="/admin"
@@ -160,8 +172,8 @@ function App() {
         />
         <Route path="/home/control" element={<Navigate to="/control" replace />} />
 
-        {/* Redirección por defecto */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Redirección por defecto: ahora entra directo al Home */}
+        <Route path="/" element={<Navigate to="/inicio" replace />} />
       </Routes>
     </BrowserRouter>
   );
