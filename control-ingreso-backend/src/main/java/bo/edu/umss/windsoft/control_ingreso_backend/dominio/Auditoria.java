@@ -5,49 +5,48 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
+/**
+ * Mapea la tabla "historialauditoria" del nuevo esquema de base de datos
+ * (reemplazó a la tabla "auditoria" original). Es más simple que el diseño
+ * anterior: solo tiene un idusuario (no distingue ejecutor de afectado) y
+ * fechaaccion es DATE, no timestamp (sin hora exacta). AuditoriaService
+ * compensa parte de esa pérdida de detalle empaquetando toda la info en el
+ * campo "accion".
+ */
 @Entity
-@Table(name = "auditoria")
+@Table(name = "historialauditoria")
 public class Auditoria {
 
+    // Sin IDENTITY/sequence en la base real (ver Usuario.java) — se usa una
+    // sequence propia creada a mano.
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_auditoria")
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "historialauditoria_seq")
+    @SequenceGenerator(name = "historialauditoria_seq", sequenceName = "historialauditoria_idauditoria_seq", allocationSize = 1)
+    @Column(name = "idauditoria")
     private Integer idAuditoria;
 
-    @Column(name = "tipo_operacion", nullable = false, length = 60)
-    private String tipoOperacion;
+    @Column(name = "idusuario")
+    private Integer idUsuario;
 
-    @Column(name = "usuario_ejecutor", length = 150)
-    private String usuarioEjecutor;
+    @Column(name = "accion")
+    private String accion;
 
-    @Column(name = "usuario_afectado", length = 150)
-    private String usuarioAfectado;
-
-    @Column(name = "detalles", columnDefinition = "TEXT")
-    private String detalles;
-
-    @Column(name = "ip_origen", length = 45)
-    private String ipOrigen;
-
-    @Column(name = "fecha_hora", nullable = false)
-    private LocalDateTime fechaHora;
+    @Column(name = "fechaaccion")
+    private LocalDate fechaAccion;
 
     public Auditoria() {
-        this.fechaHora = LocalDateTime.now();
+        this.fechaAccion = LocalDate.now();
     }
 
-    public Auditoria(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
-                     String detalles, String ipOrigen) {
-        this.tipoOperacion = tipoOperacion;
-        this.usuarioEjecutor = usuarioEjecutor;
-        this.usuarioAfectado = usuarioAfectado;
-        this.detalles = detalles;
-        this.ipOrigen = ipOrigen;
-        this.fechaHora = LocalDateTime.now();
+    public Auditoria(Integer idUsuario, String accion) {
+        this.idUsuario = idUsuario;
+        this.accion = accion;
+        this.fechaAccion = LocalDate.now();
     }
 
     public Integer getIdAuditoria() {
@@ -58,51 +57,27 @@ public class Auditoria {
         this.idAuditoria = idAuditoria;
     }
 
-    public String getTipoOperacion() {
-        return tipoOperacion;
+    public Integer getIdUsuario() {
+        return idUsuario;
     }
 
-    public void setTipoOperacion(String tipoOperacion) {
-        this.tipoOperacion = tipoOperacion;
+    public void setIdUsuario(Integer idUsuario) {
+        this.idUsuario = idUsuario;
     }
 
-    public String getUsuarioEjecutor() {
-        return usuarioEjecutor;
+    public String getAccion() {
+        return accion;
     }
 
-    public void setUsuarioEjecutor(String usuarioEjecutor) {
-        this.usuarioEjecutor = usuarioEjecutor;
+    public void setAccion(String accion) {
+        this.accion = accion;
     }
 
-    public String getUsuarioAfectado() {
-        return usuarioAfectado;
+    public LocalDate getFechaAccion() {
+        return fechaAccion;
     }
 
-    public void setUsuarioAfectado(String usuarioAfectado) {
-        this.usuarioAfectado = usuarioAfectado;
-    }
-
-    public String getDetalles() {
-        return detalles;
-    }
-
-    public void setDetalles(String detalles) {
-        this.detalles = detalles;
-    }
-
-    public String getIpOrigen() {
-        return ipOrigen;
-    }
-
-    public void setIpOrigen(String ipOrigen) {
-        this.ipOrigen = ipOrigen;
-    }
-
-    public LocalDateTime getFechaHora() {
-        return fechaHora;
-    }
-
-    public void setFechaHora(LocalDateTime fechaHora) {
-        this.fechaHora = fechaHora;
+    public void setFechaAccion(LocalDate fechaAccion) {
+        this.fechaAccion = fechaAccion;
     }
 }

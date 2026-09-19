@@ -9,9 +9,7 @@ import java.util.List;
 @Repository
 public interface AuditoriaRepository extends JpaRepository<Auditoria, Integer> {
 
-    List<Auditoria> findAllByOrderByFechaHoraDesc();
-
-    List<Auditoria> findByUsuarioAfectadoOrderByFechaHoraDesc(String usuarioAfectado);
-
-    List<Auditoria> findByTipoOperacionOrderByFechaHoraDesc(String tipoOperacion);
+    // "fechaaccion" es DATE (sin hora), así que para tener el más reciente
+    // primero de verdad se ordena por el id (autoincremental) en vez de la fecha.
+    List<Auditoria> findAllByOrderByIdAuditoriaDesc();
 }
