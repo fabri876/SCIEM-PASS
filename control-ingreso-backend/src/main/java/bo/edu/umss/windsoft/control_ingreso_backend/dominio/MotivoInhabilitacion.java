@@ -5,21 +5,28 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "motivoinhabilitacion")
 public class MotivoInhabilitacion {
 
+    // Sin IDENTITY/sequence en la base real (ver Usuario.java) — se usa una
+    // sequence propia creada a mano.
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "motivoinhabilitacion_seq")
+    @SequenceGenerator(name = "motivoinhabilitacion_seq", sequenceName = "motivoinhabilitacion_idmotivo_seq", allocationSize = 1)
     @Column(name = "idmotivo")
     private Integer idmotivo;
 
-    @Column(name = "nombremotivo", nullable = false)
+    @Column(name = "nombremotivo")
     private String nombremotivo;
 
-    @Column(name = "descripcionmotivo")
+    // La base nueva (rediseño de sep-2026) le puso este nombre a la columna
+    // por error/typo aparente (la tabla es motivoinhabilitacion, no
+    // habilitacion), pero es el que existe físicamente.
+    @Column(name = "descripcionhabilitacion")
     private String descripcionmotivo;
 
     public MotivoInhabilitacion() {

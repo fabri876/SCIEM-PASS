@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
@@ -13,36 +14,53 @@ import java.time.LocalDateTime;
 @Table(name = "usuario")
 public class Usuario {
 
+    // La base nueva (rediseño de sep-2026) no tiene columnas IDENTITY/SERIAL
+    // ni sequences para ninguna PK (se verificó contra information_schema).
+    // Se usa una sequence propia creada a mano (ver instrucciones SQL) en vez
+    // de GenerationType.IDENTITY, que fallaba con "null value in column
+    // idusuario violates not-null constraint" al no haber autoincremento en
+    // la columna real.
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "usuario_seq")
+    @SequenceGenerator(name = "usuario_seq", sequenceName = "usuario_idusuario_seq", allocationSize = 1)
     @Column(name = "idusuario")
     private Integer idusuario;
 
-    @Column(name = "ciusuario", nullable = false, unique = true)
+    // La base nueva (rediseño completo, sep-2026) dejó estas columnas como
+    // NULLABLE y sin constraint UNIQUE a nivel de esquema; la obligatoriedad y
+    // la unicidad se siguen exigiendo igual, pero a nivel de aplicación
+    // (@NotBlank en los DTOs + existsByCiusuario/existsByCorreousuario antes
+    // de guardar), no como restricción de columna.
+    @Column(name = "ciusuario")
     private String ciusuario;
 
-    @Column(name = "nombreusuario", nullable = false)
+    @Column(name = "nombreusuario")
     private String nombreusuario;
 
-    @Column(name = "apellidousuario", nullable = false)
+    @Column(name = "apellidousuario")
     private String apellidousuario;
 
     @Column(name = "telefonousuario")
     private Integer telefonousuario;
 
-    @Column(name = "correousuario", nullable = false, unique = true)
+    @Column(name = "correousuario")
     private String correousuario;
 
-    @Column(name = "contraseniausuario", nullable = false)
+    @Column(name = "contraseniausuario")
     private String contraseniausuario;
 
-    @Column(name = "estadousuario", nullable = false)
+    @Column(name = "estadousuario")
     private Boolean estadousuario = true;
 
     // Control de intentos fallidos de login (HU16, criterio #10). El "tipo" de
     // usuario (rol) ya NO se guarda en esta tabla: lo determina en qué tabla
     // hija (admin/docente/ayudante/estudiante) tiene fila este usuario — ver
     // TipoUsuarioResolver.
+    //
+    // OJO: estas 2 columnas no existen todavía en la base nueva (rediseño de
+    // sep-2026) — hay que correr:
+    //   ALTER TABLE usuario ADD COLUMN IF NOT EXISTS intentos_fallidos INTEGER NOT NULL DEFAULT 0;
+    //   ALTER TABLE usuario ADD COLUMN IF NOT EXISTS fecha_bloqueo TIMESTAMP WITH TIME ZONE;
     @Column(name = "intentos_fallidos", nullable = false)
     private int intentosFallidos = 0;
 

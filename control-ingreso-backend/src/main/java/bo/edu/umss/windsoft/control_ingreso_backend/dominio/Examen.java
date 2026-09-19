@@ -1,34 +1,39 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Entity
 @Table(name = "examen")
 public class Examen {
 
+    // Sin IDENTITY/sequence en la base real (ver Usuario.java) — se usa una
+    // sequence propia creada a mano.
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_examen")
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "examen_seq")
+    @SequenceGenerator(name = "examen_seq", sequenceName = "examen_idexamen_seq", allocationSize = 1)
+    @Column(name = "idexamen")
     private Integer idExamen;
 
-    @Column(name = "fecha_examen", nullable = false)
-    private LocalDateTime fechaExamen;
+    // La base nueva (rediseño de sep-2026) usa DATE (sin hora) para estas dos
+    // columnas, y sin guion bajo en el nombre (antes: id_examen, fecha_examen, etc.).
+    @Column(name = "fechaexamen")
+    private LocalDate fechaExamen;
 
-    @Column(name = "duracion_examen", nullable = false)
+    @Column(name = "duracionexamen")
     private LocalTime duracionExamen;
 
-    @Column(name = "fecha_creacion_examen", nullable = false)
-    private LocalDateTime fechaCreacionExamen;
+    @Column(name = "fechacreacionexamen")
+    private LocalDate fechaCreacionExamen;
 
-    @Column(name = "normas_examen", columnDefinition = "TEXT")
+    @Column(name = "normasexamen", columnDefinition = "TEXT")
     private String normasExamen;
 
-    @Column(name = "estado_examen", nullable = false)
+    @Column(name = "estadoexamen")
     private Boolean estadoExamen;
 
-    @Column(name = "id_asignatura", nullable = false)
+    @Column(name = "idasignatura")
     private Integer idAsignatura;
 
     public Examen() {
@@ -42,11 +47,11 @@ public class Examen {
         this.idExamen = idExamen;
     }
 
-    public LocalDateTime getFechaExamen() {
+    public LocalDate getFechaExamen() {
         return fechaExamen;
     }
 
-    public void setFechaExamen(LocalDateTime fechaExamen) {
+    public void setFechaExamen(LocalDate fechaExamen) {
         this.fechaExamen = fechaExamen;
     }
 
@@ -58,11 +63,11 @@ public class Examen {
         this.duracionExamen = duracionExamen;
     }
 
-    public LocalDateTime getFechaCreacionExamen() {
+    public LocalDate getFechaCreacionExamen() {
         return fechaCreacionExamen;
     }
 
-    public void setFechaCreacionExamen(LocalDateTime fechaCreacionExamen) {
+    public void setFechaCreacionExamen(LocalDate fechaCreacionExamen) {
         this.fechaCreacionExamen = fechaCreacionExamen;
     }
 
