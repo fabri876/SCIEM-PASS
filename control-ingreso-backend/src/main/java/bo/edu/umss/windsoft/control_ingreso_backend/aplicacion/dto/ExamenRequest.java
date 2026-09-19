@@ -1,7 +1,8 @@
+// aplicacion/dto/ExamenRequest.java
 package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.dto;
 
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoHorario;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.NotEmpty;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -13,64 +14,55 @@ public class ExamenRequest {
     private LocalDateTime fechaExamen;
 
     @NotNull
-    private LocalTime duracionExamen;
-
-    private String normasExamen;
-
-    @NotNull
     private Boolean estadoExamen;
 
     @NotNull
     private Integer idAsignatura;
 
-    @NotEmpty
-    private List<Integer> idAmbientes;
+    // TODO(seguridad): reemplazar por el usuario autenticado (JWT), ver nota arriba.
+    @NotNull
+    private Integer idUsuario;
 
-    public LocalDateTime getFechaExamen() {
-        return fechaExamen;
-    }
+    @NotNull
+    private Integer codsisDocente;
 
-    public void setFechaExamen(LocalDateTime fechaExamen) {
-        this.fechaExamen = fechaExamen;
-    }
+    @NotNull
+    private TipoHorario tipoHorario; // REGULAR o EVENTUAL
 
-    public LocalTime getDuracionExamen() {
-        return duracionExamen;
-    }
+    // Obligatorio si tipoHorario == REGULAR
+    private Integer idHorarioRegular;
 
-    public void setDuracionExamen(LocalTime duracionExamen) {
-        this.duracionExamen = duracionExamen;
-    }
+    // Obligatorios si tipoHorario == EVENTUAL
+    private Integer idAula;
+    private LocalTime horaInicio;
+    private LocalTime horaFin;
 
-    public String getNormasExamen() {
-        return normasExamen;
-    }
+    // Normas
+    private List<Integer> idsNormasGenerales;
+    private List<String> normasEspecificas;
 
-    public void setNormasExamen(String normasExamen) {
-        this.normasExamen = normasExamen;
-    }
-
-    public Boolean getEstadoExamen() {
-        return estadoExamen;
-    }
-
-    public void setEstadoExamen(Boolean estadoExamen) {
-        this.estadoExamen = estadoExamen;
-    }
-
-    public Integer getIdAsignatura() {
-        return idAsignatura;
-    }
-
-    public void setIdAsignatura(Integer idAsignatura) {
-        this.idAsignatura = idAsignatura;
-    }
-
-    public List<Integer> getIdAmbientes() {
-        return idAmbientes;
-    }
-
-    public void setIdAmbientes(List<Integer> idAmbientes) {
-        this.idAmbientes = idAmbientes;
-    }
+    public LocalDateTime getFechaExamen() { return fechaExamen; }
+    public void setFechaExamen(LocalDateTime fechaExamen) { this.fechaExamen = fechaExamen; }
+    public Boolean getEstadoExamen() { return estadoExamen; }
+    public void setEstadoExamen(Boolean estadoExamen) { this.estadoExamen = estadoExamen; }
+    public Integer getIdAsignatura() { return idAsignatura; }
+    public void setIdAsignatura(Integer idAsignatura) { this.idAsignatura = idAsignatura; }
+    public Integer getIdUsuario() { return idUsuario; }
+    public void setIdUsuario(Integer idUsuario) { this.idUsuario = idUsuario; }
+    public Integer getCodsisDocente() { return codsisDocente; }
+    public void setCodsisDocente(Integer codsisDocente) { this.codsisDocente = codsisDocente; }
+    public TipoHorario getTipoHorario() { return tipoHorario; }
+    public void setTipoHorario(TipoHorario tipoHorario) { this.tipoHorario = tipoHorario; }
+    public Integer getIdHorarioRegular() { return idHorarioRegular; }
+    public void setIdHorarioRegular(Integer idHorarioRegular) { this.idHorarioRegular = idHorarioRegular; }
+    public Integer getIdAula() { return idAula; }
+    public void setIdAula(Integer idAula) { this.idAula = idAula; }
+    public LocalTime getHoraInicio() { return horaInicio; }
+    public void setHoraInicio(LocalTime horaInicio) { this.horaInicio = horaInicio; }
+    public LocalTime getHoraFin() { return horaFin; }
+    public void setHoraFin(LocalTime horaFin) { this.horaFin = horaFin; }
+    public List<Integer> getIdsNormasGenerales() { return idsNormasGenerales; }
+    public void setIdsNormasGenerales(List<Integer> idsNormasGenerales) { this.idsNormasGenerales = idsNormasGenerales; }
+    public List<String> getNormasEspecificas() { return normasEspecificas; }
+    public void setNormasEspecificas(List<String> normasEspecificas) { this.normasEspecificas = normasEspecificas; }
 }
