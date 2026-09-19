@@ -3,28 +3,27 @@
 
 CREATE TABLE public.admin (
   idusuario integer NOT NULL,
-  idadmin integer NOT NULL,
-  idcredencial integer,
-  ciusuario text,
-  nombreusuario text,
-  apellidousuario text,
-  telefonousuario integer,
-  correousuario text,
-  contraseniausuario text,
-  estadousuario boolean,
+  idadmin integer GENERATED ALWAYS AS IDENTITY NOT NULL,
   CONSTRAINT admin_pkey PRIMARY KEY (idusuario, idadmin),
   CONSTRAINT fk_admin_puede_ser_usuario FOREIGN KEY (idusuario) REFERENCES public.usuario(idusuario)
 );
 CREATE TABLE public.ambiente (
-  idambiente integer NOT NULL,
   idasignatura integer NOT NULL,
   idexamen integer NOT NULL,
   nombreambiente text,
   ubicacionambiente text,
   capacidadambiente integer,
+  idhorarioregular integer,
+  idaula integer NOT NULL,
+  horainicio time without time zone NOT NULL,
+  horafin time without time zone NOT NULL,
+  tipohorario character varying NOT NULL CHECK (tipohorario::text = ANY (ARRAY['REGULAR'::character varying, 'EVENTUAL'::character varying]::text[])),
+  idambiente integer NOT NULL DEFAULT nextval('ambiente_idambiente_seq'::regclass),
   CONSTRAINT ambiente_pkey PRIMARY KEY (idambiente),
-  CONSTRAINT fk_ambiente_examenamb_examen FOREIGN KEY (idasignatura) REFERENCES public.examen(idasignatura),
-  CONSTRAINT fk_ambiente_examenamb_examen FOREIGN KEY (idexamen) REFERENCES public.examen(idexamen)
+  CONSTRAINT fk_ambiente_aula FOREIGN KEY (idaula) REFERENCES public.aula(idaula),
+  CONSTRAINT fk_ambiente_horarioregular FOREIGN KEY (idhorarioregular) REFERENCES public.horarioregular(idhorarioregular),
+  CONSTRAINT fk_ambiente_examen FOREIGN KEY (idasignatura) REFERENCES public.examen(idasignatura),
+  CONSTRAINT fk_ambiente_examen FOREIGN KEY (idexamen) REFERENCES public.examen(idexamen)
 );
 CREATE TABLE public.asignatura (
   idasignatura integer NOT NULL,
@@ -36,15 +35,7 @@ CREATE TABLE public.asignatura (
 );
 CREATE TABLE public.ayudante (
   idusuario integer NOT NULL,
-  idayudante integer NOT NULL,
-  idcredencial integer,
-  ciusuario text,
-  nombreusuario text,
-  apellidousuario text,
-  telefonousuario integer,
-  correousuario text,
-  contraseniausuario text,
-  estadousuario boolean,
+  idayudante integer GENERATED ALWAYS AS IDENTITY NOT NULL,
   CONSTRAINT ayudante_pkey PRIMARY KEY (idusuario, idayudante),
   CONSTRAINT fk_ayudante_puede_ser_usuario FOREIGN KEY (idusuario) REFERENCES public.usuario(idusuario)
 );
@@ -82,14 +73,6 @@ CREATE TABLE public.credencial (
 CREATE TABLE public.docente (
   idusuario integer NOT NULL,
   codsisdocente integer NOT NULL,
-  idcredencial integer,
-  ciusuario text,
-  nombreusuario text,
-  apellidousuario text,
-  telefonousuario integer,
-  correousuario text,
-  contraseniausuario text,
-  estadousuario boolean,
   CONSTRAINT docente_pkey PRIMARY KEY (idusuario, codsisdocente),
   CONSTRAINT fk_docente_puede_ser_usuario FOREIGN KEY (idusuario) REFERENCES public.usuario(idusuario)
 );
@@ -105,14 +88,6 @@ CREATE TABLE public.docenteasignatura (
 CREATE TABLE public.estudiante (
   idusuario integer NOT NULL,
   codsisestudiante integer NOT NULL,
-  idcredencial integer,
-  ciusuario text,
-  nombreusuario text,
-  apellidousuario text,
-  telefonousuario integer,
-  correousuario text,
-  contraseniausuario text,
-  estadousuario boolean,
   idcambio integer,
   CONSTRAINT estudiante_pkey PRIMARY KEY (idusuario, codsisestudiante),
   CONSTRAINT fk_estudian_designado_cambioam FOREIGN KEY (idcambio) REFERENCES public.cambioambiente(idcambio),
@@ -160,10 +135,10 @@ CREATE TABLE public.habilitacion (
   CONSTRAINT fk_habilita_puede_ten_estudian FOREIGN KEY (codsisestudiante) REFERENCES public.estudiante(codsisestudiante)
 );
 CREATE TABLE public.historialauditoria (
-  idauditoria integer NOT NULL,
   idusuario integer,
   accion text,
-  fechaaccion date,
+  fechaaccion timestamp without time zone,
+  idauditoria integer GENERATED ALWAYS AS IDENTITY NOT NULL,
   CONSTRAINT historialauditoria_pkey PRIMARY KEY (idauditoria),
   CONSTRAINT fk_historia_puede_ten_usuario FOREIGN KEY (idusuario) REFERENCES public.usuario(idusuario)
 );
@@ -245,6 +220,57 @@ CREATE TABLE public.usuario (
   correousuario text,
   contraseniausuario text,
   estadousuario boolean,
+  intentos_fallidos integer NOT NULL DEFAULT 0,
+  fecha_bloqueo timestamp with time zone,
   CONSTRAINT usuario_pkey PRIMARY KEY (idusuario),
   CONSTRAINT fk_usuario_debe_tene_credenci FOREIGN KEY (idcredencial) REFERENCES public.credencial(idcredencial)
+);
+CREATE TABLE public.aula (
+  nombreaula text NOT NULL,
+  ubicacionaula text,
+  capacidadaula integer,
+  idaula integer NOT NULL DEFAULT nextval('aula_idaula_seq'::regclass),
+  estadoaula boolean NOT NULL DEFAULT true,
+  CONSTRAINT aula_pkey PRIMARY KEY (idaula)
+);
+CREATE TABLE public.horarioregular (
+  idusuario integer NOT NULL,
+  codsisdocente integer NOT NULL,
+  idasignatura integer NOT NULL,
+  idaula integer NOT NULL,
+  diasemana smallint NOT NULL CHECK (diasemana >= 1 AND diasemana <= 7),
+  horainicio time without time zone NOT NULL,
+  horafin time without time zone NOT NULL,
+  idhorarioregular integer NOT NULL DEFAULT nextval('horarioregular_idhorarioregular_seq'::regclass),
+  estadohorario boolean NOT NULL DEFAULT true,
+  CONSTRAINT horarioregular_pkey PRIMARY KEY (idhorarioregular),
+  CONSTRAINT fk_horarioregular_docenteasignatura FOREIGN KEY (idusuario) REFERENCES public.docenteasignatura(idusuario),
+  CONSTRAINT fk_horarioregular_docenteasignatura FOREIGN KEY (codsisdocente) REFERENCES public.docenteasignatura(codsisdocente),
+  CONSTRAINT fk_horarioregular_docenteasignatura FOREIGN KEY (idasignatura) REFERENCES public.docenteasignatura(idasignatura),
+  CONSTRAINT fk_horarioregular_aula FOREIGN KEY (idaula) REFERENCES public.aula(idaula)
+);
+CREATE TABLE public.normageneral (
+  descripcionnorma text NOT NULL,
+  idnormageneral integer NOT NULL DEFAULT nextval('normageneral_idnormageneral_seq'::regclass),
+  estadonorma boolean NOT NULL DEFAULT true,
+  CONSTRAINT normageneral_pkey PRIMARY KEY (idnormageneral)
+);
+CREATE TABLE public.examennormageneral (
+  idasignatura integer NOT NULL,
+  idexamen integer NOT NULL,
+  idnormageneral integer NOT NULL,
+  CONSTRAINT examennormageneral_pkey PRIMARY KEY (idasignatura, idexamen, idnormageneral),
+  CONSTRAINT fk_examennormageneral_examen FOREIGN KEY (idasignatura) REFERENCES public.examen(idasignatura),
+  CONSTRAINT fk_examennormageneral_examen FOREIGN KEY (idexamen) REFERENCES public.examen(idexamen),
+  CONSTRAINT fk_examennormageneral_norma FOREIGN KEY (idnormageneral) REFERENCES public.normageneral(idnormageneral)
+);
+CREATE TABLE public.normaespecifica (
+  idasignatura integer NOT NULL,
+  idexamen integer NOT NULL,
+  descripcionnorma text NOT NULL,
+  idnormaespecifica integer NOT NULL DEFAULT nextval('normaespecifica_idnormaespecifica_seq'::regclass),
+  fechacreacion timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT normaespecifica_pkey PRIMARY KEY (idnormaespecifica),
+  CONSTRAINT fk_normaespecifica_examen FOREIGN KEY (idasignatura) REFERENCES public.examen(idasignatura),
+  CONSTRAINT fk_normaespecifica_examen FOREIGN KEY (idexamen) REFERENCES public.examen(idexamen)
 );
