@@ -2,7 +2,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public class HabilitacionResponseDto {
 
@@ -19,7 +19,7 @@ public class HabilitacionResponseDto {
     private String descripcionMotivo;
     private String observacion;
     private String observacionHabilitacion;
-    private LocalDateTime fechaRegistro;
+    private LocalDate fechaRegistro;
 
     public HabilitacionResponseDto() {
     }
@@ -37,19 +37,17 @@ public class HabilitacionResponseDto {
         dto.setObservacionHabilitacion(h.getObservacionhabilitacion());
         dto.setFechaRegistro(h.getFecharegistro());
 
+        // ci/nombre/apellido del estudiante ya no viven en la tabla "estudiante"
+        // desde el rediseño de base de datos de sep-2026 (ahora solo están en
+        // "usuario"). Queda pendiente resolverlos vía UsuarioRepository con
+        // h.getEstudiante().getIdUsuario() si hace falta mostrarlos acá.
         if (h.getEstudiante() != null) {
             dto.setCodSisEstudiante(h.getEstudiante().getCodsisestudiante());
-            dto.setCiEstudiante(h.getEstudiante().getCi());
-            dto.setNombreEstudiante(h.getEstudiante().getNombre());
-            dto.setApellidoEstudiante(h.getEstudiante().getApellido());
         }
 
-        if (h.getMotivo() != null) {
-            dto.setMotivoId(h.getMotivo().getIdmotivo());
-            dto.setIdMotivo(h.getMotivo().getIdmotivo());
-            dto.setNombreMotivo(h.getMotivo().getNombremotivo());
-            dto.setDescripcionMotivo(h.getMotivo().getDescripcionmotivo());
-        }
+        // "habilitacion" ya no tiene relación con "motivoinhabilitacion" en la
+        // base rediseñada (ver Habilitacion.java) — motivoId/nombreMotivo/
+        // descripcionMotivo quedan sin poblar hasta que se rediseñe este flujo.
 
         return dto;
     }
@@ -158,11 +156,11 @@ public class HabilitacionResponseDto {
         this.observacionHabilitacion = observacionHabilitacion;
     }
 
-    public LocalDateTime getFechaRegistro() {
+    public LocalDate getFechaRegistro() {
         return fechaRegistro;
     }
 
-    public void setFechaRegistro(LocalDateTime fechaRegistro) {
+    public void setFechaRegistro(LocalDate fechaRegistro) {
         this.fechaRegistro = fechaRegistro;
     }
 }

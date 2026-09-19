@@ -2,7 +2,6 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ayudante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Docente;
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CredencialesInvalidasException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CuentaBloqueadaException;
@@ -12,51 +11,45 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudI
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.JwtTokenProvider;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteRepository;
-import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.LoginResponseDto;
-import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.RegistroEstudianteResponseDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.RegistroPendienteRespuestaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UsuarioRespuestaDto;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Optional;
-import java.util.regex.Pattern;
 
+/**
+ * NOTA (sep-2026): el auto-registro de estudiante (con foto + QR) se retiró
+ * de acá — la inge confirmó que el administrador es quien registra a TODOS
+ * los usuarios, incluidos los estudiantes (ver UsuarioService). Un
+ * estudiante que no fue registrado por el admin simplemente no existe en
+ * la base y su login falla con credenciales inválidas (criterio de
+ * aceptación correspondiente).
+ */
 @Service
 public class AuthService {
 
-    private static final Pattern CORREO_INSTITUCIONAL = Pattern.compile("(?i)@(est\\.)?umss\\.edu$");
-
     private final UsuarioRepository usuarioRepository;
-    private final EstudianteRepository estudianteRepository;
     private final DocenteRepository docenteRepository;
     private final AyudanteRepository ayudanteRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final CloudinaryService cloudinaryService;
-    private final QrService qrService;
     private final AuditoriaService auditoriaService;
     private final UsuarioRespuestaMapper usuarioRespuestaMapper;
     private final TipoUsuarioResolver tipoUsuarioResolver;
 
-    public AuthService(UsuarioRepository usuarioRepository, EstudianteRepository estudianteRepository,
-                        DocenteRepository docenteRepository, AyudanteRepository ayudanteRepository,
-                        PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider,
-                        CloudinaryService cloudinaryService, QrService qrService,
-                        AuditoriaService auditoriaService, UsuarioRespuestaMapper usuarioRespuestaMapper,
-                        TipoUsuarioResolver tipoUsuarioResolver) {
+    public AuthService(UsuarioRepository usuarioRepository, DocenteRepository docenteRepository,
+                        AyudanteRepository ayudanteRepository, PasswordEncoder passwordEncoder,
+                        JwtTokenProvider jwtTokenProvider, AuditoriaService auditoriaService,
+                        UsuarioRespuestaMapper usuarioRespuestaMapper, TipoUsuarioResolver tipoUsuarioResolver) {
         this.usuarioRepository = usuarioRepository;
-        this.estudianteRepository = estudianteRepository;
         this.docenteRepository = docenteRepository;
         this.ayudanteRepository = ayudanteRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
-        this.cloudinaryService = cloudinaryService;
-        this.qrService = qrService;
         this.auditoriaService = auditoriaService;
         this.usuarioRespuestaMapper = usuarioRespuestaMapper;
         this.tipoUsuarioResolver = tipoUsuarioResolver;
@@ -116,40 +109,6 @@ public class AuthService {
 
         UsuarioRespuestaDto usuarioDto = usuarioRespuestaMapper.mapear(usuario);
         return new LoginResponseDto(token, jwtTokenProvider.getExpiration(), usuarioDto);
-    }
-
-    @Transactional
-    public RegistroEstudianteResponseDto registrarEstudiante(String nombre, String apellido, String ci,
-                                                               String correo, String contrasena, Integer codigoSis,
-                                                               Integer telefono, MultipartFile foto) throws Exception {
-        if (!CORREO_INSTITUCIONAL.matcher(correo).find()) {
-            throw new SolicitudInvalidaException(
-                    "El correo debe ser institucional (dominio umss.edu o est.umss.edu).");
-        }
-        validarUnicidad(ci, correo);
-        if (foto == null || foto.isEmpty()) {
-            throw new SolicitudInvalidaException("La foto del estudiante es obligatoria.");
-        }
-
-        String fotoUrl = cloudinaryService.uploadImage(foto);
-
-        Usuario usuario = new Usuario(ci, nombre, apellido, telefono, correo,
-                passwordEncoder.encode(contrasena), true);
-        usuario = usuarioRepository.save(usuario);
-
-        String contenidoQr = "EST:" + ci + ":" + codigoSis;
-        String codigoQr = qrService.generarQrBase64(contenidoQr);
-
-        Estudiante estudiante = new Estudiante(codigoSis, ci, nombre, apellido,
-                usuario.getIdusuario(), fotoUrl, codigoQr);
-        estudiante = estudianteRepository.save(estudiante);
-
-        auditoriaService.registrar("REGISTRO_ESTUDIANTE", correo, correo,
-                "Auto-registro de estudiante con generación de código QR.", null);
-
-        return new RegistroEstudianteResponseDto("Estudiante registrado exitosamente", usuario.getIdusuario(),
-                estudiante.getCodsisestudiante(), nombre, apellido, ci, correo, codigoSis,
-                TipoUsuarioResolver.ESTUDIANTE, fotoUrl, codigoQr);
     }
 
     @Transactional

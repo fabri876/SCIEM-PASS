@@ -13,11 +13,18 @@ public class Docente {
     @Column(name = "codsisdocente")
     private Integer codsisdocente;
 
+    // NOT NULL en la base nueva (rediseño de sep-2026). Se sigue usando
+    // codsisdocente == idusuario (mismo patrón de siempre) para no romper
+    // RegistroUsuarioService.
+    @Column(name = "idusuario", nullable = false)
+    private Integer idusuario;
+
     public Docente() {
     }
 
-    public Docente(Integer codsisdocente) {
-        this.codsisdocente = codsisdocente;
+    public Docente(Integer idusuario) {
+        this.codsisdocente = idusuario;
+        this.idusuario = idusuario;
     }
 
     public Integer getCodsisdocente() {
@@ -26,5 +33,13 @@ public class Docente {
 
     public void setCodsisdocente(Integer codsisdocente) {
         this.codsisdocente = codsisdocente;
+    }
+
+    public Integer getIdusuario() {
+        return idusuario;
+    }
+
+    public void setIdusuario(Integer idusuario) {
+        this.idusuario = idusuario;
     }
 }
