@@ -3,6 +3,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Admin;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ayudante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Docente;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoDuplicadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
@@ -10,6 +11,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudI
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AdminRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ActualizarUsuarioDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CrearUsuarioDto;
@@ -24,30 +26,36 @@ import java.util.Set;
 @Service
 public class UsuarioService {
 
-    // El admin crea directamente cuentas de staff. Estudiante no está acá
-    // porque su alta es siempre auto-registro (con foto + QR, ver AuthService).
+    // El admin ahora registra TODOS los roles, incluido ESTUDIANTE (la inge
+    // confirmó que el estudiante ya no se autorregistra).
     private static final Set<String> ROLES_CREABLES_POR_ADMIN = Set.of(
-            TipoUsuarioResolver.ADMINISTRADOR, TipoUsuarioResolver.DOCENTE, TipoUsuarioResolver.OPERADOR);
+            TipoUsuarioResolver.ADMINISTRADOR, TipoUsuarioResolver.DOCENTE,
+            TipoUsuarioResolver.OPERADOR, TipoUsuarioResolver.ESTUDIANTE);
 
     private final UsuarioRepository usuarioRepository;
     private final AdminRepository adminRepository;
     private final DocenteRepository docenteRepository;
     private final AyudanteRepository ayudanteRepository;
+    private final EstudianteRepository estudianteRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoriaService;
     private final UsuarioRespuestaMapper usuarioRespuestaMapper;
+    private final TipoUsuarioResolver tipoUsuarioResolver;
 
     public UsuarioService(UsuarioRepository usuarioRepository, AdminRepository adminRepository,
                            DocenteRepository docenteRepository, AyudanteRepository ayudanteRepository,
-                           PasswordEncoder passwordEncoder, AuditoriaService auditoriaService,
-                           UsuarioRespuestaMapper usuarioRespuestaMapper) {
+                           EstudianteRepository estudianteRepository, PasswordEncoder passwordEncoder,
+                           AuditoriaService auditoriaService, UsuarioRespuestaMapper usuarioRespuestaMapper,
+                           TipoUsuarioResolver tipoUsuarioResolver) {
         this.usuarioRepository = usuarioRepository;
         this.adminRepository = adminRepository;
         this.docenteRepository = docenteRepository;
         this.ayudanteRepository = ayudanteRepository;
+        this.estudianteRepository = estudianteRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditoriaService = auditoriaService;
         this.usuarioRespuestaMapper = usuarioRespuestaMapper;
+        this.tipoUsuarioResolver = tipoUsuarioResolver;
     }
 
     public List<UsuarioRespuestaDto> listar(String rol, Boolean estado, String busqueda) {
@@ -67,22 +75,83 @@ public class UsuarioService {
     public UsuarioRespuestaDto crear(CrearUsuarioDto dto, String executorCorreo, String ip) {
         String rolNormalizado = validarRolCreable(dto.getRol());
         validarUnicidad(dto.getCi(), dto.getCorreo());
+        validarCodigoDisponible(rolNormalizado, dto.getCodigoSis());
 
         Usuario usuario = new Usuario(dto.getCi(), dto.getNombre(), dto.getApellido(), dto.getTelefono(),
                 dto.getCorreo(), passwordEncoder.encode(dto.getContrasena()), true);
         usuario = usuarioRepository.save(usuario);
 
-        switch (rolNormalizado) {
-            case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.save(new Admin(usuario.getIdusuario()));
-            case TipoUsuarioResolver.DOCENTE -> docenteRepository.save(new Docente(usuario.getIdusuario(), usuario.getIdusuario()));
-            case TipoUsuarioResolver.OPERADOR -> ayudanteRepository.save(new Ayudante(usuario.getIdusuario()));
-            default -> throw new SolicitudInvalidaException("Rol no soportado: " + rolNormalizado);
-        }
+        crearFilaTablaHija(rolNormalizado, usuario.getIdusuario(), dto.getCodigoSis());
 
         auditoriaService.registrar("CREACION_USUARIO", executorCorreo, dto.getCorreo(),
                 "El administrador creó una cuenta con rol " + rolNormalizado + ".", ip);
 
         return usuarioRespuestaMapper.mapear(usuario);
+    }
+
+    @Transactional
+    public UsuarioRespuestaDto cambiarRol(Integer id, String nuevoRol, Integer codigoSis,
+                                           String executorCorreo, String ip) {
+        Usuario usuario = buscarOLanzar(id);
+        String nuevoRolNormalizado = validarRolCreable(nuevoRol);
+        validarCodigoDisponible(nuevoRolNormalizado, codigoSis);
+
+        String rolActual = tipoUsuarioResolver.resolver(id);
+        if (nuevoRolNormalizado.equals(rolActual)) {
+            throw new SolicitudInvalidaException("El usuario ya tiene el rol " + nuevoRolNormalizado + ".");
+        }
+
+        eliminarFilaTablaHija(rolActual, id);
+        crearFilaTablaHija(nuevoRolNormalizado, id, codigoSis);
+
+        auditoriaService.registrar("CAMBIO_ROL", executorCorreo, usuario.getCorreousuario(),
+                "Rol cambiado de " + rolActual + " a " + nuevoRolNormalizado + ".", ip);
+
+        return usuarioRespuestaMapper.mapear(usuario);
+    }
+
+    private void crearFilaTablaHija(String rol, Integer idUsuario, Integer codigoSis) {
+        switch (rol) {
+            case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.save(new Admin(idUsuario));
+            case TipoUsuarioResolver.DOCENTE -> docenteRepository.save(new Docente(idUsuario, codigoSis));
+            case TipoUsuarioResolver.OPERADOR -> ayudanteRepository.save(new Ayudante(idUsuario));
+            case TipoUsuarioResolver.ESTUDIANTE -> estudianteRepository.save(new Estudiante(idUsuario, codigoSis));
+            default -> throw new SolicitudInvalidaException("Rol no soportado: " + rol);
+        }
+    }
+
+    private void eliminarFilaTablaHija(String rol, Integer idUsuario) {
+        switch (rol) {
+            case TipoUsuarioResolver.ADMINISTRADOR ->
+                    adminRepository.findByIdusuario(idUsuario).ifPresent(adminRepository::delete);
+            case TipoUsuarioResolver.DOCENTE ->
+                    docenteRepository.findByIdusuario(idUsuario).ifPresent(docenteRepository::delete);
+            case TipoUsuarioResolver.OPERADOR ->
+                    ayudanteRepository.findByIdusuario(idUsuario).ifPresent(ayudanteRepository::delete);
+            case TipoUsuarioResolver.ESTUDIANTE ->
+                    estudianteRepository.findByIdusuario(idUsuario).ifPresent(estudianteRepository::delete);
+            default -> throw new SolicitudInvalidaException("Rol no soportado: " + rol);
+        }
+    }
+
+    // Estudiante y Docente tienen cada uno su propio código (codsisestudiante /
+    // codsisdocente) en la tabla hija, no relacionados entre sí.
+    private void validarCodigoDisponible(String rol, Integer codigoSis) {
+        if (rol.equals(TipoUsuarioResolver.ESTUDIANTE)) {
+            if (codigoSis == null) {
+                throw new SolicitudInvalidaException("El código SIS es obligatorio para el rol ESTUDIANTE.");
+            }
+            if (estudianteRepository.findByCodsisestudiante(codigoSis).isPresent()) {
+                throw new RecursoDuplicadoException("Ya existe un estudiante registrado con el código SIS " + codigoSis + ".");
+            }
+        } else if (rol.equals(TipoUsuarioResolver.DOCENTE)) {
+            if (codigoSis == null) {
+                throw new SolicitudInvalidaException("El código SIS es obligatorio para el rol DOCENTE.");
+            }
+            if (docenteRepository.findByCodsisdocente(codigoSis).isPresent()) {
+                throw new RecursoDuplicadoException("Ya existe un docente registrado con el código SIS " + codigoSis + ".");
+            }
+        }
     }
 
     @Transactional
@@ -141,7 +210,7 @@ public class UsuarioService {
         String rolNormalizado = rol == null ? "" : rol.trim().toUpperCase();
         if (!ROLES_CREABLES_POR_ADMIN.contains(rolNormalizado)) {
             throw new SolicitudInvalidaException(
-                    "El rol debe ser ADMINISTRADOR, DOCENTE u OPERADOR (los estudiantes se auto-registran).");
+                    "El rol debe ser ADMINISTRADOR, DOCENTE, OPERADOR o ESTUDIANTE.");
         }
         return rolNormalizado;
     }

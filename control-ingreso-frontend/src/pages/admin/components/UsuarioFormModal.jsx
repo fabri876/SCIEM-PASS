@@ -1,48 +1,89 @@
 import React, { useState, useEffect } from "react";
 import VentanaEmergente from "../../../components/common/VentanaEmergente";
 import FormField from "../../../components/common/FormField";
+import usePasswordVisibility from "../../../hooks/usePasswordVisibility";
 
-const ROLES_CREABLES = ["ADMINISTRADOR", "DOCENTE", "OPERADOR"];
+const ROLES_CREABLES = [
+  { valor: "ADMINISTRADOR", etiqueta: "Administrador" },
+  { valor: "DOCENTE", etiqueta: "Docente" },
+  { valor: "OPERADOR", etiqueta: "Ayudante" },
+  { valor: "ESTUDIANTE", etiqueta: "Estudiante" },
+];
+
+// Roles cuya tabla hija guarda un código propio (codsisdocente /
+// codsisestudiante) además de idusuario.
+const ROLES_CON_CODIGO_SIS = ["DOCENTE", "ESTUDIANTE"];
 
 const VALORES_INICIALES = {
-  nombre: "",
-  apellido: "",
+  primerNombre: "",
+  segundoNombre: "",
+  apellidoPaterno: "",
+  apellidoMaterno: "",
   ci: "",
   correo: "",
   contrasena: "",
   telefono: "",
   rol: "DOCENTE",
+  codigoSis: "",
 };
+
+// Separa "nombre"/"apellido" (como vienen de la API, un solo campo) en los
+// 2 sub-campos del formulario. Si el usuario original tenía un solo nombre,
+// el segundo queda vacío.
+function dividirEnDos(strCompleto) {
+  const partes = (strCompleto || "").trim().split(/\s+/);
+  return [partes[0] || "", partes.slice(1).join(" ")];
+}
 
 /**
  * Modal de "Nuevo Usuario" / "Editar Usuario" del panel de administración
- * (HU16). En modo "crear" pega a POST /api/admin/usuarios (pide CI,
- * contraseña y rol). En modo "editar" pega a PUT /api/admin/usuarios/{id}
- * (solo datos básicos: el rol y la contraseña no se pueden cambiar acá,
- * ver docs/Contrato-API-HU-Usuarios-Roles-Auditoria.md).
+ * (HU16). Mismos campos, iconos y estilo que RegistroForm.jsx (pedido por
+ * la inge para que ambos formularios se vean igual), adaptado a lo que el
+ * backend espera: primerNombre+segundoNombre -> nombre, apellidoPaterno+
+ * apellidoMaterno -> apellido.
+ *
+ * El admin ahora registra los 4 roles. Docente y Estudiante piden además su
+ * propio "Código SIS" (codsisdocente / codsisestudiante en la tabla hija,
+ * cada uno independiente del otro).
+ *
+ * En modo "editar" también se puede cambiar el rol: si el admin lo cambia,
+ * onGuardar recibe además "rolCambio" para que quien llame dispare el
+ * endpoint de cambiar rol (PATCH /api/admin/usuarios/{id}/rol), separado
+ * del PUT de datos básicos.
  */
 export default function UsuarioFormModal({ boolAbierto, modo, usuarioInicial, onCerrar, onGuardar }) {
   const [objFormData, setObjFormData] = useState(VALORES_INICIALES);
+  const [strRolOriginal, setStrRolOriginal] = useState(null);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strError, setStrError] = useState("");
 
+  const { boolShowPassword, fnToggleShowPassword, strInputType } = usePasswordVisibility();
+
   const boolEsEdicion = modo === "editar";
+  const boolPideCodigoSis = ROLES_CON_CODIGO_SIS.includes(objFormData.rol);
 
   useEffect(() => {
     if (!boolAbierto) return;
     setStrError("");
     if (boolEsEdicion && usuarioInicial) {
+      const [primerNombre, segundoNombre] = dividirEnDos(usuarioInicial.nombre);
+      const [apellidoPaterno, apellidoMaterno] = dividirEnDos(usuarioInicial.apellido);
       setObjFormData({
-        nombre: usuarioInicial.nombre || "",
-        apellido: usuarioInicial.apellido || "",
+        primerNombre,
+        segundoNombre,
+        apellidoPaterno,
+        apellidoMaterno,
         ci: usuarioInicial.ci || "",
         correo: usuarioInicial.correo || "",
         contrasena: "",
         telefono: usuarioInicial.telefono || "",
         rol: usuarioInicial.rol || "DOCENTE",
+        codigoSis: "",
       });
+      setStrRolOriginal(usuarioInicial.rol || null);
     } else {
       setObjFormData(VALORES_INICIALES);
+      setStrRolOriginal(null);
     }
   }, [boolAbierto, boolEsEdicion, usuarioInicial]);
 
@@ -56,23 +97,31 @@ export default function UsuarioFormModal({ boolAbierto, modo, usuarioInicial, on
     setBoolIsSubmitting(true);
     try {
       const intTelefono = objFormData.telefono ? Number(objFormData.telefono) : null;
+      const strNombre = [objFormData.primerNombre, objFormData.segundoNombre].filter(Boolean).join(" ");
+      const strApellido = [objFormData.apellidoPaterno, objFormData.apellidoMaterno].filter(Boolean).join(" ");
+      const intCodigoSis = objFormData.codigoSis ? Number(objFormData.codigoSis) : null;
 
       if (boolEsEdicion) {
+        const boolRolCambio = strRolOriginal && objFormData.rol !== strRolOriginal;
         await onGuardar({
-          nombre: objFormData.nombre,
-          apellido: objFormData.apellido,
+          nombre: strNombre,
+          apellido: strApellido,
           correo: objFormData.correo,
           telefono: intTelefono,
+          rolCambio: boolRolCambio
+            ? { nuevoRol: objFormData.rol, codigoSis: boolPideCodigoSis ? intCodigoSis : null }
+            : null,
         });
       } else {
         await onGuardar({
-          nombre: objFormData.nombre,
-          apellido: objFormData.apellido,
+          nombre: strNombre,
+          apellido: strApellido,
           ci: objFormData.ci,
           correo: objFormData.correo,
           contrasena: objFormData.contrasena,
           telefono: intTelefono,
           rol: objFormData.rol,
+          codigoSis: boolPideCodigoSis ? intCodigoSis : null,
         });
       }
     } catch (error) {
@@ -84,14 +133,14 @@ export default function UsuarioFormModal({ boolAbierto, modo, usuarioInicial, on
 
   return (
     <VentanaEmergente boolAbierto={boolAbierto} onCerrar={onCerrar}>
-      <div className="p-6 bg-bg-card rounded-2xl">
+      <div className="p-6 bg-bg-card rounded-2xl max-h-[85vh] overflow-y-auto">
         <h2 className="text-sub font-extrabold text-primary-navy mb-1">
           {boolEsEdicion ? "Editar usuario" : "Nuevo usuario"}
         </h2>
         <p className="text-secondary text-text-body/70 mb-5">
           {boolEsEdicion
-            ? "Actualiza los datos básicos de la cuenta."
-            : "Se crea con estado ACTIVO de inmediato (los estudiantes se auto-registran, no se crean acá)."}
+            ? "Actualiza los datos básicos y, si hace falta, el rol de la cuenta."
+            : "Se crea con estado ACTIVO de inmediato."}
         </p>
 
         {strError && (
@@ -101,72 +150,169 @@ export default function UsuarioFormModal({ boolAbierto, modo, usuarioInicial, on
         )}
 
         <form onSubmit={fnManejarEnvio} className="grid grid-cols-2 gap-4">
-          <FormField
-            label="Nombre"
-            value={objFormData.nombre}
-            onChange={fnActualizarCampo("nombre")}
-            required
-          />
-          <FormField
-            label="Apellido"
-            value={objFormData.apellido}
-            onChange={fnActualizarCampo("apellido")}
-            required
-          />
+          <div className="col-span-2">
+            <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
+              Nombres
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                placeholder="Primer nombre"
+                aria-label="Primer nombre"
+                value={objFormData.primerNombre}
+                onChange={fnActualizarCampo("primerNombre")}
+                required
+              />
+              <FormField
+                placeholder="Segundo nombre (si tiene)"
+                aria-label="Segundo nombre"
+                value={objFormData.segundoNombre}
+                onChange={fnActualizarCampo("segundoNombre")}
+              />
+            </div>
+          </div>
 
-          {!boolEsEdicion && (
-            <FormField
-              label="Carnet de Identidad"
-              value={objFormData.ci}
-              onChange={fnActualizarCampo("ci")}
-              required
-            />
-          )}
+          <div className="col-span-2">
+            <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
+              Apellidos
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                placeholder="Apellido paterno"
+                aria-label="Apellido paterno"
+                value={objFormData.apellidoPaterno}
+                onChange={fnActualizarCampo("apellidoPaterno")}
+                required
+              />
+              <FormField
+                placeholder="Apellido materno"
+                aria-label="Apellido materno"
+                value={objFormData.apellidoMaterno}
+                onChange={fnActualizarCampo("apellidoMaterno")}
+              />
+            </div>
+          </div>
+
+          <FormField
+            label="Teléfono"
+            type="tel"
+            placeholder="Ej. 71234567"
+            value={objFormData.telefono}
+            onChange={fnActualizarCampo("telefono")}
+            className="col-span-2"
+            icon={
+              <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
+                <path d="M6 3h4l2 5-3 2a13 13 0 0 0 5 5l2-3 5 2v4c0 1-1 2-2 2C10 20 4 14 4 5c0-1 1-2 2-2Z" />
+              </svg>
+            }
+          />
 
           <FormField
             label="Correo"
             type="email"
+            placeholder="ejemplo@dominio.com"
             value={objFormData.correo}
             onChange={fnActualizarCampo("correo")}
             required
-            className={boolEsEdicion ? "col-span-2" : ""}
+            className="col-span-2"
+            icon={
+              <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="m4 7 8 6 8-6" />
+              </svg>
+            }
           />
 
           {!boolEsEdicion && (
             <FormField
               label="Contraseña temporal"
-              type="password"
+              type={strInputType}
+              placeholder="Mínimo 8 caracteres"
               value={objFormData.contrasena}
               onChange={fnActualizarCampo("contrasena")}
               required
+              icon={
+                <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
+                  <rect x="5" y="10" width="14" height="10" rx="2" />
+                  <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                </svg>
+              }
+              endAdornment={
+                <button
+                  type="button"
+                  aria-label={boolShowPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  onClick={fnToggleShowPassword}
+                  className="w-[22px] h-[22px] text-primary-navy"
+                >
+                  <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.7]">
+                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+                    <circle cx="12" cy="12" r="2.5" />
+                  </svg>
+                </button>
+              }
             />
           )}
 
-          <FormField
-            label="Teléfono"
-            type="tel"
-            value={objFormData.telefono}
-            onChange={fnActualizarCampo("telefono")}
-          />
-
           {!boolEsEdicion && (
-            <div className="col-span-2">
-              <label className="block text-secondary font-extrabold text-primary-navy mb-1.5">
-                Rol
-              </label>
-              <select
-                value={objFormData.rol}
-                onChange={fnActualizarCampo("rol")}
-                className="h-12 w-full border border-border rounded-xl bg-bg-card px-3 text-secondary text-text-body outline-none focus:border-primary-blue focus:ring-4 focus:ring-primary-blue/10 transition-colors"
-              >
-                {ROLES_CREABLES.map((rol) => (
-                  <option key={rol} value={rol}>
-                    {rol}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <FormField
+              label="Carnet de Identidad"
+              placeholder="Ej. 12345678"
+              value={objFormData.ci}
+              onChange={fnActualizarCampo("ci")}
+              required
+              icon={
+                <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <circle cx="8" cy="12" r="2" />
+                  <path d="M12 10h6M12 14h4" />
+                </svg>
+              }
+            />
           )}
+
+          {boolPideCodigoSis && (
+            <FormField
+              label="Código SIS"
+              placeholder="Ej. 123456"
+              value={objFormData.codigoSis}
+              onChange={fnActualizarCampo("codigoSis")}
+              required
+              className={boolEsEdicion ? "col-span-2" : ""}
+              icon={
+                <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
+                  <rect x="3" y="6" width="18" height="12" rx="2" />
+                  <path d="M7 10h4M7 14h7" />
+                </svg>
+              }
+            />
+          )}
+
+          <div className="col-span-2">
+            <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
+              Rol
+            </label>
+            <div className="min-h-12 flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
+              {ROLES_CREABLES.map((opcion) => (
+                <label
+                  key={opcion.valor}
+                  className="flex items-center gap-2.5 text-[#173F77] text-[15px] font-semibold cursor-pointer"
+                >
+                  <input
+                    type="radio"
+                    name="rol"
+                    className="w-[19px] h-[19px] border-2 border-[#7190B7] accent-primary-blue"
+                    checked={objFormData.rol === opcion.valor}
+                    onChange={() => setObjFormData((prev) => ({ ...prev, rol: opcion.valor }))}
+                  />
+                  {opcion.etiqueta}
+                </label>
+              ))}
+            </div>
+            {boolEsEdicion && strRolOriginal && objFormData.rol !== strRolOriginal && (
+              <p className="mt-2 text-badge font-semibold text-accent-gold">
+                Al guardar, se moverá la cuenta de {strRolOriginal} a {objFormData.rol} y quedará registrado en auditoría.
+              </p>
+            )}
+          </div>
 
           <div className="col-span-2 flex justify-end gap-3 mt-2">
             <button
