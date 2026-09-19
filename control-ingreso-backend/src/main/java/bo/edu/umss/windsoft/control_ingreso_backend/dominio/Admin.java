@@ -13,11 +13,19 @@ public class Admin {
     @Column(name = "idadmin")
     private Integer idadmin;
 
+    // NOT NULL en la base nueva (rediseño de sep-2026): la fila de "admin" ya
+    // no comparte automáticamente el id del usuario como en el esquema viejo,
+    // ahora hay que guardarlo explícito. Se sigue usando idadmin == idusuario
+    // (mismo patrón de siempre) para no romper RegistroUsuarioService.
+    @Column(name = "idusuario", nullable = false)
+    private Integer idusuario;
+
     public Admin() {
     }
 
-    public Admin(Integer idadmin) {
-        this.idadmin = idadmin;
+    public Admin(Integer idusuario) {
+        this.idadmin = idusuario;
+        this.idusuario = idusuario;
     }
 
     public Integer getIdadmin() {
@@ -26,5 +34,13 @@ public class Admin {
 
     public void setIdadmin(Integer idadmin) {
         this.idadmin = idadmin;
+    }
+
+    public Integer getIdusuario() {
+        return idusuario;
+    }
+
+    public void setIdusuario(Integer idusuario) {
+        this.idusuario = idusuario;
     }
 }

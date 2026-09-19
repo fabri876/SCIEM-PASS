@@ -1,6 +1,6 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,50 +11,68 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "habilitacion")
 public class Habilitacion {
 
+    // Sin IDENTITY/sequence en la base real (ver Usuario.java) — se usa una
+    // sequence propia creada a mano.
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "habilitacion_seq")
+    @SequenceGenerator(name = "habilitacion_seq", sequenceName = "habilitacion_idhabilitacion_seq", allocationSize = 1)
     @Column(name = "idhabilitacion")
     private Integer idhabilitacion;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "codsisestudiante", referencedColumnName = "codsisestudiante", nullable = false)
+    @JoinColumn(name = "codsisestudiante", referencedColumnName = "codsisestudiante")
     private Estudiante estudiante;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "idmotivo", referencedColumnName = "idmotivo", nullable = false)
-    private MotivoInhabilitacion motivo;
+    // La base nueva (rediseño de sep-2026) quitó la columna "idmotivo": la
+    // tabla "habilitacion" ya no referencia a "motivoinhabilitacion", ahora
+    // referencia directo a un examen/asignatura/usuario. Se removió el
+    // ManyToOne a MotivoInhabilitacion (la columna ya no existe) y se
+    // agregaron estas 3 columnas nuevas como campos simples. Esto es lo
+    // mínimo para que el backend arranque; el significado real de
+    // "habilitación" cambió (antes: estudiante inhabilitado con un motivo;
+    // ahora: aparenta ser habilitación por examen) y debe revisarlo quien
+    // tenga esa HU.
+    @Column(name = "idexamen")
+    private Integer idExamen;
 
-    @Column(name = "estadohabilitacion", nullable = false)
+    @Column(name = "idasignatura")
+    private Integer idAsignatura;
+
+    @Column(name = "idusuario")
+    private Integer idUsuario;
+
+    @Column(name = "estadohabilitacion")
     private Boolean estadohabilitacion;
 
     @Column(name = "observacionhabilitacion")
     private String observacionhabilitacion;
 
-    @Column(name = "fecharegistro", nullable = false)
-    private LocalDateTime fecharegistro;
+    // La base nueva (rediseño de sep-2026) guarda esta columna como DATE, sin hora.
+    @Column(name = "fecharegistro")
+    private LocalDate fecharegistro;
 
     @PrePersist
     public void prePersist() {
         if (this.fecharegistro == null) {
-            this.fecharegistro = LocalDateTime.now();
+            this.fecharegistro = LocalDate.now();
         }
     }
 
     public Habilitacion() {
     }
 
-    public Habilitacion(Estudiante estudiante, MotivoInhabilitacion motivo, Boolean estadohabilitacion, String observacionhabilitacion) {
+    public Habilitacion(Estudiante estudiante, Boolean estadohabilitacion, String observacionhabilitacion) {
         this.estudiante = estudiante;
-        this.motivo = motivo;
         this.estadohabilitacion = estadohabilitacion;
         this.observacionhabilitacion = observacionhabilitacion;
-        this.fecharegistro = LocalDateTime.now();
+        this.fecharegistro = LocalDate.now();
     }
 
     public Integer getIdhabilitacion() {
@@ -73,12 +91,28 @@ public class Habilitacion {
         this.estudiante = estudiante;
     }
 
-    public MotivoInhabilitacion getMotivo() {
-        return motivo;
+    public Integer getIdExamen() {
+        return idExamen;
     }
 
-    public void setMotivo(MotivoInhabilitacion motivo) {
-        this.motivo = motivo;
+    public void setIdExamen(Integer idExamen) {
+        this.idExamen = idExamen;
+    }
+
+    public Integer getIdAsignatura() {
+        return idAsignatura;
+    }
+
+    public void setIdAsignatura(Integer idAsignatura) {
+        this.idAsignatura = idAsignatura;
+    }
+
+    public Integer getIdUsuario() {
+        return idUsuario;
+    }
+
+    public void setIdUsuario(Integer idUsuario) {
+        this.idUsuario = idUsuario;
     }
 
     public Boolean getEstadohabilitacion() {
@@ -97,11 +131,11 @@ public class Habilitacion {
         this.observacionhabilitacion = observacionhabilitacion;
     }
 
-    public LocalDateTime getFecharegistro() {
+    public LocalDate getFecharegistro() {
         return fecharegistro;
     }
 
-    public void setFecharegistro(LocalDateTime fecharegistro) {
+    public void setFecharegistro(LocalDate fecharegistro) {
         this.fecharegistro = fecharegistro;
     }
 }
