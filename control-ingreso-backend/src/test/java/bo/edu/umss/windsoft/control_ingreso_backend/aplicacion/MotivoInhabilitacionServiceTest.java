@@ -101,4 +101,29 @@ class MotivoInhabilitacionServiceTest {
         assertEquals("El nombre del motivo es obligatorio", ex.getMessage());
         verify(motivoRepository, never()).save(any(MotivoInhabilitacion.class));
     }
+
+    @Test
+    void testActualizarMotivoExitoso() {
+        MotivoInhabilitacion existente = new MotivoInhabilitacion(1, "Viejo nombre", "Vieja desc");
+        MotivoInhabilitacionRequestDto request = new MotivoInhabilitacionRequestDto("Nuevo nombre", "Nueva desc");
+
+        when(motivoRepository.findById(1)).thenReturn(Optional.of(existente));
+        when(motivoRepository.save(any(MotivoInhabilitacion.class))).thenAnswer(i -> i.getArgument(0));
+
+        MotivoInhabilitacionResponseDto res = motivoService.actualizarMotivo(1, request);
+
+        assertNotNull(res);
+        assertEquals("Nuevo nombre", res.getNombreMotivo());
+        assertEquals("Nueva desc", res.getDescripcionMotivo());
+    }
+
+    @Test
+    void testEliminarMotivoExitoso() {
+        when(motivoRepository.existsById(1)).thenReturn(true);
+
+        assertDoesNotThrow(() -> motivoService.eliminarMotivo(1));
+
+        verify(motivoRepository, times(1)).deleteById(1);
+    }
 }
+

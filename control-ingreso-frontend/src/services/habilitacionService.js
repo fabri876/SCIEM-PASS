@@ -65,3 +65,31 @@ export async function crearMotivoInhabilitacion({ nombreMotivo, descripcionMotiv
         throw error;
     }
 }
+
+/**
+ * Actualiza el estado de habilitación u observación de un estudiante por su idHabilitacion.
+ */
+export async function actualizarHabilitacion(idHabilitacion, { estadoHabilitacion, observacionHabilitacion, idMotivo }) {
+    try {
+        const response = await fetch(`${strApiBaseUrl}/api/habilitaciones/${idHabilitacion}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                estadoHabilitacion,
+                observacionHabilitacion: estadoHabilitacion ? null : (observacionHabilitacion || null),
+                idMotivo
+            })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.mensaje || `Error ${response.status}: No se pudo actualizar la habilitación`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("Error en actualizarHabilitacion:", error);
+        throw error;
+    }
+}
+

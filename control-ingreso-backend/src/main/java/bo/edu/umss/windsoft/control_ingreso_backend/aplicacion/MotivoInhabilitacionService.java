@@ -50,4 +50,29 @@ public class MotivoInhabilitacionService {
 
         return MotivoInhabilitacionResponseDto.fromEntity(guardado);
     }
+
+    @Transactional
+    public MotivoInhabilitacionResponseDto actualizarMotivo(Integer id, MotivoInhabilitacionRequestDto request) {
+        MotivoInhabilitacion motivo = motivoRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el motivo de inhabilitación con ID: " + id));
+
+        if (request == null || request.getNombreMotivo() == null || request.getNombreMotivo().trim().isEmpty()) {
+            throw new SolicitudInvalidaException("El nombre del motivo es obligatorio");
+        }
+
+        motivo.setNombremotivo(request.getNombreMotivo().trim());
+        motivo.setDescripcionmotivo(request.getDescripcionMotivo() != null ? request.getDescripcionMotivo().trim() : null);
+
+        MotivoInhabilitacion guardado = motivoRepository.save(motivo);
+        return MotivoInhabilitacionResponseDto.fromEntity(guardado);
+    }
+
+    @Transactional
+    public void eliminarMotivo(Integer id) {
+        if (!motivoRepository.existsById(id)) {
+            throw new RecursoNoEncontradoException("No se encontró el motivo de inhabilitación con ID: " + id);
+        }
+        motivoRepository.deleteById(id);
+    }
 }
+
