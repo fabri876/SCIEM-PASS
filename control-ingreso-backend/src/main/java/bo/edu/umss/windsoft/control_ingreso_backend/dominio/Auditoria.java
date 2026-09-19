@@ -2,31 +2,16 @@ package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-/**
- * Mapea la tabla "historialauditoria" del nuevo esquema de base de datos
- * (reemplazó a la tabla "auditoria" original). Es más simple que el diseño
- * anterior: solo tiene un idusuario (no distingue ejecutor de afectado) y
- * fechaaccion es DATE, no timestamp (sin hora exacta). AuditoriaService
- * compensa parte de esa pérdida de detalle empaquetando toda la info en el
- * campo "accion".
- */
 @Entity
 @Table(name = "historialauditoria")
 public class Auditoria {
 
-    // Sin IDENTITY/sequence en la base real (ver Usuario.java) — se usa una
-    // sequence propia creada a mano.
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "historialauditoria_seq")
-    @SequenceGenerator(name = "historialauditoria_seq", sequenceName = "historialauditoria_idauditoria_seq", allocationSize = 1)
     @Column(name = "idauditoria")
     private Integer idAuditoria;
 
@@ -36,17 +21,19 @@ public class Auditoria {
     @Column(name = "accion")
     private String accion;
 
+    // Ampliada de DATE a TIMESTAMP (ver instrucciones SQL) para poder cumplir
+    // el criterio de "fecha/hora exacta" de la auditoría.
     @Column(name = "fechaaccion")
-    private LocalDate fechaAccion;
+    private LocalDateTime fechaAccion;
 
     public Auditoria() {
-        this.fechaAccion = LocalDate.now();
+        this.fechaAccion = LocalDateTime.now();
     }
 
     public Auditoria(Integer idUsuario, String accion) {
         this.idUsuario = idUsuario;
         this.accion = accion;
-        this.fechaAccion = LocalDate.now();
+        this.fechaAccion = LocalDateTime.now();
     }
 
     public Integer getIdAuditoria() {
@@ -73,11 +60,11 @@ public class Auditoria {
         this.accion = accion;
     }
 
-    public LocalDate getFechaAccion() {
+    public LocalDateTime getFechaAccion() {
         return fechaAccion;
     }
 
-    public void setFechaAccion(LocalDate fechaAccion) {
+    public void setFechaAccion(LocalDateTime fechaAccion) {
         this.fechaAccion = fechaAccion;
     }
 }

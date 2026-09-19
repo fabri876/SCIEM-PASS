@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol } from "./services/authService";
+import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, registrarActividad, estaSesionExpirada, cerrarSesion } from "./services/authService";
 
 // Páginas comunes
 import RegistroPage from "./pages/RegistroPage";
@@ -39,7 +39,7 @@ function RutaPublica({ children }) {
 
 /**
  * Componente Guard para Rutas Protegidas según Rol.
- * Si no está autenticado, lo redirige al Login.
+ * Si no está autenticado o la sesión expiró (30 min de inactividad), lo redirige al Login.
  * Si el rol no coincide con el permitido, lo redirige a su home correspondiente.
  */
 function RutaProtegida({ children, listRolesPermitidos }) {
@@ -59,6 +59,34 @@ function RutaProtegida({ children, listRolesPermitidos }) {
 }
 
 function App() {
+  useEffect(() => {
+    const manejarActividad = () => {
+      if (localStorage.getItem("token")) {
+        registrarActividad();
+      }
+    };
+
+    window.addEventListener("mousemove", manejarActividad);
+    window.addEventListener("keydown", manejarActividad);
+    window.addEventListener("click", manejarActividad);
+    window.addEventListener("scroll", manejarActividad);
+
+    const intervaloVerificacion = setInterval(() => {
+      if (estaSesionExpirada() && localStorage.getItem("token")) {
+        cerrarSesion();
+        window.location.href = "/login";
+      }
+    }, 30000); // Revisa cada 30 segundos si expiro la sesión por inactividad
+
+    return () => {
+      window.removeEventListener("mousemove", manejarActividad);
+      window.removeEventListener("keydown", manejarActividad);
+      window.removeEventListener("click", manejarActividad);
+      window.removeEventListener("scroll", manejarActividad);
+      clearInterval(intervaloVerificacion);
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
