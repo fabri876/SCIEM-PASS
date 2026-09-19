@@ -122,10 +122,25 @@ public class RegistroUsuarioService {
         Integer idUsuarioGenerado = usuarioGuardado.getIdusuario();
 
         // 7. Guardar en las tablas de roles correspondientes
+        Integer codigoSisParsed = null;
+        if (dto.getCodigoSis() != null && !dto.getCodigoSis().trim().isEmpty()) {
+            try {
+                codigoSisParsed = Integer.parseInt(dto.getCodigoSis().trim());
+            } catch (NumberFormatException e) {
+                throw new ValidacionNegocioException("El Código SIS debe ser un número entero válido.");
+            }
+        }
+
         for (String rol : rolesNormalizados) {
             switch (rol) {
-                case "estudiante" -> estudianteRepository.save(new Estudiante(idUsuarioGenerado));
-                case "docente" -> docenteRepository.save(new Docente(idUsuarioGenerado));
+                case "estudiante" -> {
+                    int codSis = codigoSisParsed != null ? codigoSisParsed : idUsuarioGenerado;
+                    estudianteRepository.save(new Estudiante(idUsuarioGenerado, codSis));
+                }
+                case "docente" -> {
+                    int codSis = codigoSisParsed != null ? codigoSisParsed : idUsuarioGenerado;
+                    docenteRepository.save(new Docente(idUsuarioGenerado, codSis));
+                }
                 case "ayudante" -> ayudanteRepository.save(new Ayudante(idUsuarioGenerado));
                 case "admin" -> adminRepository.save(new Admin(idUsuarioGenerado));
             }

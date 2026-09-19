@@ -5,28 +5,16 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-/**
- * Mapea la tabla "historialauditoria" del nuevo esquema de base de datos
- * (reemplazó a la tabla "auditoria" original). Es más simple que el diseño
- * anterior: solo tiene un idusuario (no distingue ejecutor de afectado) y
- * fechaaccion es DATE, no timestamp (sin hora exacta). AuditoriaService
- * compensa parte de esa pérdida de detalle empaquetando toda la info en el
- * campo "accion".
- */
 @Entity
 @Table(name = "historialauditoria")
 public class Auditoria {
 
-    // Sin IDENTITY/sequence en la base real (ver Usuario.java) — se usa una
-    // sequence propia creada a mano.
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "historialauditoria_seq")
-    @SequenceGenerator(name = "historialauditoria_seq", sequenceName = "historialauditoria_idauditoria_seq", allocationSize = 1)
     @Column(name = "idauditoria")
     private Integer idAuditoria;
 
@@ -79,5 +67,29 @@ public class Auditoria {
 
     public void setFechaAccion(LocalDate fechaAccion) {
         this.fechaAccion = fechaAccion;
+    }
+
+    public String getTipoOperacion() {
+        return accion != null ? accion : "";
+    }
+
+    public String getUsuarioEjecutor() {
+        return idUsuario != null ? String.valueOf(idUsuario) : "SISTEMA";
+    }
+
+    public String getUsuarioAfectado() {
+        return idUsuario != null ? String.valueOf(idUsuario) : "";
+    }
+
+    public String getDetalles() {
+        return accion;
+    }
+
+    public String getIpOrigen() {
+        return "N/A";
+    }
+
+    public LocalDateTime getFechaHora() {
+        return fechaAccion != null ? fechaAccion.atStartOfDay() : LocalDateTime.now();
     }
 }

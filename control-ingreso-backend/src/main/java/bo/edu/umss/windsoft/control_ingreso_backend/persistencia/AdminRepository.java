@@ -1,10 +1,15 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.persistencia;
 
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Admin;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Admin;
+import java.util.Optional;
 
 @Repository
 public interface AdminRepository extends JpaRepository<Admin, Integer> {
+
+    boolean existsByIdusuario(Integer idusuario);
+
+    Optional<Admin> findByIdusuario(Integer idusuario);
 }
