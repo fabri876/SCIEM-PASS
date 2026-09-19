@@ -1,6 +1,8 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Logo from "../../components/common/Logo";
+import { obtenerHabilitaciones, actualizarHabilitacion } from "../../services/habilitacionService";
+
 
 // ---------------------------------------------------------------------------
 // Header propio de esta pantalla
@@ -210,6 +212,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
 
     const [estudiantes, setEstudiantes] = useState(ESTUDIANTES_INICIALES);
     const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
+    const [cargando, setCargando] = useState(false);
+    const [guardando, setGuardando] = useState(false);
 
     // Estados para la edición del motivo dentro del drawer
     const [editandoMotivo, setEditandoMotivo] = useState(false);
@@ -228,6 +232,41 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
         setToast({ type, message });
         toastTimer.current = setTimeout(() => setToast(null), 3500);
     }
+
+    // Carga de la lista real desde el Backend en Spring Boot
+    useEffect(() => {
+        let cancel = false;
+        async function cargar() {
+            try {
+                setCargando(true);
+                const data = await obtenerHabilitaciones();
+                if (!cancel && Array.isArray(data) && data.length > 0) {
+                    const formateados = data.map((item) => {
+                        const estaHabilitado = Boolean(item.estadoHabilitacion ?? (item.estado === 'HABILITADO'));
+                        const motivoBackend = item.observacionHabilitacion || item.nombreMotivo || item.observacion;
+                        return {
+                            idHabilitacion: item.idHabilitacion,
+                            nombreEstudiante: item.nombreEstudiante || 'Estudiante',
+                            apellidoEstudiante: item.apellidoEstudiante || '',
+                            emailEstudiante: item.correoEstudiante || item.emailEstudiante || `${(item.nombreEstudiante || 'estudiante').toLowerCase().charAt(0)}.${(item.apellidoEstudiante || 'apellido').toLowerCase().split(' ')[0]}@univalle.edu.bo`,
+                            carreraEstudiante: item.carreraEstudiante || 'Ingeniería de Sistemas',
+                            codSisEstudiante: item.codSisEstudiante || '---',
+                            ciEstudiante: item.ciEstudiante || '---',
+                            estadoHabilitacion: estaHabilitado,
+                            nombreMotivo: estaHabilitado ? '-' : (motivoBackend || 'Sin motivo especificado')
+                        };
+                    });
+                    setEstudiantes(formateados);
+                }
+            } catch (err) {
+                console.error("Error al obtener habilitaciones desde el backend:", err);
+            } finally {
+                if (!cancel) setCargando(false);
+            }
+        }
+        cargar();
+        return () => { cancel = true; };
+    }, []);
 
     const estudiantesFiltrados = useMemo(() => {
         const q = busqueda.trim().toLowerCase();
@@ -256,15 +295,43 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
         setTextoMotivoBorrador(est.nombreMotivo || '');
     };
 
-    const handleGuardarCambiosGenerales = () => {
+    const handleGuardarCambiosGenerales = async () => {
         if (!estudianteSeleccionado) return;
-        setEstudiantes((prev) =>
-            prev.map((e) => (e.idHabilitacion === estudianteSeleccionado.idHabilitacion ? estudianteSeleccionado : e))
-        );
-        mostrarToast('success', 'Cambios guardados correctamente.');
-        setEstudianteSeleccionado(null);
-        setEditandoMotivo(false);
+        try {
+            setGuardando(true);
+            const estaHabilitado = estudianteSeleccionado.estadoHabilitacion;
+            const textoMotivo = estaHabilitado ? null : (estudianteSeleccionado.nombreMotivo === '-' ? null : estudianteSeleccionado.nombreMotivo);
+
+            const respuestaBackend = await actualizarHabilitacion(estudianteSeleccionado.idHabilitacion, {
+                estadoHabilitacion: estaHabilitado,
+                observacionHabilitacion: textoMotivo
+            });
+
+            setEstudiantes((prev) =>
+                prev.map((e) => {
+                    if (e.idHabilitacion === estudianteSeleccionado.idHabilitacion) {
+                        const estadoFinal = Boolean(respuestaBackend.estadoHabilitacion ?? (respuestaBackend.estado === 'HABILITADO'));
+                        return {
+                            ...e,
+                            estadoHabilitacion: estadoFinal,
+                            nombreMotivo: estadoFinal ? '-' : (respuestaBackend.observacionHabilitacion || estudianteSeleccionado.nombreMotivo)
+                        };
+                    }
+                    return e;
+                })
+            );
+
+            mostrarToast('success', 'Habilitación actualizada exitosamente.');
+            setEstudianteSeleccionado(null);
+            setEditandoMotivo(false);
+        } catch (err) {
+            console.error("Error al guardar cambios:", err);
+            mostrarToast('error', err.message || 'Error al guardar cambios en el servidor.');
+        } finally {
+            setGuardando(false);
+        }
     };
+
 
     const totalEstudiantes = estudiantes.length;
     const totalHabilitados = estudiantes.filter((e) => e.estadoHabilitacion).length;
@@ -611,19 +678,22 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                             <button
                                 type="button"
                                 onClick={handleGuardarCambiosGenerales}
-                                className="w-full bg-[image:var(--gradient-button)] text-white font-bold text-xs py-2.5 rounded-xl hover:opacity-90 transition shadow-xs cursor-pointer flex items-center justify-center gap-2"
+                                disabled={guardando}
+                                className="w-full bg-[image:var(--gradient-button)] text-white font-bold text-xs py-2.5 rounded-xl hover:opacity-90 transition shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                Guardar cambios
+                                {guardando ? 'Guardando...' : 'Guardar cambios'}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setEstudianteSeleccionado(null)}
-                                className="w-full text-center text-xs font-bold text-text-body hover:text-primary-navy py-1 cursor-pointer transition"
+                                disabled={guardando}
+                                className="w-full text-center text-xs font-bold text-text-body hover:text-primary-navy py-1 cursor-pointer transition disabled:opacity-50"
                             >
                                 Cerrar sin guardar
                             </button>
                         </div>
                     )}
+
                 </div>
             </div>
 
