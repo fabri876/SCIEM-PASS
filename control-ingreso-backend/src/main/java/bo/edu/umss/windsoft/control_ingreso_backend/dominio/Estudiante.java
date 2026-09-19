@@ -5,6 +5,12 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Mapea la tabla "estudiante" del rediseño de base de datos de sep-2026.
+ * Ya no tiene ci/nombre/apellido/foto/QR propios (esos datos personales
+ * ahora solo viven en "usuario"; el código QR se generará más adelante,
+ * por examen, en otra HU — no en el registro del estudiante).
+ */
 @Entity
 @Table(name = "estudiante")
 public class Estudiante {
@@ -16,40 +22,25 @@ public class Estudiante {
     @Column(name = "codsisestudiante")
     private Integer codsisestudiante;
 
-    @Column(name = "ci")
-    private String ci;
-
-    @Column(name = "nombre")
-    private String nombre;
-
-    @Column(name = "apellido")
-    private String apellido;
-
-    @Column(name = "id_usuario")
+    // NOT NULL en la base nueva. Para estudiantes registrados por el
+    // administrador (HU16) es el id real del usuario. Para los registrados
+    // por el flujo genérico de RegistroUsuarioService, el constructor de 1
+    // parámetro pone el mismo valor acá y en codsisestudiante (mismo patrón
+    // que admin/docente/ayudante), así que ese código no se rompe.
+    @Column(name = "idusuario", nullable = false)
     private Integer idUsuario;
-
-    @Column(name = "foto_url")
-    private String fotoUrl;
-
-    @Column(name = "codigo_qr")
-    private String codigoQr;
 
     public Estudiante() {
     }
 
-    public Estudiante(Integer codsisestudiante) {
-        this.codsisestudiante = codsisestudiante;
+    public Estudiante(Integer idusuario) {
+        this.codsisestudiante = idusuario;
+        this.idUsuario = idusuario;
     }
 
-    public Estudiante(Integer codsisestudiante, String ci, String nombre, String apellido,
-                       Integer idUsuario, String fotoUrl, String codigoQr) {
+    public Estudiante(Integer codsisestudiante, Integer idUsuario) {
         this.codsisestudiante = codsisestudiante;
-        this.ci = ci;
-        this.nombre = nombre;
-        this.apellido = apellido;
         this.idUsuario = idUsuario;
-        this.fotoUrl = fotoUrl;
-        this.codigoQr = codigoQr;
     }
 
     public Integer getCodsisestudiante() {
@@ -60,51 +51,11 @@ public class Estudiante {
         this.codsisestudiante = codsisestudiante;
     }
 
-    public String getCi() {
-        return ci;
-    }
-
-    public void setCi(String ci) {
-        this.ci = ci;
-    }
-
-    public String getNombre() {
-        return nombre;
-    }
-
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
-    }
-
-    public String getApellido() {
-        return apellido;
-    }
-
-    public void setApellido(String apellido) {
-        this.apellido = apellido;
-    }
-
     public Integer getIdUsuario() {
         return idUsuario;
     }
 
     public void setIdUsuario(Integer idUsuario) {
         this.idUsuario = idUsuario;
-    }
-
-    public String getFotoUrl() {
-        return fotoUrl;
-    }
-
-    public void setFotoUrl(String fotoUrl) {
-        this.fotoUrl = fotoUrl;
-    }
-
-    public String getCodigoQr() {
-        return codigoQr;
-    }
-
-    public void setCodigoQr(String codigoQr) {
-        this.codigoQr = codigoQr;
     }
 }

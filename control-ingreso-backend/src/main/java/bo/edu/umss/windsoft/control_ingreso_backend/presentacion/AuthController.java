@@ -5,7 +5,6 @@ import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpReso
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.LoginRequestDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.LoginResponseDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.RegistroDocenteAyudanteDto;
-import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.RegistroEstudianteResponseDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.RegistroPendienteRespuestaDto;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -14,10 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -37,20 +33,11 @@ public class AuthController {
         return ResponseEntity.ok(respuesta);
     }
 
-    @PostMapping(value = "/registro-estudiante", consumes = "multipart/form-data")
-    public ResponseEntity<RegistroEstudianteResponseDto> registroEstudiante(
-            @RequestPart("file") MultipartFile file,
-            @RequestParam String nombre,
-            @RequestParam String apellido,
-            @RequestParam String ci,
-            @RequestParam String correo,
-            @RequestParam String contrasena,
-            @RequestParam Integer codigoSis,
-            @RequestParam(required = false) Integer telefono) throws Exception {
-        RegistroEstudianteResponseDto respuesta = authService.registrarEstudiante(nombre, apellido, ci, correo,
-                contrasena, codigoSis, telefono, file);
-        return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
-    }
+    // Nota (sep-2026): se retiró "/registro-estudiante" (auto-registro con foto
+    // + QR) — la inge confirmó que el estudiante ya no se autorregistra, lo
+    // crea el administrador (ver UsuarioService/UsuarioAdminController). La
+    // tabla "estudiante" del rediseño de base tampoco tiene columnas para
+    // foto ni QR: eso se generará por examen, en otra HU.
 
     // Nota: no se usa "/registro" porque ya lo ocupa RegistroUsuarioController
     // (auto-registro genérico de la rama testing, con roles admin/docente/ayudante/estudiante).

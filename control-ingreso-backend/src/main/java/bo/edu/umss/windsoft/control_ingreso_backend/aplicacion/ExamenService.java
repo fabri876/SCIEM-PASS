@@ -9,6 +9,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepositor
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -33,9 +34,11 @@ public class ExamenService {
 
         Examen examen = new Examen();
 
-        examen.setFechaExamen(request.getFechaExamen());
+        // La base nueva guarda fecha_examen/fecha_creacion_examen como DATE
+        // (sin hora) — ver Examen.java.
+        examen.setFechaExamen(request.getFechaExamen().toLocalDate());
         examen.setDuracionExamen(request.getDuracionExamen());
-        examen.setFechaCreacionExamen(LocalDateTime.now());
+        examen.setFechaCreacionExamen(LocalDate.now());
         examen.setNormasExamen(request.getNormasExamen());
         examen.setEstadoExamen(request.getEstadoExamen());
         examen.setIdAsignatura(request.getIdAsignatura());
