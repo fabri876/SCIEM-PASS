@@ -4,6 +4,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.UsuarioService;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpResolver;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ActualizarUsuarioDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CambiarEstadoDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CambiarRolDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CambioEstadoRespuestaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CrearUsuarioDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UsuarioRespuestaDto;
@@ -59,6 +60,15 @@ public class UsuarioAdminController {
                                                             HttpServletRequest request) {
         UsuarioRespuestaDto respuesta = usuarioService.actualizar(id, dto, correoEjecutor(),
                 ClientIpResolver.resolver(request));
+        return ResponseEntity.ok(respuesta);
+    }
+
+    @PatchMapping("/{id}/rol")
+    public ResponseEntity<UsuarioRespuestaDto> cambiarRol(@PathVariable Integer id,
+                                                             @Valid @RequestBody CambiarRolDto dto,
+                                                             HttpServletRequest request) {
+        UsuarioRespuestaDto respuesta = usuarioService.cambiarRol(id, dto.getNuevoRol(), dto.getCodigoSis(),
+                correoEjecutor(), ClientIpResolver.resolver(request));
         return ResponseEntity.ok(respuesta);
     }
 
