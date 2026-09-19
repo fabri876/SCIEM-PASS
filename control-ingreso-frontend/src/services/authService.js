@@ -1,25 +1,22 @@
 import { strApiBaseUrl } from "./apiConfig";
 
-/**
- * authService.js
- *
- * Acá viven las funciones que hablan por HTTP con el backend para todo lo
- * relacionado a autenticación (registro y, más adelante, login). El
- * componente RegistroForm no hace fetch() directo: le pide el registro a
- * esta función y listo, siguiendo el mismo patrón que describe el
- * documento de arquitectura para "services/" (ej. estudianteService.js).
- *
- * ⚠️ IMPORTANTE para coordinar con el equipo de backend:
- * El endpoint "/api/auth/registro" y el nombre de los campos del body son
- * un supuesto razonable dado que en Spring Boot todavía no existe ningún
- * controlador de registro (según el documento de arquitectura, aplicacion/
- * y persistencia/ siguen vacías). Hay que confirmar con quien construya
- * el controlador real:
- *   - la ruta exacta del endpoint
- *   - los nombres de los campos que espera el DTO/entidad Estudiante
- *   - la forma de la respuesta (¿devuelve el usuario creado? ¿un token?)
- * y ajustar esta función una vez esté definido.
- */
+const TIEMPO_INACTIVIDAD_MAXIMO_MS = 30 * 60 * 1000; // 30 minutos
+
+export function registrarActividad() {
+  localStorage.setItem("ultimaActividad", Date.now().toString());
+}
+
+export function estaSesionExpirada() {
+  const token = localStorage.getItem("token");
+  if (!token) return true;
+
+  const strUltimaActividad = localStorage.getItem("ultimaActividad");
+  if (!strUltimaActividad) return false;
+
+  const intUltimaActividad = parseInt(strUltimaActividad, 10);
+  return (Date.now() - intUltimaActividad) > TIEMPO_INACTIVIDAD_MAXIMO_MS;
+}
+
 export async function registrarUsuario(objDatosRegistro) {
   const response = await fetch(`${strApiBaseUrl}/api/auth/registro`, {
     method: "POST",
@@ -35,14 +32,6 @@ export async function registrarUsuario(objDatosRegistro) {
   return response.json();
 }
 
-/**
- * ⚠️ Mismo supuesto que registrarUsuario, pendiente de confirmar con
- * backend: la ruta exacta ("/api/auth/login"), los nombres de campo que
- * espera el body (acá asumí "correo" y "contrasena", igual que en el
- * registro) y la forma de la respuesta — lo más probable es que esto
- * devuelva un token (JWT), que todavía no se está guardando en ningún
- * lado (falta definir eso junto con el routing, HU16 en adelante).
- */
 export async function iniciarSesion(objDatosLogin) {
   const response = await fetch(`${strApiBaseUrl}/api/auth/login`, {
     method: "POST",
@@ -59,15 +48,24 @@ export async function iniciarSesion(objDatosLogin) {
   if (data?.token) {
     localStorage.setItem("token", data.token);
     localStorage.setItem("usuario", JSON.stringify(data.usuario));
+    registrarActividad();
   }
   return data;
 }
 
 export function obtenerToken() {
+  if (estaSesionExpirada()) {
+    cerrarSesion();
+    return null;
+  }
   return localStorage.getItem("token");
 }
 
 export function obtenerUsuarioActual() {
+  if (estaSesionExpirada()) {
+    cerrarSesion();
+    return null;
+  }
   const strUsuario = localStorage.getItem("usuario");
   if (!strUsuario) return null;
   try {
@@ -80,6 +78,7 @@ export function obtenerUsuarioActual() {
 export function cerrarSesion() {
   localStorage.removeItem("token");
   localStorage.removeItem("usuario");
+  localStorage.removeItem("ultimaActividad");
 }
 
 export function obtenerRutaPorRol(strRol) {
@@ -95,7 +94,4 @@ export function obtenerRutaPorRol(strRol) {
     default:
       return "/estudiante";
   }
-
 }
-
-

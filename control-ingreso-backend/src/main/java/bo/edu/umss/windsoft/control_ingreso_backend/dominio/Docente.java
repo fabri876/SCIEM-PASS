@@ -10,28 +10,17 @@ import jakarta.persistence.Table;
 public class Docente {
 
     @Id
-    @Column(name = "codsisdocente")
-    private Integer codsisdocente;
-
-    // NOT NULL en la base nueva (rediseño de sep-2026). Se sigue usando
-    // codsisdocente == idusuario (mismo patrón de siempre) para no romper
-    // RegistroUsuarioService.
     @Column(name = "idusuario", nullable = false)
     private Integer idusuario;
+
+    @Column(name = "codsisdocente", nullable = false)
+    private Integer codsisdocente;
 
     public Docente() {
     }
 
-    public Docente(Integer idusuario) {
-        this.codsisdocente = idusuario;
+    public Docente(Integer idusuario, Integer codsisdocente) {
         this.idusuario = idusuario;
-    }
-
-    public Integer getCodsisdocente() {
-        return codsisdocente;
-    }
-
-    public void setCodsisdocente(Integer codsisdocente) {
         this.codsisdocente = codsisdocente;
     }
 
@@ -41,5 +30,13 @@ public class Docente {
 
     public void setIdusuario(Integer idusuario) {
         this.idusuario = idusuario;
+    }
+
+    public Integer getCodsisdocente() {
+        return codsisdocente;
+    }
+
+    public void setCodsisdocente(Integer codsisdocente) {
+        this.codsisdocente = codsisdocente;
     }
 }

@@ -129,7 +129,7 @@ public class AuthService {
         usuario = usuarioRepository.save(usuario);
 
         if (rolNormalizado.equals(TipoUsuarioResolver.DOCENTE)) {
-            docenteRepository.save(new Docente(usuario.getIdusuario()));
+            docenteRepository.save(new Docente(usuario.getIdusuario(), usuario.getIdusuario()));
         } else {
             ayudanteRepository.save(new Ayudante(usuario.getIdusuario()));
         }

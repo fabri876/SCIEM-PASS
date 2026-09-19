@@ -1,14 +1,17 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.persistencia;
 
-import java.util.Optional;
-
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
+import java.util.Optional;
 
 @Repository
 public interface EstudianteRepository extends JpaRepository<Estudiante, Integer> {
 
-    Optional<Estudiante> findByIdUsuario(Integer idUsuario);
+    boolean existsByIdusuario(Integer idusuario);
+
+    Optional<Estudiante> findByIdusuario(Integer idusuario);
+
+    Optional<Estudiante> findByCodsisestudiante(Integer codsisestudiante);
 }

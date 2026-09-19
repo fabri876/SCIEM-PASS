@@ -3,7 +3,11 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Auditoria;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AuditoriaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,6 +23,8 @@ import java.util.List;
 @Service
 public class AuditoriaService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuditoriaService.class);
+
     private final AuditoriaRepository auditoriaRepository;
     private final UsuarioRepository usuarioRepository;
 
@@ -27,20 +33,28 @@ public class AuditoriaService {
         this.usuarioRepository = usuarioRepository;
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registrar(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
                            String detalles, String ipOrigen) {
-        Integer idUsuario = resolverIdUsuario(usuarioAfectado);
-        if (idUsuario == null) {
-            idUsuario = resolverIdUsuario(usuarioEjecutor);
+        try {
+            Integer idUsuario = resolverIdUsuario(usuarioAfectado);
+            if (idUsuario == null) {
+                idUsuario = resolverIdUsuario(usuarioEjecutor);
+            }
+
+            String accion = "[" + tipoOperacion + "] ejecutor=" + valorOr(usuarioEjecutor)
+                    + " | afectado=" + valorOr(usuarioAfectado)
+                    + " | ip=" + valorOr(ipOrigen)
+                    + " | " + valorOr(detalles);
+
+            Auditoria auditoria = new Auditoria(idUsuario, accion);
+            Integer maxId = auditoriaRepository.findMaxIdAuditoria();
+            auditoria.setIdAuditoria(maxId + 1);
+
+            auditoriaRepository.save(auditoria);
+        } catch (Exception e) {
+            logger.error("Error al registrar auditoría: {}", e.getMessage());
         }
-
-        String accion = "[" + tipoOperacion + "] ejecutor=" + valorOr(usuarioEjecutor)
-                + " | afectado=" + valorOr(usuarioAfectado)
-                + " | ip=" + valorOr(ipOrigen)
-                + " | " + valorOr(detalles);
-
-        Auditoria auditoria = new Auditoria(idUsuario, accion);
-        auditoriaRepository.save(auditoria);
     }
 
     public List<Auditoria> listar() {
