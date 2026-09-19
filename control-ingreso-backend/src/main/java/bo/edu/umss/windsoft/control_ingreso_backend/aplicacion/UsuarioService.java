@@ -74,7 +74,7 @@ public class UsuarioService {
 
         switch (rolNormalizado) {
             case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.save(new Admin(usuario.getIdusuario()));
-            case TipoUsuarioResolver.DOCENTE -> docenteRepository.save(new Docente(usuario.getIdusuario()));
+            case TipoUsuarioResolver.DOCENTE -> docenteRepository.save(new Docente(usuario.getIdusuario(), usuario.getIdusuario()));
             case TipoUsuarioResolver.OPERADOR -> ayudanteRepository.save(new Ayudante(usuario.getIdusuario()));
             default -> throw new SolicitudInvalidaException("Rol no soportado: " + rolNormalizado);
         }

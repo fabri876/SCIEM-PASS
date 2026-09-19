@@ -1,37 +1,17 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import imgLogoUmss from "../../assets/images/logo-umss.png";
 import FormField from "../common/FormField";
 import usePasswordVisibility from "../../hooks/usePasswordVisibility";
-import { iniciarSesion } from "../../services/authService";
+import { iniciarSesion, obtenerRutaPorRol } from "../../services/authService";
 
 const objValoresInicialesForm = {
   correo: "",
   contrasena: "",
 };
 
-/**
- * LoginForm.jsx
- *
- * Formulario de la tarjeta derecha de la pantalla de Login. Mismo
- * patrón que RegistroForm.jsx: inputs controlados (objFormData) y el
- * submit llama de verdad al servicio de autenticación en vez de un
- * alert.
- *
- * A diferencia de RegistroForm, la tarjeta tiene solo dos campos, así
- * que en vez de dejar un hueco vacío abajo (para igualar la altura del
- * HeroBanner de al lado), el contenido del formulario queda centrado
- * verticalmente dentro de la tarjeta (ver el div "flex-1 justify-center"
- * más abajo). El logo se queda arriba, igual que en Registro.
- *
- * ⚠️ Asume que services/authService.js ya tiene (o va a tener) una
- * función iniciarSesion(datos) con el mismo patrón que
- * registrarUsuario(datos): recibe { correo, contrasena } y lanza un
- * Error con .message si la petición falla. No tengo ese archivo, así
- * que no pude agregarla yo — el snippet sugerido queda en la respuesta,
- * fuera de este archivo.
- */
 export default function LoginForm() {
+  const navigate = useNavigate();
   const [objFormData, setObjFormData] = useState(objValoresInicialesForm);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strErrorEnvio, setStrErrorEnvio] = useState("");
@@ -48,9 +28,10 @@ export default function LoginForm() {
     setStrErrorEnvio("");
     setBoolIsSubmitting(true);
     try {
-      await iniciarSesion(objFormData);
-      // TODO: reemplazar por la redirección real al dashboard cuando el
-      // equipo defina el flujo de sesión (JWT, HU16 en adelante).
+      const data = await iniciarSesion(objFormData);
+      const strRol = data?.usuario?.rol;
+      const strRutaDestino = obtenerRutaPorRol(strRol);
+      navigate(strRutaDestino, { replace: true });
     } catch (error) {
       setStrErrorEnvio(error.message);
     } finally {
