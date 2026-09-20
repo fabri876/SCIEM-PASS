@@ -1,31 +1,36 @@
+import { Link, useLocation } from "react-router-dom";
 import Logo from "../common/Logo";
+import { obtenerToken, obtenerUsuarioActual } from "../../services/authService";
 
 /**
  * Header.jsx
  *
  * Barra superior con el logo y la navegación principal. No es algo
- * exclusivo de la pantalla de Registro: en el mockup ya se ve pensada
- * para repetirse en Login, Dashboard, etc. Por eso vive en
- * components/layout y no en components/registro.
+ * exclusivo de la pantalla de Registro: se repite en Home, Login,
+ * Dashboard, etc. Por eso vive en components/layout y no en
+ * components/registro.
  *
- * "arrNavItems" guarda los datos de cada link (texto + ícono) para no
- * repetir seis veces casi el mismo bloque de JSX. Cada ícono es el mismo
- * SVG del mockup original, solo que factorizado en un array.
+ * "arrNavItems" guarda los datos de cada link (texto + ícono + ruta)
+ * para no repetir seis veces casi el mismo bloque de JSX. Cada ícono es
+ * el mismo SVG del mockup original, solo que factorizado en un array.
  *
- * Por ahora "Inicio" queda marcado como activo a mano (strRutaActiva),
- * tal como estaba en el mockup estático. Cuando el equipo defina el
- * router (React Router u otro), esto se puede reemplazar por la ruta
- * actual real.
+ * El ítem activo (la rayita de abajo) ya NO se pasa a mano: se calcula
+ * comparando la URL actual (useLocation) contra "strRuta" de cada ítem.
+ * Las páginas de Exámenes/Noticias/Aulas/Notificaciones todavía no
+ * existen — por ahora esas rutas muestran una página en blanco (ver
+ * PaginaEnConstruccion.jsx), pero el link y la rayita activa ya
+ * funcionan.
  *
- * "Cuenta" (extremo derecho, después del separador) todavía NO está
- * implementado a propósito — es solo el espacio reservado para el día
- * que se arme esa pantalla/menú (probablemente con el avatar o nombre
- * del usuario logueado). No tiene ícono activo ni lógica de ruta como
- * los demás ítems.
+ * El botón "Iniciar sesión" (extremo derecho) solo se muestra si NO hay
+ * sesión iniciada (se fija con obtenerToken()/obtenerUsuarioActual() de
+ * authService, igual que ya lo hacen los guards de rutas en App.jsx).
+ * Cuando SÍ hay sesión, esa zona queda vacía por ahora — ahí va a ir
+ * "Cuenta" (avatar/nombre + menú) el día que se implemente.
  */
 const arrNavItems = [
   {
     strTexto: "Inicio",
+    strRuta: "/inicio",
     svgIcono: (
       <>
         <path d="M3 11.5 12 4l9 7.5" />
@@ -36,6 +41,7 @@ const arrNavItems = [
   },
   {
     strTexto: "Exámenes",
+    strRuta: "/examenes",
     svgIcono: (
       <>
         <rect x="4" y="5" width="16" height="15" rx="2" />
@@ -45,6 +51,7 @@ const arrNavItems = [
   },
   {
     strTexto: "Noticias",
+    strRuta: "/noticias",
     svgIcono: (
       <>
         <rect x="3" y="5" width="14" height="16" rx="1" />
@@ -55,6 +62,7 @@ const arrNavItems = [
   },
   {
     strTexto: "Aulas",
+    strRuta: "/aulas",
     svgIcono: (
       <>
         <rect x="4" y="4" width="16" height="17" rx="1" />
@@ -64,6 +72,7 @@ const arrNavItems = [
   },
   {
     strTexto: "Notificaciones",
+    strRuta: "/notificaciones",
     svgIcono: (
       <>
         <path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Z" />
@@ -73,11 +82,13 @@ const arrNavItems = [
   },
 ];
 
-function NavItem({ strTexto, svgIcono, boolActivo = false }) {
+function NavItem({ strTexto, strRuta, svgIcono, boolActivo = false }) {
   return (
-    <div
-      className={`relative flex items-center gap-2.5 h-full text-sm whitespace-nowrap ${boolActivo ? "font-extrabold text-[#123F7B]" : "text-[#294B7C]"
-        }`}
+    <Link
+      to={strRuta}
+      className={`relative flex items-center gap-2.5 h-full text-sm whitespace-nowrap cursor-pointer ${
+        boolActivo ? "font-extrabold text-[#123F7B]" : "text-[#294B7C]"
+      }`}
     >
       <svg
         className="w-5 h-5 stroke-[#123F7B] fill-none stroke-[1.8]"
@@ -89,11 +100,14 @@ function NavItem({ strTexto, svgIcono, boolActivo = false }) {
       {boolActivo && (
         <span className="absolute bottom-[26px] left-0 right-0 h-1 rounded-[5px] bg-[linear-gradient(90deg,#2563EB,#D93856)]" />
       )}
-    </div>
+    </Link>
   );
 }
 
-export default function Header({ strRutaActiva = "Inicio" }) {
+export default function Header() {
+  const location = useLocation();
+  const boolAutenticado = Boolean(obtenerToken() && obtenerUsuarioActual());
+
   return (
     <header className="h-[98px] flex items-center px-[55px] bg-white/72 border-b border-[#E2E8F0]/75">
       <Logo />
@@ -106,18 +120,21 @@ export default function Header({ strRutaActiva = "Inicio" }) {
           <NavItem
             key={item.strTexto}
             {...item}
-            boolActivo={item.strTexto === strRutaActiva}
+            boolActivo={location.pathname === item.strRuta}
           />
         ))}
       </nav>
 
-      <div className="ml-10 pl-10 h-full flex items-center border-l border-[#CBD5E1]">
-        {/* TODO: acá va "Cuenta" cuando se implemente (avatar/nombre del
-            usuario + menú). Por ahora es solo el espacio reservado. */}
-        <span className="text-sm font-semibold text-[#294B7C] whitespace-nowrap">
-          Cuenta
-        </span>
-      </div>
+      {!boolAutenticado && (
+        <div className="ml-10 pl-10 h-full flex items-center border-l border-[#CBD5E1]">
+          <Link
+            to="/login"
+            className="inline-flex items-center h-10 px-5 rounded-md bg-primary-navy text-white text-sm font-extrabold whitespace-nowrap transition-colors duration-200 hover:bg-primary-blue"
+          >
+            Iniciar sesión
+          </Link>
+        </div>
+      )}
     </header>
   );
 }

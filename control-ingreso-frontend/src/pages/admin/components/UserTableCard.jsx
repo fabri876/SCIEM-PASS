@@ -23,7 +23,7 @@ function colorAvatar(idUsuario) {
 /**
  * Tabla de administración de usuarios (HU16).
  */
-export default function UserTableCard({ usuarios, boolCargando, strError, onCrear, onEditar, onCambiarEstado }) {
+export default function UserTableCard({ usuarios, boolCargando, strError, onCrear, onEditar, onCambiarRol, onCambiarEstado }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [modalUsuario, setModalUsuario] = useState(null);
   const [usuarioParaCambiarEstado, setUsuarioParaCambiarEstado] = useState(null);
@@ -43,7 +43,11 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
 
   const fnGuardarUsuario = async (datos) => {
     if (modalUsuario.modo === "editar") {
-      await onEditar(modalUsuario.usuario.idUsuario, datos);
+      const { rolCambio, ...datosBasicos } = datos;
+      await onEditar(modalUsuario.usuario.idUsuario, datosBasicos);
+      if (rolCambio) {
+        await onCambiarRol(modalUsuario.usuario.idUsuario, rolCambio.nuevoRol, rolCambio.codigoSis);
+      }
     } else {
       await onCrear(datos);
     }

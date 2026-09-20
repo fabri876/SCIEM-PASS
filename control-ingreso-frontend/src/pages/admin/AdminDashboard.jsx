@@ -5,13 +5,16 @@ import AdminMetricsCards from "./components/AdminMetricsCards";
 import BulkUploadCard from "./components/BulkUploadCard";
 import UserTableCard from "./components/UserTableCard";
 import AuditoriaTable from "./components/AuditoriaTable";
+import RolesTable from "./components/RolesTable";
 import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
 import {
     listarUsuarios,
     crearUsuario,
     actualizarUsuario,
+    cambiarRolUsuario,
     cambiarEstadoUsuario,
-    listarAuditoria
+    listarAuditoria,
+    listarRoles
 } from "../../services/adminService";
 import { useNavigate } from "react-router-dom";
 
@@ -28,6 +31,10 @@ export default function AdminDashboard({ onNavigateToLogin }) {
     const [auditoria, setAuditoria] = useState([]);
     const [boolCargandoAuditoria, setBoolCargandoAuditoria] = useState(false);
     const [strErrorAuditoria, setStrErrorAuditoria] = useState("");
+
+    const [roles, setRoles] = useState([]);
+    const [boolCargandoRoles, setBoolCargandoRoles] = useState(false);
+    const [strErrorRoles, setStrErrorRoles] = useState("");
 
     const fnCargarUsuarios = useCallback(async () => {
         setBoolCargandoUsuarios(true);
@@ -77,6 +84,36 @@ export default function AdminDashboard({ onNavigateToLogin }) {
         };
     }, [activeMenu]);
 
+    useEffect(() => {
+        if (activeMenu !== "Roles y Permisos") return;
+
+        let cancelado = false;
+
+        setBoolCargandoRoles(true);
+        setStrErrorRoles("");
+
+        listarRoles()
+            .then((data) => {
+                if (!cancelado) {
+                    setRoles(data || []);
+                }
+            })
+            .catch((error) => {
+                if (!cancelado) {
+                    setStrErrorRoles(error.message);
+                }
+            })
+            .finally(() => {
+                if (!cancelado) {
+                    setBoolCargandoRoles(false);
+                }
+            });
+
+        return () => {
+            cancelado = true;
+        };
+    }, [activeMenu]);
+
     const fnCrearUsuario = async (datos) => {
         await crearUsuario(datos);
         await fnCargarUsuarios();
@@ -84,6 +121,11 @@ export default function AdminDashboard({ onNavigateToLogin }) {
 
     const fnEditarUsuario = async (idUsuario, datos) => {
         await actualizarUsuario(idUsuario, datos);
+        await fnCargarUsuarios();
+    };
+
+    const fnCambiarRolUsuario = async (idUsuario, nuevoRol, codigoSis) => {
+        await cambiarRolUsuario(idUsuario, nuevoRol, codigoSis);
         await fnCargarUsuarios();
     };
 
@@ -205,6 +247,7 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                                         strError={strErrorUsuarios}
                                         onCrear={fnCrearUsuario}
                                         onEditar={fnEditarUsuario}
+                                        onCambiarRol={fnCambiarRolUsuario}
                                         onCambiarEstado={fnCambiarEstadoUsuario}
                                     />
                                 </div>
@@ -221,6 +264,17 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                             registros={auditoria}
                             boolCargando={boolCargandoAuditoria}
                             strError={strErrorAuditoria}
+                        />
+                    )}
+
+                    {/* =================================================
+                        ROLES Y PERMISOS
+                        ================================================= */}
+                    {activeMenu === "Roles y Permisos" && (
+                        <RolesTable
+                            roles={roles}
+                            boolCargando={boolCargandoRoles}
+                            strError={strErrorRoles}
                         />
                     )}
 

@@ -2,12 +2,9 @@ package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -24,17 +21,19 @@ public class Auditoria {
     @Column(name = "accion")
     private String accion;
 
+    // Ampliada de DATE a TIMESTAMP (ver instrucciones SQL) para poder cumplir
+    // el criterio de "fecha/hora exacta" de la auditoría.
     @Column(name = "fechaaccion")
-    private LocalDate fechaAccion;
+    private LocalDateTime fechaAccion;
 
     public Auditoria() {
-        this.fechaAccion = LocalDate.now();
+        this.fechaAccion = LocalDateTime.now();
     }
 
     public Auditoria(Integer idUsuario, String accion) {
         this.idUsuario = idUsuario;
         this.accion = accion;
-        this.fechaAccion = LocalDate.now();
+        this.fechaAccion = LocalDateTime.now();
     }
 
     public Integer getIdAuditoria() {
@@ -61,35 +60,11 @@ public class Auditoria {
         this.accion = accion;
     }
 
-    public LocalDate getFechaAccion() {
+    public LocalDateTime getFechaAccion() {
         return fechaAccion;
     }
 
-    public void setFechaAccion(LocalDate fechaAccion) {
+    public void setFechaAccion(LocalDateTime fechaAccion) {
         this.fechaAccion = fechaAccion;
-    }
-
-    public String getTipoOperacion() {
-        return accion != null ? accion : "";
-    }
-
-    public String getUsuarioEjecutor() {
-        return idUsuario != null ? String.valueOf(idUsuario) : "SISTEMA";
-    }
-
-    public String getUsuarioAfectado() {
-        return idUsuario != null ? String.valueOf(idUsuario) : "";
-    }
-
-    public String getDetalles() {
-        return accion;
-    }
-
-    public String getIpOrigen() {
-        return "N/A";
-    }
-
-    public LocalDateTime getFechaHora() {
-        return fechaAccion != null ? fechaAccion.atStartOfDay() : LocalDateTime.now();
     }
 }

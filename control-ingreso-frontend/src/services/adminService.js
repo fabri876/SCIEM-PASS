@@ -74,6 +74,13 @@ export async function actualizarUsuario(idUsuario, objDatosUsuario) {
   });
 }
 
+export async function cambiarRolUsuario(idUsuario, strNuevoRol, intCodigoSis) {
+  return fetchAutenticado(`/api/admin/usuarios/${idUsuario}/rol`, {
+    method: "PATCH",
+    body: JSON.stringify({ nuevoRol: strNuevoRol, codigoSis: intCodigoSis }),
+  });
+}
+
 export async function cambiarEstadoUsuario(idUsuario, strNuevoEstado) {
   return fetchAutenticado(`/api/admin/usuarios/${idUsuario}/estado`, {
     method: "PATCH",

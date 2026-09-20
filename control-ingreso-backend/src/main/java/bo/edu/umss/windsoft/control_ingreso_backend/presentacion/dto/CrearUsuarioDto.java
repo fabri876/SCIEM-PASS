@@ -26,6 +26,9 @@ public class CrearUsuarioDto {
     @NotBlank(message = "El rol es obligatorio")
     private String rol;
 
+    // Solo obligatorio cuando rol=ESTUDIANTE.
+    private Integer codigoSis;
+
     public String getNombre() {
         return nombre;
     }
@@ -80,5 +83,13 @@ public class CrearUsuarioDto {
 
     public void setRol(String rol) {
         this.rol = rol;
+    }
+
+    public Integer getCodigoSis() {
+        return codigoSis;
+    }
+
+    public void setCodigoSis(Integer codigoSis) {
+        this.codigoSis = codigoSis;
     }
 }

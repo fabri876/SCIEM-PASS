@@ -10,8 +10,6 @@ import java.util.List;
 @Repository
 public interface AuditoriaRepository extends JpaRepository<Auditoria, Integer> {
 
-    // "fechaaccion" es DATE (sin hora), así que para tener el más reciente
-    // primero de verdad se ordena por el id (autoincremental) en vez de la fecha.
     List<Auditoria> findAllByOrderByIdAuditoriaDesc();
 
     @Query("SELECT COALESCE(MAX(a.idAuditoria), 0) FROM Auditoria a")

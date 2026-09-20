@@ -1,10 +1,11 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Calendar, UserCheck, History, LogOut } from "lucide-react";
+import { Users, Calendar, UserCheck, History, Shield, LogOut } from "lucide-react";
 import { cerrarSesion } from "../../../services/authService";
 
 const menuItems = [
     { id: "Gestión de Usuarios", label: "Gestión de Usuarios", icon: Users },
+    { id: "Roles y Permisos", label: "Roles y Permisos", icon: Shield },
     { id: "Registro de Exámenes", label: "Registro de Exámenes", icon: Calendar },
     { id: "Habilitación de Estudiantes", label: "Habilitación de Estudiantes", icon: UserCheck },
     { id: "Historial de Auditoría", label: "Historial de Auditoría", icon: History },

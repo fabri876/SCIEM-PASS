@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -42,10 +41,8 @@ public class AuditoriaController {
         String ip = partes.length > 2 ? extraerValor(partes[2], "ip=") : null;
         String detalles = partes.length > 3 ? partes[3] : null;
 
-        LocalDateTime fechaHora = auditoria.getFechaAccion() == null ? null : auditoria.getFechaAccion().atStartOfDay();
-
         return new AuditoriaRespuestaDto(auditoria.getIdAuditoria(), tipoOperacion, ejecutor, afectado, detalles,
-                ip, fechaHora);
+                ip, auditoria.getFechaAccion());
     }
 
     private String extraerEntreCorchetes(String texto) {
