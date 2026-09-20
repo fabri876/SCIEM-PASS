@@ -142,6 +142,24 @@ public class AuthService {
                 usuario.getIdusuario(), correo, rolNormalizado, "PENDIENTE");
     }
 
+    @Transactional
+    public void cambiarContrasena(String correoUsuario, String contrasenaActual, String nuevaContrasena, String ip) {
+        Usuario usuario = usuarioRepository.findByCorreousuario(correoUsuario)
+                .orElseThrow(() -> new CredencialesInvalidasException("Usuario no encontrado."));
+
+        if (!passwordEncoder.matches(contrasenaActual, usuario.getContraseniausuario())) {
+            auditoriaService.registrar("CAMBIO_CONTRASENA_FALLIDO", correoUsuario, correoUsuario,
+                    "Intento de cambio de contraseña con contraseña actual incorrecta.", ip);
+            throw new CredencialesInvalidasException("La contraseña actual es incorrecta.");
+        }
+
+        usuario.setContraseniausuario(passwordEncoder.encode(nuevaContrasena));
+        usuarioRepository.save(usuario);
+
+        auditoriaService.registrar("CAMBIO_CONTRASENA_EXITOSO", correoUsuario, correoUsuario,
+                "El usuario cambió su contraseña exitosamente.", ip);
+    }
+
     private void validarUnicidad(String ci, String correo) {
         if (usuarioRepository.existsByCiusuario(ci)) {
             throw new RecursoDuplicadoException("Ya existe un usuario registrado con el CI " + ci + ".");

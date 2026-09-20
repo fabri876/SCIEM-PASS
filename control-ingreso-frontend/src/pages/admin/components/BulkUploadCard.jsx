@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Upload, Database, Info, ArrowRight, FileWarning, X, LayoutGrid, BookOpen } from "lucide-react";
+import { Upload, Database, Info, ArrowRight, FileWarning, X, LayoutGrid, BookOpen, CheckCircle, Loader2 } from "lucide-react";
 
 const FORMATO_COLUMNAS = [
     { col: "A", nombre: "CODSISS", ejemplo: "202309099" },
@@ -10,7 +10,6 @@ const FORMATO_COLUMNAS = [
     { col: "F", nombre: "CARRERA", ejemplo: "Ing. Sistemas" },
 ];
 
-// Mock temporal: el backend reemplazará esto con la lista real de materias.
 const MATERIAS_MOCK = [
     "Cálculo I",
     "Programación I",
@@ -31,6 +30,8 @@ export default function BulkUploadCard({ onProcesar }) {
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [error, setError] = useState("");
+    const [mensajeExito, setMensajeExito] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [mostrarFormato, setMostrarFormato] = useState(false);
     const [materia, setMateria] = useState("");
 
@@ -39,10 +40,12 @@ export default function BulkUploadCard({ onProcesar }) {
         const ext = obtenerExtension(archivo.name);
         if (!EXTENSIONES_VALIDAS.includes(ext)) {
             setFile(null);
-            setError("Formato no válido. Solo se aceptan archivos .XLSX o .PDF.");
+            setError("Formato no válido. Solo se aceptan archivos Excel (.XLSX) o .PDF.");
+            setMensajeExito("");
             return;
         }
         setError("");
+        setMensajeExito("");
         setFile(archivo);
     };
 
@@ -67,8 +70,31 @@ export default function BulkUploadCard({ onProcesar }) {
         if (e.target.files && e.target.files[0]) {
             validarYAsignar(e.target.files[0]);
         }
-        // Permite volver a seleccionar el mismo archivo tras un error
         e.target.value = "";
+    };
+
+    const handleProcesarSubmit = async () => {
+        if (!file) return;
+        setIsSubmitting(true);
+        setError("");
+        setMensajeExito("");
+
+        try {
+            if (onProcesar) {
+                const res = await onProcesar(file, materia);
+                let msg = res?.mensaje || "Carga masiva procesada con éxito.";
+                if (res?.fallidos > 0 && res?.detallesErrores?.length > 0) {
+                    const primerErr = res.detallesErrores[0];
+                    msg += ` (Fila ${primerErr.fila}: ${primerErr.errores.join(", ")})`;
+                }
+                setMensajeExito(msg);
+                setFile(null);
+            }
+        } catch (err) {
+            setError(err.message || "Ocurrió un error al procesar la carga masiva.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -141,6 +167,14 @@ export default function BulkUploadCard({ onProcesar }) {
                     </p>
                 </div>
 
+                {/* Mensaje de exito */}
+                {mensajeExito && (
+                    <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                        <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                        <p className="text-badge text-emerald-700 font-semibold leading-snug">{mensajeExito}</p>
+                    </div>
+                )}
+
                 {/* Mensaje de error de validación */}
                 {error && (
                     <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-accent-red/10 border border-accent-red/30">
@@ -151,10 +185,10 @@ export default function BulkUploadCard({ onProcesar }) {
             </div>
 
             <div className="mt-6 space-y-3">
-                {/* Combobox de asignatura (mock, el backend lo conectará a la BD real) */}
+                {/* Combobox de asignatura */}
                 <div>
                     <label className="block text-badge font-bold text-primary-navy mb-1.5">
-                        Asignatura
+                        Asignatura (Opcional)
                     </label>
                     <div className="relative">
                         <BookOpen className="w-4 h-4 text-primary-blue absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -163,7 +197,7 @@ export default function BulkUploadCard({ onProcesar }) {
                             onChange={(e) => setMateria(e.target.value)}
                             className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-border bg-bg-app text-secondary font-semibold text-primary-navy focus:outline-none focus:ring-2 focus:ring-primary-blue/40 cursor-pointer"
                         >
-                            <option value="" disabled>
+                            <option value="">
                                 Selecciona una asignatura
                             </option>
                             {MATERIAS_MOCK.map((m) => (
@@ -183,15 +217,24 @@ export default function BulkUploadCard({ onProcesar }) {
                     </div>
                 </div>
 
-                {/* Botón Inferior idéntico a "+ Nuevo Usuario" */}
+                {/* Botón Inferior */}
                 <button
-                    onClick={() => onProcesar && onProcesar(file, materia)}
-                    disabled={!file || !materia}
+                    onClick={handleProcesarSubmit}
+                    disabled={!file || isSubmitting}
                     className="w-full py-3 px-5 bg-gradient-to-r from-blue-600 to-slate-900 hover:from-blue-700 hover:to-slate-950 text-white font-bold text-secondary rounded-xl transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:to-slate-900"
                 >
-                    <Database className="w-4 h-4" />
-                    <span>Procesar y Guardar Datos</span>
-                    <ArrowRight className="w-4 h-4 ml-1" />
+                    {isSubmitting ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Procesando archivo...</span>
+                        </>
+                    ) : (
+                        <>
+                            <Database className="w-4 h-4" />
+                            <span>Procesar y Guardar Datos</span>
+                            <ArrowRight className="w-4 h-4 ml-1" />
+                        </>
+                    )}
                 </button>
             </div>
 
@@ -221,7 +264,7 @@ export default function BulkUploadCard({ onProcesar }) {
 
                         <p className="text-secondary text-text-body/70 mb-4 leading-relaxed">
                             Ya sea en Excel (.XLSX) o PDF, el archivo debe organizar la información de cada
-                            estudiante en columnas, respetando exactamente este orden:
+                            estudiante en columnas, respetando este orden:
                         </p>
 
                         <div className="rounded-xl border border-border overflow-hidden">
