@@ -19,6 +19,7 @@ public class HabilitacionResponseDto {
     private String descripcionMotivo;
     private String observacion;
     private String observacionHabilitacion;
+    private String correoEstudiante;
     private LocalDate fechaRegistro;
 
     public HabilitacionResponseDto() {
@@ -37,20 +38,24 @@ public class HabilitacionResponseDto {
         dto.setObservacionHabilitacion(h.getObservacionhabilitacion());
         dto.setFechaRegistro(h.getFecharegistro());
 
-        // ci/nombre/apellido del estudiante ya no viven en la tabla "estudiante"
-        // desde el rediseño de base de datos de sep-2026 (ahora solo están en
-        // "usuario"). Queda pendiente resolverlos vía UsuarioRepository con
-        // h.getEstudiante().getIdUsuario() si hace falta mostrarlos acá.
         if (h.getEstudiante() != null) {
             dto.setCodSisEstudiante(h.getEstudiante().getCodsisestudiante());
         }
 
-        // "habilitacion" ya no tiene relación con "motivoinhabilitacion" en la
-        // base rediseñada (ver Habilitacion.java) — motivoId/nombreMotivo/
-        // descripcionMotivo quedan sin poblar hasta que se rediseñe este flujo.
-
         return dto;
     }
+
+    public static HabilitacionResponseDto fromEntity(Habilitacion h, bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario u) {
+        HabilitacionResponseDto dto = fromEntity(h);
+        if (dto != null && u != null) {
+            dto.setCiEstudiante(u.getCiusuario());
+            dto.setNombreEstudiante(u.getNombreusuario());
+            dto.setApellidoEstudiante(u.getApellidousuario());
+            dto.setCorreoEstudiante(u.getCorreousuario());
+        }
+        return dto;
+    }
+
 
     public Integer getIdHabilitacion() {
         return idHabilitacion;
@@ -156,6 +161,14 @@ public class HabilitacionResponseDto {
         this.observacionHabilitacion = observacionHabilitacion;
     }
 
+    public String getCorreoEstudiante() {
+        return correoEstudiante;
+    }
+
+    public void setCorreoEstudiante(String correoEstudiante) {
+        this.correoEstudiante = correoEstudiante;
+    }
+
     public LocalDate getFechaRegistro() {
         return fechaRegistro;
     }
@@ -164,3 +177,4 @@ public class HabilitacionResponseDto {
         this.fechaRegistro = fechaRegistro;
     }
 }
+
