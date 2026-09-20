@@ -14,7 +14,8 @@ import {
     cambiarRolUsuario,
     cambiarEstadoUsuario,
     listarAuditoria,
-    listarRoles
+    listarRoles,
+    cargarUsuariosMasivo
 } from "../../services/adminService";
 import { useNavigate } from "react-router-dom";
 
@@ -134,6 +135,12 @@ export default function AdminDashboard({ onNavigateToLogin }) {
         await fnCargarUsuarios();
     };
 
+    const fnCargarMasiva = async (file, materia) => {
+        const resultado = await cargarUsuariosMasivo(file, "ESTUDIANTE");
+        await fnCargarUsuarios();
+        return resultado;
+    };
+
     // Cerrar sesión igual que en el portal del estudiante
     const fnCerrarSesion = () => {
         cerrarSesion();
@@ -237,7 +244,7 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pb-6">
 
                                 <div className="lg:col-span-5 xl:col-span-4">
-                                    <BulkUploadCard />
+                                    <BulkUploadCard onProcesar={fnCargarMasiva} />
                                 </div>
 
                                 <div className="lg:col-span-7 xl:col-span-8 overflow-hidden">

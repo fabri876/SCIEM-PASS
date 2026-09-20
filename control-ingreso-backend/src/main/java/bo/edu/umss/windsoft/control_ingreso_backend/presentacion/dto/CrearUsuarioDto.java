@@ -18,7 +18,7 @@ public class CrearUsuarioDto {
     @Email(message = "El formato de correo no es válido")
     private String correo;
 
-    @NotBlank(message = "La contraseña es obligatoria")
+    // Opcional: Si no se envía, la contraseña inicial se establece automáticamente al CI del usuario.
     private String contrasena;
 
     private Integer telefono;

@@ -74,19 +74,54 @@ public class UsuarioService {
     @Transactional
     public UsuarioRespuestaDto crear(CrearUsuarioDto dto, String executorCorreo, String ip) {
         String rolNormalizado = validarRolCreable(dto.getRol());
+
+        // Validar permisos del ejecutador
+        if (executorCorreo != null && !executorCorreo.isBlank() && !executorCorreo.equalsIgnoreCase("anonymousUser")) {
+            var ejecutorOpt = usuarioRepository.findByCorreousuario(executorCorreo);
+            if (ejecutorOpt.isPresent()) {
+                String rolEjecutor = tipoUsuarioResolver.resolver(ejecutorOpt.get().getIdusuario());
+                validarPermisosRegistro(rolEjecutor, rolNormalizado);
+            }
+        }
+
         validarUnicidad(dto.getCi(), dto.getCorreo());
         validarCodigoDisponible(rolNormalizado, dto.getCodigoSis());
 
-        Usuario usuario = new Usuario(dto.getCi(), dto.getNombre(), dto.getApellido(), dto.getTelefono(),
-                dto.getCorreo(), passwordEncoder.encode(dto.getContrasena()), true);
+        // Si no se proporciona contraseña, se usa automáticamente el CI como contraseña inicial
+        String rawPassword = (dto.getContrasena() == null || dto.getContrasena().trim().isEmpty())
+                ? dto.getCi().trim()
+                : dto.getContrasena().trim();
+
+        Usuario usuario = new Usuario(dto.getCi().trim(), dto.getNombre().trim(), dto.getApellido().trim(), dto.getTelefono(),
+                dto.getCorreo().trim(), passwordEncoder.encode(rawPassword), true);
         usuario = usuarioRepository.save(usuario);
 
         crearFilaTablaHija(rolNormalizado, usuario.getIdusuario(), dto.getCodigoSis());
 
         auditoriaService.registrar("CREACION_USUARIO", executorCorreo, dto.getCorreo(),
-                "El administrador creó una cuenta con rol " + rolNormalizado + ".", ip);
+                "Registro de cuenta con rol " + rolNormalizado + " realizada por " + executorCorreo + ".", ip);
 
         return usuarioRespuestaMapper.mapear(usuario);
+    }
+
+    private void validarPermisosRegistro(String rolEjecutor, String rolARegistrar) {
+        if (rolEjecutor == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Acceso denegado: Usuario no autenticado.");
+        }
+        if (TipoUsuarioResolver.ADMINISTRADOR.equals(rolEjecutor)) {
+            // El administrador puede registrar cualquier rol
+            return;
+        }
+        if (TipoUsuarioResolver.DOCENTE.equals(rolEjecutor)) {
+            // El docente solo puede registrar Ayudantes (OPERADOR) o Estudiantes
+            if (!TipoUsuarioResolver.OPERADOR.equals(rolARegistrar) && !TipoUsuarioResolver.ESTUDIANTE.equals(rolARegistrar)) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Permiso insuficiente: Un docente solo puede registrar usuarios con rol Ayudante o Estudiante.");
+            }
+            return;
+        }
+        throw new org.springframework.security.access.AccessDeniedException(
+                "Acceso denegado: El rol " + rolEjecutor + " no tiene permisos para registrar usuarios.");
     }
 
     @Transactional
