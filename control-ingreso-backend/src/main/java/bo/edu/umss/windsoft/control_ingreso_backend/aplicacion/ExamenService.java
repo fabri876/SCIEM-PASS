@@ -23,6 +23,7 @@ public class ExamenService {
     private final HorarioRegularRepository horarioRegularRepository;
     private final ExamenNormaGeneralRepository examenNormaGeneralRepository;
     private final NormaEspecificaRepository normaEspecificaRepository;
+    private final TipoExamenRepository tipoExamenRepository;
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -30,7 +31,8 @@ public class ExamenService {
             DocenteAsignaturaRepository docenteAsignaturaRepository,
             HorarioRegularRepository horarioRegularRepository,
             ExamenNormaGeneralRepository examenNormaGeneralRepository,
-            NormaEspecificaRepository normaEspecificaRepository) {
+            NormaEspecificaRepository normaEspecificaRepository,
+            TipoExamenRepository tipoExamenRepository) {
 
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
@@ -38,6 +40,7 @@ public class ExamenService {
         this.horarioRegularRepository = horarioRegularRepository;
         this.examenNormaGeneralRepository = examenNormaGeneralRepository;
         this.normaEspecificaRepository = normaEspecificaRepository;
+        this.tipoExamenRepository = tipoExamenRepository;
     }
 
     @Transactional
@@ -53,7 +56,18 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "El docente no dicta esa asignatura."));
 
-        // 2. Resolver aula + horario según REGULAR o EVENTUAL
+        // 2. Tipo de examen válido, y detalle obligatorio si el tipo lo requiere (ej. "Otro")
+        TipoExamen tipoExamen = tipoExamenRepository.findById(request.getIdTipoExamen())
+                .orElseThrow(() -> new IllegalArgumentException("Tipo de examen no encontrado."));
+
+        if (Boolean.TRUE.equals(tipoExamen.getRequiereDescripcion())
+                && (request.getDetalleTipoExamen() == null
+                    || request.getDetalleTipoExamen().isBlank())) {
+            throw new IllegalArgumentException(
+                    "Debe especificar el detalle del tipo de examen.");
+        }
+
+        // 3. Resolver aula + horario según REGULAR o EVENTUAL
         Integer idAula;
         LocalTime horaInicio;
         LocalTime horaFin;
@@ -92,17 +106,19 @@ public class ExamenService {
                     "La hora de fin debe ser posterior a la hora de inicio.");
         }
 
-        // 3. Crear el examen
+        // 4. Crear el examen
         Examen examen = new Examen();
         examen.setFechaExamen(request.getFechaExamen().toLocalDate());
         examen.setDuracionExamen(LocalTime.MIDNIGHT.plus(duracion));
         examen.setFechaCreacionExamen(LocalDate.now());
         examen.setEstadoExamen(request.getEstadoExamen());
         examen.setIdAsignatura(request.getIdAsignatura());
+        examen.setIdTipoExamen(request.getIdTipoExamen());
+        examen.setDetalleTipoExamen(request.getDetalleTipoExamen());
 
         Examen examenGuardado = examenRepository.save(examen);
 
-        // 4. Crear la asignación real de aula+horario para este examen
+        // 5. Crear la asignación real de aula+horario para este examen
         Ambiente ambiente = new Ambiente();
         ambiente.setIdAsignatura(examenGuardado.getIdAsignatura());
         ambiente.setIdExamen(examenGuardado.getIdExamen());
@@ -113,7 +129,7 @@ public class ExamenService {
         ambiente.setTipoHorario(request.getTipoHorario());
         ambienteRepository.save(ambiente);
 
-        // 5. Normas generales elegidas del catálogo
+        // 6. Normas generales elegidas del catálogo
         if (request.getIdsNormasGenerales() != null) {
             for (Integer idNormaGeneral : request.getIdsNormasGenerales()) {
                 ExamenNormaGeneralId id = new ExamenNormaGeneralId(
@@ -124,7 +140,7 @@ public class ExamenService {
             }
         }
 
-        // 6. Normas específicas nuevas, propias de este examen
+        // 7. Normas específicas nuevas, propias de este examen
         if (request.getNormasEspecificas() != null) {
             for (String descripcion : request.getNormasEspecificas()) {
                 NormaEspecifica ne = new NormaEspecifica();
@@ -139,8 +155,6 @@ public class ExamenService {
         return examenGuardado;
     }
 
-    // Paso 2 del flujo: horarios regulares del docente para una asignatura,
-    // para mostrárselos antes de decidir REGULAR o EVENTUAL.
     public List<HorarioRegular> obtenerHorariosRegulares(
             Integer idUsuario, Integer codsisDocente, Integer idAsignatura) {
 
@@ -170,6 +184,9 @@ public class ExamenService {
         }
         if (request.getIdAsignatura() == null) {
             throw new IllegalArgumentException("La asignatura es obligatoria.");
+        }
+        if (request.getIdTipoExamen() == null) {
+            throw new IllegalArgumentException("El tipo de examen es obligatorio.");
         }
         if (request.getTipoHorario() == null) {
             throw new IllegalArgumentException("Debe indicar si el horario es REGULAR o EVENTUAL.");

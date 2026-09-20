@@ -18,7 +18,7 @@ public class ExamenRequest {
 
     @NotNull
     private Integer idAsignatura;
-
+    
     // TODO(seguridad): reemplazar por el usuario autenticado (JWT), ver nota arriba.
     @NotNull
     private Integer idUsuario;
@@ -27,9 +27,14 @@ public class ExamenRequest {
     private Integer codsisDocente;
 
     @NotNull
-    private TipoHorario tipoHorario; // REGULAR o EVENTUAL
+    private TipoHorario tipoHorario;
 
-    // Obligatorio si tipoHorario == REGULAR
+    @NotNull
+    private Integer idTipoExamen;
+
+    private String detalleTipoExamen;
+
+    
     private Integer idHorarioRegular;
 
     // Obligatorios si tipoHorario == EVENTUAL
@@ -40,7 +45,7 @@ public class ExamenRequest {
     // Normas
     private List<Integer> idsNormasGenerales;
     private List<String> normasEspecificas;
-
+    
     public LocalDateTime getFechaExamen() { return fechaExamen; }
     public void setFechaExamen(LocalDateTime fechaExamen) { this.fechaExamen = fechaExamen; }
     public Boolean getEstadoExamen() { return estadoExamen; }
@@ -65,4 +70,8 @@ public class ExamenRequest {
     public void setIdsNormasGenerales(List<Integer> idsNormasGenerales) { this.idsNormasGenerales = idsNormasGenerales; }
     public List<String> getNormasEspecificas() { return normasEspecificas; }
     public void setNormasEspecificas(List<String> normasEspecificas) { this.normasEspecificas = normasEspecificas; }
+    public Integer getIdTipoExamen() { return idTipoExamen; }
+    public void setIdTipoExamen(Integer idTipoExamen) { this.idTipoExamen = idTipoExamen; }
+    public String getDetalleTipoExamen() { return detalleTipoExamen; }
+    public void setDetalleTipoExamen(String detalleTipoExamen) { this.detalleTipoExamen = detalleTipoExamen; }
 }
