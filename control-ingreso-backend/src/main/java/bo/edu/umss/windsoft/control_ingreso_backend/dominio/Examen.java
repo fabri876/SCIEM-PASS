@@ -36,6 +36,11 @@ public class Examen {
     @Column(name = "idasignatura")
     private Integer idAsignatura;
 
+    @Column(name = "idtipoexamen", nullable = false)
+    private Integer idTipoExamen;
+
+    @Column(name = "detalletipoexamen")
+    private String detalleTipoExamen;
     public Examen() {
     }
 
@@ -94,4 +99,9 @@ public class Examen {
     public void setIdAsignatura(Integer idAsignatura) {
         this.idAsignatura = idAsignatura;
     }
+    public Integer getIdTipoExamen() { return idTipoExamen; }
+public void setIdTipoExamen(Integer idTipoExamen) { this.idTipoExamen = idTipoExamen; }
+public String getDetalleTipoExamen() { return detalleTipoExamen; }
+public void setDetalleTipoExamen(String detalleTipoExamen) { this.detalleTipoExamen = detalleTipoExamen; }
+
 }

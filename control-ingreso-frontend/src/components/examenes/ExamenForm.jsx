@@ -1,36 +1,37 @@
-import { useState } from "react";
-import { registrarExamen } from "../../services/examenService";
+import { useState, useEffect } from "react";
+import {
+    registrarExamen,
+    obtenerAsignaturasPorDocente,
+    obtenerHorariosRegulares,
+    obtenerAulas,
+    obtenerNormasGenerales,
+    obtenerTiposExamen,
+} from "../../services/examenService";
+import { obtenerUsuarioActual } from "../../services/authService";
 
+/**
+ * ExamenForm.jsx
+ *
+ * Actualizado con la guia del 19-sep de Neil: catalogo real de
+ * tipos de examen (GET /api/tipos-examen), con idTipoExamen y
+ * detalleTipoExamen (antes "nombrePersonalizado") en el POST.
+ *
+ * UNICO PENDIENTE REAL: el codigo SIS del docente (codsisDocente) no
+ * viene en el login todavia (Neil lo confirmo como pendiente en su
+ * ultima guia, sec. 7). Tres endpoints lo piden como obligatorio:
+ * asignaturas por docente, horarios regulares, y el registro final
+ * del examen. Se manda como null hasta que se resuelva.
+ */
 
-// ExamenForm.jsx
-
-const ARR_ASIGNATURAS_TEMP = [
-    { idAsignatura: 1, nombre: "Inteligencia Artificial" },
-    { idAsignatura: 2, nombre: "Machine Learning" },
-    { idAsignatura: 3, nombre: "Bases de Datos" },
-];
-
-const ARR_TIPOS_EXAMEN_TEMP = [
-    "Primer parcial",
-    "Segundo parcial",
-    "Examen final",
-    "Segunda instancia",
-    "Otro",
-];
-
-const ARR_AMBIENTES_TEMP = [
-    { idAmbiente: 1, nombre: "Aula 690B" },
-    { idAmbiente: 2, nombre: "Aula 691C" },
-    { idAmbiente: 3, nombre: "Aula 692C" },
-    { idAmbiente: 4, nombre: "Aula 692D" },
-];
-
-const ARR_NORMAS_GENERALES_TEMP = [
-    { idNorma: 1, descripcion: "Presentar carnet de identidad / carnet universitario" },
-    { idNorma: 2, descripcion: "Prohibido el uso de teléfonos celulares y dispositivos inteligentes" },
-    { idNorma: 3, descripcion: "Llegar puntual (no se permite el ingreso una vez iniciado el examen)" },
-    { idNorma: 4, descripcion: "Permitido únicamente uso de calculadora científica no programable" },
-];
+const DIAS_SEMANA = {
+    1: "Lunes",
+    2: "Martes",
+    3: "Miércoles",
+    4: "Jueves",
+    5: "Viernes",
+    6: "Sábado",
+    7: "Domingo",
+};
 
 function IconoDocumento() {
     return (
@@ -60,94 +61,159 @@ function IconoNormas() {
 }
 
 export default function ExamenForm() {
+    const objUsuario = obtenerUsuarioActual();
+
+    // PENDIENTE: reemplazar por el valor real cuando Neil resuelva
+    // como obtener el codigo SIS del docente logueado.
+    const intCodsisDocente = null;
+
     const [objFormData, setObjFormData] = useState({
         idAsignatura: "",
-        tipoExamen: "",
-        nombrePersonalizado: "",
+        idTipoExamen: "",
+        detalleTipoExamen: "",
         fecha: "",
-        hora: "",
-        duracion: "",
-        normaParticular: "",
     });
 
-    const [arrIdAmbientesSeleccionados, setArrIdAmbientesSeleccionados] = useState([1]);
-    const [strBusquedaAmbiente, setStrBusquedaAmbiente] = useState("");
-    const [boolSugerenciasVisibles, setBoolSugerenciasVisibles] = useState(false);
+    const [arrAsignaturas, setArrAsignaturas] = useState([]);
+    const [arrTiposExamen, setArrTiposExamen] = useState([]);
+    const [arrHorariosRegulares, setArrHorariosRegulares] = useState([]);
+    const [strTipoHorario, setStrTipoHorario] = useState("REGULAR");
+    const [idHorarioRegularSeleccionado, setIdHorarioRegularSeleccionado] = useState("");
 
+    const [objEventual, setObjEventual] = useState({
+        idAula: "",
+        horaInicio: "",
+        horaFin: "",
+    });
+
+    const [arrAulas, setArrAulas] = useState([]);
+    const [arrNormasGeneralesCatalogo, setArrNormasGeneralesCatalogo] = useState([]);
     const [arrIdNormasSeleccionadas, setArrIdNormasSeleccionadas] = useState([]);
+    const [arrNormasEspecificas, setArrNormasEspecificas] = useState([]);
+    const [strNuevaNormaEspecifica, setStrNuevaNormaEspecifica] = useState("");
 
     const [boolEnviando, setBoolEnviando] = useState(false);
     const [strMensaje, setStrMensaje] = useState("");
-    const [boolAdvertenciaDuracion, setBoolAdvertenciaDuracion] = useState(false);
+
+    // Catálogos que no dependen del código SIS
+    useEffect(() => {
+        obtenerAulas().then(setArrAulas).catch(() => setArrAulas([]));
+
+        obtenerNormasGenerales()
+            .then(setArrNormasGeneralesCatalogo)
+            .catch(() => setArrNormasGeneralesCatalogo([]));
+
+        obtenerTiposExamen()
+            .then(setArrTiposExamen)
+            .catch(() => setArrTiposExamen([]));
+    }, []);
+
+    // Asignaturas del docente (BLOQUEADO hasta tener el código SIS real)
+    useEffect(() => {
+        if (!objUsuario) return;
+        obtenerAsignaturasPorDocente(objUsuario.idUsuario, intCodsisDocente)
+            .then(setArrAsignaturas)
+            .catch(() => setArrAsignaturas([]));
+    }, []);
+
+    // Horarios regulares al cambiar la asignatura
+    useEffect(() => {
+        if (!objFormData.idAsignatura || !objUsuario) {
+            setArrHorariosRegulares([]);
+            return;
+        }
+
+        obtenerHorariosRegulares(objUsuario.idUsuario, intCodsisDocente, objFormData.idAsignatura)
+            .then((horarios) => {
+                setArrHorariosRegulares(horarios);
+                setStrTipoHorario(horarios.length > 0 ? "REGULAR" : "EVENTUAL");
+            })
+            .catch(() => setArrHorariosRegulares([]));
+    }, [objFormData.idAsignatura]);
+
+    const objTipoExamenSeleccionado = arrTiposExamen.find(
+        (t) => String(t.idTipoExamen) === String(objFormData.idTipoExamen)
+    );
+    const boolRequiereDescripcion = objTipoExamenSeleccionado?.requiereDescripcion === true;
 
     function handleChange(e) {
         const { name, value } = e.target;
         setObjFormData((prev) => ({ ...prev, [name]: value }));
     }
 
-    function handleChangeDuracion(e) {
-        const value = e.target.value;
-        setObjFormData((prev) => ({ ...prev, duracion: value }));
-        setBoolAdvertenciaDuracion(parseInt(value, 10) > 480);
+    function handleChangeEventual(e) {
+        const { name, value } = e.target;
+        setObjEventual((prev) => ({ ...prev, [name]: value }));
     }
 
-    function handleToggleNorma(idNorma) {
+    function handleToggleNormaGeneral(idNorma) {
         setArrIdNormasSeleccionadas((prev) =>
             prev.includes(idNorma) ? prev.filter((id) => id !== idNorma) : [...prev, idNorma]
         );
     }
 
-    function handleAgregarAmbiente(idAmbiente) {
-        if (!arrIdAmbientesSeleccionados.includes(idAmbiente)) {
-            setArrIdAmbientesSeleccionados((prev) => [...prev, idAmbiente]);
-        }
-        setStrBusquedaAmbiente("");
-        setBoolSugerenciasVisibles(false);
+    function handleAgregarNormaEspecifica() {
+        const strTexto = strNuevaNormaEspecifica.trim();
+        if (strTexto.length === 0) return;
+        setArrNormasEspecificas((prev) => [...prev, strTexto]);
+        setStrNuevaNormaEspecifica("");
     }
 
-    function handleQuitarAmbiente(idAmbiente) {
-        setArrIdAmbientesSeleccionados((prev) => prev.filter((id) => id !== idAmbiente));
+    function handleQuitarNormaEspecifica(index) {
+        setArrNormasEspecificas((prev) => prev.filter((_, i) => i !== index));
     }
-
-    const arrAmbientesFiltrados = ARR_AMBIENTES_TEMP.filter(
-        (ambiente) =>
-            !arrIdAmbientesSeleccionados.includes(ambiente.idAmbiente) &&
-            ambiente.nombre.toLowerCase().includes(strBusquedaAmbiente.toLowerCase())
-    );
 
     async function handleSubmit(e) {
         e.preventDefault();
+        setStrMensaje("");
 
-        if (arrIdAmbientesSeleccionados.length === 0) {
-            setStrMensaje("Debe seleccionar al menos un ambiente.");
+        if (strTipoHorario === "REGULAR" && !idHorarioRegularSeleccionado) {
+            setStrMensaje("Debe seleccionar un horario regular.");
+            return;
+        }
+        if (
+            strTipoHorario === "EVENTUAL" &&
+            (!objEventual.idAula || !objEventual.horaInicio || !objEventual.horaFin)
+        ) {
+            setStrMensaje("Complete aula, hora de inicio y hora de fin.");
+            return;
+        }
+        if (boolRequiereDescripcion && !objFormData.detalleTipoExamen.trim()) {
+            setStrMensaje("Especifique el tipo de examen.");
             return;
         }
 
         setBoolEnviando(true);
-        setStrMensaje("");
 
-        const strFechaHora = `${objFormData.fecha}T${objFormData.hora}`;
+        const objBody = {
+            fechaExamen: `${objFormData.fecha}T00:00:00`,
+            estadoExamen: true,
+            idAsignatura: parseInt(objFormData.idAsignatura, 10),
+            idUsuario: objUsuario?.idUsuario,
+            codsisDocente: intCodsisDocente,
+            tipoHorario: strTipoHorario,
+            idTipoExamen: parseInt(objFormData.idTipoExamen, 10),
+            idsNormasGenerales: arrIdNormasSeleccionadas,
+            normasEspecificas: arrNormasEspecificas,
+        };
 
-        const intMinutos = parseInt(objFormData.duracion, 10);
-        const intHoras = Math.floor(intMinutos / 60);
-        const intMinutosRestantes = intMinutos % 60;
-        const strDuracion = `${String(intHoras).padStart(2, "0")}:${String(intMinutosRestantes).padStart(2, "0")}:00`;
+        if (boolRequiereDescripcion) {
+            objBody.detalleTipoExamen = objFormData.detalleTipoExamen;
+        }
+
+        if (strTipoHorario === "REGULAR") {
+            objBody.idHorarioRegular = parseInt(idHorarioRegularSeleccionado, 10);
+        } else {
+            objBody.idAula = parseInt(objEventual.idAula, 10);
+            objBody.horaInicio = `${objEventual.horaInicio}:00`;
+            objBody.horaFin = `${objEventual.horaFin}:00`;
+        }
 
         try {
-            await registrarExamen({
-                fechaExamen: strFechaHora,
-                duracionExamen: strDuracion,
-                estadoExamen: true,
-                idAsignatura: parseInt(objFormData.idAsignatura, 10),
-                idAmbientes: arrIdAmbientesSeleccionados,
-                tipoExamen: objFormData.tipoExamen,
-                nombrePersonalizado: objFormData.tipoExamen === "Otro" ? objFormData.nombrePersonalizado : null,
-                idNormas: arrIdNormasSeleccionadas,
-                normaParticular: objFormData.normaParticular,
-            });
+            await registrarExamen(objBody);
             setStrMensaje("Examen registrado correctamente.");
         } catch (error) {
-            setStrMensaje("Ocurrió un error al registrar el examen.");
+            setStrMensaje(error.message || "Ocurrió un error al registrar el examen.");
         } finally {
             setBoolEnviando(false);
         }
@@ -186,8 +252,10 @@ export default function ExamenForm() {
                             className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
                         >
                             <option value="" disabled>Seleccione una asignatura</option>
-                            {ARR_ASIGNATURAS_TEMP.map((a) => (
-                                <option key={a.idAsignatura} value={a.idAsignatura}>{a.nombre}</option>
+                            {arrAsignaturas.map((a) => (
+                                <option key={a.idAsignatura} value={a.idAsignatura}>
+                                    {a.nombreAsignatura}
+                                </option>
                             ))}
                         </select>
                     </div>
@@ -196,143 +264,148 @@ export default function ExamenForm() {
                             Tipo de Examen <span className="text-red-600">*</span>
                         </label>
                         <select
-                            name="tipoExamen"
-                            value={objFormData.tipoExamen}
+                            name="idTipoExamen"
+                            value={objFormData.idTipoExamen}
                             onChange={handleChange}
                             required
                             className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
                         >
                             <option value="" disabled>Seleccione el tipo</option>
-                            {ARR_TIPOS_EXAMEN_TEMP.map((tipo) => (
-                                <option key={tipo} value={tipo}>{tipo}</option>
+                            {arrTiposExamen.map((tipo) => (
+                                <option key={tipo.idTipoExamen} value={tipo.idTipoExamen}>
+                                    {tipo.nombreTipoExamen}
+                                </option>
                             ))}
                         </select>
                     </div>
                 </div>
 
-                {objFormData.tipoExamen === "Otro" && (
+                {boolRequiereDescripcion && (
                     <div>
                         <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
                             Especifique tipo de examen <span className="text-red-600">*</span>
                         </label>
                         <input
                             type="text"
-                            name="nombrePersonalizado"
+                            name="detalleTipoExamen"
                             maxLength={60}
-                            value={objFormData.nombrePersonalizado}
+                            value={objFormData.detalleTipoExamen}
                             onChange={handleChange}
                             required
                             placeholder="Ej. Tercer parcial, Examen extraordinario, etc."
                             className="h-[42px] w-full border border-[#2B6CB0] rounded-md text-[13.5px] px-3 bg-[#2B6CB0]/[0.06] focus:ring-3 focus:ring-[#2B6CB0]/15"
                         />
                         <p className="text-[10.5px] text-gray-500 text-right mt-1">
-                            {objFormData.nombrePersonalizado.length}/60
+                            {objFormData.detalleTipoExamen.length}/60
                         </p>
                     </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-3.5">
-                    <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
-                            Fecha del Examen <span className="text-red-600">*</span>
-                        </label>
-                        <input
-                            type="date"
-                            name="fecha"
-                            value={objFormData.fecha}
-                            onChange={handleChange}
-                            required
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
-                            Hora de Inicio <span className="text-red-600">*</span>
-                        </label>
-                        <input
-                            type="time"
-                            name="hora"
-                            value={objFormData.hora}
-                            onChange={handleChange}
-                            required
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
-                            Duración (min) <span className="text-red-600">*</span>
-                        </label>
-                        <input
-                            type="number"
-                            name="duracion"
-                            min="1"
-                            value={objFormData.duracion}
-                            onChange={handleChangeDuracion}
-                            required
-                            placeholder="90"
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
-                        />
-                        {boolAdvertenciaDuracion && (
-                            <p className="text-[11px] text-red-600 mt-1">
-                                La duración no puede superar 480 minutos (8 horas)
-                            </p>
-                        )}
-                    </div>
+                <div>
+                    <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        Fecha del Examen <span className="text-red-600">*</span>
+                    </label>
+                    <input
+                        type="date"
+                        name="fecha"
+                        value={objFormData.fecha}
+                        onChange={handleChange}
+                        required
+                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                    />
                 </div>
 
-                <div className="relative">
+                <div>
                     <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
-                        Aulas / Ambientes <span className="text-red-600">*</span>
+                        Horario y ambiente <span className="text-red-600">*</span>
                     </label>
-                    <div className="relative">
-                        <span className="absolute left-3 top-[13px] text-gray-400">⌕</span>
-                        <input
-                            type="text"
-                            placeholder="Buscar ambiente..."
-                            value={strBusquedaAmbiente}
-                            onChange={(e) => setStrBusquedaAmbiente(e.target.value)}
-                            onFocus={() => setBoolSugerenciasVisibles(true)}
-                            onBlur={() => setTimeout(() => setBoolSugerenciasVisibles(false), 150)}
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
-                        />
-                        {boolSugerenciasVisibles && arrAmbientesFiltrados.length > 0 && (
-                            <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10">
-                                {arrAmbientesFiltrados.map((ambiente) => (
-                                    <div
-                                        key={ambiente.idAmbiente}
-                                        onMouseDown={() => handleAgregarAmbiente(ambiente.idAmbiente)}
-                                        className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
-                                    >
-                                        {ambiente.nombre}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mt-2.5">
-                        {arrIdAmbientesSeleccionados.map((idAmbiente) => {
-                            const ambiente = ARR_AMBIENTES_TEMP.find((a) => a.idAmbiente === idAmbiente);
-                            if (!ambiente) return null;
-                            return (
-                                <span
-                                    key={idAmbiente}
-                                    className="inline-flex items-center gap-1.5 bg-[#EBF3FA] text-[#163F79] border border-[#D3E2F5] px-2.5 py-1 rounded-full text-[12px] font-semibold"
+
+                    {arrHorariosRegulares.length > 0 && (
+                        <div className="flex gap-4 mb-2.5">
+                            <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                                <input
+                                    type="radio"
+                                    checked={strTipoHorario === "REGULAR"}
+                                    onChange={() => setStrTipoHorario("REGULAR")}
+                                    className="accent-[#163F79]"
+                                />
+                                Usar mi horario de siempre
+                            </label>
+                            <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                                <input
+                                    type="radio"
+                                    checked={strTipoHorario === "EVENTUAL"}
+                                    onChange={() => setStrTipoHorario("EVENTUAL")}
+                                    className="accent-[#163F79]"
+                                />
+                                Es un horario especial para este examen
+                            </label>
+                        </div>
+                    )}
+
+                    {strTipoHorario === "REGULAR" && arrHorariosRegulares.length > 0 && (
+                        <select
+                            value={idHorarioRegularSeleccionado}
+                            onChange={(e) => setIdHorarioRegularSeleccionado(e.target.value)}
+                            required
+                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                        >
+                            <option value="" disabled>Seleccione un horario</option>
+                            {arrHorariosRegulares.map((h) => (
+                                <option key={h.idHorarioRegular} value={h.idHorarioRegular}>
+                                    {DIAS_SEMANA[h.diaSemana]} · {h.horaInicio.slice(0, 5)} - {h.horaFin.slice(0, 5)}
+                                </option>
+                            ))}
+                        </select>
+                    )}
+
+                    {strTipoHorario === "EVENTUAL" && (
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="block text-[11.5px] text-gray-500 mb-1">Aula</label>
+                                <select
+                                    name="idAula"
+                                    value={objEventual.idAula}
+                                    onChange={handleChangeEventual}
+                                    required
+                                    className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
                                 >
-                                    {ambiente.nombre}
-                                    <button
-                                        type="button"
-                                        onClick={() => handleQuitarAmbiente(idAmbiente)}
-                                        className="text-[#2B6CB0] font-bold leading-none"
-                                    >
-                                        &times;
-                                    </button>
-                                </span>
-                            );
-                        })}
-                    </div>
-                    <p className="text-[11.5px] text-gray-500 mt-2">
-                        Puede seleccionar más de un ambiente si el examen lo requiere.
-                    </p>
+                                    <option value="" disabled>Seleccione</option>
+                                    {arrAulas.map((aula) => (
+                                        <option key={aula.idAula} value={aula.idAula}>{aula.nombreAula}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[11.5px] text-gray-500 mb-1">Hora inicio</label>
+                                <input
+                                    type="time"
+                                    name="horaInicio"
+                                    value={objEventual.horaInicio}
+                                    onChange={handleChangeEventual}
+                                    required
+                                    className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11.5px] text-gray-500 mb-1">Hora fin</label>
+                                <input
+                                    type="time"
+                                    name="horaFin"
+                                    value={objEventual.horaFin}
+                                    onChange={handleChangeEventual}
+                                    required
+                                    className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {arrHorariosRegulares.length === 0 && objFormData.idAsignatura && (
+                        <p className="text-[11.5px] text-gray-500 mt-1.5">
+                            No tiene un horario regular para esta asignatura, complete un horario eventual.
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -347,15 +420,15 @@ export default function ExamenForm() {
                         Normas generales
                     </label>
                     <div className="flex flex-col gap-2">
-                        {ARR_NORMAS_GENERALES_TEMP.map((norma) => (
-                            <label key={norma.idNorma} className="flex items-start gap-2 text-[13px] text-gray-700 cursor-pointer">
+                        {arrNormasGeneralesCatalogo.map((norma) => (
+                            <label key={norma.idNormaGeneral} className="flex items-start gap-2 text-[13px] text-gray-700 cursor-pointer">
                                 <input
                                     type="checkbox"
-                                    checked={arrIdNormasSeleccionadas.includes(norma.idNorma)}
-                                    onChange={() => handleToggleNorma(norma.idNorma)}
+                                    checked={arrIdNormasSeleccionadas.includes(norma.idNormaGeneral)}
+                                    onChange={() => handleToggleNormaGeneral(norma.idNormaGeneral)}
                                     className="w-4 h-4 mt-0.5 accent-[#163F79]"
                                 />
-                                {norma.descripcion}
+                                {norma.descripcionNorma}
                             </label>
                         ))}
                     </div>
@@ -363,20 +436,41 @@ export default function ExamenForm() {
 
                 <div>
                     <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
-                        Norma particular
+                        Normas particulares
                     </label>
-                    <textarea
-                        name="normaParticular"
-                        maxLength={100}
-                        rows={3}
-                        value={objFormData.normaParticular}
-                        onChange={handleChange}
-                        placeholder="Escriba aquí alguna indicación específica adicional para este examen"
-                        className="w-full border border-[#C8D6E8] rounded-md text-[13.5px] p-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
-                    />
-                    <p className="text-[10.5px] text-gray-500 text-right mt-1">
-                        {objFormData.normaParticular.length}/100
-                    </p>
+                    <div className="flex gap-2 mb-2">
+                        <input
+                            type="text"
+                            value={strNuevaNormaEspecifica}
+                            onChange={(e) => setStrNuevaNormaEspecifica(e.target.value)}
+                            placeholder="Escriba una indicación y presione Agregar"
+                            className="h-[38px] flex-1 border border-[#C8D6E8] rounded-md text-[13px] px-3"
+                        />
+                        <button
+                            type="button"
+                            onClick={handleAgregarNormaEspecifica}
+                            className="h-[38px] px-4 rounded-md border border-[#163F79] text-[#163F79] text-[13px] font-semibold"
+                        >
+                            Agregar
+                        </button>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        {arrNormasEspecificas.map((norma, index) => (
+                            <div
+                                key={index}
+                                className="flex items-center justify-between bg-[#F4F7FB] border border-[#E2E8F0] rounded-md px-3 py-1.5 text-[12.5px] text-gray-700"
+                            >
+                                {norma}
+                                <button
+                                    type="button"
+                                    onClick={() => handleQuitarNormaEspecifica(index)}
+                                    className="text-red-500 font-bold text-[13px] ml-2"
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
