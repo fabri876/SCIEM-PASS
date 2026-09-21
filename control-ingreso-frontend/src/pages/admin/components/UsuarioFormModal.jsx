@@ -3,8 +3,9 @@ import VentanaEmergente from "../../../components/common/VentanaEmergente";
 import FormField from "../../../components/common/FormField";
 import usePasswordVisibility from "../../../hooks/usePasswordVisibility";
 
+// Solo puede existir un ADMINISTRADOR en el sistema, así que no se ofrece
+// como opción acá (ni para crear ni para cambiar rol).
 const ROLES_CREABLES = [
-  { valor: "ADMINISTRADOR", etiqueta: "Administrador" },
   { valor: "DOCENTE", etiqueta: "Docente" },
   { valor: "OPERADOR", etiqueta: "Ayudante" },
   { valor: "ESTUDIANTE", etiqueta: "Estudiante" },

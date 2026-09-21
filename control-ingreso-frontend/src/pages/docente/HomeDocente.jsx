@@ -1,12 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from "../../components/layout/Header";
 import VentanaEmergente from "../../components/common/VentanaEmergente";
 import ExamenForm from "../../components/examenes/ExamenForm";
+import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
 
 export default function HomeDocente() {
     const navigate = useNavigate();
+    const [usuario, setUsuario] = useState(null);
 
+    useEffect(() => {
+        const user = obtenerUsuarioActual();
+        if (user) {
+            setUsuario(user);
+        } else {
+            setUsuario({
+                idUsuario: 45892,
+                nombre: "Patricia",
+                apellido: "Pérez",
+                correo: "patricia.perez@umss.edu",
+                rol: "DOCENTE",
+                codigoSis: 45892,
+            });
+        }
+    }, []);
+
+    const strNombre = usuario?.nombre || "Docente";
+    const strApellido = usuario?.apellido || "";
+    const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`;
 
     const [examenesHoy] = useState([
         {
@@ -36,7 +57,7 @@ export default function HomeDocente() {
     const [boolModalAbierto, setBoolModalAbierto] = useState(false);
 
     const fnCerrarSesion = () => {
-        localStorage.removeItem("usuario");
+        cerrarSesion();
         navigate("/login");
     };
 
@@ -52,13 +73,13 @@ export default function HomeDocente() {
 
                     <div className="h-[98px] flex items-center gap-3 pr-[55px] pl-4 bg-white shrink-0">
                         <div className="w-10 h-10 rounded-full bg-[#1A365D] text-white font-extrabold text-sm flex items-center justify-center shadow-sm shrink-0">
-                            PP
+                            {strIniciales}
                         </div>
 
 
                         <div className="flex flex-col text-left">
                             <span className="text-xs font-extrabold text-slate-800 leading-tight whitespace-nowrap">
-                                Patricia Pérez
+                                {strNombre} {strApellido}
                             </span>
 
                             <span className="text-[11px] text-[#2563EB] font-semibold leading-tight whitespace-nowrap">
@@ -86,13 +107,13 @@ export default function HomeDocente() {
                 <aside className="w-72 shrink-0 hidden lg:block space-y-6">
                     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center text-center">
                         <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-md mb-3">
-                            PP
+                            {strIniciales}
                         </div>
-                        <h3 className="font-extrabold text-[#1A365D] text-sm">Patricia Pérez</h3>
+                        <h3 className="font-extrabold text-[#1A365D] text-sm">{strNombre} {strApellido}</h3>
                         <span className="text-[11px] text-[#2563EB] font-bold mb-4">DOCENTE UMSS</span>
                         <div className="w-full border-t border-slate-100 pt-3 text-left space-y-2 text-xs">
                             <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Facultad:</span> Cs. y Tecnología</p>
-                            <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Código Docente:</span> 45892</p>
+                            <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Código Docente:</span> {usuario?.codigoSis || "-"}</p>
                         </div>
                     </div>
 
@@ -122,7 +143,7 @@ export default function HomeDocente() {
                     {/* BANNER DE BIENVENIDA CON EL AZUL OSCURO INSTITUCIONAL EXACTO DEL HOME ESTUDIANTE */}
                     <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>
                         <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
-                            ¡HOLA, PATRICIA!
+                            ¡HOLA, {strNombre.toUpperCase()}!
                         </span>
                         <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
                             Bienvenida a SCIEM-PASS

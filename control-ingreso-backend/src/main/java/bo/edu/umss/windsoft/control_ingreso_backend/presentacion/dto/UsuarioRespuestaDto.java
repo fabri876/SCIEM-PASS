@@ -14,13 +14,15 @@ public class UsuarioRespuestaDto {
     private String rol;
     private int intentosFallidos;
     private List<String> permisos;
+    // Solo aplica a DOCENTE (codsisdocente) y ESTUDIANTE (codsisestudiante).
+    private Integer codigoSis;
 
     public UsuarioRespuestaDto() {
     }
 
     public UsuarioRespuestaDto(Integer idUsuario, String ci, String nombre, String apellido,
                                Integer telefono, String correo, boolean estado, String rol,
-                               int intentosFallidos, List<String> permisos) {
+                               int intentosFallidos, List<String> permisos, Integer codigoSis) {
         this.idUsuario = idUsuario;
         this.ci = ci;
         this.nombre = nombre;
@@ -31,6 +33,7 @@ public class UsuarioRespuestaDto {
         this.rol = rol;
         this.intentosFallidos = intentosFallidos;
         this.permisos = permisos;
+        this.codigoSis = codigoSis;
     }
 
     public Integer getIdUsuario() {
@@ -111,5 +114,13 @@ public class UsuarioRespuestaDto {
 
     public void setPermisos(List<String> permisos) {
         this.permisos = permisos;
+    }
+
+    public Integer getCodigoSis() {
+        return codigoSis;
+    }
+
+    public void setCodigoSis(Integer codigoSis) {
+        this.codigoSis = codigoSis;
     }
 }
