@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Header from "../../components/layout/Header";
 import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
 import { useNavigate } from "react-router-dom";
+import UserAccountMenu from "../../components/common/UserAccountMenu";
 
 export default function HomeControl() {
   const navigate = useNavigate();
@@ -101,25 +102,12 @@ export default function HomeControl() {
             <Header strRutaActiva="Inicio" />
           </div>
 
-          <div className="h-[98px] flex items-center gap-3 pr-[55px] pl-4 bg-white shrink-0">
-            <div className="w-10 h-10 rounded-full bg-[#1A365D] text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0">
-              {usuario ? `${usuario.nombre.charAt(0)}${usuario.apellido ? usuario.apellido.charAt(0) : ''}` : "RV"}
-            </div>
-            <div className="flex flex-col text-left hidden sm:flex">
-              <span className="text-xs font-extrabold text-slate-800 leading-tight whitespace-nowrap">
-                {usuario ? `${usuario.nombre} ${usuario.apellido}` : "Roberto Vargas Siles"}
-              </span>
-              <span className="text-[11px] text-[#2563EB] font-bold leading-tight whitespace-nowrap">
-                PERSONAL DE CONTROL
-              </span>
-            </div>
-            <button
-              onClick={fnCerrarSesion}
-              title="Cerrar sesión"
-              className="ml-2 text-xs font-extrabold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
-            >
-              Salir
-            </button>
+          <div className="h-[98px] flex items-center pr-[55px] pl-4 bg-white shrink-0">
+            <UserAccountMenu
+              usuario={usuario}
+              onCerrarSesion={fnCerrarSesion}
+              strClaseAvatar="bg-[#1A365D]"
+            />
           </div>
         </div>
       </div>

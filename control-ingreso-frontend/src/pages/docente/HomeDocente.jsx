@@ -3,7 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import Header from "../../components/layout/Header";
 import VentanaEmergente from "../../components/common/VentanaEmergente";
 import ExamenForm from "../../components/examenes/ExamenForm";
+import BulkUploadCard from "../admin/components/BulkUploadCard";
+import UsuarioFormFields from "../admin/components/UsuarioFormFields";
+import UserAccountMenu from "../../components/common/UserAccountMenu";
 import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
+import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
+
+// Un docente no puede registrar a otro docente, solo Ayudante o Estudiante
+// (el backend ya lo valida igual en UsuarioService.validarPermisosRegistro).
+const ROLES_REGISTRABLES_POR_DOCENTE = [
+    { valor: "OPERADOR", etiqueta: "Ayudante" },
+    { valor: "ESTUDIANTE", etiqueta: "Estudiante" },
+];
 
 export default function HomeDocente() {
     const navigate = useNavigate();
@@ -55,10 +66,21 @@ export default function HomeDocente() {
     ]);
 
     const [boolModalAbierto, setBoolModalAbierto] = useState(false);
+    const [boolModalRegistroAbierto, setBoolModalRegistroAbierto] = useState(false);
+    const [strSeccionRegistro, setStrSeccionRegistro] = useState("individual");
 
     const fnCerrarSesion = () => {
         cerrarSesion();
         navigate("/login");
+    };
+
+    const fnCargarMasiva = async (file) => {
+        return cargarUsuariosMasivo(file, "ESTUDIANTE");
+    };
+
+    const fnRegistrarIndividual = async (datos) => {
+        await registrarUsuarioIndividual(datos);
+        setBoolModalRegistroAbierto(false);
     };
 
     return (
@@ -71,31 +93,12 @@ export default function HomeDocente() {
                         <Header strRutaActiva="Inicio" />
                     </div>
 
-                    <div className="h-[98px] flex items-center gap-3 pr-[55px] pl-4 bg-white shrink-0">
-                        <div className="w-10 h-10 rounded-full bg-[#1A365D] text-white font-extrabold text-sm flex items-center justify-center shadow-sm shrink-0">
-                            {strIniciales}
-                        </div>
-
-
-                        <div className="flex flex-col text-left">
-                            <span className="text-xs font-extrabold text-slate-800 leading-tight whitespace-nowrap">
-                                {strNombre} {strApellido}
-                            </span>
-
-                            <span className="text-[11px] text-[#2563EB] font-semibold leading-tight whitespace-nowrap">
-                                DOCENTE UMSS
-                            </span>
-                        </div>
-
-
-                        <button
-                            onClick={fnCerrarSesion}
-                            title="Cerrar sesión"
-                            className="ml-2 text-xs font-extrabold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-md transition-colors cursor-pointer"
-                        >
-                            Salir
-                        </button>
-
+                    <div className="h-[98px] flex items-center pr-[55px] pl-4 bg-white shrink-0">
+                        <UserAccountMenu
+                            usuario={usuario}
+                            onCerrarSesion={fnCerrarSesion}
+                            strClaseAvatar="bg-[#1A365D]"
+                        />
                     </div>
                 </div>
             </div>
@@ -133,6 +136,10 @@ export default function HomeDocente() {
                         <button className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
                             <svg className="w-4 h-4 text-[#2563EB]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                             Reportes y Asistencia
+                        </button>
+                        <button onClick={() => { setStrSeccionRegistro("individual"); setBoolModalRegistroAbierto(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
+                            <svg className="w-4 h-4 text-[#2563EB]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                            Registrar Estudiante/Ayudante
                         </button>
                     </div>
                 </aside>
@@ -291,6 +298,58 @@ export default function HomeDocente() {
                 onCerrar={() => setBoolModalAbierto(false)}
             >
                 <ExamenForm />
+            </VentanaEmergente>
+
+            {/* Registrar Estudiante/Ayudante: carga masiva (solo Estudiantes) y
+                registro individual (Estudiante o Ayudante), reusando los
+                mismos componentes del panel de admin (ver
+                UsuarioFormFields.jsx / BulkUploadCard.jsx). Se muestra una
+                sección a la vez, elegida con las pestañas de arriba —
+                "Individual" abre por defecto. */}
+            <VentanaEmergente
+                boolAbierto={boolModalRegistroAbierto}
+                onCerrar={() => setBoolModalRegistroAbierto(false)}
+            >
+                <div className="p-6">
+                    <h2 className="text-base font-black text-[#1A365D] mb-1">Registrar Estudiante o Ayudante</h2>
+                    <p className="text-xs text-slate-500 font-medium mb-4">
+                        La carga masiva solo admite Estudiantes. Para registrar un Ayudante, usa el registro individual.
+                    </p>
+
+                    <div className="flex gap-2 mb-5 bg-slate-100 p-1 rounded-xl w-fit">
+                        <button
+                            onClick={() => setStrSeccionRegistro("individual")}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${strSeccionRegistro === "individual"
+                                ? "bg-white text-[#1A365D] shadow-xs"
+                                : "text-slate-500 hover:text-slate-700"
+                                }`}
+                        >
+                            Registro individual
+                        </button>
+                        <button
+                            onClick={() => setStrSeccionRegistro("masivo")}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${strSeccionRegistro === "masivo"
+                                ? "bg-white text-[#1A365D] shadow-xs"
+                                : "text-slate-500 hover:text-slate-700"
+                                }`}
+                        >
+                            Carga masiva
+                        </button>
+                    </div>
+
+                    {strSeccionRegistro === "individual" ? (
+                        <UsuarioFormFields
+                            modo="crear"
+                            usuarioInicial={null}
+                            rolesDisponibles={ROLES_REGISTRABLES_POR_DOCENTE}
+                            onCerrar={() => setBoolModalRegistroAbierto(false)}
+                            onGuardar={fnRegistrarIndividual}
+                            boolActivo={boolModalRegistroAbierto && strSeccionRegistro === "individual"}
+                        />
+                    ) : (
+                        <BulkUploadCard onProcesar={fnCargarMasiva} />
+                    )}
+                </div>
             </VentanaEmergente>
 
         </div>

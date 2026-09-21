@@ -6,6 +6,7 @@ import BulkUploadCard from "./components/BulkUploadCard";
 import UserTableCard from "./components/UserTableCard";
 import AuditoriaTable from "./components/AuditoriaTable";
 import RolesTable from "./components/RolesTable";
+import UserAccountMenu from "../../components/common/UserAccountMenu";
 import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
 import {
     listarUsuarios,
@@ -163,41 +164,12 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                 {/* =====================================================
                     CUENTA DEL ADMINISTRADOR
                     ===================================================== */}
-                <div className="flex items-center gap-3 pl-4 border-l border-slate-200 shrink-0">
-
-                    {/* Avatar */}
-                    <div className="w-10 h-10 rounded-full bg-[#1763C6] text-white font-bold text-sm flex items-center justify-center shadow">
-                        {usuarioSesion
-                            ? (
-                                (usuarioSesion.nombre?.charAt(0) || "") +
-                                (usuarioSesion.apellido?.charAt(0) || "")
-                            )
-                            : "AD"
-                        }
-                    </div>
-
-                    {/* Nombre y rol */}
-                    <div className="flex flex-col text-left hidden sm:flex">
-                        <span className="text-xs font-bold text-slate-800 leading-tight">
-                            {usuarioSesion
-                                ? `${usuarioSesion.nombre || ""} ${usuarioSesion.apellido || ""}`.trim()
-                                : "Administrador"
-                            }
-                        </span>
-
-                        <span className="text-[11px] text-[#1763C6] font-semibold leading-tight">
-                            {usuarioSesion?.rol || "ADMINISTRADOR"}
-                        </span>
-                    </div>
-
-                    {/* Botón salir */}
-                    <button
-                        onClick={fnCerrarSesion}
-                        title="Cerrar sesión"
-                        className="ml-2 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-md transition-colors"
-                    >
-                        Salir
-                    </button>
+                <div className="flex items-center pl-4 border-l border-slate-200 shrink-0">
+                    <UserAccountMenu
+                        usuario={usuarioSesion || { nombre: "Administrador", rol: "ADMINISTRADOR" }}
+                        onCerrarSesion={fnCerrarSesion}
+                        strClaseAvatar="bg-[#1763C6]"
+                    />
                 </div>
             </div>
 
