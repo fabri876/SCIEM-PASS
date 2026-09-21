@@ -26,11 +26,11 @@ import java.util.Set;
 @Service
 public class UsuarioService {
 
-    // El admin ahora registra TODOS los roles, incluido ESTUDIANTE (la inge
-    // confirmó que el estudiante ya no se autorregistra).
+    // El admin registra DOCENTE, OPERADOR y ESTUDIANTE. ADMINISTRADOR queda
+    // afuera a propósito: solo puede existir un administrador en el sistema,
+    // así que no se puede crear ni promover a nadie más a ese rol desde acá.
     private static final Set<String> ROLES_CREABLES_POR_ADMIN = Set.of(
-            TipoUsuarioResolver.ADMINISTRADOR, TipoUsuarioResolver.DOCENTE,
-            TipoUsuarioResolver.OPERADOR, TipoUsuarioResolver.ESTUDIANTE);
+            TipoUsuarioResolver.DOCENTE, TipoUsuarioResolver.OPERADOR, TipoUsuarioResolver.ESTUDIANTE);
 
     private final UsuarioRepository usuarioRepository;
     private final AdminRepository adminRepository;
@@ -245,7 +245,7 @@ public class UsuarioService {
         String rolNormalizado = rol == null ? "" : rol.trim().toUpperCase();
         if (!ROLES_CREABLES_POR_ADMIN.contains(rolNormalizado)) {
             throw new SolicitudInvalidaException(
-                    "El rol debe ser ADMINISTRADOR, DOCENTE, OPERADOR o ESTUDIANTE.");
+                    "El rol debe ser DOCENTE, OPERADOR o ESTUDIANTE (solo puede existir un ADMINISTRADOR).");
         }
         return rolNormalizado;
     }
