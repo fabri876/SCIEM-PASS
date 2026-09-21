@@ -96,36 +96,7 @@ export async function listarAuditoria() {
   return fetchAutenticado("/api/admin/auditoria");
 }
 
-export async function cargarUsuariosMasivo(file, strRol = "ESTUDIANTE") {
-  const strToken = obtenerToken();
-  const formData = new FormData();
-  formData.append("archivo", file);
-  if (strRol) {
-    formData.append("rol", strRol);
-  }
-
-  const response = await fetch(`${strApiBaseUrl}/api/usuarios/carga-masiva`, {
-    method: "POST",
-    headers: {
-      ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
-    },
-    body: formData,
-  });
-
-  if (response.status === 401) {
-    cerrarSesion();
-    sessionStorage.setItem(
-      "mensajeSesion",
-      "Sesión expirada. Por favor, inicia sesión nuevamente."
-    );
-    window.location.href = "/login";
-    throw new Error("Sesión expirada.");
-  }
-
-  if (!response.ok) {
-    const objError = await response.json().catch(() => null);
-    throw new Error(objError?.mensaje || "Error al procesar la carga masiva.");
-  }
-
-  return response.json();
-}
+// Movido a usuarioService.js (lo consume también el panel de Docente, que no
+// tiene acceso a /api/admin/**) — se re-exporta acá para no romper los
+// imports existentes de AdminDashboard.jsx.
+export { cargarUsuariosMasivo } from "./usuarioService";

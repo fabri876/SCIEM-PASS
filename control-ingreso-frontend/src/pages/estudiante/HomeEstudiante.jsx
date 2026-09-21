@@ -3,6 +3,7 @@ import Header from "../../components/layout/Header";
 import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
 import { useNavigate } from "react-router-dom";
 import StudentExamList from "./components/StudentExamList";
+import UserAccountMenu from "../../components/common/UserAccountMenu";
 
 export default function HomeEstudiante() {
   const navigate = useNavigate();
@@ -140,32 +141,13 @@ export default function HomeEstudiante() {
           <Header strRutaActiva="Inicio" />
         </div>
 
-        {/* Perfil Header + Botón Salir Global */}
-        <div className="flex items-center gap-4 pl-4 border-l border-[var(--color-border)] shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-primary-navy)] text-white font-bold text-xs flex items-center justify-center shadow-md">
-              {strIniciales}
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="text-sm font-bold text-[var(--color-text-title)] leading-tight">
-                {`${strNombre} ${strApellido}`}
-              </span>
-              <span className="text-[11px] text-[var(--color-primary-blue)] font-bold uppercase tracking-wide">
-                ESTUDIANTE
-              </span>
-            </div>
-          </div>
-
-          <button
-            onClick={fnCerrarSesion}
-            className="text-xs font-bold text-[var(--color-accent-red)] hover:text-white bg-rose-50 hover:bg-[var(--color-accent-red)] px-3 py-2 rounded-xl transition-colors border border-rose-200/60 flex items-center gap-1.5 cursor-pointer shadow-xs"
-            title="Cerrar Sesión"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            <span>Salir</span>
-          </button>
+        {/* Perfil Header (menú de cuenta: cambiar contraseña / cerrar sesión) */}
+        <div className="flex items-center pl-4 border-l border-[var(--color-border)] shrink-0">
+          <UserAccountMenu
+            usuario={usuario}
+            onCerrarSesion={fnCerrarSesion}
+            strClaseAvatar="bg-[var(--color-primary-navy)]"
+          />
         </div>
       </header>
 
