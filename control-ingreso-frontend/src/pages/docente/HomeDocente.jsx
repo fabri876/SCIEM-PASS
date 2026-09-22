@@ -297,7 +297,7 @@ export default function HomeDocente() {
                 boolAbierto={boolModalAbierto}
                 onCerrar={() => setBoolModalAbierto(false)}
             >
-                <ExamenForm />
+                <ExamenForm onCancelar={() => setBoolModalAbierto(false)} />
             </VentanaEmergente>
 
             {/* Registrar Estudiante/Ayudante: carga masiva (solo Estudiantes) y

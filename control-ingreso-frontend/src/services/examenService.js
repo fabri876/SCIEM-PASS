@@ -1,12 +1,9 @@
 import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken } from "./authService";
 
-/**
- * examenService.js
- *
- * Confirmado contra el codigo real de Neil, mas la guia actualizada
- * del 19-sep con el catalogo de tipos de examen.
- */
+
+//examenService.js
+
 
 function construirHeaders() {
     const strToken = obtenerToken();
@@ -81,9 +78,18 @@ export async function obtenerNormasGenerales() {
     return response.json();
 }
 
-// NUEVO: catálogo de tipos de examen (Primer Parcial, Segundo Parcial,
-// Examen Final, Segunda Instancia, Otro). Cada uno trae
-// "requiereDescripcion" para saber si hay que pedir el campo de texto.
+export async function obtenerPerfilDocente() {
+    const response = await fetch(`${strApiBaseUrl}/api/docente/perfil`, {
+        headers: construirHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error("No se pudo obtener el perfil del docente");
+    }
+
+    return response.json();
+}
+
 export async function obtenerTiposExamen() {
     const response = await fetch(`${strApiBaseUrl}/api/tipos-examen`, {
         headers: construirHeaders(),
