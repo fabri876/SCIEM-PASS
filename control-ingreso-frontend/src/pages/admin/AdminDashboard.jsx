@@ -8,6 +8,7 @@ import AuditoriaTable from "./components/AuditoriaTable";
 import RolesTable from "./components/RolesTable";
 import UserAccountMenu from "../../components/common/UserAccountMenu";
 import SeccionRegistroExamenes from "./components/SeccionRegistroExamenes";
+import SeccionGestionHabilitacionesAdmin from "./components/SeccionGestionHabilitacionesAdmin";
 import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
 import {
     listarUsuarios,
@@ -264,12 +265,10 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     {activeMenu === "Registro de Exámenes" && <SeccionRegistroExamenes />}
 
                     {/* =================================================
-                        SECCIÓN AÚN NO CONECTADA
+                        HABILITACIÓN DE ESTUDIANTES / GESTIÓN DE MATERIAS
                         ================================================= */}
                     {activeMenu === "Habilitación de Estudiantes" && (
-                        <div className="bg-bg-card rounded-2xl p-10 border border-border shadow-xs text-center text-body text-text-body">
-                            Esta sección todavía no está conectada al backend.
-                        </div>
+                        <SeccionGestionHabilitacionesAdmin />
                     )}
                 </main>
             </div>
