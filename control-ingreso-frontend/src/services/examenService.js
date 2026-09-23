@@ -101,3 +101,15 @@ export async function obtenerTiposExamen() {
 
     return response.json();
 }
+
+export async function obtenerExamenes() {
+    const response = await fetch(`${strApiBaseUrl}/api/examenes`, {
+        headers: construirHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error("No se pudieron obtener los exámenes");
+    }
+
+    return response.json();
+}
