@@ -8,17 +8,6 @@ import { obtenerHabilitaciones, actualizarHabilitacion } from "../../services/ha
 // ---------------------------------------------------------------------------
 const ESTUDIANTES_INICIALES = [
     {
-        idHabilitacion: 1,
-        nombreEstudiante: 'Alejandro',
-        apellidoEstudiante: 'Morales Quispe',
-        emailEstudiante: 'a.morales.q@univalle.edu.bo',
-        carreraEstudiante: 'Ingeniería de Sistemas',
-        codSisEstudiante: 202104812,
-        ciEstudiante: '8472910 LP',
-        estadoHabilitacion: false,
-        nombreMotivo: '-',
-    },
-    {
         idHabilitacion: 2,
         nombreEstudiante: 'Valeria Sofía',
         apellidoEstudiante: 'Claros Rojas',
@@ -330,11 +319,10 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                                 <button
                                     key={f.key}
                                     onClick={() => { setFiltroEstado(f.key); setPaginaActual(1); }}
-                                    className={`text-xs font-bold px-4 py-2 rounded-lg transition cursor-pointer ${
-                                        filtroEstado === f.key
-                                            ? 'bg-[#1A365D] text-white shadow-xs'
-                                            : 'text-slate-600 hover:bg-white'
-                                    }`}
+                                    className={`text-xs font-bold px-4 py-2 rounded-lg transition cursor-pointer ${filtroEstado === f.key
+                                        ? 'bg-[#1A365D] text-white shadow-xs'
+                                        : 'text-slate-600 hover:bg-white'
+                                        }`}
                                 >
                                     {f.label}
                                 </button>
@@ -353,64 +341,64 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left text-xs">
                                         <thead>
-                                        <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider bg-[#F8FAFC]">
-                                            <th className="py-3.5 px-6">N°</th>
-                                            <th className="py-3.5 px-6">Estudiante</th>
-                                            <th className="py-3.5 px-6">CI</th>
-                                            <th className="py-3.5 px-6">Código SIS</th>
-                                            <th className="py-3.5 px-6">Estado de habilitación</th>
-                                            <th className="py-3.5 px-6">Motivo</th>
-                                            <th className="py-3.5 px-6 text-right">Acciones</th>
-                                        </tr>
+                                            <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider bg-[#F8FAFC]">
+                                                <th className="py-3.5 px-6">N°</th>
+                                                <th className="py-3.5 px-6">Estudiante</th>
+                                                <th className="py-3.5 px-6">CI</th>
+                                                <th className="py-3.5 px-6">Código SIS</th>
+                                                <th className="py-3.5 px-6">Estado de habilitación</th>
+                                                <th className="py-3.5 px-6">Motivo</th>
+                                                <th className="py-3.5 px-6 text-right">Acciones</th>
+                                            </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 font-medium">
-                                        {estudiantesPaginados.map((est, index) => {
-                                            const numeroFila = (paginaActual - 1) * elementosPorPagina + index + 1;
-                                            const iniciales = `${est.nombreEstudiante?.[0] || ''}${est.apellidoEstudiante?.[0] || ''}`.toUpperCase();
+                                            {estudiantesPaginados.map((est, index) => {
+                                                const numeroFila = (paginaActual - 1) * elementosPorPagina + index + 1;
+                                                const iniciales = `${est.nombreEstudiante?.[0] || ''}${est.apellidoEstudiante?.[0] || ''}`.toUpperCase();
 
-                                            return (
-                                                <tr key={est.idHabilitacion} className="hover:bg-[#F8FAFC] transition">
-                                                    <td className="py-4 px-6 font-bold text-slate-500">{numeroFila}</td>
-                                                    <td className="py-4 px-6">
-                                                        <div className="flex items-center gap-3">
+                                                return (
+                                                    <tr key={est.idHabilitacion} className="hover:bg-[#F8FAFC] transition">
+                                                        <td className="py-4 px-6 font-bold text-slate-500">{numeroFila}</td>
+                                                        <td className="py-4 px-6">
+                                                            <div className="flex items-center gap-3">
                                                                 <span className="w-8 h-8 rounded-full bg-blue-100 text-[#2563EB] flex items-center justify-center font-black text-xs flex-shrink-0">
                                                                     {iniciales || 'US'}
                                                                 </span>
-                                                            <div>
-                                                                <p className="font-extrabold text-[#1A365D]">
-                                                                    {`${est.nombreEstudiante || ''} ${est.apellidoEstudiante || ''}`.trim()}
-                                                                </p>
-                                                                <p className="text-[11px] text-slate-400 font-normal">{est.emailEstudiante}</p>
+                                                                <div>
+                                                                    <p className="font-extrabold text-[#1A365D]">
+                                                                        {`${est.nombreEstudiante || ''} ${est.apellidoEstudiante || ''}`.trim()}
+                                                                    </p>
+                                                                    <p className="text-[11px] text-slate-400 font-normal">{est.emailEstudiante}</p>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-4 px-6 text-slate-600 font-medium">{est.ciEstudiante}</td>
-                                                    <td className="py-4 px-6 text-slate-600 font-mono font-semibold">{est.codSisEstudiante}</td>
-                                                    <td className="py-4 px-6">
-                                                        {est.estadoHabilitacion ? (
-                                                            <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-3 py-1 rounded-full text-[11px]">
+                                                        </td>
+                                                        <td className="py-4 px-6 text-slate-600 font-medium">{est.ciEstudiante}</td>
+                                                        <td className="py-4 px-6 text-slate-600 font-mono font-semibold">{est.codSisEstudiante}</td>
+                                                        <td className="py-4 px-6">
+                                                            {est.estadoHabilitacion ? (
+                                                                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-3 py-1 rounded-full text-[11px]">
                                                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Habilitado
                                                                 </span>
-                                                        ) : (
-                                                            <span className="inline-flex items-center gap-1.5 bg-red-50 text-rose-600 border border-red-200 font-bold px-3 py-1 rounded-full text-[11px]">
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1.5 bg-red-50 text-rose-600 border border-red-200 font-bold px-3 py-1 rounded-full text-[11px]">
                                                                     <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Inhabilitado
                                                                 </span>
-                                                        )}
-                                                    </td>
-                                                    <td className="py-4 px-6 text-slate-600 max-w-xs truncate" title={est.nombreMotivo}>
-                                                        {est.nombreMotivo}
-                                                    </td>
-                                                    <td className="py-4 px-6 text-right">
-                                                        <button
-                                                            onClick={() => abrirDrawer(est)}
-                                                            className="bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-                                                        >
-                                                            Gestionar
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
+                                                            )}
+                                                        </td>
+                                                        <td className="py-4 px-6 text-slate-600 max-w-xs truncate" title={est.nombreMotivo}>
+                                                            {est.nombreMotivo}
+                                                        </td>
+                                                        <td className="py-4 px-6 text-right">
+                                                            <button
+                                                                onClick={() => abrirDrawer(est)}
+                                                                className="bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                                                            >
+                                                                Gestionar
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -494,11 +482,10 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                                             });
                                             setEditandoMotivo(false);
                                         }}
-                                        className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs transition cursor-pointer ${
-                                            estudianteSeleccionado.estadoHabilitacion
-                                                ? 'border-[#2563EB] bg-blue-50 text-[#1A365D] font-extrabold shadow-xs ring-1 ring-[#2563EB]'
-                                                : 'border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50'
-                                        }`}
+                                        className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs transition cursor-pointer ${estudianteSeleccionado.estadoHabilitacion
+                                            ? 'border-[#2563EB] bg-blue-50 text-[#1A365D] font-extrabold shadow-xs ring-1 ring-[#2563EB]'
+                                            : 'border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50'
+                                            }`}
                                     >
                                         <span className={`w-2 h-2 rounded-full ${estudianteSeleccionado.estadoHabilitacion ? 'bg-emerald-600' : 'bg-slate-300'}`}></span>
                                         Habilitado
@@ -510,11 +497,10 @@ export default function GestionHabilitaciones({ examenId: propExamenId, onVolver
                                             ...estudianteSeleccionado,
                                             estadoHabilitacion: false
                                         })}
-                                        className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs transition cursor-pointer ${
-                                            !estudianteSeleccionado.estadoHabilitacion
-                                                ? 'border-rose-600 bg-rose-50 text-rose-600 font-extrabold shadow-xs ring-1 ring-rose-600'
-                                                : 'border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50'
-                                        }`}
+                                        className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs transition cursor-pointer ${!estudianteSeleccionado.estadoHabilitacion
+                                            ? 'border-rose-600 bg-rose-50 text-rose-600 font-extrabold shadow-xs ring-1 ring-rose-600'
+                                            : 'border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50'
+                                            }`}
                                     >
                                         <span className={`w-2 h-2 rounded-full ${!estudianteSeleccionado.estadoHabilitacion ? 'bg-rose-600' : 'bg-slate-300'}`}></span>
                                         Inhabilitado
