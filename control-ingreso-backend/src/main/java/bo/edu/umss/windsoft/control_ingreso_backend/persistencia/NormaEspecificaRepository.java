@@ -1,4 +1,3 @@
-// persistencia/NormaEspecificaRepository.java
 package bo.edu.umss.windsoft.control_ingreso_backend.persistencia;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.NormaEspecifica;
@@ -10,4 +9,6 @@ import java.util.List;
 @Repository
 public interface NormaEspecificaRepository extends JpaRepository<NormaEspecifica, Integer> {
     List<NormaEspecifica> findByIdAsignaturaAndIdExamen(Integer idAsignatura, Integer idExamen);
+    List<NormaEspecifica> findByIdAsignatura(Integer idAsignatura);
+    List<NormaEspecifica> findByIdExamen(Integer idExamen);
 }

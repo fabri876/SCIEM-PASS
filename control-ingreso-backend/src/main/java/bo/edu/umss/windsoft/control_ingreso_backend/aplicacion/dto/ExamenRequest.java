@@ -46,6 +46,10 @@ public class ExamenRequest {
     private List<Integer> idsNormasGenerales;
     private List<String> normasEspecificas;
     
+    private List<Integer> idsAulasAdicionales; // opcional: aulas extra, además de la principal
+
+    public List<Integer> getIdsAulasAdicionales() { return idsAulasAdicionales; }
+    public void setIdsAulasAdicionales(List<Integer> idsAulasAdicionales) { this.idsAulasAdicionales = idsAulasAdicionales; }
     public LocalDateTime getFechaExamen() { return fechaExamen; }
     public void setFechaExamen(LocalDateTime fechaExamen) { this.fechaExamen = fechaExamen; }
     public Boolean getEstadoExamen() { return estadoExamen; }
