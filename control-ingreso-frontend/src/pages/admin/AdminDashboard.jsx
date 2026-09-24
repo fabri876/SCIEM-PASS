@@ -6,6 +6,9 @@ import BulkUploadCard from "./components/BulkUploadCard";
 import UserTableCard from "./components/UserTableCard";
 import AuditoriaTable from "./components/AuditoriaTable";
 import RolesTable from "./components/RolesTable";
+import UserAccountMenu from "../../components/common/UserAccountMenu";
+import SeccionRegistroExamenes from "./components/SeccionRegistroExamenes";
+import SeccionGestionHabilitacionesAdmin from "./components/SeccionGestionHabilitacionesAdmin";
 import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
 import {
     listarUsuarios,
@@ -14,7 +17,8 @@ import {
     cambiarRolUsuario,
     cambiarEstadoUsuario,
     listarAuditoria,
-    listarRoles
+    listarRoles,
+    cargarUsuariosMasivo
 } from "../../services/adminService";
 import { useNavigate } from "react-router-dom";
 
@@ -134,6 +138,12 @@ export default function AdminDashboard({ onNavigateToLogin }) {
         await fnCargarUsuarios();
     };
 
+    const fnCargarMasiva = async (file, materia) => {
+        const resultado = await cargarUsuariosMasivo(file, "ESTUDIANTE");
+        await fnCargarUsuarios();
+        return resultado;
+    };
+
     // Cerrar sesión igual que en el portal del estudiante
     const fnCerrarSesion = () => {
         cerrarSesion();
@@ -156,41 +166,12 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                 {/* =====================================================
                     CUENTA DEL ADMINISTRADOR
                     ===================================================== */}
-                <div className="flex items-center gap-3 pl-4 border-l border-slate-200 shrink-0">
-
-                    {/* Avatar */}
-                    <div className="w-10 h-10 rounded-full bg-[#1763C6] text-white font-bold text-sm flex items-center justify-center shadow">
-                        {usuarioSesion
-                            ? (
-                                (usuarioSesion.nombre?.charAt(0) || "") +
-                                (usuarioSesion.apellido?.charAt(0) || "")
-                            )
-                            : "AD"
-                        }
-                    </div>
-
-                    {/* Nombre y rol */}
-                    <div className="flex flex-col text-left hidden sm:flex">
-                        <span className="text-xs font-bold text-slate-800 leading-tight">
-                            {usuarioSesion
-                                ? `${usuarioSesion.nombre || ""} ${usuarioSesion.apellido || ""}`.trim()
-                                : "Administrador"
-                            }
-                        </span>
-
-                        <span className="text-[11px] text-[#1763C6] font-semibold leading-tight">
-                            {usuarioSesion?.rol || "ADMINISTRADOR"}
-                        </span>
-                    </div>
-
-                    {/* Botón salir */}
-                    <button
-                        onClick={fnCerrarSesion}
-                        title="Cerrar sesión"
-                        className="ml-2 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-md transition-colors"
-                    >
-                        Salir
-                    </button>
+                <div className="flex items-center pl-4 border-l border-slate-200 shrink-0">
+                    <UserAccountMenu
+                        usuario={usuarioSesion || { nombre: "Administrador", rol: "ADMINISTRADOR" }}
+                        onCerrarSesion={fnCerrarSesion}
+                        strClaseAvatar="bg-[#1763C6]"
+                    />
                 </div>
             </div>
 
@@ -237,7 +218,7 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pb-6">
 
                                 <div className="lg:col-span-5 xl:col-span-4">
-                                    <BulkUploadCard />
+                                    <BulkUploadCard onProcesar={fnCargarMasiva} />
                                 </div>
 
                                 <div className="lg:col-span-7 xl:col-span-8 overflow-hidden">
@@ -279,15 +260,16 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     )}
 
                     {/* =================================================
-                        SECCIONES AÚN NO CONECTADAS
+                        REGISTRO DE EXÁMENES
                         ================================================= */}
-                    {(activeMenu === "Registro de Exámenes" ||
-                        activeMenu === "Habilitación de Estudiantes") && (
-                            <div className="bg-bg-card rounded-2xl p-10 border border-border shadow-xs text-center text-body text-text-body">
-                                Esta sección todavía no está conectada al backend.
-                            </div>
-                        )}
+                    {activeMenu === "Registro de Exámenes" && <SeccionRegistroExamenes />}
 
+                    {/* =================================================
+                        HABILITACIÓN DE ESTUDIANTES / GESTIÓN DE MATERIAS
+                        ================================================= */}
+                    {activeMenu === "Habilitación de Estudiantes" && (
+                        <SeccionGestionHabilitacionesAdmin />
+                    )}
                 </main>
             </div>
         </div>

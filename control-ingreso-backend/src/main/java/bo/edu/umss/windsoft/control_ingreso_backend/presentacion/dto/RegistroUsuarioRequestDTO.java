@@ -30,8 +30,7 @@ public class RegistroUsuarioRequestDTO {
     @Size(max = 100, message = "El correo electrónico no puede exceder 100 caracteres")
     private String correo;
 
-    @NotBlank(message = "La contraseña es obligatoria")
-    @Size(min = 8, message = "La contraseña debe tener al menos 8 caracteres")
+    // Opcional: Si no se especifica, la contraseña inicial es automáticamente el carnet de identidad
     private String contrasena;
 
     @NotBlank(message = "El carnet de identidad es obligatorio")

@@ -77,7 +77,7 @@ class AuthServiceTest {
 
         UsuarioRespuestaDto usuarioDto = new UsuarioRespuestaDto(
                 1, "1234567 CB", "Juan", "Perez", 71234567, "admin@umss.edu",
-                true, "ADMINISTRADOR", 0, Collections.emptyList()
+                true, "ADMINISTRADOR", 0, Collections.emptyList(), null
         );
         when(usuarioRespuestaMapper.mapear(usuarioActivo)).thenReturn(usuarioDto);
 

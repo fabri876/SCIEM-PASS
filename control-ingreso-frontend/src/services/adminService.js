@@ -95,3 +95,8 @@ export async function listarRoles() {
 export async function listarAuditoria() {
   return fetchAutenticado("/api/admin/auditoria");
 }
+
+// Movido a usuarioService.js (lo consume también el panel de Docente, que no
+// tiene acceso a /api/admin/**) — se re-exporta acá para no romper los
+// imports existentes de AdminDashboard.jsx.
+export { cargarUsuariosMasivo } from "./usuarioService";

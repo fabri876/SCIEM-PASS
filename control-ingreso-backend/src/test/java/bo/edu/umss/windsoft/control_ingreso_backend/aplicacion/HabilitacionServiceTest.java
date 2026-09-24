@@ -36,14 +36,14 @@ class HabilitacionServiceTest {
     @InjectMocks
     private HabilitacionService habilitacionService;
 
-
     @Test
     void testObtenerTodas() {
-        Estudiante estudiante = new Estudiante(202100456, 1);
+        Estudiante estudiante = new Estudiante(1, 202100456);
         Habilitacion h = new Habilitacion(estudiante, false, "Falta pagar cuota 2");
         h.setIdhabilitacion(101);
 
-        Usuario u = new Usuario("8472910 LP", "Alejandro", "Morales", 77712345, "a.morales@univalle.edu.bo", "secret", true);
+        Usuario u = new Usuario("8472910 LP", "Alejandro", "Morales", 77712345, "a.morales@univalle.edu.bo", "secret",
+                true);
         u.setIdusuario(1);
 
         when(habilitacionRepository.findAllConDetalles()).thenReturn(Collections.singletonList(h));
@@ -101,4 +101,3 @@ class HabilitacionServiceTest {
         assertEquals("Deuda de laboratorio", res.getObservacionHabilitacion());
     }
 }
-

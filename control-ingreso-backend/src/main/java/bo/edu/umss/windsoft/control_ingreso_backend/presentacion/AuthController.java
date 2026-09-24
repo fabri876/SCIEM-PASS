@@ -49,4 +49,23 @@ public class AuthController {
                 dto.getRolSolicitado());
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
+
+    @PostMapping("/cambiar-contrasena")
+    public ResponseEntity<java.util.Map<String, String>> cambiarContrasena(
+            @Valid @RequestBody bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CambiarContrasenaDto dto,
+            HttpServletRequest request) {
+        String correoEjecutor = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication() != null
+                ? org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName()
+                : null;
+        if ((correoEjecutor == null || "anonymousUser".equals(correoEjecutor)) && dto.getCorreo() != null && !dto.getCorreo().isBlank()) {
+            correoEjecutor = dto.getCorreo();
+        }
+
+        authService.cambiarContrasena(correoEjecutor, dto.getContrasenaActual(), dto.getNuevaContrasena(),
+                ClientIpResolver.resolver(request));
+
+        java.util.Map<String, String> respuesta = new java.util.HashMap<>();
+        respuesta.put("mensaje", "Contraseña actualizada exitosamente.");
+        return ResponseEntity.ok(respuesta);
+    }
 }

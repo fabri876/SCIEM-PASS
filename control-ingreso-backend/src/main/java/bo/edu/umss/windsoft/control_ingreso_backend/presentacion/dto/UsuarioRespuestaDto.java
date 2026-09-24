@@ -14,12 +14,13 @@ public class UsuarioRespuestaDto {
     private String rol;
     private int intentosFallidos;
     private List<String> permisos;
-    private Integer codsisDocente;
+    // Solo aplica a DOCENTE (codsisdocente) y ESTUDIANTE (codsisestudiante).
+    private Integer codigoSis;
 
     public UsuarioRespuestaDto() {
     }
 
-    // Constructor de 10 parámetros (asigna idUsuario a codsisDocente automáticamente)
+    // Constructor de 10 parámetros (asigna idUsuario a codigoSis automáticamente)
     public UsuarioRespuestaDto(Integer idUsuario, String ci, String nombre, String apellido,
                                Integer telefono, String correo, boolean estado, String rol,
                                int intentosFallidos, List<String> permisos) {
@@ -29,7 +30,7 @@ public class UsuarioRespuestaDto {
     // Constructor de 11 parámetros
     public UsuarioRespuestaDto(Integer idUsuario, String ci, String nombre, String apellido,
                                Integer telefono, String correo, boolean estado, String rol,
-                               int intentosFallidos, List<String> permisos, Integer codsisDocente) {
+                               int intentosFallidos, List<String> permisos, Integer codigoSis) {
         this.idUsuario = idUsuario;
         this.ci = ci;
         this.nombre = nombre;
@@ -40,7 +41,7 @@ public class UsuarioRespuestaDto {
         this.rol = rol;
         this.intentosFallidos = intentosFallidos;
         this.permisos = permisos;
-        this.codsisDocente = codsisDocente;
+        this.codigoSis = codigoSis;
     }
 
     public Integer getIdUsuario() {
@@ -123,11 +124,19 @@ public class UsuarioRespuestaDto {
         this.permisos = permisos;
     }
 
+    public Integer getCodigoSis() {
+        return codigoSis;
+    }
+
+    public void setCodigoSis(Integer codigoSis) {
+        this.codigoSis = codigoSis;
+    }
+
     public Integer getCodsisDocente() {
-        return codsisDocente;
+        return codigoSis;
     }
 
     public void setCodsisDocente(Integer codsisDocente) {
-        this.codsisDocente = codsisDocente;
+        this.codigoSis = codsisDocente;
     }
 }

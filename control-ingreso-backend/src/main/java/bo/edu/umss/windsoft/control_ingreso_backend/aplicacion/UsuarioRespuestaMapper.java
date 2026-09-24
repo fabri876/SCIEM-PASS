@@ -1,8 +1,10 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Docente;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UsuarioRespuestaDto;
 import org.springframework.stereotype.Component;
 
@@ -15,12 +17,14 @@ public class UsuarioRespuestaMapper {
     private final TipoUsuarioResolver tipoUsuarioResolver;
     private final RolCatalogoService rolCatalogoService;
     private final DocenteRepository docenteRepository;
+    private final EstudianteRepository estudianteRepository;
 
     public UsuarioRespuestaMapper(TipoUsuarioResolver tipoUsuarioResolver, RolCatalogoService rolCatalogoService,
-                                   DocenteRepository docenteRepository) {
+                                   DocenteRepository docenteRepository, EstudianteRepository estudianteRepository) {
         this.tipoUsuarioResolver = tipoUsuarioResolver;
         this.rolCatalogoService = rolCatalogoService;
         this.docenteRepository = docenteRepository;
+        this.estudianteRepository = estudianteRepository;
     }
 
     public UsuarioRespuestaDto mapear(Usuario usuario) {
@@ -38,19 +42,20 @@ public class UsuarioRespuestaMapper {
 
     private UsuarioRespuestaDto construir(Usuario usuario, String rol) {
         List<String> permisos = rol == null ? List.of() : rolCatalogoService.permisosDe(rol);
-
-        // codsisdocente = idusuario siempre, por diseño, pero igual confirmamos
-        // que existe la fila en `docente` antes de asumirlo.
-        Integer codsisDocente = null;
-        if (TipoUsuarioResolver.DOCENTE.equals(rol)) {
-            codsisDocente = docenteRepository.findByIdusuario(usuario.getIdusuario())
-                    .map(Docente::getCodsisdocente)
-                    .orElse(null);
-        }
-
+        Integer codigoSis = resolverCodigoSis(usuario.getIdusuario(), rol);
         return new UsuarioRespuestaDto(usuario.getIdusuario(), usuario.getCiusuario(), usuario.getNombreusuario(),
                 usuario.getApellidousuario(), usuario.getTelefonousuario(), usuario.getCorreousuario(),
                 Boolean.TRUE.equals(usuario.getEstadousuario()), rol, usuario.getIntentosFallidos(), permisos,
-                codsisDocente);
+                codigoSis);
+    }
+
+    private Integer resolverCodigoSis(Integer idUsuario, String rol) {
+        if (TipoUsuarioResolver.DOCENTE.equals(rol)) {
+            return docenteRepository.findByIdusuario(idUsuario).map(Docente::getCodsisdocente).orElse(null);
+        }
+        if (TipoUsuarioResolver.ESTUDIANTE.equals(rol)) {
+            return estudianteRepository.findByIdusuario(idUsuario).map(Estudiante::getCodsisestudiante).orElse(null);
+        }
+        return null;
     }
 }
