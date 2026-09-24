@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { obtenerTodasAsignaturas } from '../../../services/asignaturaService';
 
 // Materias de prueba sincronizadas con el diseño oficial de la imagen
 const MATERIAS_INICIALES = [
@@ -45,19 +46,50 @@ const MATERIAS_INICIALES = [
 ];
 
 export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
+    const [materias, setMaterias] = useState(MATERIAS_INICIALES);
+    const [cargando, setCargando] = useState(false);
     const [busqueda, setBusqueda] = useState('');
     const [modoVista, setModoVista] = useState('grid'); // 'grid' | 'list'
     const [materiaDestacada, setMateriaDestacada] = useState(3); // INF-310 seleccionada por defecto como en la imagen
 
+    useEffect(() => {
+        let cancelado = false;
+        async function cargarAsignaturas() {
+            try {
+                setCargando(true);
+                const data = await obtenerTodasAsignaturas();
+                if (!cancelado && Array.isArray(data) && data.length > 0) {
+                    setMaterias(data.map((item, idx) => ({
+                        id: item.idAsignatura || idx + 1,
+                        idAsignatura: item.idAsignatura,
+                        codigo: item.siglaAsignatura || `MAT-${item.idAsignatura}`,
+                        nombre: item.nombreAsignatura || 'Asignatura',
+                        docente: item.nombreDocente || 'Docente Asignado',
+                        estado: 'Activa',
+                        estudiantesInscritos: item.estudiantesInscritos || 45,
+                        habilitados: item.habilitados || 40,
+                        inhabilitados: item.inhabilitados || 5,
+                    })));
+                }
+            } catch (err) {
+                console.warn("Usando asignaturas por defecto debido a respuesta del servidor:", err);
+            } finally {
+                if (!cancelado) setCargando(false);
+            }
+        }
+        cargarAsignaturas();
+        return () => { cancelado = true; };
+    }, []);
+
     const materiasFiltradas = useMemo(() => {
         const query = busqueda.trim().toLowerCase();
-        if (!query) return MATERIAS_INICIALES;
-        return MATERIAS_INICIALES.filter(m =>
-            m.nombre.toLowerCase().includes(query) ||
-            m.codigo.toLowerCase().includes(query) ||
-            m.docente.toLowerCase().includes(query)
+        if (!query) return materias;
+        return materias.filter(m =>
+            (m.nombre && m.nombre.toLowerCase().includes(query)) ||
+            (m.codigo && m.codigo.toLowerCase().includes(query)) ||
+            (m.docente && m.docente.toLowerCase().includes(query))
         );
-    }, [busqueda]);
+    }, [materias, busqueda]);
 
     return (
         <div className="space-y-6 font-nunito">

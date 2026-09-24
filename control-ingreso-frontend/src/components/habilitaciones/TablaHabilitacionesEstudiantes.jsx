@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { obtenerHabilitaciones, actualizarHabilitacion } from "../../services/habilitacionService";
+import { obtenerExamenPorAsignatura } from "../../services/asignaturaService";
 
 // Iconos SVG centralizados
 const ICONOS = {
@@ -225,6 +226,12 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
     const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
     const [cargando, setCargando] = useState(false);
     const [guardando, setGuardando] = useState(false);
+    const [infoExamen, setInfoExamen] = useState({
+        nombreExamen: 'Primer Parcial',
+        fecha: '2026-09-25',
+        hora: '09:00 - 11:00',
+        ambiente: 'Aula 612 · Bloque F'
+    });
     const [motivoSelectValue, setMotivoSelectValue] = useState('');
     const [motivoPersonalizado, setMotivoPersonalizado] = useState('');
     const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false);
@@ -233,6 +240,29 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
     const [paginaActual, setPaginaActual] = useState(1);
     const [toast, setToast] = useState(null);
     const toastTimer = useRef(null);
+
+    useEffect(() => {
+        let cancel = false;
+        async function cargarExamen() {
+            if (!materia?.idAsignatura && !materia?.id) return;
+            try {
+                const idAsig = materia.idAsignatura || materia.id;
+                const data = await obtenerExamenPorAsignatura(idAsig);
+                if (!cancel && data) {
+                    setInfoExamen({
+                        nombreExamen: data.nombreExamen || 'Primer Parcial',
+                        fecha: data.fecha || '2026-09-25',
+                        hora: data.hora || '09:00 - 11:00',
+                        ambiente: data.ambiente || 'Aula 612 · Bloque F'
+                    });
+                }
+            } catch (err) {
+                console.warn("Usando información de examen por defecto:", err);
+            }
+        }
+        cargarExamen();
+        return () => { cancel = true; };
+    }, [materia]);
 
     const MOTIVOS_PREDEFINIDOS = [
         "Incompatibilidad de prerrequisitos curriculares reglamentarios",
@@ -422,6 +452,46 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
                     </button>
                 </div>
             )}
+
+            {/* 4 TARJETAS INFORMATIVAS DEL EXAMEN (EXAMEN, FECHA, HORA, AMBIENTE) */}
+            <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 grid grid-cols-1 sm:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+                <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3 first:pl-0">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
+                        <Icono nombre="documento" />
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">EXAMEN</span>
+                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{infoExamen.nombreExamen || '---'}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
+                        <Icono nombre="calendario" />
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">FECHA</span>
+                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{infoExamen.fecha || '---'}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
+                        <Icono nombre="horario" />
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">HORA</span>
+                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{infoExamen.hora || '---'}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
+                        <Icono nombre="ubicacion" />
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">AMBIENTE</span>
+                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{infoExamen.ambiente || '---'}</p>
+                    </div>
+                </div>
+            </div>
 
             {/* TARJETAS DE MÉTRICAS */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

@@ -30,4 +30,8 @@ public class AsignaturaService {
 
         return asignaturaRepository.findAllById(ids);
     }
+
+    public List<Asignatura> obtenerTodas() {
+        return asignaturaRepository.findAll();
+    }
 }
