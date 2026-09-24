@@ -38,9 +38,9 @@ function Toast({ toast, onClose }) {
         ? 'bg-red-50 border-red-200 text-rose-600'
         : 'bg-emerald-50 border-emerald-200 text-emerald-800';
     return (
-        <div className={`fixed bottom-4 right-4 z-[120] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-lg border text-sm font-bold font-nunito ${cls}`} role="status">
-            <span>{toast.message}</span>
-            <button onClick={onClose} className="ml-2 text-current opacity-60 hover:opacity-100 font-black cursor-pointer">✕</button>
+        <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-[120] flex items-center justify-between sm:justify-start gap-3 px-5 py-3.5 rounded-2xl shadow-lg border text-sm font-bold font-nunito ${cls}`} role="status">
+            <span className="break-words">{toast.message}</span>
+            <button onClick={onClose} className="ml-2 text-current opacity-60 hover:opacity-100 font-black cursor-pointer flex-shrink-0">✕</button>
         </div>
     );
 }
@@ -49,8 +49,8 @@ function CabeceraPagina({ usuario, onCerrarSesion }) {
     return (
         <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200">
             <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0"><Header strRutaActiva="Exámenes" /></div>
-                <div className="h-[98px] flex items-center pr-4 sm:pr-[55px] pl-4 bg-white shrink-0">
+                <div className="flex-1 min-w-0 overflow-hidden"><Header strRutaActiva="Exámenes" /></div>
+                <div className="h-[64px] sm:h-[98px] flex items-center pr-2 sm:pr-[55px] pl-2 sm:pl-4 bg-white shrink-0">
                     <UserAccountMenu usuario={usuario} onCerrarSesion={onCerrarSesion} strClaseAvatar="bg-[#1A365D]" />
                 </div>
             </div>
@@ -126,6 +126,46 @@ function FilaEstudiante({ est, numeroFila, onGestionar }) {
                 </button>
             </td>
         </tr>
+    );
+}
+
+function TarjetaEstudianteMobile({ est, numeroFila, onGestionar }) {
+    const iniciales = `${est.nombreEstudiante?.[0] || ''}${est.apellidoEstudiante?.[0] || ''}`.toUpperCase();
+    return (
+        <div className="p-4 border-b border-slate-100 last:border-0">
+            <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-9 h-9 rounded-full bg-blue-100 text-[#2563EB] flex items-center justify-center font-black text-xs flex-shrink-0">{iniciales || 'US'}</span>
+                    <div className="min-w-0">
+                        <p className="font-extrabold text-[#1A365D] text-xs truncate">{`${est.nombreEstudiante || ''} ${est.apellidoEstudiante || ''}`.trim()}</p>
+                        <p className="text-[11px] text-slate-400 font-normal truncate">{est.emailEstudiante}</p>
+                    </div>
+                </div>
+                <span className="text-[10px] font-bold text-slate-400 flex-shrink-0 mt-1">#{numeroFila}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[11px] mb-3">
+                <div className="min-w-0">
+                    <span className="block text-slate-400 font-bold uppercase text-[9px] tracking-wider">CI</span>
+                    <span className="text-slate-600 font-medium">{est.ciEstudiante}</span>
+                </div>
+                <div className="min-w-0">
+                    <span className="block text-slate-400 font-bold uppercase text-[9px] tracking-wider">Código SIS</span>
+                    <span className="text-slate-600 font-mono font-semibold">{est.codSisEstudiante}</span>
+                </div>
+            </div>
+            <div className="mb-3">
+                <BadgeEstado habilitado={est.estadoHabilitacion} />
+            </div>
+            {est.nombreMotivo && est.nombreMotivo !== '-' && (
+                <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+                    <span className="font-bold text-slate-400 uppercase text-[9px] tracking-wider block">Motivo</span>
+                    {est.nombreMotivo}
+                </p>
+            )}
+            <button onClick={() => onGestionar(est)} className="w-full bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center justify-center gap-1.5">
+                <Icono nombre="lapiz" className="w-[15px] h-[15px]" /> Modificar estado
+            </button>
+        </div>
     );
 }
 
@@ -423,7 +463,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
 
             <CabeceraPagina usuario={usuario} onCerrarSesion={fnCerrarSesion} />
 
-            <div className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-[110px] sm:pt-[130px]">
+            <div className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-[76px] sm:pt-[130px]">
                 <main className="w-full space-y-4 sm:space-y-6">
 
                     <CabeceraModulo onExportar={() => mostrarToast('success', 'Exportando lista de estudiantes...')} />
@@ -476,31 +516,45 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                             <div className="p-12 text-center text-xs font-bold text-slate-500">No se encontraron estudiantes registrados o con ese criterio de búsqueda.</div>
                         ) : (
                             <>
-                                <div className="overflow-x-auto">
+                                {/* Tabla: visible desde md hacia arriba */}
+                                <div className="hidden md:block overflow-x-auto">
                                     <table className="w-full min-w-[760px] text-left text-xs">
                                         <thead>
-                                            <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider bg-[#F8FAFC]">
-                                                <th className="py-3.5 px-3 sm:px-6">N°</th>
-                                                <th className="py-3.5 px-3 sm:px-6">Estudiante</th>
-                                                <th className="py-3.5 px-3 sm:px-6">CI</th>
-                                                <th className="py-3.5 px-3 sm:px-6">Código SIS</th>
-                                                <th className="py-3.5 px-3 sm:px-6">Estado de habilitación</th>
-                                                <th className="py-3.5 px-3 sm:px-6">Motivo</th>
-                                                <th className="py-3.5 px-3 sm:px-6 text-right">Acciones</th>
-                                            </tr>
+                                        <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider bg-[#F8FAFC]">
+                                            <th className="py-3.5 px-3 sm:px-6">N°</th>
+                                            <th className="py-3.5 px-3 sm:px-6">Estudiante</th>
+                                            <th className="py-3.5 px-3 sm:px-6">CI</th>
+                                            <th className="py-3.5 px-3 sm:px-6">Código SIS</th>
+                                            <th className="py-3.5 px-3 sm:px-6">Estado de habilitación</th>
+                                            <th className="py-3.5 px-3 sm:px-6">Motivo</th>
+                                            <th className="py-3.5 px-3 sm:px-6 text-right">Acciones</th>
+                                        </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 font-medium">
-                                            {estudiantesPaginados.map((est, index) => (
-                                                <FilaEstudiante
-                                                    key={est.idHabilitacion}
-                                                    est={est}
-                                                    numeroFila={(paginaActual - 1) * elementosPorPagina + index + 1}
-                                                    onGestionar={abrirDrawer}
-                                                />
-                                            ))}
+                                        {estudiantesPaginados.map((est, index) => (
+                                            <FilaEstudiante
+                                                key={est.idHabilitacion}
+                                                est={est}
+                                                numeroFila={(paginaActual - 1) * elementosPorPagina + index + 1}
+                                                onGestionar={abrirDrawer}
+                                            />
+                                        ))}
                                         </tbody>
                                     </table>
                                 </div>
+
+                                {/* Tarjetas: visibles solo en móvil (menos de md) */}
+                                <div className="md:hidden divide-y divide-slate-100">
+                                    {estudiantesPaginados.map((est, index) => (
+                                        <TarjetaEstudianteMobile
+                                            key={est.idHabilitacion}
+                                            est={est}
+                                            numeroFila={(paginaActual - 1) * elementosPorPagina + index + 1}
+                                            onGestionar={abrirDrawer}
+                                        />
+                                    ))}
+                                </div>
+
                                 <Paginacion paginaActual={paginaActual} totalPaginas={totalPaginas} onPagina={cambiarPagina} />
                             </>
                         )}
