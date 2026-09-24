@@ -26,6 +26,9 @@ public class NormaEspecifica {
     @Column(name = "fechacreacion", nullable = false)
     private LocalDateTime fechaCreacion;
 
+    @Column(name = "promovida", nullable = false)
+        private Boolean promovida = false;
+
     public NormaEspecifica() {}
 
     public Integer getIdNormaEspecifica() { return idNormaEspecifica; }
@@ -38,4 +41,6 @@ public class NormaEspecifica {
     public void setDescripcionNorma(String descripcionNorma) { this.descripcionNorma = descripcionNorma; }
     public LocalDateTime getFechaCreacion() { return fechaCreacion; }
     public void setFechaCreacion(LocalDateTime fechaCreacion) { this.fechaCreacion = fechaCreacion; }
+    public Boolean getPromovida() { return promovida; }
+    public void setPromovida(Boolean promovida) { this.promovida = promovida; }
 }

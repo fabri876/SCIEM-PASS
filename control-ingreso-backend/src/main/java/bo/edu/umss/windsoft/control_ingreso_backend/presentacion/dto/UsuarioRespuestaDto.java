@@ -20,6 +20,14 @@ public class UsuarioRespuestaDto {
     public UsuarioRespuestaDto() {
     }
 
+    // Constructor de 10 parámetros (asigna idUsuario a codigoSis automáticamente)
+    public UsuarioRespuestaDto(Integer idUsuario, String ci, String nombre, String apellido,
+                               Integer telefono, String correo, boolean estado, String rol,
+                               int intentosFallidos, List<String> permisos) {
+        this(idUsuario, ci, nombre, apellido, telefono, correo, estado, rol, intentosFallidos, permisos, idUsuario);
+    }
+
+    // Constructor de 11 parámetros
     public UsuarioRespuestaDto(Integer idUsuario, String ci, String nombre, String apellido,
                                Integer telefono, String correo, boolean estado, String rol,
                                int intentosFallidos, List<String> permisos, Integer codigoSis) {
@@ -122,5 +130,13 @@ public class UsuarioRespuestaDto {
 
     public void setCodigoSis(Integer codigoSis) {
         this.codigoSis = codigoSis;
+    }
+
+    public Integer getCodsisDocente() {
+        return codigoSis;
+    }
+
+    public void setCodsisDocente(Integer codsisDocente) {
+        this.codigoSis = codsisDocente;
     }
 }

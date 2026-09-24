@@ -32,11 +32,6 @@ public class UsuarioRespuestaMapper {
         return construir(usuario, rol);
     }
 
-    /**
-     * Igual que mapear(), pero resuelve el rol de todos los usuarios de una
-     * sola pasada (ver TipoUsuarioResolver.resolverTodos) en vez de una
-     * consulta por usuario — usado por el listado del panel de administración.
-     */
     public List<UsuarioRespuestaDto> mapearTodos(List<Usuario> usuarios) {
         List<Integer> ids = usuarios.stream().map(Usuario::getIdusuario).toList();
         Map<Integer, String> roles = tipoUsuarioResolver.resolverTodos(ids);
