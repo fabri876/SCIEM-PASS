@@ -12,11 +12,6 @@ import { obtenerUsuarioActual } from "../../services/authService";
 
 
 //ExamenForm.jsx
-//
-// PENDIENTE (mensaje enviado a Neil): el backend hoy solo acepta un
-// "idAula" por examen. Este formulario ya manda "idsAula" (lista),
-// asumiendo que ExamenRequest/ExamenService se actualizan para
-// aceptar varios ambientes por examen, tal como se le pidio.
 
 
 const DIAS_SEMANA = {
@@ -29,27 +24,11 @@ const DIAS_SEMANA = {
     7: "Domingo",
 };
 
-// JS: 0=Domingo..6=Sabado. Nuestro esquema: 1=Lunes..7=Domingo.
 function diaSemanaDeFecha(strFechaYYYYMMDD) {
     if (!strFechaYYYYMMDD) return null;
     const d = new Date(`${strFechaYYYYMMDD}T00:00:00`);
     const js = d.getDay();
     return js === 0 ? 7 : js;
-}
-
-// Devuelve la proxima fecha (yyyy-mm-dd) cuyo dia de semana coincide
-// con diaSemanaObjetivo (1=Lunes..7=Domingo), empezando desde hoy.
-function proximaFechaParaDia(diaSemanaObjetivo) {
-    const hoy = new Date();
-    const diaHoy = hoy.getDay() === 0 ? 7 : hoy.getDay();
-    let delta = diaSemanaObjetivo - diaHoy;
-    if (delta < 0) delta += 7;
-    const resultado = new Date(hoy);
-    resultado.setDate(hoy.getDate() + delta);
-    const yyyy = resultado.getFullYear();
-    const mm = String(resultado.getMonth() + 1).padStart(2, "0");
-    const dd = String(resultado.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
 }
 
 function IconoDocumento() {
@@ -103,9 +82,7 @@ export default function ExamenForm({ onCancelar }) {
         horaFin: "",
     });
 
-    // Ambientes: ahora es una lista, valida en REGULAR y EVENTUAL.
-    // En REGULAR se precarga con el aula del horario elegido, pero se
-    // puede quitar/agregar igual que en EVENTUAL.
+
     const [arrIdAulasSeleccionadas, setArrIdAulasSeleccionadas] = useState([]);
     const [strBusquedaAula, setStrBusquedaAula] = useState("");
     const [boolSugerenciasAulaVisibles, setBoolSugerenciasAulaVisibles] = useState(false);
@@ -115,9 +92,25 @@ export default function ExamenForm({ onCancelar }) {
     const [arrIdNormasSeleccionadas, setArrIdNormasSeleccionadas] = useState([]);
     const [arrNormasEspecificas, setArrNormasEspecificas] = useState([]);
     const [strNuevaNormaEspecifica, setStrNuevaNormaEspecifica] = useState("");
+    const [intIndexNormaEnEdicion, setIntIndexNormaEnEdicion] = useState(null);
 
     const [boolEnviando, setBoolEnviando] = useState(false);
     const [strMensaje, setStrMensaje] = useState("");
+    const [strTipoMensaje, setStrTipoMensaje] = useState("error"); // "error" | "exito"
+
+    // El mensaje de arriba (error o éxito) no debe quedarse pegado cuando el
+    // usuario sigue editando el formulario después de verlo.
+    useEffect(() => {
+        setStrMensaje("");
+    }, [
+        objFormData,
+        strTipoHorario,
+        idHorarioRegularSeleccionado,
+        arrIdAulasSeleccionadas,
+        objEventual,
+        arrIdNormasSeleccionadas,
+        arrNormasEspecificas,
+    ]);
 
     // Código SIS del docente logueado
     useEffect(() => {
@@ -162,20 +155,14 @@ export default function ExamenForm({ onCancelar }) {
             .catch(() => setArrHorariosRegulares([]));
     }, [objFormData.idAsignatura, intCodsisDocente]);
 
-    // Al elegir un horario regular: precarga su aula y sugiere la fecha
+    // Al elegir un horario regular: precarga su aula (la fecha queda vacía, sin sugerencia)
     useEffect(() => {
         if (strTipoHorario !== "REGULAR" || !idHorarioRegularSeleccionado) return;
 
-        const horario = arrHorariosRegulares.find(
-            (h) => String(h.idHorarioRegular) === String(idHorarioRegularSeleccionado)
-        );
-        if (!horario) return;
-
-        setArrIdAulasSeleccionadas([horario.idAula]);
-        setObjFormData((prev) => ({
-            ...prev,
-            fecha: proximaFechaParaDia(horario.diaSemana),
-        }));
+        // La aula del horario ya no se mete acá — se muestra aparte como tag
+        // fijo. Este array queda solo para aulas adicionales de verdad.
+        setArrIdAulasSeleccionadas([]);
+        setObjFormData((prev) => ({ ...prev, fecha: "" }));
     }, [idHorarioRegularSeleccionado, strTipoHorario]);
 
     // Al cambiar a EVENTUAL, no se precarga ningun aula
@@ -190,12 +177,6 @@ export default function ExamenForm({ onCancelar }) {
     );
     const boolRequiereDescripcion = objTipoExamenSeleccionado?.requiereDescripcion === true;
 
-    const arrAulasFiltradas = arrAulas.filter(
-        (aula) =>
-            !arrIdAulasSeleccionadas.includes(aula.idAula) &&
-            aula.nombreAula.toLowerCase().includes(strBusquedaAula.toLowerCase())
-    );
-
     // Aviso si la fecha elegida no coincide con el dia del horario regular
     const objHorarioSeleccionado = arrHorariosRegulares.find(
         (h) => String(h.idHorarioRegular) === String(idHorarioRegularSeleccionado)
@@ -205,6 +186,15 @@ export default function ExamenForm({ onCancelar }) {
         objHorarioSeleccionado &&
         objFormData.fecha &&
         diaSemanaDeFecha(objFormData.fecha) !== objHorarioSeleccionado.diaSemana;
+
+    // En REGULAR, excluye también el aula fija del horario de las sugerencias
+    // de aula adicional (esa ya va sí o sí, el backend la asigna solo).
+    const arrAulasFiltradas = arrAulas.filter(
+        (aula) =>
+            !arrIdAulasSeleccionadas.includes(aula.idAula) &&
+            !(strTipoHorario === "REGULAR" && objHorarioSeleccionado && aula.idAula === objHorarioSeleccionado.idAula) &&
+            aula.nombreAula.toLowerCase().includes(strBusquedaAula.toLowerCase())
+    );
 
     function handleChange(e) {
         const { name, value } = e.target;
@@ -237,17 +227,41 @@ export default function ExamenForm({ onCancelar }) {
     function handleAgregarNormaEspecifica() {
         const strTexto = strNuevaNormaEspecifica.trim();
         if (strTexto.length === 0) return;
-        setArrNormasEspecificas((prev) => [...prev, strTexto]);
+
+        if (intIndexNormaEnEdicion !== null) {
+            setArrNormasEspecificas((prev) =>
+                prev.map((norma, i) => (i === intIndexNormaEnEdicion ? strTexto : norma))
+            );
+            setIntIndexNormaEnEdicion(null);
+        } else {
+            setArrNormasEspecificas((prev) => [...prev, strTexto]);
+        }
+
+        setStrNuevaNormaEspecifica("");
+    }
+
+    function handleEditarNormaEspecifica(index) {
+        setIntIndexNormaEnEdicion(index);
+        setStrNuevaNormaEspecifica(arrNormasEspecificas[index]);
+    }
+
+    function handleCancelarEdicionNormaEspecifica() {
+        setIntIndexNormaEnEdicion(null);
         setStrNuevaNormaEspecifica("");
     }
 
     function handleQuitarNormaEspecifica(index) {
         setArrNormasEspecificas((prev) => prev.filter((_, i) => i !== index));
+        if (intIndexNormaEnEdicion === index) {
+            setIntIndexNormaEnEdicion(null);
+            setStrNuevaNormaEspecifica("");
+        }
     }
 
     async function handleSubmit(e) {
         e.preventDefault();
         setStrMensaje("");
+        setStrTipoMensaje("error");
 
         if (!intCodsisDocente) {
             setStrMensaje("No se pudo obtener el código SIS del docente. Intente recargar la página.");
@@ -261,7 +275,13 @@ export default function ExamenForm({ onCancelar }) {
             setStrMensaje("Complete hora de inicio y hora de fin.");
             return;
         }
-        if (arrIdAulasSeleccionadas.length === 0) {
+        if (boolFechaNoCoincide) {
+            setStrMensaje(
+                `La fecha no corresponde a ${DIAS_SEMANA[objHorarioSeleccionado.diaSemana]}, el día de ese horario regular. Ajuste la fecha o el horario para continuar.`
+            );
+            return;
+        }
+        if (strTipoHorario === "EVENTUAL" && arrIdAulasSeleccionadas.length === 0) {
             setStrMensaje("Debe seleccionar al menos un ambiente.");
             return;
         }
@@ -280,7 +300,6 @@ export default function ExamenForm({ onCancelar }) {
             codsisDocente: intCodsisDocente,
             tipoHorario: strTipoHorario,
             idTipoExamen: parseInt(objFormData.idTipoExamen, 10),
-            idsAula: arrIdAulasSeleccionadas.map((id) => parseInt(id, 10)),
             idsNormasGenerales: arrIdNormasSeleccionadas,
             normasEspecificas: arrNormasEspecificas,
         };
@@ -290,16 +309,31 @@ export default function ExamenForm({ onCancelar }) {
         }
 
         if (strTipoHorario === "REGULAR") {
+            // El aula principal se saca sola del horario regular. Todo lo que
+            // el docente haya agregado en el buscador es adicional de verdad.
             objBody.idHorarioRegular = parseInt(idHorarioRegularSeleccionado, 10);
+            if (arrIdAulasSeleccionadas.length > 0) {
+                objBody.idsAulasAdicionales = arrIdAulasSeleccionadas.map((id) => parseInt(id, 10));
+            }
         } else {
+            // En EVENTUAL, la primera aula elegida es la principal (idAula);
+            // el resto son adicionales.
+            objBody.idAula = parseInt(arrIdAulasSeleccionadas[0], 10);
+            if (arrIdAulasSeleccionadas.length > 1) {
+                objBody.idsAulasAdicionales = arrIdAulasSeleccionadas
+                    .slice(1)
+                    .map((id) => parseInt(id, 10));
+            }
             objBody.horaInicio = `${objEventual.horaInicio}:00`;
             objBody.horaFin = `${objEventual.horaFin}:00`;
         }
 
         try {
             await registrarExamen(objBody);
+            setStrTipoMensaje("exito");
             setStrMensaje("Examen registrado correctamente.");
         } catch (error) {
+            setStrTipoMensaje("error");
             setStrMensaje(error.message || "Ocurrió un error al registrar el examen.");
         } finally {
             setBoolEnviando(false);
@@ -390,25 +424,6 @@ export default function ExamenForm({ onCancelar }) {
 
                 <div>
                     <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
-                        Fecha del Examen <span className="text-red-600">*</span>
-                    </label>
-                    <input
-                        type="date"
-                        name="fecha"
-                        value={objFormData.fecha}
-                        onChange={handleChange}
-                        required
-                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
-                    />
-                    {boolFechaNoCoincide && (
-                        <p className="text-[11px] text-amber-600 mt-1">
-                            La fecha elegida no cae en {DIAS_SEMANA[objHorarioSeleccionado.diaSemana]}, que es el día de ese horario regular.
-                        </p>
-                    )}
-                </div>
-
-                <div>
-                    <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
                         Horario <span className="text-red-600">*</span>
                     </label>
 
@@ -485,15 +500,46 @@ export default function ExamenForm({ onCancelar }) {
                     )}
                 </div>
 
+                <div>
+                    <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        Fecha del Examen <span className="text-red-600">*</span>
+                    </label>
+                    <input
+                        type="date"
+                        name="fecha"
+                        value={objFormData.fecha}
+                        onChange={handleChange}
+                        required
+                        className={`h-[42px] w-full border rounded-md text-[13.5px] px-3 focus:ring-3 ${boolFechaNoCoincide
+                                ? "border-red-400 focus:border-red-500 focus:ring-red-400/15"
+                                : "border-[#C8D6E8] focus:border-[#2B6CB0] focus:ring-[#2B6CB0]/15"
+                            }`}
+                    />
+                    {boolFechaNoCoincide && (
+                        <p className="text-[11px] text-red-600 mt-1">
+                            La fecha no corresponde a {DIAS_SEMANA[objHorarioSeleccionado.diaSemana]}, el día de ese horario regular.
+                        </p>
+                    )}
+                </div>
+
                 <div className="relative">
                     <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
-                        Ambiente(s) <span className="text-red-600">*</span>
+                        Ambiente(s) {strTipoHorario === "EVENTUAL" && <span className="text-red-600">*</span>}
                     </label>
+
+                    {strTipoHorario === "REGULAR" && objHorarioSeleccionado && (
+                        <div className="flex flex-wrap gap-1.5 mb-2.5">
+                            <span className="inline-flex items-center gap-1.5 bg-[#F4F6FA] text-[#5E6B8A] border border-[#E2E8F0] px-2.5 py-1 rounded-full text-[12px] font-semibold">
+                                {arrAulas.find((a) => a.idAula === objHorarioSeleccionado.idAula)?.nombreAula || "Aula del horario"}
+                            </span>
+                        </div>
+                    )}
+
                     <div className="relative">
                         <span className="absolute left-3 top-[13px] text-gray-400">⌕</span>
                         <input
                             type="text"
-                            placeholder="Buscar ambiente..."
+                            placeholder={strTipoHorario === "REGULAR" ? "Buscar aula adicional (opcional)..." : "Buscar ambiente..."}
                             value={strBusquedaAula}
                             onChange={(e) => setStrBusquedaAula(e.target.value)}
                             onFocus={() => setBoolSugerenciasAulaVisibles(true)}
@@ -536,7 +582,9 @@ export default function ExamenForm({ onCancelar }) {
                         })}
                     </div>
                     <p className="text-[11.5px] text-gray-500 mt-2">
-                        Puede quitar el ambiente sugerido y agregar otro, o sumar más de uno si el examen lo requiere.
+                        {strTipoHorario === "REGULAR"
+                            ? "El aula de arriba va sí o sí (la asigna el horario regular). Puede sumar otra(s) si el examen las necesita."
+                            : "Puede quitar el ambiente sugerido y agregar otro, o sumar más de uno si el examen lo requiere."}
                     </p>
                 </div>
             </div>
@@ -575,31 +623,60 @@ export default function ExamenForm({ onCancelar }) {
                             type="text"
                             value={strNuevaNormaEspecifica}
                             onChange={(e) => setStrNuevaNormaEspecifica(e.target.value)}
-                            placeholder="Escriba una indicación y presione Agregar"
-                            className="h-[38px] flex-1 border border-[#C8D6E8] rounded-md text-[13px] px-3"
+                            placeholder={
+                                intIndexNormaEnEdicion !== null
+                                    ? "Edite la indicación"
+                                    : "Escriba una indicación y presione Agregar"
+                            }
+                            className={`h-[38px] flex-1 border rounded-md text-[13px] px-3 ${intIndexNormaEnEdicion !== null
+                                    ? "border-[#2B6CB0] bg-[#2B6CB0]/[0.06]"
+                                    : "border-[#C8D6E8]"
+                                }`}
                         />
                         <button
                             type="button"
                             onClick={handleAgregarNormaEspecifica}
                             className="h-[38px] px-4 rounded-md border border-[#163F79] text-[#163F79] text-[13px] font-semibold"
                         >
-                            Agregar
+                            {intIndexNormaEnEdicion !== null ? "Guardar cambios" : "Agregar"}
                         </button>
+                        {intIndexNormaEnEdicion !== null && (
+                            <button
+                                type="button"
+                                onClick={handleCancelarEdicionNormaEspecifica}
+                                className="h-[38px] px-4 rounded-md border border-[#C8D6E8] text-gray-500 text-[13px] font-semibold"
+                            >
+                                Cancelar
+                            </button>
+                        )}
                     </div>
                     <div className="flex flex-col gap-1.5">
                         {arrNormasEspecificas.map((norma, index) => (
                             <div
                                 key={index}
-                                className="flex items-center justify-between bg-[#F4F7FB] border border-[#E2E8F0] rounded-md px-3 py-1.5 text-[12.5px] text-gray-700"
+                                className={`flex items-center justify-between border rounded-md px-3 py-1.5 text-[12.5px] text-gray-700 ${intIndexNormaEnEdicion === index
+                                        ? "bg-[#2B6CB0]/[0.06] border-[#2B6CB0]"
+                                        : "bg-[#F4F7FB] border-[#E2E8F0]"
+                                    }`}
                             >
                                 {norma}
-                                <button
-                                    type="button"
-                                    onClick={() => handleQuitarNormaEspecifica(index)}
-                                    className="text-red-500 font-bold text-[13px] ml-2"
-                                >
-                                    &times;
-                                </button>
+                                <span className="flex items-center gap-2 ml-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleEditarNormaEspecifica(index)}
+                                        className="text-[#2B6CB0] font-semibold text-[13px]"
+                                        title="Editar"
+                                    >
+                                        ✎
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleQuitarNormaEspecifica(index)}
+                                        className="text-red-500 font-bold text-[13px]"
+                                    >
+                                        &times;
+                                    </button>
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -607,7 +684,12 @@ export default function ExamenForm({ onCancelar }) {
             </div>
 
             {strMensaje && (
-                <p className="px-6 text-sm font-semibold text-[#163F79]">{strMensaje}</p>
+                <p
+                    className={`px-6 text-[12.5px] font-semibold ${strTipoMensaje === "error" ? "text-red-600" : "text-[#1C8A4C]"
+                        }`}
+                >
+                    {strMensaje}
+                </p>
             )}
 
             <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100">
