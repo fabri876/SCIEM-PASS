@@ -122,7 +122,7 @@ public class ExamenService {
                     "La hora de fin debe ser posterior a la hora de inicio.");
         }
 
-        // Validar aulas adicionales ANTES de guardar nada (fallar rápido, sin dejar datos a medias)
+                // Validar aulas adicionales ANTES de guardar nada (fallar rápido, sin dejar datos a medias)
         List<Integer> aulasAdicionales = request.getIdsAulasAdicionales();
         if (aulasAdicionales != null && !aulasAdicionales.isEmpty()) {
 
@@ -137,6 +137,18 @@ public class ExamenService {
                 aulaRepository.findById(idAulaAdicional)
                         .orElseThrow(() -> new IllegalArgumentException(
                                 "Aula adicional no encontrada: " + idAulaAdicional));
+            }
+        }
+
+        // Validar que ninguna aula (principal ni adicionales) ya esté ocupada
+        // ese mismo día en un horario que se cruce con el de este examen.
+        // Va FUERA del if de arriba para que también se valide la aula principal
+        // aunque el examen no tenga aulas adicionales.
+        LocalDate fechaDelExamen = request.getFechaExamen().toLocalDate();
+        validarSinSolapamiento(idAula, fechaDelExamen, horaInicio, horaFin);
+        if (aulasAdicionales != null) {
+            for (Integer idAulaAdicional : aulasAdicionales) {
+                validarSinSolapamiento(idAulaAdicional, fechaDelExamen, horaInicio, horaFin);
             }
         }
 
@@ -212,6 +224,22 @@ public class ExamenService {
         ambienteRepository.save(ambiente);
     }
 
+    private void validarSinSolapamiento(Integer idAula, LocalDate fecha, LocalTime horaInicio, LocalTime horaFin) {
+        List<Ambiente> ambientesExistentes = ambienteRepository.findByIdAulaYFecha(idAula, fecha);
+
+        for (Ambiente existente : ambientesExistentes) {
+            boolean seSuperponen = horaInicio.isBefore(existente.getHoraFin())
+                    && horaFin.isAfter(existente.getHoraInicio());
+
+            if (seSuperponen) {
+                throw new IllegalArgumentException(
+                        "El aula con id " + idAula + " ya está ocupada el " + fecha
+                                + " entre " + existente.getHoraInicio() + " y " + existente.getHoraFin()
+                                + " (examen id " + existente.getIdExamen() + ").");
+            }
+        }
+    }
+    
     // NUEVO: para que el frontend pueda mostrar todas las aulas de un examen
     public List<Ambiente> obtenerAmbientesDeExamen(Integer idExamen) {
         return ambienteRepository.findByIdExamen(idExamen);
