@@ -44,6 +44,37 @@ const MATERIAS_INICIALES = [
         inhabilitados: 1,
     }
 ];
+// Paleta de temas visuales basados estrictamente en la paleta institucional (Azul Marino, Azul Primario, Celeste, Índigo)
+const TEMAS_PALETA = [
+    {
+        bg: "bg-gradient-to-br from-blue-50/80 via-white to-blue-50/30",
+        border: "border-blue-200/90",
+        accentIconBg: "bg-[#2563EB]",
+        accentIconText: "text-white",
+        btnBg: "bg-[#2563EB] hover:bg-blue-700 text-white",
+    },
+    {
+        bg: "bg-gradient-to-br from-slate-50 via-white to-blue-50/20",
+        border: "border-slate-200",
+        accentIconBg: "bg-[#1A365D]",
+        accentIconText: "text-white",
+        btnBg: "bg-[#1A365D] hover:bg-slate-900 text-white",
+    },
+    {
+        bg: "bg-gradient-to-br from-sky-50/80 via-white to-sky-50/30",
+        border: "border-sky-200/90",
+        accentIconBg: "bg-sky-600",
+        accentIconText: "text-white",
+        btnBg: "bg-sky-600 hover:bg-sky-700 text-white",
+    },
+    {
+        bg: "bg-gradient-to-br from-indigo-50/80 via-white to-indigo-50/30",
+        border: "border-indigo-200/90",
+        accentIconBg: "bg-indigo-600",
+        accentIconText: "text-white",
+        btnBg: "bg-indigo-600 hover:bg-indigo-700 text-white",
+    }
+];
 
 export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
     const [materias, setMaterias] = useState(MATERIAS_INICIALES);
@@ -120,7 +151,7 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
 
             {/* BARRA DE HERRAMIENTAS: BÚSQUEDA Y VISTA */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                <div className="relative flex-1 w-full max-w-md">
+                <div className="relative flex-1 max-w-md">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -169,26 +200,32 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                 </div>
             ) : modoVista === 'grid' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    {materiasFiltradas.map((mat) => {
+                    {materiasFiltradas.map((mat, index) => {
                         const esDestacada = materiaDestacada === mat.id;
+                        const tema = TEMAS_PALETA[index % TEMAS_PALETA.length];
+                        const inicial = (mat.nombre || 'A').charAt(0).toUpperCase();
+
                         return (
                             <div
                                 key={mat.id}
                                 onClick={() => setMateriaDestacada(mat.id)}
-                                className={`bg-white rounded-3xl p-5 shadow-xs transition duration-200 flex flex-col justify-between border cursor-pointer min-h-[220px] ${esDestacada
-                                    ? 'border-primary-blue ring-2 ring-blue-500/20 shadow-md'
-                                    : 'border-slate-200 hover:border-blue-300 hover:shadow-sm'
-                                }`}
+                                className={`${tema.bg} ${tema.border} rounded-3xl p-5 shadow-xs transition duration-200 flex flex-col justify-between border cursor-pointer min-h-[220px] ${esDestacada
+                                    ? 'ring-2 ring-blue-500/30 shadow-md scale-[1.01]'
+                                    : 'hover:shadow-md hover:scale-[1.005]'
+                                    }`}
                             >
                                 <div className="space-y-3">
-                                    <div className="flex items-center justify-end">
+                                    <div className="flex items-center justify-between">
+                                        <div className={`w-8 h-8 rounded-xl ${tema.accentIconBg} ${tema.accentIconText} flex items-center justify-center text-xs font-black shadow-xs`}>
+                                            {inicial}
+                                        </div>
                                         <span className="bg-emerald-50 text-emerald-600 font-bold px-3 py-0.5 rounded-full text-[11px] border border-emerald-200/60">
                                             {mat.estado}
                                         </span>
                                     </div>
 
                                     <div>
-                                        <h3 className="font-extrabold text-sm text-[#1A365D] leading-snug line-clamp-1">
+                                        <h3 className="font-extrabold text-sm text-[#1A365D] leading-snug line-clamp-2">
                                             {mat.nombre}
                                         </h3>
                                         <p className="text-xs text-slate-500 font-medium mt-1 truncate">
@@ -215,14 +252,14 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                                     </div>
                                 </div>
 
-                                <div className="pt-4 mt-4 border-t border-slate-100">
+                                <div className="pt-4 mt-4 border-t border-slate-100/80">
                                     <button
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onSeleccionarMateria(mat);
                                         }}
-                                        className="w-full bg-blue-50 hover:bg-primary-blue hover:text-white text-primary-blue font-bold text-xs py-2.5 px-4 rounded-xl transition duration-200 flex items-center justify-between cursor-pointer group shadow-xs"
+                                        className={`w-full ${tema.btnBg} font-bold text-xs py-2.5 px-4 rounded-xl transition duration-200 flex items-center justify-between cursor-pointer group shadow-xs`}
                                     >
                                         <span className="flex items-center gap-1.5">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
