@@ -88,7 +88,7 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
 
             {/* BARRA DE HERRAMIENTAS: BÚSQUEDA Y VISTA */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                <div className="relative flex-1 max-w-md">
+                <div className="relative flex-1 w-full max-w-md">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -136,17 +136,17 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                     No se encontraron asignaturas que coincidan con la búsqueda.
                 </div>
             ) : modoVista === 'grid' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     {materiasFiltradas.map((mat) => {
                         const esDestacada = materiaDestacada === mat.id;
                         return (
                             <div
                                 key={mat.id}
                                 onClick={() => setMateriaDestacada(mat.id)}
-                                className={`bg-white rounded-3xl p-5 shadow-xs transition duration-200 flex flex-col justify-between border cursor-pointer ${esDestacada
+                                className={`bg-white rounded-3xl p-5 shadow-xs transition duration-200 flex flex-col justify-between border cursor-pointer min-h-[220px] ${esDestacada
                                     ? 'border-primary-blue ring-2 ring-blue-500/20 shadow-md'
                                     : 'border-slate-200 hover:border-blue-300 hover:shadow-sm'
-                                    }`}
+                                }`}
                             >
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-end">
@@ -213,7 +213,7 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                                 key={mat.id}
                                 className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#F8FAFC] transition"
                             >
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-4 min-w-0">
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <h3 className="font-extrabold text-sm text-[#1A365D]">{mat.nombre}</h3>
@@ -253,7 +253,7 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
             )}
 
             {/* BANNER INFERIOR DE REGISTRO DE AUDITORÍA INSTITUCIONAL */}
-            <div className="bg-blue-50/60 border border-blue-200/80 rounded-2xl p-4 flex items-center gap-3.5 shadow-xs">
+            <div className="bg-blue-50/60 border border-blue-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3.5 shadow-xs">
                 <div className="w-9 h-9 rounded-xl bg-blue-100 text-primary-blue flex items-center justify-center flex-shrink-0">
                     <svg className="w-5 h-5 text-primary-blue" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
