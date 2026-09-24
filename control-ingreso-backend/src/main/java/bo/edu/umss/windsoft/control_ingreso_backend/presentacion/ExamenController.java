@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenDetalleDto;
+
 @RestController
 @RequestMapping("/api/examenes")
 public class ExamenController {
@@ -38,6 +40,11 @@ public class ExamenController {
 
         return ResponseEntity.ok(
                 examenService.obtenerHorariosRegulares(idUsuario, codsisDocente, idAsignatura));
+    }
+
+    @GetMapping("/por-asignatura/{idAsignatura}")
+    public ResponseEntity<ExamenDetalleDto> obtenerPorAsignatura(@PathVariable Integer idAsignatura) {
+        return ResponseEntity.ok(examenService.obtenerDetalleExamenPorAsignatura(idAsignatura));
     }
 
     @GetMapping

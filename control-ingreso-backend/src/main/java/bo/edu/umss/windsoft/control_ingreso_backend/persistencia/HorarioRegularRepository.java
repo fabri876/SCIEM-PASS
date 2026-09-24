@@ -13,4 +13,6 @@ public interface HorarioRegularRepository extends JpaRepository<HorarioRegular, 
     // Para el paso 2 del flujo: mostrar horarios regulares del docente para esa asignatura
     List<HorarioRegular> findByIdUsuarioAndCodsisDocenteAndIdAsignaturaAndEstadoHorarioTrue(
             Integer idUsuario, Integer codsisDocente, Integer idAsignatura);
+
+    List<HorarioRegular> findByIdAsignatura(Integer idAsignatura);
 }

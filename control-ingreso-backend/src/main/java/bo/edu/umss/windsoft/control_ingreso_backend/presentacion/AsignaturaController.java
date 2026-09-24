@@ -24,4 +24,9 @@ public class AsignaturaController {
             @RequestParam Integer codsisDocente) {
         return ResponseEntity.ok(asignaturaService.obtenerPorDocente(idUsuario, codsisDocente));
     }
+
+    @GetMapping
+    public ResponseEntity<List<Asignatura>> obtenerTodas() {
+        return ResponseEntity.ok(asignaturaService.obtenerTodas());
+    }
 }

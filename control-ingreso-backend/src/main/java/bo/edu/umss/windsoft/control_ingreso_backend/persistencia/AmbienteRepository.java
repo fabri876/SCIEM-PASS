@@ -10,4 +10,6 @@ import java.util.List;
 public interface AmbienteRepository extends JpaRepository<Ambiente, Integer> {
 
     List<Ambiente> findByIdExamen(Integer idExamen);
+
+    List<Ambiente> findByIdAsignatura(Integer idAsignatura);
 }
