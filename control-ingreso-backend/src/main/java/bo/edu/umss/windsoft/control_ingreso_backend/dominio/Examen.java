@@ -41,6 +41,13 @@ public class Examen {
 
     @Column(name = "detalletipoexamen")
     private String detalleTipoExamen;
+
+    @Column(name = "idusuario")
+    private Integer idUsuario;
+
+    @Column(name = "codsisdocente")
+    private Integer codsisDocente;
+        
     public Examen() {
     }
 
@@ -100,8 +107,21 @@ public class Examen {
         this.idAsignatura = idAsignatura;
     }
     public Integer getIdTipoExamen() { return idTipoExamen; }
-public void setIdTipoExamen(Integer idTipoExamen) { this.idTipoExamen = idTipoExamen; }
-public String getDetalleTipoExamen() { return detalleTipoExamen; }
-public void setDetalleTipoExamen(String detalleTipoExamen) { this.detalleTipoExamen = detalleTipoExamen; }
+    public void setIdTipoExamen(Integer idTipoExamen) { this.idTipoExamen = idTipoExamen; }
+    public String getDetalleTipoExamen() { return detalleTipoExamen; }
+    public void setDetalleTipoExamen(String detalleTipoExamen) { this.detalleTipoExamen = detalleTipoExamen; }
+
+    public Integer getIdUsuario() {
+    return idUsuario;
+    }
+    public void setIdUsuario(Integer idUsuario) {
+        this.idUsuario = idUsuario;
+    }
+    public Integer getCodsisDocente() {
+        return codsisDocente;
+    }
+    public void setCodsisDocente(Integer codsisDocente) {
+        this.codsisDocente = codsisDocente;
+    }
 
 }

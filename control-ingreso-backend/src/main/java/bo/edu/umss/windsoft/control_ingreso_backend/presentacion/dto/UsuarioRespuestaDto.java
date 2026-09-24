@@ -14,13 +14,22 @@ public class UsuarioRespuestaDto {
     private String rol;
     private int intentosFallidos;
     private List<String> permisos;
+    private Integer codsisDocente;
 
     public UsuarioRespuestaDto() {
     }
 
+    // Constructor de 10 parámetros (asigna idUsuario a codsisDocente automáticamente)
     public UsuarioRespuestaDto(Integer idUsuario, String ci, String nombre, String apellido,
                                Integer telefono, String correo, boolean estado, String rol,
                                int intentosFallidos, List<String> permisos) {
+        this(idUsuario, ci, nombre, apellido, telefono, correo, estado, rol, intentosFallidos, permisos, idUsuario);
+    }
+
+    // Constructor de 11 parámetros
+    public UsuarioRespuestaDto(Integer idUsuario, String ci, String nombre, String apellido,
+                               Integer telefono, String correo, boolean estado, String rol,
+                               int intentosFallidos, List<String> permisos, Integer codsisDocente) {
         this.idUsuario = idUsuario;
         this.ci = ci;
         this.nombre = nombre;
@@ -31,6 +40,7 @@ public class UsuarioRespuestaDto {
         this.rol = rol;
         this.intentosFallidos = intentosFallidos;
         this.permisos = permisos;
+        this.codsisDocente = codsisDocente;
     }
 
     public Integer getIdUsuario() {
@@ -111,5 +121,13 @@ public class UsuarioRespuestaDto {
 
     public void setPermisos(List<String> permisos) {
         this.permisos = permisos;
+    }
+
+    public Integer getCodsisDocente() {
+        return codsisDocente;
+    }
+
+    public void setCodsisDocente(Integer codsisDocente) {
+        this.codsisDocente = codsisDocente;
     }
 }

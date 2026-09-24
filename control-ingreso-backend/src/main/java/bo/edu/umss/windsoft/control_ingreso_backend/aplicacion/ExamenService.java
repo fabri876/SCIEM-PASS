@@ -5,6 +5,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.dto.ExamenRequest
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.*;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.*;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +14,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashSet;
 import java.util.List;
 
 @Service
@@ -24,6 +27,7 @@ public class ExamenService {
     private final ExamenNormaGeneralRepository examenNormaGeneralRepository;
     private final NormaEspecificaRepository normaEspecificaRepository;
     private final TipoExamenRepository tipoExamenRepository;
+    private final AulaRepository aulaRepository;
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -32,7 +36,8 @@ public class ExamenService {
             HorarioRegularRepository horarioRegularRepository,
             ExamenNormaGeneralRepository examenNormaGeneralRepository,
             NormaEspecificaRepository normaEspecificaRepository,
-            TipoExamenRepository tipoExamenRepository) {
+            TipoExamenRepository tipoExamenRepository,
+            AulaRepository aulaRepository) {
 
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
@@ -41,14 +46,27 @@ public class ExamenService {
         this.examenNormaGeneralRepository = examenNormaGeneralRepository;
         this.normaEspecificaRepository = normaEspecificaRepository;
         this.tipoExamenRepository = tipoExamenRepository;
+        this.aulaRepository = aulaRepository;
     }
 
     @Transactional
     public Examen registrarExamen(ExamenRequest request) {
 
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean esAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMINISTRADOR"));
+
+        if (!esAdmin) {
+            // Docente normal: ignoramos lo que venga en el body y usamos SIEMPRE
+            // el usuario real del token, para que no pueda crear a nombre de otro.
+            Integer idUsuarioAutenticado = (Integer) auth.getDetails();
+            request.setIdUsuario(idUsuarioAutenticado);
+            request.setCodsisDocente(idUsuarioAutenticado); // codsisdocente = idusuario siempre, por diseño
+        }
+        // Si es admin, se respeta lo que venga en el body (idUsuario/codsisDocente del docente elegido)
+
         validarExamen(request);
 
-        // 1. El docente realmente dicta esa asignatura
         DocenteAsignaturaId daId = new DocenteAsignaturaId(
                 request.getIdUsuario(), request.getCodsisDocente(), request.getIdAsignatura());
 
@@ -56,7 +74,6 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "El docente no dicta esa asignatura."));
 
-        // 2. Tipo de examen válido, y detalle obligatorio si el tipo lo requiere (ej. "Otro")
         TipoExamen tipoExamen = tipoExamenRepository.findById(request.getIdTipoExamen())
                 .orElseThrow(() -> new IllegalArgumentException("Tipo de examen no encontrado."));
 
@@ -67,7 +84,6 @@ public class ExamenService {
                     "Debe especificar el detalle del tipo de examen.");
         }
 
-        // 3. Resolver aula + horario según REGULAR o EVENTUAL
         Integer idAula;
         LocalTime horaInicio;
         LocalTime horaFin;
@@ -106,7 +122,24 @@ public class ExamenService {
                     "La hora de fin debe ser posterior a la hora de inicio.");
         }
 
-        // 4. Crear el examen
+        // Validar aulas adicionales ANTES de guardar nada (fallar rápido, sin dejar datos a medias)
+        List<Integer> aulasAdicionales = request.getIdsAulasAdicionales();
+        if (aulasAdicionales != null && !aulasAdicionales.isEmpty()) {
+
+            if (aulasAdicionales.size() != new HashSet<>(aulasAdicionales).size()) {
+                throw new IllegalArgumentException("Hay aulas adicionales repetidas en la lista.");
+            }
+            if (aulasAdicionales.contains(idAula)) {
+                throw new IllegalArgumentException(
+                        "El aula " + idAula + " ya es el aula principal del examen, no la repitas como adicional.");
+            }
+            for (Integer idAulaAdicional : aulasAdicionales) {
+                aulaRepository.findById(idAulaAdicional)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Aula adicional no encontrada: " + idAulaAdicional));
+            }
+        }
+
         Examen examen = new Examen();
         examen.setFechaExamen(request.getFechaExamen().toLocalDate());
         examen.setDuracionExamen(LocalTime.MIDNIGHT.plus(duracion));
@@ -115,21 +148,21 @@ public class ExamenService {
         examen.setIdAsignatura(request.getIdAsignatura());
         examen.setIdTipoExamen(request.getIdTipoExamen());
         examen.setDetalleTipoExamen(request.getDetalleTipoExamen());
-
+        examen.setIdUsuario(request.getIdUsuario());
+        examen.setCodsisDocente(request.getCodsisDocente());
+        
         Examen examenGuardado = examenRepository.save(examen);
 
-        // 5. Crear la asignación real de aula+horario para este examen
-        Ambiente ambiente = new Ambiente();
-        ambiente.setIdAsignatura(examenGuardado.getIdAsignatura());
-        ambiente.setIdExamen(examenGuardado.getIdExamen());
-        ambiente.setIdAula(idAula);
-        ambiente.setIdHorarioRegular(idHorarioRegularUsado);
-        ambiente.setHoraInicio(horaInicio);
-        ambiente.setHoraFin(horaFin);
-        ambiente.setTipoHorario(request.getTipoHorario());
-        ambienteRepository.save(ambiente);
+        // Ambiente principal (igual que siempre)
+        guardarAmbiente(examenGuardado, idAula, idHorarioRegularUsado, horaInicio, horaFin, request.getTipoHorario());
 
-        // 6. Normas generales elegidas del catálogo
+        // Ambientes adicionales: mismo examen, mismo horario, distinta aula
+        if (aulasAdicionales != null) {
+            for (Integer idAulaAdicional : aulasAdicionales) {
+                guardarAmbiente(examenGuardado, idAulaAdicional, idHorarioRegularUsado, horaInicio, horaFin, request.getTipoHorario());
+            }
+        }
+
         if (request.getIdsNormasGenerales() != null) {
             for (Integer idNormaGeneral : request.getIdsNormasGenerales()) {
                 ExamenNormaGeneralId id = new ExamenNormaGeneralId(
@@ -140,7 +173,6 @@ public class ExamenService {
             }
         }
 
-        // 7. Normas específicas nuevas, propias de este examen
         if (request.getNormasEspecificas() != null) {
             for (String descripcion : request.getNormasEspecificas()) {
                 NormaEspecifica ne = new NormaEspecifica();
@@ -155,12 +187,45 @@ public class ExamenService {
         return examenGuardado;
     }
 
+    private void guardarAmbiente(Examen examen, Integer idAula, Integer idHorarioRegular,
+                                  LocalTime horaInicio, LocalTime horaFin, TipoHorario tipoHorario) {
+
+        Aula aula = aulaRepository.findById(idAula)
+                .orElseThrow(() -> new IllegalArgumentException("Aula no encontrada: " + idAula));
+
+        if (!Boolean.TRUE.equals(aula.getEstadoAula())) {
+            throw new IllegalArgumentException(
+                    "El aula '" + aula.getNombreAula() + "' está dada de baja y no puede usarse para un examen.");
+        }
+
+        Ambiente ambiente = new Ambiente();
+        ambiente.setIdAsignatura(examen.getIdAsignatura());
+        ambiente.setIdExamen(examen.getIdExamen());
+        ambiente.setIdAula(idAula);
+        ambiente.setNombreAmbiente(aula.getNombreAula());
+        ambiente.setUbicacionAmbiente(aula.getUbicacionAula());
+        ambiente.setCapacidadAmbiente(aula.getCapacidadAula());
+        ambiente.setIdHorarioRegular(idHorarioRegular);
+        ambiente.setHoraInicio(horaInicio);
+        ambiente.setHoraFin(horaFin);
+        ambiente.setTipoHorario(tipoHorario);
+        ambienteRepository.save(ambiente);
+    }
+
+    // NUEVO: para que el frontend pueda mostrar todas las aulas de un examen
+    public List<Ambiente> obtenerAmbientesDeExamen(Integer idExamen) {
+        return ambienteRepository.findByIdExamen(idExamen);
+    }
+
     public List<HorarioRegular> obtenerHorariosRegulares(
             Integer idUsuario, Integer codsisDocente, Integer idAsignatura) {
-
         return horarioRegularRepository
                 .findByIdUsuarioAndCodsisDocenteAndIdAsignaturaAndEstadoHorarioTrue(
                         idUsuario, codsisDocente, idAsignatura);
+    }
+    
+    public List<Examen> obtenerExamenesDeDocente(Integer idUsuario, Integer codsisDocente) {
+        return examenRepository.findByIdUsuarioAndCodsisDocente(idUsuario, codsisDocente);
     }
 
     public List<Examen> obtenerExamenes() {
@@ -174,7 +239,6 @@ public class ExamenService {
     }
 
     private void validarExamen(ExamenRequest request) {
-
         if (request.getFechaExamen() == null) {
             throw new IllegalArgumentException("La fecha del examen es obligatoria.");
         }
@@ -193,8 +257,7 @@ public class ExamenService {
         }
         if (request.getTipoHorario() == TipoHorario.REGULAR
                 && request.getIdHorarioRegular() == null) {
-            throw new IllegalArgumentException(
-                    "Debe indicar qué horario regular usará.");
+            throw new IllegalArgumentException("Debe indicar qué horario regular usará.");
         }
         if (request.getTipoHorario() == TipoHorario.EVENTUAL
                 && (request.getIdAula() == null

@@ -5,10 +5,13 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ExamenService;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.dto.ExamenRequest;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HorarioRegular;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 
@@ -48,5 +51,18 @@ public class ExamenController {
     @GetMapping("/{id}")
     public ResponseEntity<Examen> obtenerExamenPorId(@PathVariable Integer id) {
         return ResponseEntity.ok(examenService.obtenerExamenPorId(id));
+    }
+
+    // NUEVO: ver todas las aulas asignadas a un examen (puede ser más de una)
+    @GetMapping("/{id}/ambientes")
+    public ResponseEntity<List<Ambiente>> obtenerAmbientes(@PathVariable Integer id) {
+        return ResponseEntity.ok(examenService.obtenerAmbientesDeExamen(id));
+    }
+
+    @GetMapping("/mis-examenes")
+    public ResponseEntity<List<Examen>> obtenerMisExamenes() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Integer idUsuarioAutenticado = (Integer) auth.getDetails();
+        return ResponseEntity.ok(examenService.obtenerExamenesDeDocente(idUsuarioAutenticado, idUsuarioAutenticado));
     }
 }
