@@ -30,6 +30,7 @@ public class ExamenService {
     private final NormaEspecificaRepository normaEspecificaRepository;
     private final TipoExamenRepository tipoExamenRepository;
     private final AulaRepository aulaRepository;
+    private final UsuarioRepository usuarioRepository;
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -39,7 +40,8 @@ public class ExamenService {
             ExamenNormaGeneralRepository examenNormaGeneralRepository,
             NormaEspecificaRepository normaEspecificaRepository,
             TipoExamenRepository tipoExamenRepository,
-            AulaRepository aulaRepository) {
+            AulaRepository aulaRepository,
+            UsuarioRepository usuarioRepository) {
 
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
@@ -49,6 +51,7 @@ public class ExamenService {
         this.normaEspecificaRepository = normaEspecificaRepository;
         this.tipoExamenRepository = tipoExamenRepository;
         this.aulaRepository = aulaRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
     @Transactional
@@ -341,13 +344,39 @@ public class ExamenService {
             hora = "Duración: " + examen.getDuracionExamen();
         }
 
+        // 4. Obtener nombre del docente
+        String nombreDocente = "Docente Asignado";
+        if (examen.getIdUsuario() != null) {
+            Usuario u = usuarioRepository.findById(examen.getIdUsuario()).orElse(null);
+            if (u != null) {
+                String n = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
+                if (!n.isEmpty()) {
+                    nombreDocente = n;
+                }
+            }
+        }
+        if ("Docente Asignado".equals(nombreDocente)) {
+            List<DocenteAsignatura> docentesAsig = docenteAsignaturaRepository.findByIdIdasignatura(idAsignatura);
+            if (!docentesAsig.isEmpty()) {
+                Integer idU = docentesAsig.get(0).getId().getIdusuario();
+                Usuario u = usuarioRepository.findById(idU).orElse(null);
+                if (u != null) {
+                    String n = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
+                    if (!n.isEmpty()) {
+                        nombreDocente = n;
+                    }
+                }
+            }
+        }
+
         return new ExamenDetalleDto(
                 examen.getIdExamen(),
                 nombreExamen,
                 fecha,
                 hora,
                 ambienteNombre,
-                idAsignatura
+                idAsignatura,
+                nombreDocente
         );
     }
 }

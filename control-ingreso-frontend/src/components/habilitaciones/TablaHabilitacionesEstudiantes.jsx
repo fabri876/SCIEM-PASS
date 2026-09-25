@@ -255,6 +255,9 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
                         hora: data.hora || '09:00 - 11:00',
                         ambiente: data.ambiente || 'Aula 612 · Bloque F'
                     });
+                    if (data.nombreDocente && materia) {
+                        materia.docente = data.nombreDocente;
+                    }
                 }
             } catch (err) {
                 console.warn("Usando información de examen por defecto:", err);
