@@ -7,6 +7,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.*;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenRespuestaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AmbienteRespuestaDto;
 
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenDetalleDto;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -531,5 +533,86 @@ public class ExamenService {
             throw new IllegalArgumentException(
                     "Un horario eventual requiere aula, hora de inicio y hora de fin.");
         }
+    }
+
+    public ExamenDetalleDto obtenerDetalleExamenPorAsignatura(Integer idAsignatura) {
+        List<Examen> examenes = examenRepository.findByIdAsignatura(idAsignatura);
+        if (examenes.isEmpty()) {
+            return new ExamenDetalleDto(null, "Examen Oficial", "---", "---", "---", idAsignatura);
+        }
+
+        Examen examen = examenes.stream()
+                .filter(e -> Boolean.TRUE.equals(e.getEstadoExamen()))
+                .findFirst()
+                .orElse(examenes.get(examenes.size() - 1));
+
+        String nombreExamen = "Examen Oficial";
+        if (examen.getIdTipoExamen() != null) {
+            TipoExamen te = tipoExamenRepository.findById(examen.getIdTipoExamen()).orElse(null);
+            if (te != null) {
+                nombreExamen = te.getNombreTipoExamen();
+                if (examen.getDetalleTipoExamen() != null && !examen.getDetalleTipoExamen().isBlank()) {
+                    nombreExamen += " (" + examen.getDetalleTipoExamen() + ")";
+                }
+            }
+        }
+
+        String fecha = (examen.getFechaExamen() != null) ? examen.getFechaExamen().toString() : "---";
+        String hora = "---";
+        String ambienteNombre = "---";
+
+        // 1. Intentar obtener de la tabla Ambiente vinculada al examen o la asignatura
+        List<Ambiente> ambientes = ambienteRepository.findByIdExamen(examen.getIdExamen());
+        if (ambientes.isEmpty()) {
+            ambientes = ambienteRepository.findByIdAsignatura(idAsignatura);
+        }
+
+        if (!ambientes.isEmpty()) {
+            Ambiente amb = ambientes.get(0);
+            if (amb.getHoraInicio() != null && amb.getHoraFin() != null) {
+                hora = amb.getHoraInicio() + " - " + amb.getHoraFin();
+            }
+
+            if (amb.getIdAula() != null) {
+                Aula aula = aulaRepository.findById(amb.getIdAula()).orElse(null);
+                if (aula != null) {
+                    ambienteNombre = aula.getNombreAula() + (aula.getUbicacionAula() != null && !aula.getUbicacionAula().isBlank() ? " · " + aula.getUbicacionAula() : "");
+                }
+            }
+            if ("---".equals(ambienteNombre) && amb.getNombreAmbiente() != null && !amb.getNombreAmbiente().isBlank()) {
+                ambienteNombre = amb.getNombreAmbiente() + (amb.getUbicacionAmbiente() != null && !amb.getUbicacionAmbiente().isBlank() ? " · " + amb.getUbicacionAmbiente() : "");
+            }
+        }
+
+        // 2. Fallback: Si hora o ambiente siguen siendo "---", consultar HorarioRegular
+        if ("---".equals(hora) || "---".equals(ambienteNombre)) {
+            List<HorarioRegular> horarios = horarioRegularRepository.findByIdAsignatura(idAsignatura);
+            if (!horarios.isEmpty()) {
+                HorarioRegular hr = horarios.get(0);
+                if ("---".equals(hora) && hr.getHoraInicio() != null && hr.getHoraFin() != null) {
+                    hora = hr.getHoraInicio() + " - " + hr.getHoraFin();
+                }
+                if ("---".equals(ambienteNombre) && hr.getIdAula() != null) {
+                    Aula aula = aulaRepository.findById(hr.getIdAula()).orElse(null);
+                    if (aula != null) {
+                        ambienteNombre = aula.getNombreAula() + (aula.getUbicacionAula() != null && !aula.getUbicacionAula().isBlank() ? " · " + aula.getUbicacionAula() : "");
+                    }
+                }
+            }
+        }
+
+        // 3. Fallback de duración de examen para hora
+        if ("---".equals(hora) && examen.getDuracionExamen() != null) {
+            hora = "Duración: " + examen.getDuracionExamen();
+        }
+
+        return new ExamenDetalleDto(
+                examen.getIdExamen(),
+                nombreExamen,
+                fecha,
+                hora,
+                ambienteNombre,
+                idAsignatura
+        );
     }
 }

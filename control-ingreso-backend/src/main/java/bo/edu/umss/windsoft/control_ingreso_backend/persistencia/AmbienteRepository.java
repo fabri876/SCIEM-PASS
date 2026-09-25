@@ -21,4 +21,5 @@ public interface AmbienteRepository extends JpaRepository<Ambiente, Integer> {
     
     List<Ambiente> findByIdExamenIn(List<Integer> idsExamen);
 
+    List<Ambiente> findByIdAsignatura(Integer idAsignatura);
 }

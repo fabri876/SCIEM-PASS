@@ -18,6 +18,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenDetalleDto;
+
 @RestController
 @RequestMapping("/api/examenes")
 public class ExamenController {
@@ -53,6 +55,11 @@ public class ExamenController {
     }
 
     // FIX #3: ahora devuelve nombres enriquecidos (asignatura, tipo, docente)
+    @GetMapping("/por-asignatura/{idAsignatura}")
+    public ResponseEntity<ExamenDetalleDto> obtenerPorAsignatura(@PathVariable Integer idAsignatura) {
+        return ResponseEntity.ok(examenService.obtenerDetalleExamenPorAsignatura(idAsignatura));
+    }
+
     @GetMapping
     public ResponseEntity<List<ExamenRespuestaDto>> obtenerExamenes() {
         return ResponseEntity.ok(examenService.obtenerExamenesEnriquecidos());
