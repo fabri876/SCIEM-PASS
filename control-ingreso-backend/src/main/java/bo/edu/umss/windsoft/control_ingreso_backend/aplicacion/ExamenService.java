@@ -603,13 +603,39 @@ public class ExamenService {
             hora = "Duración: " + examen.getDuracionExamen();
         }
 
+        // 4. Obtener nombre del docente
+        String nombreDocente = "Docente Asignado";
+        if (examen.getIdUsuario() != null) {
+            Usuario u = usuarioRepository.findById(examen.getIdUsuario()).orElse(null);
+            if (u != null) {
+                String n = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
+                if (!n.isEmpty()) {
+                    nombreDocente = n;
+                }
+            }
+        }
+        if ("Docente Asignado".equals(nombreDocente)) {
+            List<DocenteAsignatura> docentesAsig = docenteAsignaturaRepository.findByIdIdasignatura(idAsignatura);
+            if (!docentesAsig.isEmpty()) {
+                Integer idU = docentesAsig.get(0).getId().getIdusuario();
+                Usuario u = usuarioRepository.findById(idU).orElse(null);
+                if (u != null) {
+                    String n = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
+                    if (!n.isEmpty()) {
+                        nombreDocente = n;
+                    }
+                }
+            }
+        }
+
         return new ExamenDetalleDto(
                 examen.getIdExamen(),
                 nombreExamen,
                 fecha,
                 hora,
                 ambienteNombre,
-                idAsignatura
+                idAsignatura,
+                nombreDocente
         );
     }
 }

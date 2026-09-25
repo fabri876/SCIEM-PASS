@@ -44,13 +44,44 @@ const MATERIAS_INICIALES = [
         inhabilitados: 1,
     }
 ];
+// Paleta de temas visuales basados estrictamente en la paleta institucional (Azul Marino, Azul Primario, Celeste, Índigo)
+const TEMAS_PALETA = [
+    {
+        bg: "bg-gradient-to-br from-blue-50/80 via-white to-blue-50/30",
+        border: "border-blue-200/90",
+        accentIconBg: "bg-[#2563EB]",
+        accentIconText: "text-white",
+        btnBg: "bg-[#2563EB] hover:bg-blue-700 text-white",
+    },
+    {
+        bg: "bg-gradient-to-br from-slate-50 via-white to-blue-50/20",
+        border: "border-slate-200",
+        accentIconBg: "bg-[#1A365D]",
+        accentIconText: "text-white",
+        btnBg: "bg-[#1A365D] hover:bg-slate-900 text-white",
+    },
+    {
+        bg: "bg-gradient-to-br from-sky-50/80 via-white to-sky-50/30",
+        border: "border-sky-200/90",
+        accentIconBg: "bg-sky-600",
+        accentIconText: "text-white",
+        btnBg: "bg-sky-600 hover:bg-sky-700 text-white",
+    },
+    {
+        bg: "bg-gradient-to-br from-indigo-50/80 via-white to-indigo-50/30",
+        border: "border-indigo-200/90",
+        accentIconBg: "bg-indigo-600",
+        accentIconText: "text-white",
+        btnBg: "bg-indigo-600 hover:bg-indigo-700 text-white",
+    }
+];
 
 export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
-    const [materias, setMaterias] = useState(MATERIAS_INICIALES);
-    const [cargando, setCargando] = useState(false);
+    const [materias, setMaterias] = useState([]);
+    const [cargando, setCargando] = useState(true);
     const [busqueda, setBusqueda] = useState('');
     const [modoVista, setModoVista] = useState('grid'); // 'grid' | 'list'
-    const [materiaDestacada, setMateriaDestacada] = useState(3); // INF-310 seleccionada por defecto como en la imagen
+    const [materiaDestacada, setMateriaDestacada] = useState(null);
 
     useEffect(() => {
         let cancelado = false;
@@ -58,21 +89,26 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
             try {
                 setCargando(true);
                 const data = await obtenerTodasAsignaturas();
-                if (!cancelado && Array.isArray(data) && data.length > 0) {
-                    setMaterias(data.map((item, idx) => ({
+                if (!cancelado && Array.isArray(data)) {
+                    const materiasMapeadas = data.map((item, idx) => ({
                         id: item.idAsignatura || idx + 1,
                         idAsignatura: item.idAsignatura,
                         codigo: item.siglaAsignatura || `MAT-${item.idAsignatura}`,
                         nombre: item.nombreAsignatura || 'Asignatura',
                         docente: item.nombreDocente || 'Docente Asignado',
                         estado: 'Activa',
-                        estudiantesInscritos: item.estudiantesInscritos || 45,
-                        habilitados: item.habilitados || 40,
-                        inhabilitados: item.inhabilitados || 5,
-                    })));
+                        estudiantesInscritos: item.estudiantesInscritos ?? 0,
+                        habilitados: item.habilitados ?? 0,
+                        inhabilitados: item.inhabilitados ?? 0,
+                    }));
+                    setMaterias(materiasMapeadas);
+                    if (materiasMapeadas.length > 0) {
+                        setMateriaDestacada(materiasMapeadas[0].id);
+                    }
                 }
             } catch (err) {
-                console.warn("Usando asignaturas por defecto debido a respuesta del servidor:", err);
+                console.error("Error al obtener asignaturas desde la BD:", err);
+                if (!cancelado) setMaterias([]);
             } finally {
                 if (!cancelado) setCargando(false);
             }
@@ -120,7 +156,7 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
 
             {/* BARRA DE HERRAMIENTAS: BÚSQUEDA Y VISTA */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                <div className="relative flex-1 w-full max-w-md">
+                <div className="relative flex-1 max-w-md">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -163,32 +199,63 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
             </div>
 
             {/* LISTA / GRILLA DE TARJETAS DE MATERIAS */}
-            {materiasFiltradas.length === 0 ? (
+            {cargando ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map((n) => (
+                        <div key={n} className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs animate-pulse space-y-4 min-h-[220px] flex flex-col justify-between">
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="w-8 h-8 rounded-xl bg-slate-200"></div>
+                                    <div className="w-14 h-5 rounded-full bg-slate-100"></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                                    <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                                </div>
+                                <div className="h-3 bg-slate-100 rounded w-2/3"></div>
+                                <div className="flex gap-2 pt-1">
+                                    <div className="h-6 w-20 bg-slate-100 rounded-full"></div>
+                                    <div className="h-6 w-20 bg-slate-100 rounded-full"></div>
+                                </div>
+                            </div>
+                            <div className="pt-4 border-t border-slate-100">
+                                <div className="h-9 bg-slate-200 rounded-xl w-full"></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : materiasFiltradas.length === 0 ? (
                 <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center text-xs font-bold text-slate-500 shadow-xs">
                     No se encontraron asignaturas que coincidan con la búsqueda.
                 </div>
             ) : modoVista === 'grid' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    {materiasFiltradas.map((mat) => {
+                    {materiasFiltradas.map((mat, index) => {
                         const esDestacada = materiaDestacada === mat.id;
+                        const tema = TEMAS_PALETA[index % TEMAS_PALETA.length];
+                        const inicial = (mat.nombre || 'A').charAt(0).toUpperCase();
+
                         return (
                             <div
                                 key={mat.id}
                                 onClick={() => setMateriaDestacada(mat.id)}
-                                className={`bg-white rounded-3xl p-5 shadow-xs transition duration-200 flex flex-col justify-between border cursor-pointer min-h-[220px] ${esDestacada
-                                    ? 'border-primary-blue ring-2 ring-blue-500/20 shadow-md'
-                                    : 'border-slate-200 hover:border-blue-300 hover:shadow-sm'
-                                }`}
+                                className={`${tema.bg} ${tema.border} rounded-3xl p-5 shadow-xs transition duration-200 flex flex-col justify-between border cursor-pointer min-h-[220px] ${esDestacada
+                                    ? 'ring-2 ring-blue-500/30 shadow-md scale-[1.01]'
+                                    : 'hover:shadow-md hover:scale-[1.005]'
+                                    }`}
                             >
                                 <div className="space-y-3">
-                                    <div className="flex items-center justify-end">
+                                    <div className="flex items-center justify-between">
+                                        <span className={`px-3 py-1 rounded-xl ${tema.accentIconBg} ${tema.accentIconText} text-xs font-black tracking-wider uppercase shadow-xs`}>
+                                            {mat.codigo}
+                                        </span>
                                         <span className="bg-emerald-50 text-emerald-600 font-bold px-3 py-0.5 rounded-full text-[11px] border border-emerald-200/60">
                                             {mat.estado}
                                         </span>
                                     </div>
 
                                     <div>
-                                        <h3 className="font-extrabold text-sm text-[#1A365D] leading-snug line-clamp-1">
+                                        <h3 className="font-extrabold text-sm text-[#1A365D] leading-snug line-clamp-2">
                                             {mat.nombre}
                                         </h3>
                                         <p className="text-xs text-slate-500 font-medium mt-1 truncate">
@@ -215,14 +282,14 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                                     </div>
                                 </div>
 
-                                <div className="pt-4 mt-4 border-t border-slate-100">
+                                <div className="pt-4 mt-4 border-t border-slate-100/80">
                                     <button
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onSeleccionarMateria(mat);
                                         }}
-                                        className="w-full bg-blue-50 hover:bg-primary-blue hover:text-white text-primary-blue font-bold text-xs py-2.5 px-4 rounded-xl transition duration-200 flex items-center justify-between cursor-pointer group shadow-xs"
+                                        className={`w-full ${tema.btnBg} font-bold text-xs py-2.5 px-4 rounded-xl transition duration-200 flex items-center justify-between cursor-pointer group shadow-xs`}
                                     >
                                         <span className="flex items-center gap-1.5">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -248,6 +315,9 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                                 <div className="flex items-center gap-4 min-w-0">
                                     <div>
                                         <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-primary-blue bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                                                {mat.codigo}
+                                            </span>
                                             <h3 className="font-extrabold text-sm text-[#1A365D]">{mat.nombre}</h3>
                                             <span className="bg-emerald-50 text-emerald-600 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-emerald-200">
                                                 {mat.estado}

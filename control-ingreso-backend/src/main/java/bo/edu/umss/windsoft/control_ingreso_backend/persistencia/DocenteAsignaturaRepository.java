@@ -11,4 +11,5 @@ import java.util.List;
 @Repository
 public interface DocenteAsignaturaRepository extends JpaRepository<DocenteAsignatura, DocenteAsignaturaId> {
     List<DocenteAsignatura> findByIdIdusuarioAndIdCodsisdocente(Integer idusuario, Integer codsisdocente);
+    List<DocenteAsignatura> findByIdIdasignatura(Integer idasignatura);
 }

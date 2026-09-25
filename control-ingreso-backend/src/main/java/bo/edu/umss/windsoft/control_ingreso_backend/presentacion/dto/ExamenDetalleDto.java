@@ -8,6 +8,7 @@ public class ExamenDetalleDto {
     private String hora;
     private String ambiente;
     private Integer idAsignatura;
+    private String nombreDocente;
 
     public ExamenDetalleDto() {}
 
@@ -18,6 +19,16 @@ public class ExamenDetalleDto {
         this.hora = hora;
         this.ambiente = ambiente;
         this.idAsignatura = idAsignatura;
+    }
+
+    public ExamenDetalleDto(Integer idExamen, String nombreExamen, String fecha, String hora, String ambiente, Integer idAsignatura, String nombreDocente) {
+        this.idExamen = idExamen;
+        this.nombreExamen = nombreExamen;
+        this.fecha = fecha;
+        this.hora = hora;
+        this.ambiente = ambiente;
+        this.idAsignatura = idAsignatura;
+        this.nombreDocente = nombreDocente;
     }
 
     public Integer getIdExamen() { return idExamen; }
@@ -37,4 +48,7 @@ public class ExamenDetalleDto {
 
     public Integer getIdAsignatura() { return idAsignatura; }
     public void setIdAsignatura(Integer idAsignatura) { this.idAsignatura = idAsignatura; }
+
+    public String getNombreDocente() { return nombreDocente; }
+    public void setNombreDocente(String nombreDocente) { this.nombreDocente = nombreDocente; }
 }

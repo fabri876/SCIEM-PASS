@@ -40,6 +40,14 @@ public class HabilitacionService {
     }
 
     @Transactional(readOnly = true)
+    public List<HabilitacionResponseDto> obtenerPorAsignatura(Integer idAsignatura) {
+        return habilitacionRepository.findByIdAsignaturaConDetalles(idAsignatura)
+                .stream()
+                .map(this::mapearADto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public HabilitacionResponseDto obtenerPorId(Integer idHabilitacion) {
         Habilitacion habilitacion = habilitacionRepository.findByIdConDetalles(idHabilitacion)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró la habilitación con ID: " + idHabilitacion));
