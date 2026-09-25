@@ -16,5 +16,9 @@ public interface AmbienteRepository extends JpaRepository<Ambiente, Integer> {
 
     @Query("SELECT a FROM Ambiente a WHERE a.idAula = :idAula " +
            "AND a.idExamen IN (SELECT e.idExamen FROM Examen e WHERE e.fechaExamen = :fecha)")
+    
     List<Ambiente> findByIdAulaYFecha(@Param("idAula") Integer idAula, @Param("fecha") LocalDate fecha);
+    
+    List<Ambiente> findByIdExamenIn(List<Integer> idsExamen);
+
 }

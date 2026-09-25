@@ -20,15 +20,6 @@ public class Ambiente {
     @Column(name = "idexamen", nullable = false)
     private Integer idExamen;
 
-    @Column(name = "nombreambiente")
-    private String nombreAmbiente;
-
-    @Column(name = "ubicacionambiente")
-    private String ubicacionAmbiente;
-
-    @Column(name = "capacidadambiente")
-    private Integer capacidadAmbiente;
-
     @Column(name = "idaula", nullable = false)
     private Integer idAula;
 
@@ -53,12 +44,6 @@ public class Ambiente {
     public void setIdAsignatura(Integer idAsignatura) { this.idAsignatura = idAsignatura; }
     public Integer getIdExamen() { return idExamen; }
     public void setIdExamen(Integer idExamen) { this.idExamen = idExamen; }
-    public String getNombreAmbiente() { return nombreAmbiente; }
-    public void setNombreAmbiente(String nombreAmbiente) { this.nombreAmbiente = nombreAmbiente; }
-    public String getUbicacionAmbiente() { return ubicacionAmbiente; }
-    public void setUbicacionAmbiente(String ubicacionAmbiente) { this.ubicacionAmbiente = ubicacionAmbiente; }
-    public Integer getCapacidadAmbiente() { return capacidadAmbiente; }
-    public void setCapacidadAmbiente(Integer capacidadAmbiente) { this.capacidadAmbiente = capacidadAmbiente; }
     public Integer getIdAula() { return idAula; }
     public void setIdAula(Integer idAula) { this.idAula = idAula; }
     public Integer getIdHorarioRegular() { return idHorarioRegular; }

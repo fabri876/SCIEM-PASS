@@ -5,7 +5,10 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ExamenService;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.dto.ExamenRequest;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HorarioRegular;
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente;
+
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenRespuestaDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AmbienteRespuestaDto;
+
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,8 +34,14 @@ public class ExamenController {
         return ResponseEntity.status(HttpStatus.CREATED).body(examen);
     }
 
-    // NUEVO: el frontend llama esto al elegir la asignatura, para mostrar
-    // los horarios/aulas regulares ya registrados antes de crear el examen.
+    // FIX #4: actualizar examen existente
+    @PutMapping("/{id}")
+    public ResponseEntity<ExamenRespuestaDto> actualizarExamen(
+            @PathVariable Integer id,
+            @Valid @RequestBody ExamenRequest request) {
+        return ResponseEntity.ok(examenService.actualizarExamen(id, request));
+    }
+
     @GetMapping("/horarios-regulares")
     public ResponseEntity<List<HorarioRegular>> obtenerHorariosRegulares(
             @RequestParam Integer idUsuario,
@@ -43,26 +52,36 @@ public class ExamenController {
                 examenService.obtenerHorariosRegulares(idUsuario, codsisDocente, idAsignatura));
     }
 
+    // FIX #3: ahora devuelve nombres enriquecidos (asignatura, tipo, docente)
     @GetMapping
-    public ResponseEntity<List<Examen>> obtenerExamenes() {
-        return ResponseEntity.ok(examenService.obtenerExamenes());
+    public ResponseEntity<List<ExamenRespuestaDto>> obtenerExamenes() {
+        return ResponseEntity.ok(examenService.obtenerExamenesEnriquecidos());
     }
 
+    // FIX #3: examen individual también enriquecido
     @GetMapping("/{id}")
-    public ResponseEntity<Examen> obtenerExamenPorId(@PathVariable Integer id) {
-        return ResponseEntity.ok(examenService.obtenerExamenPorId(id));
+    public ResponseEntity<ExamenRespuestaDto> obtenerExamenPorId(@PathVariable Integer id) {
+        Examen examen = examenService.obtenerExamenPorId(id);
+        return ResponseEntity.ok(examenService.enriquecerExamen(examen));
     }
 
-    // NUEVO: ver todas las aulas asignadas a un examen (puede ser más de una)
     @GetMapping("/{id}/ambientes")
-    public ResponseEntity<List<Ambiente>> obtenerAmbientes(@PathVariable Integer id) {
+    public ResponseEntity<List<AmbienteRespuestaDto>> obtenerAmbientes(@PathVariable Integer id) {
         return ResponseEntity.ok(examenService.obtenerAmbientesDeExamen(id));
     }
 
     @GetMapping("/mis-examenes")
-    public ResponseEntity<List<Examen>> obtenerMisExamenes() {
+    public ResponseEntity<List<ExamenRespuestaDto>> obtenerMisExamenes() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Integer idUsuarioAutenticado = (Integer) auth.getDetails();
-        return ResponseEntity.ok(examenService.obtenerExamenesDeDocente(idUsuarioAutenticado, idUsuarioAutenticado));
+        return ResponseEntity.ok(examenService.obtenerMisExamenesEnriquecidos(idUsuarioAutenticado));
+    }
+
+    // FIX #5: para que el frontend deshabilite tipos de examen ya usados
+    @GetMapping("/tipos-usados")
+    public ResponseEntity<List<Integer>> obtenerTiposUsados(
+            @RequestParam Integer idAsignatura,
+            @RequestParam Integer codsisDocente) {
+        return ResponseEntity.ok(examenService.obtenerTiposUsados(idAsignatura, codsisDocente));
     }
 }
