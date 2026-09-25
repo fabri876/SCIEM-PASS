@@ -7,6 +7,9 @@ public class AsignaturaResponseDto {
     private String nombreAsignatura;
     private String siglaAsignatura;
     private String nombreDocente;
+    private Integer estudiantesInscritos;
+    private Integer habilitados;
+    private Integer inhabilitados;
 
     public AsignaturaResponseDto() {}
 
@@ -16,6 +19,17 @@ public class AsignaturaResponseDto {
         this.nombreAsignatura = nombreAsignatura;
         this.siglaAsignatura = siglaAsignatura;
         this.nombreDocente = nombreDocente;
+    }
+
+    public AsignaturaResponseDto(Integer idAsignatura, Integer idInscripcion, String nombreAsignatura, String siglaAsignatura, String nombreDocente, Integer estudiantesInscritos, Integer habilitados, Integer inhabilitados) {
+        this.idAsignatura = idAsignatura;
+        this.idInscripcion = idInscripcion;
+        this.nombreAsignatura = nombreAsignatura;
+        this.siglaAsignatura = siglaAsignatura;
+        this.nombreDocente = nombreDocente;
+        this.estudiantesInscritos = estudiantesInscritos;
+        this.habilitados = habilitados;
+        this.inhabilitados = inhabilitados;
     }
 
     public Integer getIdAsignatura() { return idAsignatura; }
@@ -32,4 +46,13 @@ public class AsignaturaResponseDto {
 
     public String getNombreDocente() { return nombreDocente; }
     public void setNombreDocente(String nombreDocente) { this.nombreDocente = nombreDocente; }
+
+    public Integer getEstudiantesInscritos() { return estudiantesInscritos; }
+    public void setEstudiantesInscritos(Integer estudiantesInscritos) { this.estudiantesInscritos = estudiantesInscritos; }
+
+    public Integer getHabilitados() { return habilitados; }
+    public void setHabilitados(Integer habilitados) { this.habilitados = habilitados; }
+
+    public Integer getInhabilitados() { return inhabilitados; }
+    public void setInhabilitados(Integer inhabilitados) { this.inhabilitados = inhabilitados; }
 }

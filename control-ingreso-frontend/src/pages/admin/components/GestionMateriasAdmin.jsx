@@ -77,11 +77,11 @@ const TEMAS_PALETA = [
 ];
 
 export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
-    const [materias, setMaterias] = useState(MATERIAS_INICIALES);
-    const [cargando, setCargando] = useState(false);
+    const [materias, setMaterias] = useState([]);
+    const [cargando, setCargando] = useState(true);
     const [busqueda, setBusqueda] = useState('');
     const [modoVista, setModoVista] = useState('grid'); // 'grid' | 'list'
-    const [materiaDestacada, setMateriaDestacada] = useState(3); // INF-310 seleccionada por defecto como en la imagen
+    const [materiaDestacada, setMateriaDestacada] = useState(null);
 
     useEffect(() => {
         let cancelado = false;
@@ -89,21 +89,26 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
             try {
                 setCargando(true);
                 const data = await obtenerTodasAsignaturas();
-                if (!cancelado && Array.isArray(data) && data.length > 0) {
-                    setMaterias(data.map((item, idx) => ({
+                if (!cancelado && Array.isArray(data)) {
+                    const materiasMapeadas = data.map((item, idx) => ({
                         id: item.idAsignatura || idx + 1,
                         idAsignatura: item.idAsignatura,
                         codigo: item.siglaAsignatura || `MAT-${item.idAsignatura}`,
                         nombre: item.nombreAsignatura || 'Asignatura',
                         docente: item.nombreDocente || 'Docente Asignado',
                         estado: 'Activa',
-                        estudiantesInscritos: item.estudiantesInscritos || 45,
-                        habilitados: item.habilitados || 40,
-                        inhabilitados: item.inhabilitados || 5,
-                    })));
+                        estudiantesInscritos: item.estudiantesInscritos ?? 0,
+                        habilitados: item.habilitados ?? 0,
+                        inhabilitados: item.inhabilitados ?? 0,
+                    }));
+                    setMaterias(materiasMapeadas);
+                    if (materiasMapeadas.length > 0) {
+                        setMateriaDestacada(materiasMapeadas[0].id);
+                    }
                 }
             } catch (err) {
-                console.warn("Usando asignaturas por defecto debido a respuesta del servidor:", err);
+                console.error("Error al obtener asignaturas desde la BD:", err);
+                if (!cancelado) setMaterias([]);
             } finally {
                 if (!cancelado) setCargando(false);
             }
@@ -194,7 +199,32 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
             </div>
 
             {/* LISTA / GRILLA DE TARJETAS DE MATERIAS */}
-            {materiasFiltradas.length === 0 ? (
+            {cargando ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map((n) => (
+                        <div key={n} className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs animate-pulse space-y-4 min-h-[220px] flex flex-col justify-between">
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="w-8 h-8 rounded-xl bg-slate-200"></div>
+                                    <div className="w-14 h-5 rounded-full bg-slate-100"></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                                    <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                                </div>
+                                <div className="h-3 bg-slate-100 rounded w-2/3"></div>
+                                <div className="flex gap-2 pt-1">
+                                    <div className="h-6 w-20 bg-slate-100 rounded-full"></div>
+                                    <div className="h-6 w-20 bg-slate-100 rounded-full"></div>
+                                </div>
+                            </div>
+                            <div className="pt-4 border-t border-slate-100">
+                                <div className="h-9 bg-slate-200 rounded-xl w-full"></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : materiasFiltradas.length === 0 ? (
                 <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center text-xs font-bold text-slate-500 shadow-xs">
                     No se encontraron asignaturas que coincidan con la búsqueda.
                 </div>
@@ -216,9 +246,9 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                             >
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <div className={`w-8 h-8 rounded-xl ${tema.accentIconBg} ${tema.accentIconText} flex items-center justify-center text-xs font-black shadow-xs`}>
-                                            {inicial}
-                                        </div>
+                                        <span className={`px-3 py-1 rounded-xl ${tema.accentIconBg} ${tema.accentIconText} text-xs font-black tracking-wider uppercase shadow-xs`}>
+                                            {mat.codigo}
+                                        </span>
                                         <span className="bg-emerald-50 text-emerald-600 font-bold px-3 py-0.5 rounded-full text-[11px] border border-emerald-200/60">
                                             {mat.estado}
                                         </span>
@@ -285,6 +315,9 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                                 <div className="flex items-center gap-4 min-w-0">
                                     <div>
                                         <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-primary-blue bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                                                {mat.codigo}
+                                            </span>
                                             <h3 className="font-extrabold text-sm text-[#1A365D]">{mat.nombre}</h3>
                                             <span className="bg-emerald-50 text-emerald-600 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-emerald-200">
                                                 {mat.estado}

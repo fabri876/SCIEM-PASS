@@ -8,6 +8,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AsignaturaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteAsignaturaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HabilitacionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsignaturaResponseDto;
 import org.springframework.stereotype.Service;
@@ -22,16 +23,19 @@ public class AsignaturaService {
     private final AsignaturaRepository asignaturaRepository;
     private final UsuarioRepository usuarioRepository;
     private final ExamenRepository examenRepository;
+    private final HabilitacionRepository habilitacionRepository;
 
     public AsignaturaService(
             DocenteAsignaturaRepository docenteAsignaturaRepository,
             AsignaturaRepository asignaturaRepository,
             UsuarioRepository usuarioRepository,
-            ExamenRepository examenRepository) {
+            ExamenRepository examenRepository,
+            HabilitacionRepository habilitacionRepository) {
         this.docenteAsignaturaRepository = docenteAsignaturaRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.usuarioRepository = usuarioRepository;
         this.examenRepository = examenRepository;
+        this.habilitacionRepository = habilitacionRepository;
     }
 
     public List<AsignaturaResponseDto> obtenerPorDocente(Integer idUsuario, Integer codsisDocente) {
@@ -52,12 +56,20 @@ public class AsignaturaService {
 
     private AsignaturaResponseDto mapToDto(Asignatura asignatura) {
         String nombreDocente = resolverNombreDocente(asignatura.getIdAsignatura());
+        
+        int hab = (int) habilitacionRepository.countByIdAsignaturaAndEstadohabilitacionTrue(asignatura.getIdAsignatura());
+        int inhab = (int) habilitacionRepository.countByIdAsignaturaAndEstadohabilitacionFalse(asignatura.getIdAsignatura());
+        int total = hab + inhab;
+
         return new AsignaturaResponseDto(
                 asignatura.getIdAsignatura(),
                 asignatura.getIdInscripcion(),
                 asignatura.getNombreAsignatura(),
                 asignatura.getSiglaAsignatura(),
-                nombreDocente
+                nombreDocente,
+                total,
+                hab,
+                inhab
         );
     }
 

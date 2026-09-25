@@ -20,4 +20,11 @@ public interface HabilitacionRepository extends JpaRepository<Habilitacion, Inte
 
     @Query("SELECT h FROM Habilitacion h LEFT JOIN FETCH h.estudiante e")
     List<Habilitacion> findAllConDetalles();
+
+    @Query("SELECT h FROM Habilitacion h LEFT JOIN FETCH h.estudiante e WHERE h.idAsignatura = :idAsignatura")
+    List<Habilitacion> findByIdAsignaturaConDetalles(@Param("idAsignatura") Integer idAsignatura);
+
+    long countByIdAsignaturaAndEstadohabilitacionTrue(Integer idAsignatura);
+    long countByIdAsignaturaAndEstadohabilitacionFalse(Integer idAsignatura);
+    long countByIdAsignatura(Integer idAsignatura);
 }

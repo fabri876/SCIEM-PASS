@@ -7,12 +7,14 @@
 import { strApiBaseUrl } from "./apiConfig";
 
 /**
- * Obtiene la lista completa de habilitaciones desde el backend.
- * Usa /api/habilitaciones (con soporte CORS).
+ * Obtiene la lista de habilitaciones desde el backend, opcionalmente filtrada por idAsignatura.
  */
-export async function obtenerHabilitaciones() {
+export async function obtenerHabilitaciones(idAsignatura) {
     try {
-        const response = await fetch(`${strApiBaseUrl}/api/habilitaciones`);
+        const url = idAsignatura
+            ? `${strApiBaseUrl}/api/habilitaciones?idAsignatura=${idAsignatura}`
+            : `${strApiBaseUrl}/api/habilitaciones`;
+        const response = await fetch(url);
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.mensaje || `Error ${response.status}: No se pudo obtener la lista de habilitaciones`);

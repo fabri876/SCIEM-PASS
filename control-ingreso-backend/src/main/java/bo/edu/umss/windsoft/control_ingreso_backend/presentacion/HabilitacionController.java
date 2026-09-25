@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -25,9 +26,12 @@ public class HabilitacionController {
     }
 
     @GetMapping
-    public ResponseEntity<List<HabilitacionResponseDto>> obtenerHabilitaciones() {
-        List<HabilitacionResponseDto> lista = habilitacionService.obtenerTodas();
-        return ResponseEntity.ok(lista);
+    public ResponseEntity<List<HabilitacionResponseDto>> obtenerHabilitaciones(
+            @RequestParam(required = false) Integer idAsignatura) {
+        if (idAsignatura != null) {
+            return ResponseEntity.ok(habilitacionService.obtenerPorAsignatura(idAsignatura));
+        }
+        return ResponseEntity.ok(habilitacionService.obtenerTodas());
     }
 
     @GetMapping("/{id}")

@@ -298,9 +298,10 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
         async function cargar() {
             try {
                 setCargando(true);
-                const data = await obtenerHabilitaciones();
+                const idAsig = materia?.idAsignatura || materia?.id;
+                const data = await obtenerHabilitaciones(idAsig);
                 if (!cancel) {
-                    if (Array.isArray(data) && data.length > 0) {
+                    if (Array.isArray(data)) {
                         setEstudiantes(data.map((item) => {
                             const estaHabilitado = Boolean(item.estadoHabilitacion ?? (item.estado === 'HABILITADO'));
                             const motivoBackend = item.observacionHabilitacion || item.nombreMotivo || item.observacion;
@@ -317,14 +318,13 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
                             };
                         }));
                     } else {
-                        // Fallback con mock de estudiantes para asegurar funcionamiento impecable en la vista
-                        setEstudiantes(ESTUDIANTES_MOCK);
+                        setEstudiantes([]);
                     }
                 }
             } catch (err) {
                 console.error("Error al obtener habilitaciones desde el backend:", err);
                 if (!cancel) {
-                    setEstudiantes(ESTUDIANTES_MOCK);
+                    setEstudiantes([]);
                 }
             } finally {
                 if (!cancel) setCargando(false);
@@ -332,7 +332,7 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
         }
         cargar();
         return () => { cancel = true; };
-    }, []);
+    }, [materia]);
 
     const estudiantesFiltrados = useMemo(() => {
         const q = busqueda.trim().toLowerCase();
