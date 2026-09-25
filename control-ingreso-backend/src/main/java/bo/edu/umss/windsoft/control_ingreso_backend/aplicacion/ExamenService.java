@@ -579,9 +579,6 @@ public class ExamenService {
                     ambienteNombre = aula.getNombreAula() + (aula.getUbicacionAula() != null && !aula.getUbicacionAula().isBlank() ? " · " + aula.getUbicacionAula() : "");
                 }
             }
-            if ("---".equals(ambienteNombre) && amb.getNombreAmbiente() != null && !amb.getNombreAmbiente().isBlank()) {
-                ambienteNombre = amb.getNombreAmbiente() + (amb.getUbicacionAmbiente() != null && !amb.getUbicacionAmbiente().isBlank() ? " · " + amb.getUbicacionAmbiente() : "");
-            }
         }
 
         // 2. Fallback: Si hora o ambiente siguen siendo "---", consultar HorarioRegular

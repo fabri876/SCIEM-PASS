@@ -13,15 +13,12 @@ public interface HorarioRegularRepository extends JpaRepository<HorarioRegular, 
     List<HorarioRegular> findByIdUsuarioAndCodsisDocenteAndIdAsignaturaAndEstadoHorarioTrue(
             Integer idUsuario, Integer codsisDocente, Integer idAsignatura);
 
-<<<<<<< HEAD
     // Para validar choque de aula: mismo día, misma aula, entre horarios activos
     List<HorarioRegular> findByIdAulaAndDiaSemanaAndEstadoHorarioTrue(
             Integer idAula, Short diaSemana);
 
     // Para validar que el docente no esté en dos aulas distintas al mismo tiempo
     List<HorarioRegular> findByIdUsuarioAndCodsisDocenteAndDiaSemanaAndEstadoHorarioTrue(
-            Integer idUsuario, Integer codsisDocente, Short diaSemana);
-=======
+    Integer idUsuario, Integer codsisDocente, Short diaSemana);
     List<HorarioRegular> findByIdAsignatura(Integer idAsignatura);
->>>>>>> 4820707c1cc5dcf400eeb7562854a93ff4f688f1
 }
