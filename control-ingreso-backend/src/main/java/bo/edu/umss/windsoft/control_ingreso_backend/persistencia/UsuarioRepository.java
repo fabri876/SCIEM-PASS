@@ -42,4 +42,48 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
            "ORDER BY u.idusuario ASC")
     List<Usuario> filtrarUsuarios(@Param("estado") Boolean estado,
                                   @Param("busqueda") String busqueda);
+
+       @Query("SELECT u FROM Usuario u WHERE u.idusuario IN (SELECT a.idusuario FROM Admin a) " +
+              "AND (:estado IS NULL OR u.estadousuario = :estado) AND " +
+              "(:busqueda = '' OR " +
+              " LOWER(u.nombreusuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
+              " LOWER(u.apellidousuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
+              " u.ciusuario LIKE CONCAT('%', :busqueda, '%') OR " +
+              " LOWER(u.correousuario) LIKE LOWER(CONCAT('%', :busqueda, '%'))) " +
+              "ORDER BY u.idusuario ASC")
+       List<Usuario> filtrarUsuariosPorRolAdministrador(@Param("estado") Boolean estado,
+                                                        @Param("busqueda") String busqueda);
+
+       @Query("SELECT u FROM Usuario u WHERE u.idusuario IN (SELECT d.idusuario FROM Docente d) " +
+              "AND (:estado IS NULL OR u.estadousuario = :estado) AND " +
+              "(:busqueda = '' OR " +
+              " LOWER(u.nombreusuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
+              " LOWER(u.apellidousuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
+              " u.ciusuario LIKE CONCAT('%', :busqueda, '%') OR " +
+              " LOWER(u.correousuario) LIKE LOWER(CONCAT('%', :busqueda, '%'))) " +
+              "ORDER BY u.idusuario ASC")
+       List<Usuario> filtrarUsuariosPorRolDocente(@Param("estado") Boolean estado,
+                                                 @Param("busqueda") String busqueda);
+
+       @Query("SELECT u FROM Usuario u WHERE u.idusuario IN (SELECT ay.idusuario FROM Ayudante ay) " +
+              "AND (:estado IS NULL OR u.estadousuario = :estado) AND " +
+              "(:busqueda = '' OR " +
+              " LOWER(u.nombreusuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
+              " LOWER(u.apellidousuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
+              " u.ciusuario LIKE CONCAT('%', :busqueda, '%') OR " +
+              " LOWER(u.correousuario) LIKE LOWER(CONCAT('%', :busqueda, '%'))) " +
+              "ORDER BY u.idusuario ASC")
+       List<Usuario> filtrarUsuariosPorRolOperador(@Param("estado") Boolean estado,
+                                                 @Param("busqueda") String busqueda);
+
+       @Query("SELECT u FROM Usuario u WHERE u.idusuario IN (SELECT e.idusuario FROM Estudiante e) " +
+              "AND (:estado IS NULL OR u.estadousuario = :estado) AND " +
+              "(:busqueda = '' OR " +
+              " LOWER(u.nombreusuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
+              " LOWER(u.apellidousuario) LIKE LOWER(CONCAT('%', :busqueda, '%')) OR " +
+              " u.ciusuario LIKE CONCAT('%', :busqueda, '%') OR " +
+              " LOWER(u.correousuario) LIKE LOWER(CONCAT('%', :busqueda, '%'))) " +
+              "ORDER BY u.idusuario ASC")
+       List<Usuario> filtrarUsuariosPorRolEstudiante(@Param("estado") Boolean estado,
+                                                 @Param("busqueda") String busqueda);
 }
