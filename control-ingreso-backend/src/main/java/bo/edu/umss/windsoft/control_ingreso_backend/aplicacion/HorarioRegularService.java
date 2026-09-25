@@ -1,4 +1,3 @@
-// aplicacion/HorarioRegularService.java
 package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.dto.HorarioRegularRequest;
@@ -10,6 +9,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HorarioRegularR
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
 import java.util.List;
 
 @Service
@@ -31,6 +31,7 @@ public class HorarioRegularService {
     @Transactional
     public HorarioRegular crear(HorarioRegularRequest request) {
         validar(request);
+        validarSinSolapamiento(request, null);
 
         HorarioRegular hr = new HorarioRegular();
         hr.setIdUsuario(request.getIdUsuario());
@@ -60,6 +61,7 @@ public class HorarioRegularService {
         }
 
         validar(request);
+        validarSinSolapamiento(request, id);
 
         hr.setIdAula(request.getIdAula());
         hr.setDiaSemana(request.getDiaSemana());
@@ -98,5 +100,48 @@ public class HorarioRegularService {
         if (!request.getHoraFin().isAfter(request.getHoraInicio())) {
             throw new IllegalArgumentException("La hora de fin debe ser posterior a la hora de inicio.");
         }
+    }
+
+    // idExcluido: al actualizar, no comparar el horario contra sí mismo. Al crear, pasar null.
+    private void validarSinSolapamiento(HorarioRegularRequest request, Integer idExcluido) {
+        LocalTime nuevoInicio = request.getHoraInicio();
+        LocalTime nuevoFin = request.getHoraFin();
+
+        // Caso 1: misma aula, mismo día, ya ocupada por otro docente/asignatura en un horario que se cruza.
+        List<HorarioRegular> enEsaAula = horarioRegularRepository
+                .findByIdAulaAndDiaSemanaAndEstadoHorarioTrue(request.getIdAula(), request.getDiaSemana());
+
+        for (HorarioRegular existente : enEsaAula) {
+            if (existente.getIdHorarioRegular().equals(idExcluido)) {
+                continue;
+            }
+            if (seSuperponen(nuevoInicio, nuevoFin, existente.getHoraInicio(), existente.getHoraFin())) {
+                throw new IllegalArgumentException(
+                        "El aula ya está ocupada ese día entre " + existente.getHoraInicio()
+                                + " y " + existente.getHoraFin() + " (horario id "
+                                + existente.getIdHorarioRegular() + ").");
+            }
+        }
+
+        // Caso 2: mismo docente, mismo día, ya tiene otro horario (en cualquier aula) que se cruza.
+        List<HorarioRegular> delDocente = horarioRegularRepository
+                .findByIdUsuarioAndCodsisDocenteAndDiaSemanaAndEstadoHorarioTrue(
+                        request.getIdUsuario(), request.getCodsisDocente(), request.getDiaSemana());
+
+        for (HorarioRegular existente : delDocente) {
+            if (existente.getIdHorarioRegular().equals(idExcluido)) {
+                continue;
+            }
+            if (seSuperponen(nuevoInicio, nuevoFin, existente.getHoraInicio(), existente.getHoraFin())) {
+                throw new IllegalArgumentException(
+                        "El docente ya tiene otro horario ese día entre " + existente.getHoraInicio()
+                                + " y " + existente.getHoraFin() + " en otra aula (horario id "
+                                + existente.getIdHorarioRegular() + ").");
+            }
+        }
+    }
+
+    private boolean seSuperponen(LocalTime inicioA, LocalTime finA, LocalTime inicioB, LocalTime finB) {
+        return inicioA.isBefore(finB) && finA.isAfter(inicioB);
     }
 }
