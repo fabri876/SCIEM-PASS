@@ -35,11 +35,8 @@ public class ExamenService {
     private final NormaEspecificaRepository normaEspecificaRepository;
     private final TipoExamenRepository tipoExamenRepository;
     private final AulaRepository aulaRepository;
-<<<<<<< HEAD
-=======
     private final DocenteRepository docenteRepository;
     private final AsignaturaRepository asignaturaRepository;
->>>>>>> f6d08bcf200bb3d346d5af71bd1ae42c1a1d41d8
     private final UsuarioRepository usuarioRepository;
 
     public ExamenService(
@@ -51,11 +48,8 @@ public class ExamenService {
             NormaEspecificaRepository normaEspecificaRepository,
             TipoExamenRepository tipoExamenRepository,
             AulaRepository aulaRepository,
-<<<<<<< HEAD
-=======
             DocenteRepository docenteRepository,
             AsignaturaRepository asignaturaRepository,
->>>>>>> f6d08bcf200bb3d346d5af71bd1ae42c1a1d41d8
             UsuarioRepository usuarioRepository) {
 
         this.examenRepository = examenRepository;
@@ -66,11 +60,8 @@ public class ExamenService {
         this.normaEspecificaRepository = normaEspecificaRepository;
         this.tipoExamenRepository = tipoExamenRepository;
         this.aulaRepository = aulaRepository;
-<<<<<<< HEAD
-=======
         this.docenteRepository = docenteRepository;
         this.asignaturaRepository = asignaturaRepository;
->>>>>>> f6d08bcf200bb3d346d5af71bd1ae42c1a1d41d8
         this.usuarioRepository = usuarioRepository;
     }
 
