@@ -391,11 +391,10 @@ public class CargaMasivaService {
             data.nombre = partes[0];
             data.apellido = partes[0];
         } else {
-            data.nombre = "Estudiante";
+            data.nombre = "Usuario";
             data.apellido = "Registrado";
         }
 
-        data.rol = TipoUsuarioResolver.ESTUDIANTE;
         return data;
     }
 
