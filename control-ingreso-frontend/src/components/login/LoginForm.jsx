@@ -117,12 +117,6 @@ export default function LoginForm() {
             >
               {boolIsSubmitting ? "Ingresando…" : "Iniciar sesión   →"}
             </button>
-            <div className="text-center mt-[18px] text-sm text-[#52729D]">
-              ¿No tienes una cuenta?{" "}
-              <Link to="/registro" className="text-[#1763C6] font-extrabold no-underline">
-                Crea una cuenta
-              </Link>
-            </div>
           </div>
         </form>
       </div>
