@@ -138,8 +138,9 @@ export default function AdminDashboard({ onNavigateToLogin }) {
         await fnCargarUsuarios();
     };
 
-    const fnCargarMasiva = async (file, materia) => {
-        const resultado = await cargarUsuariosMasivo(file, "ESTUDIANTE");
+    const fnCargarMasiva = async (file, materia, tipoCarga) => {
+        const strRolTarget = tipoCarga === "docentes" ? "DOCENTE" : "ESTUDIANTE";
+        const resultado = await cargarUsuariosMasivo(file, strRolTarget);
         await fnCargarUsuarios();
         return resultado;
     };
