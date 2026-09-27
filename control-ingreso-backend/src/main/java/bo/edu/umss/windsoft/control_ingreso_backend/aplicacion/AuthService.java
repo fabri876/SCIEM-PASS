@@ -40,11 +40,13 @@ public class AuthService {
     private final AuditoriaService auditoriaService;
     private final UsuarioRespuestaMapper usuarioRespuestaMapper;
     private final TipoUsuarioResolver tipoUsuarioResolver;
+    private final UsuarioBloqueoService usuarioBloqueoService;
 
     public AuthService(UsuarioRepository usuarioRepository, DocenteRepository docenteRepository,
                         AyudanteRepository ayudanteRepository, PasswordEncoder passwordEncoder,
                         JwtTokenProvider jwtTokenProvider, AuditoriaService auditoriaService,
-                        UsuarioRespuestaMapper usuarioRespuestaMapper, TipoUsuarioResolver tipoUsuarioResolver) {
+                        UsuarioRespuestaMapper usuarioRespuestaMapper, TipoUsuarioResolver tipoUsuarioResolver,
+                        UsuarioBloqueoService usuarioBloqueoService) {
         this.usuarioRepository = usuarioRepository;
         this.docenteRepository = docenteRepository;
         this.ayudanteRepository = ayudanteRepository;
@@ -53,6 +55,7 @@ public class AuthService {
         this.auditoriaService = auditoriaService;
         this.usuarioRespuestaMapper = usuarioRespuestaMapper;
         this.tipoUsuarioResolver = tipoUsuarioResolver;
+        this.usuarioBloqueoService = usuarioBloqueoService;
     }
 
     @Transactional
@@ -82,10 +85,13 @@ public class AuthService {
         }
 
         if (!passwordEncoder.matches(contrasena, usuario.getContraseniausuario())) {
-            usuario.registrarIntentoFallido();
-            usuarioRepository.save(usuario);
+            // BUG-001 (QA): este guardado tiene que sobrevivir aunque este método
+            // termine lanzando una excepción — por eso va en una transacción
+            // aparte (REQUIRES_NEW) en vez de usuarioRepository.save(usuario)
+            // directo acá, que se revertía con el rollback de este método.
+            Usuario actualizado = usuarioBloqueoService.registrarIntentoFallido(usuario.getIdusuario());
 
-            if (usuario.isBloqueado()) {
+            if (actualizado.isBloqueado()) {
                 auditoriaService.registrar("CUENTA_BLOQUEADA", "SISTEMA", correo,
                         "Cuenta bloqueada tras 5 intentos fallidos consecutivos de inicio de sesión.", ip);
                 throw new CuentaBloqueadaException(
@@ -93,9 +99,9 @@ public class AuthService {
             }
 
             auditoriaService.registrar("LOGIN_FALLIDO", "SISTEMA", correo,
-                    "Contraseña incorrecta. Intento " + usuario.getIntentosFallidos() + " de 5.", ip);
+                    "Contraseña incorrecta. Intento " + actualizado.getIntentosFallidos() + " de 5.", ip);
             throw new CredencialesInvalidasException(
-                    "Contraseña incorrecta. Intento " + usuario.getIntentosFallidos() + " de 5.");
+                    "Contraseña incorrecta. Intento " + actualizado.getIntentosFallidos() + " de 5.");
         }
 
         usuario.reiniciarIntentosFallidos();

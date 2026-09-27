@@ -50,7 +50,11 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     const examenIdActivo = propExamenId || paramIdExamen;
 
     const [usuario, setUsuario] = useState(null);
-    const [infoExamen, setInfoExamen] = useState({ nombreExamen: 'Primer Parcial', fecha: '2026-11-10', hora: '09:45 - 11:15', duracion: '90 min', ambiente: '693B · Facultad de Ciencias y Tecnología' });
+    // BUG-008 (QA): este estado arrancaba con datos de examen inventados y
+    // nunca se actualizaba con datos reales (no hay ningún endpoint que
+    // devuelva horario/ambiente a partir de solo el idExamen todavía) — se
+    // deja vacío para no mostrar información falsa como si fuera real.
+    const [infoExamen, setInfoExamen] = useState({});
     const [estudiantes, setEstudiantes] = useState([]);
     const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
     const [cargando, setCargando] = useState(false);
@@ -200,7 +204,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                 }
             }
         }
-        return '01:30';
+        return '---';
     };
 
     const filasExamen = [

@@ -25,6 +25,13 @@ public class NormaGeneralService {
         return normaGeneralRepository.findByEstadoNormaTrue();
     }
 
+    // BUG-006 (QA): el admin necesita ver también las inactivas para poder
+    // reactivarlas — el GET público solo trae activas a propósito (catálogo
+    // que consumen los exámenes), así que este es un endpoint aparte.
+    public List<NormaGeneral> obtenerTodas() {
+        return normaGeneralRepository.findAll();
+    }
+
     public NormaGeneral crear(String descripcionNorma) {
         NormaGeneral norma = new NormaGeneral();
         norma.setDescripcionNorma(descripcionNorma);
@@ -44,6 +51,15 @@ public class NormaGeneralService {
         NormaGeneral norma = normaGeneralRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Norma general no encontrada: " + id));
         norma.setEstadoNorma(false);
+        normaGeneralRepository.save(norma);
+    }
+
+    // BUG-006 (QA): no existía forma de reactivar una norma desactivada.
+    @Transactional
+    public void activar(Integer id) {
+        NormaGeneral norma = normaGeneralRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Norma general no encontrada: " + id));
+        norma.setEstadoNorma(true);
         normaGeneralRepository.save(norma);
     }
 
