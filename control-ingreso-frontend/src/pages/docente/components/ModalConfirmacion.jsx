@@ -13,8 +13,8 @@ export default function ModalConfirmacion({ mostrar, estudiante, motivoTexto, gu
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
             <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full p-4 sm:p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
                 <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#2563EB] flex items-center justify-center flex-shrink-0 border border-blue-100">
-                        <Icono nombre="pregunta" className="w-[22px] h-[22px]" />
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 border border-amber-200 shadow-xs">
+                        <Icono nombre="advertencia" className="w-6 h-6" />
                     </div>
                     <div className="space-y-1">
                         <h3 className="font-black text-base text-[#1A365D]">¿Está seguro de realizar los cambios?</h3>
