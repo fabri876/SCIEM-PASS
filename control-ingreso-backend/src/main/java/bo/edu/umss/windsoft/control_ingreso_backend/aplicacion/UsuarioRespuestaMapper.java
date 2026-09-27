@@ -30,41 +30,60 @@ public class UsuarioRespuestaMapper {
 
     public UsuarioRespuestaDto mapear(Usuario usuario) {
         String rol = tipoUsuarioResolver.resolver(usuario.getIdusuario());
-        Integer codigoSis = resolverCodigoSis(usuario.getIdusuario(), rol);
-        return construir(usuario, rol, codigoSis);
+        return construir(usuario, rol);
     }
 
     /** Enriquece en batch: UNA consulta a docente y UNA a estudiante para todo
      *  el lote, en vez de una por usuario (evita el patrón N+1). */
     public List<UsuarioRespuestaDto> mapearTodos(List<Usuario> usuarios) {
-        if (usuarios.isEmpty()) {
-            return List.of();
-        }
-
         List<Integer> ids = usuarios.stream().map(Usuario::getIdusuario).toList();
         Map<Integer, String> roles = tipoUsuarioResolver.resolverTodos(ids);
 
-        Map<Integer, Integer> codsisDocentePorIdUsuario = docenteRepository.findByIdusuarioIn(ids).stream()
-                .collect(Collectors.toMap(Docente::getIdusuario, Docente::getCodsisdocente));
+        // Usamos findByIdusuarioIn en lugar de findAll() para no saturar la memoria
+        Map<Integer, Integer> codigosSisDocente = docenteRepository.findByIdusuarioIn(ids).stream()
+                .collect(Collectors.toMap(Docente::getIdusuario, Docente::getCodsisdocente,
+                        (a, b) -> a));
+        Map<Integer, Integer> codigosSisEstudiante = estudianteRepository.findByIdusuarioIn(ids).stream()
+                .collect(Collectors.toMap(Estudiante::getIdusuario, Estudiante::getCodsisestudiante,
+                        (a, b) -> a));
 
-        Map<Integer, Integer> codsisEstudiantePorIdUsuario = estudianteRepository.findByIdusuarioIn(ids).stream()
-                .collect(Collectors.toMap(Estudiante::getIdusuario, Estudiante::getCodsisestudiante));
+        // FIX: Caché de permisos para evitar el N+1 al consultar la BD por cada usuario
+        Map<String, List<String>> permisosCache = new java.util.HashMap<>();
 
         return usuarios.stream()
                 .map(usuario -> {
                     String rol = roles.get(usuario.getIdusuario());
-                    Integer codigoSis = TipoUsuarioResolver.DOCENTE.equals(rol)
-                            ? codsisDocentePorIdUsuario.get(usuario.getIdusuario())
-                            : TipoUsuarioResolver.ESTUDIANTE.equals(rol)
-                                    ? codsisEstudiantePorIdUsuario.get(usuario.getIdusuario())
-                                    : null;
-                    return construir(usuario, rol, codigoSis);
+                    
+                    // Solo va a la base de datos la primera vez que ve un rol nuevo
+                    List<String> permisos = permisosCache.computeIfAbsent(rol, 
+                            r -> r == null ? List.of() : rolCatalogoService.permisosDe(r));
+                            
+                    return construir(usuario, rol, permisos, codigosSisDocente, codigosSisEstudiante);
                 })
                 .toList();
     }
 
-    private UsuarioRespuestaDto construir(Usuario usuario, String rol, Integer codigoSis) {
+    private UsuarioRespuestaDto construir(Usuario usuario, String rol) {
+        // Se mantiene para el caso de mapear() un solo usuario (no hay N+1 con 1 solo).
         List<String> permisos = rol == null ? List.of() : rolCatalogoService.permisosDe(rol);
+        Integer codigoSis = resolverCodigoSis(usuario.getIdusuario(), rol);
+        return new UsuarioRespuestaDto(usuario.getIdusuario(), usuario.getCiusuario(), usuario.getNombreusuario(),
+                usuario.getApellidousuario(), usuario.getTelefonousuario(), usuario.getCorreousuario(),
+                Boolean.TRUE.equals(usuario.getEstadousuario()), rol, usuario.getIntentosFallidos(), permisos,
+                codigoSis);
+    }
+
+    private UsuarioRespuestaDto construir(Usuario usuario, String rol, List<String> permisos,
+                                        Map<Integer, Integer> codigosSisDocente,
+                                        Map<Integer, Integer> codigosSisEstudiante) {
+        Integer codigoSis;
+        if (TipoUsuarioResolver.DOCENTE.equals(rol)) {
+            codigoSis = codigosSisDocente.get(usuario.getIdusuario());
+        } else if (TipoUsuarioResolver.ESTUDIANTE.equals(rol)) {
+            codigoSis = codigosSisEstudiante.get(usuario.getIdusuario());
+        } else {
+            codigoSis = null;
+        }
         return new UsuarioRespuestaDto(usuario.getIdusuario(), usuario.getCiusuario(), usuario.getNombreusuario(),
                 usuario.getApellidousuario(), usuario.getTelefonousuario(), usuario.getCorreousuario(),
                 Boolean.TRUE.equals(usuario.getEstadousuario()), rol, usuario.getIntentosFallidos(), permisos,

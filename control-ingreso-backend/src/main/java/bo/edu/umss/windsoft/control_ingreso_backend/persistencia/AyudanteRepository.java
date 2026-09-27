@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 
 @Repository
 public interface AyudanteRepository extends JpaRepository<Ayudante, Integer> {
@@ -12,4 +14,6 @@ public interface AyudanteRepository extends JpaRepository<Ayudante, Integer> {
     boolean existsByIdusuario(Integer idusuario);
 
     Optional<Ayudante> findByIdusuario(Integer idusuario);
+
+    List<Ayudante> findByIdusuarioIn(Collection<Integer> ids);
 }
