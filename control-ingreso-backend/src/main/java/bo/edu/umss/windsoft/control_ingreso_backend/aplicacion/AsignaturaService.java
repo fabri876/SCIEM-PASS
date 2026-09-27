@@ -13,7 +13,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioReposito
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsignaturaResponseDto;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,69 +46,118 @@ public class AsignaturaService {
                 .toList();
 
         List<Asignatura> asignaturas = asignaturaRepository.findAllById(ids);
-        return asignaturas.stream().map(this::mapToDto).toList();
+        return mapToDtosBatch(asignaturas);
     }
 
     public List<AsignaturaResponseDto> obtenerTodas() {
         List<Asignatura> asignaturas = asignaturaRepository.findAll();
-        return asignaturas.stream().map(this::mapToDto).toList();
+        return mapToDtosBatch(asignaturas);
     }
 
-    private AsignaturaResponseDto mapToDto(Asignatura asignatura) {
-        String nombreDocente = resolverNombreDocente(asignatura.getIdAsignatura());
-        
-        int hab = (int) habilitacionRepository.countByIdAsignaturaAndEstadohabilitacionTrue(asignatura.getIdAsignatura());
-        int inhab = (int) habilitacionRepository.countByIdAsignaturaAndEstadohabilitacionFalse(asignatura.getIdAsignatura());
-        int total = hab + inhab;
+    private List<AsignaturaResponseDto> mapToDtosBatch(List<Asignatura> asignaturas) {
+        if (asignaturas == null || asignaturas.isEmpty()) {
+            return Collections.emptyList();
+        }
 
-        return new AsignaturaResponseDto(
-                asignatura.getIdAsignatura(),
-                asignatura.getIdInscripcion(),
-                asignatura.getNombreAsignatura(),
-                asignatura.getSiglaAsignatura(),
-                nombreDocente,
-                total,
-                hab,
-                inhab
-        );
-    }
-
-    private String resolverNombreDocente(Integer idAsignatura) {
-        if (idAsignatura == null) return "Docente Asignado";
-
-        // 1. Buscar en DocenteAsignatura
-        List<DocenteAsignatura> docentesAsig = docenteAsignaturaRepository.findByIdIdasignatura(idAsignatura);
-        if (!docentesAsig.isEmpty()) {
-            List<String> nombres = docentesAsig.stream()
-                    .map(da -> da.getId().getIdusuario())
-                    .map(usuarioRepository::findById)
-                    .flatMap(opt -> opt.stream())
-                    .map(u -> ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim())
-                    .filter(n -> !n.isEmpty())
-                    .distinct()
-                    .collect(Collectors.toList());
-
-            if (!nombres.isEmpty()) {
-                return String.join(", ", nombres);
+        // 1. Obtener conteos masivos en 1 sola consulta SQL
+        Map<Integer, int[]> conteosMap = new HashMap<>();
+        List<Object[]> counts = habilitacionRepository.countHabilitacionesGroupedByAsignatura();
+        for (Object[] row : counts) {
+            Integer idAsig = (Integer) row[0];
+            Boolean estado = (Boolean) row[1];
+            long count = row[2] != null ? ((Number) row[2]).longValue() : 0L;
+            if (idAsig != null) {
+                int[] arr = conteosMap.computeIfAbsent(idAsig, k -> new int[2]);
+                if (Boolean.TRUE.equals(estado)) {
+                    arr[0] += (int) count;
+                } else {
+                    arr[1] += (int) count;
+                }
             }
         }
 
-        // 2. Fallback: Buscar en Examen
-        List<Examen> examenes = examenRepository.findByIdAsignatura(idAsignatura);
-        if (!examenes.isEmpty()) {
-            for (Examen ex : examenes) {
-                if (ex.getIdUsuario() != null) {
-                    Usuario u = usuarioRepository.findById(ex.getIdUsuario()).orElse(null);
-                    if (u != null) {
-                        String nombre = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
-                        if (!nombre.isEmpty()) {
-                            return nombre;
-                        }
+        // 2. Pre-cargar nombres de docentes masivamente
+        Map<Integer, String> docentesMap = resolverNombresDocentesBatch();
+
+        // 3. Mapear asignaturas a DTOs
+        return asignaturas.stream().map(asig -> {
+            Integer idAsig = asig.getIdAsignatura();
+            int[] countsArr = conteosMap.getOrDefault(idAsig, new int[]{0, 0});
+            int hab = countsArr[0];
+            int inhab = countsArr[1];
+            int total = hab + inhab;
+            String docente = docentesMap.getOrDefault(idAsig, "Docente Asignado");
+
+            return new AsignaturaResponseDto(
+                    asig.getIdAsignatura(),
+                    asig.getIdInscripcion(),
+                    asig.getNombreAsignatura(),
+                    asig.getSiglaAsignatura(),
+                    docente,
+                    total,
+                    hab,
+                    inhab
+            );
+        }).collect(Collectors.toList());
+    }
+
+    private Map<Integer, String> resolverNombresDocentesBatch() {
+        Map<Integer, String> resultado = new HashMap<>();
+
+        // Cargar docentes asignados
+        List<DocenteAsignatura> todasAsigDocentes = docenteAsignaturaRepository.findAll();
+        Set<Integer> userIds = todasAsigDocentes.stream()
+                .map(da -> da.getId().getIdusuario())
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        // Cargar exámenes para fallback
+        List<Examen> todosExamenes = examenRepository.findAll();
+        for (Examen ex : todosExamenes) {
+            if (ex.getIdUsuario() != null) {
+                userIds.add(ex.getIdUsuario());
+            }
+        }
+
+        // Cargar usuarios en 1 sola consulta
+        Map<Integer, Usuario> usuariosMap = userIds.isEmpty() ? Collections.emptyMap() :
+                usuarioRepository.findAllById(userIds).stream()
+                        .collect(Collectors.toMap(Usuario::getIdusuario, u -> u, (u1, u2) -> u1));
+
+        // Mapear docentes directos
+        Map<Integer, List<String>> asignaciones = new HashMap<>();
+        for (DocenteAsignatura da : todasAsigDocentes) {
+            Integer idAsig = da.getId().getIdasignatura();
+            Integer idUser = da.getId().getIdusuario();
+            Usuario u = usuariosMap.get(idUser);
+            if (u != null) {
+                String nombre = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
+                if (!nombre.isEmpty()) {
+                    asignaciones.computeIfAbsent(idAsig, k -> new ArrayList<>()).add(nombre);
+                }
+            }
+        }
+
+        for (Map.Entry<Integer, List<String>> entry : asignaciones.entrySet()) {
+            List<String> nombresUnicos = entry.getValue().stream().distinct().toList();
+            if (!nombresUnicos.isEmpty()) {
+                resultado.put(entry.getKey(), String.join(", ", nombresUnicos));
+            }
+        }
+
+        // Fallback desde exámenes
+        for (Examen ex : todosExamenes) {
+            if (ex.getIdAsignatura() != null && !resultado.containsKey(ex.getIdAsignatura()) && ex.getIdUsuario() != null) {
+                Usuario u = usuariosMap.get(ex.getIdUsuario());
+                if (u != null) {
+                    String nombre = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
+                    if (!nombre.isEmpty()) {
+                        resultado.put(ex.getIdAsignatura(), nombre);
                     }
                 }
             }
         }
 
-        return "Docente Asignado";
+        return resultado;
     }
 }

@@ -3,12 +3,16 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
 public class ExamenDetalleDto {
 
     private Integer idExamen;
+    private Integer idAsignatura;
     private String nombreExamen;
     private String fecha;
+    private String duracion;
+    private String siglaAsignatura;
+    private String nombreAsignatura;
+    private String nombreDocente;
     private String hora;
     private String ambiente;
-    private Integer idAsignatura;
-    private String nombreDocente;
+
 
     public ExamenDetalleDto() {}
 
@@ -28,6 +32,19 @@ public class ExamenDetalleDto {
         this.hora = hora;
         this.ambiente = ambiente;
         this.idAsignatura = idAsignatura;
+        this.nombreDocente = nombreDocente;
+    }
+
+    public ExamenDetalleDto(Integer idExamen, String nombreExamen, String fecha, String hora, String duracion, String ambiente, Integer idAsignatura, String siglaAsignatura, String nombreAsignatura, String nombreDocente) {
+        this.idExamen = idExamen;
+        this.nombreExamen = nombreExamen;
+        this.fecha = fecha;
+        this.hora = hora;
+        this.duracion = duracion;
+        this.ambiente = ambiente;
+        this.idAsignatura = idAsignatura;
+        this.siglaAsignatura = siglaAsignatura;
+        this.nombreAsignatura = nombreAsignatura;
         this.nombreDocente = nombreDocente;
     }
 
@@ -51,4 +68,13 @@ public class ExamenDetalleDto {
 
     public String getNombreDocente() { return nombreDocente; }
     public void setNombreDocente(String nombreDocente) { this.nombreDocente = nombreDocente; }
+
+    public String getDuracion() { return duracion; }
+    public void setDuracion(String duracion) { this.duracion = duracion; }
+
+    public String getSiglaAsignatura() { return siglaAsignatura; }
+    public void setSiglaAsignatura(String siglaAsignatura) { this.siglaAsignatura = siglaAsignatura; }
+
+    public String getNombreAsignatura() { return nombreAsignatura; }
+    public void setNombreAsignatura(String nombreAsignatura) { this.nombreAsignatura = nombreAsignatura; }
 }

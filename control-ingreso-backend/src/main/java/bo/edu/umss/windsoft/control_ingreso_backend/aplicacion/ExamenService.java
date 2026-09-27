@@ -561,6 +561,9 @@ public class ExamenService {
         String hora = "---";
         String ambienteNombre = "---";
 
+        LocalTime hInicio = null;
+        LocalTime hFin = null;
+
         // 1. Intentar obtener de la tabla Ambiente vinculada al examen o la asignatura
         List<Ambiente> ambientes = ambienteRepository.findByIdExamen(examen.getIdExamen());
         if (ambientes.isEmpty()) {
@@ -570,6 +573,8 @@ public class ExamenService {
         if (!ambientes.isEmpty()) {
             Ambiente amb = ambientes.get(0);
             if (amb.getHoraInicio() != null && amb.getHoraFin() != null) {
+                hInicio = amb.getHoraInicio();
+                hFin = amb.getHoraFin();
                 hora = amb.getHoraInicio() + " - " + amb.getHoraFin();
             }
 
@@ -587,6 +592,8 @@ public class ExamenService {
             if (!horarios.isEmpty()) {
                 HorarioRegular hr = horarios.get(0);
                 if ("---".equals(hora) && hr.getHoraInicio() != null && hr.getHoraFin() != null) {
+                    if (hInicio == null) hInicio = hr.getHoraInicio();
+                    if (hFin == null) hFin = hr.getHoraFin();
                     hora = hr.getHoraInicio() + " - " + hr.getHoraFin();
                 }
                 if ("---".equals(ambienteNombre) && hr.getIdAula() != null) {
@@ -598,9 +605,25 @@ public class ExamenService {
             }
         }
 
-        // 3. Fallback de duración de examen para hora
-        if ("---".equals(hora) && examen.getDuracionExamen() != null) {
-            hora = "Duración: " + examen.getDuracionExamen();
+        // 3. Duración de examen: siempre calcular a partir de horaInicio y horaFin si están disponibles.
+        // Solo usar el valor guardado en BD como último recurso (puede estar desactualizado).
+        String duracionExamen;
+        if (hInicio != null && hFin != null) {
+            long minutos = java.time.Duration.between(hInicio, hFin).toMinutes();
+            if (minutos > 0) {
+                long horas = minutos / 60;
+                long mins = minutos % 60;
+                duracionExamen = String.format("%02d:%02d", horas, mins);
+            } else {
+                duracionExamen = "01:30";
+            }
+        } else if (examen != null && examen.getDuracionExamen() != null) {
+            duracionExamen = examen.getDuracionExamen().toString();
+            if (duracionExamen.length() >= 5) {
+                duracionExamen = duracionExamen.substring(0, 5);
+            }
+        } else {
+            duracionExamen = "01:30";
         }
 
         // 4. Obtener nombre del docente
@@ -628,7 +651,17 @@ public class ExamenService {
             }
         }
 
-        return new ExamenDetalleDto(
+        String siglaAsignatura = null;
+        String nombreAsignaturaStr = null;
+        if (idAsignatura != null) {
+            Asignatura asig = asignaturaRepository.findById(idAsignatura).orElse(null);
+            if (asig != null) {
+                siglaAsignatura = asig.getSiglaAsignatura();
+                nombreAsignaturaStr = asig.getNombreAsignatura();
+            }
+        }
+
+        ExamenDetalleDto dto = new ExamenDetalleDto(
                 examen.getIdExamen(),
                 nombreExamen,
                 fecha,
@@ -637,5 +670,10 @@ public class ExamenService {
                 idAsignatura,
                 nombreDocente
         );
+        dto.setDuracion(duracionExamen);
+        dto.setSiglaAsignatura(siglaAsignatura);
+        dto.setNombreAsignatura(nombreAsignaturaStr);
+
+        return dto;
     }
 }
