@@ -38,7 +38,8 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
     return response.json();
 }
 
-// Solo docentes activos (estado: true)
+// Solo docentes activos (estado: true). Distinto de listarUsuarios({rol:"DOCENTE"})
+// de adminService.js, que trae todos los usuarios sin filtrar por estado.
 export async function obtenerDocentesAdmin(strBusqueda) {
     const params = new URLSearchParams();
     if (strBusqueda) params.set("busqueda", strBusqueda);
@@ -47,6 +48,7 @@ export async function obtenerDocentesAdmin(strBusqueda) {
 }
 
 // Aulas asignadas a un examen puntual (principal + adicionales, si las hubo).
+// Ya viene con nombreAmbiente/ubicacionAmbiente/capacidadAmbiente poblados.
 export async function obtenerAmbientesPorExamen(idExamen) {
     return fetchAutenticado(`/api/examenes/${idExamen}/ambientes`);
 }
@@ -69,7 +71,9 @@ export async function crearNormaGeneralAdmin(strDescripcionNorma) {
 }
 
 // Copia el texto literal de una norma particular hacia una norma general
-// nueva, y marca esa particular como promovida:true. 
+// nueva, y marca esa particular como promovida:true. Da 400 si ya se
+// promovió antes (el frontend igual esconde el botón cuando promovida ya
+// es true, para no llegar a intentarlo dos veces).
 export async function promoverNormaEspecificaAdmin(idNormaEspecifica) {
     return fetchAutenticado(`/api/admin/normas-generales/promover/${idNormaEspecifica}`, {
         method: "POST",
@@ -83,8 +87,27 @@ export async function editarNormaGeneralAdmin(idNormaGeneral, strDescripcionNorm
     });
 }
 
+// Baja lógica (estadoNorma = false); deja de aparecer en el catálogo público
+// pero no afecta exámenes que ya la usaron.
 export async function eliminarNormaGeneralAdmin(idNormaGeneral) {
     return fetchAutenticado(`/api/admin/normas-generales/${idNormaGeneral}`, {
         method: "DELETE",
     });
+}
+
+
+export async function actualizarExamen(idExamen, objBody) {
+    return fetchAutenticado(`/api/examenes/${idExamen}`, {
+        method: "PUT",
+        body: JSON.stringify(objBody),
+    });
+}
+
+
+export async function obtenerTiposUsados(idAsignatura, codsisDocente) {
+    const params = new URLSearchParams();
+    if (idAsignatura) params.set("idAsignatura", idAsignatura);
+    if (codsisDocente) params.set("codsisDocente", codsisDocente);
+    const strQuery = params.toString() ? `?${params.toString()}` : "";
+    return fetchAutenticado(`/api/examenes/tipos-usados${strQuery}`);
 }
