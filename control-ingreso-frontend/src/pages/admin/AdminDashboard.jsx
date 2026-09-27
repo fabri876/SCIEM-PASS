@@ -6,10 +6,9 @@ import BulkUploadCard from "./components/BulkUploadCard";
 import UserTableCard from "./components/UserTableCard";
 import AuditoriaTable from "./components/AuditoriaTable";
 import RolesTable from "./components/RolesTable";
-import UserAccountMenu from "../../components/common/UserAccountMenu";
 import SeccionRegistroExamenes from "./components/SeccionRegistroExamenes";
 import SeccionGestionHabilitacionesAdmin from "./components/SeccionGestionHabilitacionesAdmin";
-import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
+import { obtenerUsuarioActual } from "../../services/authService";
 import {
     listarUsuarios,
     crearUsuario,
@@ -20,11 +19,8 @@ import {
     listarRoles,
     cargarUsuariosMasivo
 } from "../../services/adminService";
-import { useNavigate } from "react-router-dom";
 
 export default function AdminDashboard({ onNavigateToLogin }) {
-    const navigate = useNavigate();
-
     const [activeMenu, setActiveMenu] = useState("Gestión de Usuarios");
     const usuarioSesion = obtenerUsuarioActual();
 
@@ -145,46 +141,25 @@ export default function AdminDashboard({ onNavigateToLogin }) {
         return resultado;
     };
 
-    // Cerrar sesión igual que en el portal del estudiante
-    const fnCerrarSesion = () => {
-        cerrarSesion();
-        navigate("/login");
-    };
-
     return (
-        <div className="h-screen w-screen bg-bg-app font-sans text-text-body overflow-hidden flex flex-col">
+        <div className="min-h-screen bg-bg-app font-sans text-text-body flex flex-col">
 
             {/* =========================================================
-                HEADER SUPERIOR
+                HEADER SUPERIOR (Intacto, controlado por componente externo)
                 ========================================================= */}
-            <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200 flex items-center justify-between pr-6 h-[98px] shadow-sm">
-
-                {/* Header principal */}
-                <div className="flex-1 min-w-0">
-                    <Header strRutaActiva="Inicio" />
-                </div>
-
-                {/* =====================================================
-                    CUENTA DEL ADMINISTRADOR
-                    ===================================================== */}
-                <div className="flex items-center pl-4 border-l border-slate-200 shrink-0">
-                    <UserAccountMenu
-                        usuario={usuarioSesion || { nombre: "Administrador", rol: "ADMINISTRADOR" }}
-                        onCerrarSesion={fnCerrarSesion}
-                        strClaseAvatar="bg-[#1763C6]"
-                    />
-                </div>
+            <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200 h-[98px] shadow-sm">
+                <Header strRutaActiva="Inicio" />
             </div>
 
             {/* =========================================================
-                LAYOUT PRINCIPAL
+                LAYOUT PRINCIPAL RESPONSIVO
                 ========================================================= */}
-            <div className="flex pt-[98px] h-full w-full overflow-hidden">
+            <div className="flex pt-[98px] min-h-[calc(100vh-98px)] w-full">
 
                 {/* =====================================================
-                    SIDEBAR ADMINISTRADOR
-                    ===================================================== */}
-                <aside className="w-64 shrink-0 h-[calc(100vh-98px)] bg-primary-navy z-30">
+                    SIDEBAR ADMINISTRADOR (Fijo en desktop, oculto/ajustable en móviles)
+                    ==================================================== */}
+                <aside className="w-64 shrink-0 bg-primary-navy hidden lg:block sticky top-[98px] h-[calc(100vh-98px)] overflow-y-auto z-30">
                     <AdminSidebar
                         activeMenu={activeMenu}
                         setActiveMenu={setActiveMenu}
@@ -194,12 +169,12 @@ export default function AdminDashboard({ onNavigateToLogin }) {
 
                 {/* =====================================================
                     ÁREA DE CONTENIDO PRINCIPAL
-                    ===================================================== */}
-                <main className="flex-1 h-[calc(100vh-98px)] overflow-y-auto px-8 py-6 space-y-6">
+                    ==================================================== */}
+                <main className="flex-1 min-w-0 p-4 lg:p-8 space-y-6 overflow-x-hidden">
 
                     <div className="flex justify-between items-start">
                         <div>
-                            <h1 className="text-h2 font-extrabold text-primary-navy tracking-tight leading-none">
+                            <h1 className="text-xl lg:text-h2 font-extrabold text-primary-navy tracking-tight leading-none">
                                 Hola, {usuarioSesion?.nombre || "Administrador"}
                             </h1>
 

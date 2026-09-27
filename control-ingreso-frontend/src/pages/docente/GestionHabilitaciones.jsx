@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import Header from "../../components/layout/Header";
-import UserAccountMenu from "../../components/common/UserAccountMenu";
-import { obtenerUsuarioActual } from "../../services/authService";
+import { useParams } from 'react-router-dom';
 import { obtenerHabilitaciones, actualizarHabilitacion } from "../../services/habilitacionService";
 import Icono from "./components/Icono";
 import Toast from "./components/Toast";
@@ -45,11 +42,9 @@ function normalizarHabilitaciones(lista) {
 }
 
 export default function GestionHabilitaciones({ examenId: propExamenId }) {
-    const navigate = useNavigate();
     const { idExamen: paramIdExamen } = useParams();
     const examenIdActivo = propExamenId || paramIdExamen;
 
-    const [usuario, setUsuario] = useState(null);
     // BUG-008 (QA): este estado arrancaba con datos de examen inventados y
     // nunca se actualizaba con datos reales (no hay ningún endpoint que
     // devuelva horario/ambiente a partir de solo el idExamen todavía) — se
@@ -73,13 +68,6 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
         setToast({ type, message });
         toastTimer.current = setTimeout(() => setToast(null), 3500);
     };
-
-    const fnCerrarSesion = () => { localStorage.removeItem("usuario"); navigate("/login"); };
-
-    useEffect(() => {
-        const user = obtenerUsuarioActual();
-        setUsuario(user || { idUsuario: 45892, nombre: "Patricia", apellido: "Pérez", correo: "patricia.perez@umss.edu", rol: "DOCENTE", codigoSis: 45892 });
-    }, []);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -234,9 +222,13 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     return (
         <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-nunito pb-16">
 
-            <DocenteHeader usuario={usuario} onCerrarSesion={fnCerrarSesion} />
+            <DocenteHeader />
 
-            <div className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-[72px] sm:pt-[106px]">
+            {/* pt-[106px]: DocenteHeader ya no es responsive (64px en mobile /
+                98px en desktop) desde que el menú de cuenta se movió adentro
+                de Header.jsx — ahora mide 98px siempre, así que el padding
+                deja de variar por breakpoint. */}
+            <div className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-[106px]">
                 <main className="w-full space-y-4 sm:space-y-5">
 
                     <CabeceraModulo onExportar={() => mostrarToast('success', 'Exportando lista de estudiantes...')} />
