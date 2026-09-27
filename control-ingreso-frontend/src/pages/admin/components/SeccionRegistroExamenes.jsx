@@ -18,10 +18,6 @@ import ExamenFormAdmin from "./ExamenFormAdmin";
 
 const INT_EXAMENES_POR_PAGINA = 10;
 
-// Colores para agrupar visualmente normas particulares con texto idéntico
-// (no necesariamente exacto: el admin puede notar a ojo que dos dicen lo
-// mismo con otras palabras, pero el agrupado automático solo detecta texto
-// igual una vez normalizado — ver normalizarTexto más abajo).
 const PALETA_GRUPOS = ["#F0F5FB", "#FBF3E9", "#F1F8F1", "#FCEFF5", "#F5F1FB"];
 
 function IconoMas() {
@@ -138,10 +134,7 @@ function normalizarTexto(strTexto) {
     return (strTexto || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-// Extrae la clave de comparación según el criterio elegido.
-// "registro": cuándo se cargó el examen en el sistema (fechaCreacionExamen,
-//   con idExamen como respaldo si esa fecha no viene en la respuesta).
-// "examen": cuándo se rinde el examen (fechaExamen).
+
 function obtenerClaveOrden(ex, strCriterio) {
     if (strCriterio === "examen") {
         return ex.fechaExamen || null;
@@ -178,6 +171,7 @@ export default function SeccionRegistroExamenes() {
     const [boolCargando, setBoolCargando] = useState(true);
     const [boolModalAbierto, setBoolModalAbierto] = useState(false);
     const [examenEnDetalle, setExamenEnDetalle] = useState(null);
+    const [objExamenEditando, setObjExamenEditando] = useState(null);
 
     const [strCriterioOrden, setStrCriterioOrden] = useState("registro"); // "registro" | "examen"
     const [strDireccionOrden, setStrDireccionOrden] = useState("desc"); // "desc" | "asc"
@@ -257,8 +251,6 @@ export default function SeccionRegistroExamenes() {
         Math.ceil(arrExamenesOrdenados.length / INT_EXAMENES_POR_PAGINA)
     );
 
-    // Si cambia el orden o la página quedó fuera de rango (p.ej. tras recargar
-    // con menos exámenes), volvemos a una página válida.
     useEffect(() => {
         setIntPaginaActual((prev) => Math.min(prev, intTotalPaginas));
     }, [strCriterioOrden, strDireccionOrden, intTotalPaginas]);
@@ -268,8 +260,7 @@ export default function SeccionRegistroExamenes() {
         intPaginaActual * INT_EXAMENES_POR_PAGINA
     );
 
-    // Trae los ambientes de los exámenes de la página actual que todavía no
-    // se hayan pedido (se cachean en mapAmbientesPorExamen para no repetir).
+
     useEffect(() => {
         const arrIdsFaltantes = arrExamenesPagina
             .map((ex) => ex.idExamen)
@@ -277,8 +268,7 @@ export default function SeccionRegistroExamenes() {
 
         if (arrIdsFaltantes.length === 0) return;
 
-        // Marca como "cargando" de inmediato para no repetir el fetch si el
-        // efecto se vuelve a disparar antes de que respondan.
+
         setMapAmbientesPorExamen((prev) => {
             const siguiente = { ...prev };
             arrIdsFaltantes.forEach((id) => {
@@ -301,6 +291,7 @@ export default function SeccionRegistroExamenes() {
 
     function handleCerrarModal() {
         setBoolModalAbierto(false);
+        setObjExamenEditando(null);
         cargarTodo();
     }
 
@@ -312,11 +303,20 @@ export default function SeccionRegistroExamenes() {
         setExamenEnDetalle(null);
     }
 
-    function handleEditar() {
-        // No hay PUT /api/examenes/{id} en el backend todavía (lo confirmamos
-        // revisando ExamenController.java) — no hay nada que este botón
-        // pueda hacer de verdad hasta que Neil lo agregue.
-        alert("Editar un examen todavía no está soportado por el backend (no existe PUT /api/examenes/{id}).");
+    function handleEditar(ex) {
+
+        if (!(ex.idExamen in mapAmbientesPorExamen)) {
+            setMapAmbientesPorExamen((prev) => ({ ...prev, [ex.idExamen]: "cargando" }));
+            obtenerAmbientesPorExamen(ex.idExamen)
+                .then((ambientes) => {
+                    setMapAmbientesPorExamen((prev) => ({ ...prev, [ex.idExamen]: ambientes || [] }));
+                })
+                .catch(() => {
+                    setMapAmbientesPorExamen((prev) => ({ ...prev, [ex.idExamen]: "error" }));
+                });
+        }
+        setObjExamenEditando(ex);
+        setBoolModalAbierto(true);
     }
 
     async function handleEliminarNormaGeneral(norma) {
@@ -361,7 +361,8 @@ export default function SeccionRegistroExamenes() {
     }
 
     function renderCeldaDocenteAulaHora(ex) {
-        const strNombreDocente = mapDocentePorId[ex.idUsuario] || `Docente #${ex.idUsuario ?? "-"}`;
+        const strNombreDocente =
+            ex.nombreDocente || mapDocentePorId[ex.idUsuario] || `Docente #${ex.idUsuario ?? "-"}`;
         const ambientes = mapAmbientesPorExamen[ex.idExamen];
 
         if (ambientes === undefined || ambientes === "cargando") {
@@ -371,7 +372,11 @@ export default function SeccionRegistroExamenes() {
             return <span className="text-gray-400">{strNombreDocente}</span>;
         }
         if (!ambientes || ambientes.length === 0) {
-            return <span>{strNombreDocente} · sin aula asignada</span>;
+            return (
+                <span className="text-red-600 font-semibold">
+                    {strNombreDocente} · ⚠ sin aula/horario registrado (revisar)
+                </span>
+            );
         }
 
         const strAulas = ambientes.map((a) => a.nombreAmbiente).join(", ");
@@ -452,7 +457,7 @@ export default function SeccionRegistroExamenes() {
 
             const examenOrigen = mapExamenPorId[n.idExamen];
             const strDocente = examenOrigen
-                ? mapDocentePorId[examenOrigen.idUsuario] || `Docente #${examenOrigen.idUsuario}`
+                ? examenOrigen.nombreDocente || mapDocentePorId[examenOrigen.idUsuario] || `Docente #${examenOrigen.idUsuario}`
                 : null;
 
             return { ...n, strColor, strDocente };
@@ -543,7 +548,10 @@ export default function SeccionRegistroExamenes() {
                             )}
                             <button
                                 type="button"
-                                onClick={() => setBoolModalAbierto(true)}
+                                onClick={() => {
+                                    setObjExamenEditando(null);
+                                    setBoolModalAbierto(true);
+                                }}
                                 className="flex items-center gap-2 h-[42px] px-5 rounded-md bg-[#163F79] text-white font-semibold text-[13.5px]"
                             >
                                 <IconoMas />
@@ -576,11 +584,14 @@ export default function SeccionRegistroExamenes() {
                                     <tbody>
                                         {arrExamenesPagina.map((ex) => {
                                             const strNombreTipo =
-                                                mapTiposExamen[ex.idTipoExamen] || ex.detalleTipoExamen || "-";
+                                                ex.nombreTipoExamen ||
+                                                mapTiposExamen[ex.idTipoExamen] ||
+                                                ex.detalleTipoExamen ||
+                                                "-";
                                             return (
                                                 <tr key={ex.idExamen} className="border-t border-[#EEF1F8] text-[13.5px] text-[#22304F]">
                                                     <td className="py-3.5 pr-3 font-semibold">
-                                                        Asignatura #{ex.idAsignatura}
+                                                        {ex.nombreAsignatura || `Asignatura #${ex.idAsignatura}`}
                                                     </td>
                                                     <td className="py-3.5 pr-3">{strNombreTipo}</td>
                                                     <td className="py-3.5 pr-3">{formatearFecha(ex.fechaExamen)}</td>
@@ -594,7 +605,7 @@ export default function SeccionRegistroExamenes() {
                                                             <button type="button" title="Ver detalles" onClick={() => handleVerDetalle(ex)} className="text-[#5E71A0] hover:text-[#163F79]">
                                                                 <IconoOjo />
                                                             </button>
-                                                            <button type="button" title="Editar" onClick={handleEditar} className="text-[#5E71A0] hover:text-[#163F79]">
+                                                            <button type="button" title="Editar" onClick={() => handleEditar(ex)} className="text-[#5E71A0] hover:text-[#163F79]">
                                                                 <IconoLapiz />
                                                             </button>
                                                         </div>
@@ -816,7 +827,19 @@ export default function SeccionRegistroExamenes() {
             )}
 
             <VentanaEmergente boolAbierto={boolModalAbierto} onCerrar={handleCerrarModal}>
-                <ExamenFormAdmin onCancelar={handleCerrarModal} />
+                <ExamenFormAdmin
+                    key={objExamenEditando ? `editar-${objExamenEditando.idExamen}` : "nuevo"}
+                    onCancelar={handleCerrarModal}
+                    objExamenAEditar={objExamenEditando}
+                    arrAmbientesExamenAEditar={
+                        objExamenEditando ? mapAmbientesPorExamen[objExamenEditando.idExamen] : null
+                    }
+                    arrNormasParticularesExamenAEditar={
+                        objExamenEditando
+                            ? arrNormasParticulares.filter((n) => n.idExamen === objExamenEditando.idExamen)
+                            : []
+                    }
+                />
             </VentanaEmergente>
 
             <VentanaEmergente boolAbierto={!!examenEnDetalle} onCerrar={handleCerrarDetalle}>
@@ -829,10 +852,13 @@ export default function SeccionRegistroExamenes() {
                                 </div>
                                 <div>
                                     <h3 className="text-[17px] font-bold text-[#163F79]">
-                                        Asignatura #{examenEnDetalle.idAsignatura}
+                                        {examenEnDetalle.nombreAsignatura || `Asignatura #${examenEnDetalle.idAsignatura}`}
                                     </h3>
                                     <p className="text-[12px] text-gray-500">
-                                        {mapTiposExamen[examenEnDetalle.idTipoExamen] || examenEnDetalle.detalleTipoExamen || "-"}
+                                        {examenEnDetalle.nombreTipoExamen ||
+                                            mapTiposExamen[examenEnDetalle.idTipoExamen] ||
+                                            examenEnDetalle.detalleTipoExamen ||
+                                            "-"}
                                     </p>
                                 </div>
                             </div>
@@ -875,7 +901,9 @@ export default function SeccionRegistroExamenes() {
                                     Docente
                                 </div>
                                 <div className="text-[13.5px] text-[#22304F]">
-                                    {mapDocentePorId[examenEnDetalle.idUsuario] || `Docente #${examenEnDetalle.idUsuario ?? "-"}`}
+                                    {examenEnDetalle.nombreDocente ||
+                                        mapDocentePorId[examenEnDetalle.idUsuario] ||
+                                        `Docente #${examenEnDetalle.idUsuario ?? "-"}`}
                                 </div>
                             </div>
                         </div>
@@ -890,8 +918,15 @@ export default function SeccionRegistroExamenes() {
                                 if (ambientes === undefined || ambientes === "cargando") {
                                     return <span className="text-[13px] text-gray-400">Cargando…</span>;
                                 }
-                                if (ambientes === "error" || !ambientes || ambientes.length === 0) {
-                                    return <span className="text-[13px] text-gray-400">Sin aula asignada</span>;
+                                if (ambientes === "error") {
+                                    return <span className="text-[13px] text-gray-400">No se pudo cargar el ambiente.</span>;
+                                }
+                                if (!ambientes || ambientes.length === 0) {
+                                    return (
+                                        <span className="text-[13px] text-red-600 font-semibold">
+                                            ⚠ Sin aula/horario registrado — este examen no debería estar así, conviene revisarlo con Neil.
+                                        </span>
+                                    );
                                 }
                                 return (
                                     <div className="flex flex-wrap gap-1.5">
@@ -913,7 +948,17 @@ export default function SeccionRegistroExamenes() {
 
                         <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
                             <IconoNormas />
-                            Normas particulares de este examen
+                            Normas generales
+                        </div>
+                        <div className="p-6">
+                            <span className="text-[12.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 inline-block">
+                                No disponible todavía
+                            </span>
+                        </div>
+
+                        <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
+                            <IconoNormas />
+                            Normas particulares
                         </div>
                         <div className="p-6">
                             {(() => {
