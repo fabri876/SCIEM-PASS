@@ -135,8 +135,15 @@ export default function HomeEstudiante() {
   return (
     <div className="h-screen w-screen bg-[var(--color-bg-app)] font-[var(--font-nunito)] text-[var(--color-text-body)] overflow-hidden flex flex-col">
 
-      {/* Header Fijo Superior */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-[var(--color-border)] flex items-center justify-between pr-6 h-20 shadow-xs">
+      {/* Header Fijo Superior.
+          BUG-003 (QA): "backdrop-blur-md" es un backdrop-filter, y cualquier
+          filter/backdrop-filter en un ancestro convierte a ese ancestro en el
+          contenedor de posicionamiento de sus descendientes "fixed" — el
+          modal de "Cambiar contraseña" (fixed inset-0 dentro de VentanaEmergente)
+          quedaba recortado a los 80px de este header en vez de centrarse en
+          el viewport. Los demás paneles (docente/admin/operador) no tienen
+          este problema porque su header fijo usa bg sólido, sin blur. */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-white/95 border-b border-[var(--color-border)] flex items-center justify-between pr-6 h-20 shadow-xs">
         <div className="flex-1 origin-left overflow-hidden">
           <Header strRutaActiva="Inicio" />
         </div>
