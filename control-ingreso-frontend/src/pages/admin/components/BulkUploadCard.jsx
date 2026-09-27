@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Upload, Database, Info, ArrowRight, FileWarning, X, LayoutGrid, BookOpen, CheckCircle, Loader2, GraduationCap, Users, Download } from "lucide-react";
+import { obtenerTodasAsignaturas } from "../../../services/asignaturaService";
 
 const FORMATO_COLUMNAS = [
     { col: "A", nombre: "CODSISS", ejemplo: "202309099" },
@@ -8,15 +9,6 @@ const FORMATO_COLUMNAS = [
     { col: "D", nombre: "APELLIDOS", ejemplo: "Balderrama Puyal" },
     { col: "E", nombre: "NOMBRES", ejemplo: "Ivan Raul" },
     { col: "F", nombre: "TELEFONO", ejemplo: "70756498" },
-];
-
-const MATERIAS_MOCK = [
-    "Cálculo I",
-    "Programación I",
-    "Estructuras de Datos",
-    "Base de Datos I",
-    "Redes de Computadoras",
-    "Ingeniería de Software I",
 ];
 
 const EXTENSIONES_VALIDAS = [".xlsx", ".pdf"];
@@ -35,13 +27,22 @@ export default function BulkUploadCard({ onProcesar }) {
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [error, setError] = useState("");
-    const [mensajeExito, setMensajeExito] = useState("");
+    const [resultado, setResultado] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [mostrarFormato, setMostrarFormato] = useState(false);
     const [materia, setMateria] = useState("");
     const [tipoCarga, setTipoCarga] = useState("estudiantes"); // "estudiantes" | "docentes"
+    const [arrAsignaturas, setArrAsignaturas] = useState([]);
 
     const esCargaDocentes = tipoCarga === "docentes";
+
+    // BUG-003 (QA): el desplegable mostraba materias inventadas (MATERIAS_MOCK)
+    // en vez de las asignaturas reales de la BD.
+    useEffect(() => {
+        obtenerTodasAsignaturas()
+            .then(setArrAsignaturas)
+            .catch(() => setArrAsignaturas([]));
+    }, []);
 
     const validarYAsignar = (archivo) => {
         if (!archivo) return;
@@ -49,11 +50,11 @@ export default function BulkUploadCard({ onProcesar }) {
         if (!EXTENSIONES_VALIDAS.includes(ext)) {
             setFile(null);
             setError("Formato no válido. Solo se aceptan archivos Excel (.XLSX) o .PDF.");
-            setMensajeExito("");
+            setResultado(null);
             return;
         }
         setError("");
-        setMensajeExito("");
+        setResultado(null);
         setFile(archivo);
     };
 
@@ -93,17 +94,12 @@ export default function BulkUploadCard({ onProcesar }) {
         if (!file) return;
         setIsSubmitting(true);
         setError("");
-        setMensajeExito("");
+        setResultado(null);
 
         try {
             if (onProcesar) {
                 const res = await onProcesar(file, materia, tipoCarga);
-                let msg = res?.mensaje || "Carga masiva procesada con éxito.";
-                if (res?.fallidos > 0 && res?.detallesErrores?.length > 0) {
-                    const primerErr = res.detallesErrores[0];
-                    msg += ` (Fila ${primerErr.fila}: ${primerErr.errores.join(", ")})`;
-                }
-                setMensajeExito(msg);
+                setResultado(res);
                 setFile(null);
             }
         } catch (err) {
@@ -112,6 +108,8 @@ export default function BulkUploadCard({ onProcesar }) {
             setIsSubmitting(false);
         }
     };
+
+    const boolHuboFallos = (resultado?.fallidos || 0) > 0;
 
     return (
         <div className="lg:col-span-5 bg-bg-card rounded-2xl p-6 shadow-sm border border-border flex flex-col justify-between relative">
@@ -214,11 +212,43 @@ export default function BulkUploadCard({ onProcesar }) {
                     </p>
                 </div>
 
-                {/* Mensaje de exito */}
-                {mensajeExito && (
-                    <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                        <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                        <p className="text-badge text-emerald-700 font-semibold leading-snug">{mensajeExito}</p>
+                {/* Resultado del procesamiento: totales + detalle de CADA fila
+                    fallida (BUG-010 QA: antes solo se leía detallesErrores[0]
+                    y siempre se pintaba de verde, incluso con fallos). */}
+                {resultado && (
+                    <div className={`mt-3 rounded-xl border p-3 ${boolHuboFallos
+                        ? "bg-amber-500/10 border-amber-500/30"
+                        : "bg-emerald-500/10 border-emerald-500/30"
+                        }`}>
+                        <div className="flex items-start gap-2">
+                            {boolHuboFallos ? (
+                                <FileWarning className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                            ) : (
+                                <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                            )}
+                            <p className={`text-badge font-semibold leading-snug ${boolHuboFallos ? "text-amber-700" : "text-emerald-700"}`}>
+                                {resultado.mensaje || "Carga masiva procesada."}
+                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-4 mt-2 pl-6 text-badge font-bold">
+                            <span className="text-text-body/70">Total: {resultado.totalProcesados ?? 0}</span>
+                            <span className="text-emerald-700">Exitosos: {resultado.exitosos ?? 0}</span>
+                            <span className={boolHuboFallos ? "text-accent-red" : "text-text-body/70"}>
+                                Fallidos: {resultado.fallidos ?? 0}
+                            </span>
+                        </div>
+
+                        {boolHuboFallos && resultado.detallesErrores?.length > 0 && (
+                            <ul className="mt-2 pl-6 space-y-1 max-h-40 overflow-y-auto">
+                                {resultado.detallesErrores.map((err, idx) => (
+                                    <li key={idx} className="text-badge text-accent-red">
+                                        Fila {err.fila}
+                                        {err.correo ? ` (${err.correo})` : ""}: {Array.isArray(err.errores) ? err.errores.join(", ") : err.errores}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                 )}
 
@@ -251,9 +281,9 @@ export default function BulkUploadCard({ onProcesar }) {
                             <option value="">
                                 {esCargaDocentes ? "No aplica para docentes" : "Selecciona una asignatura"}
                             </option>
-                            {MATERIAS_MOCK.map((m) => (
-                                <option key={m} value={m}>
-                                    {m}
+                            {arrAsignaturas.map((a) => (
+                                <option key={a.idAsignatura} value={a.idAsignatura}>
+                                    {a.nombreAsignatura}
                                 </option>
                             ))}
                         </select>

@@ -14,6 +14,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsignaturaR
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,28 +39,47 @@ public class AsignaturaService {
         this.habilitacionRepository = habilitacionRepository;
     }
 
+    // BUG-004 (QA): antes filtraba por idusuario Y codsisdocente a la vez, y
+    // ese segundo campo está duplicado/desincronizado en la tabla intermedia
+    // para varios docentes — perdía filas para 19 de 33. idusuario solo ya
+    // identifica al docente sin ambigüedad (es la FK real hacia "docente").
     public List<AsignaturaResponseDto> obtenerPorDocente(Integer idUsuario, Integer codsisDocente) {
         List<Integer> ids = docenteAsignaturaRepository
-                .findByIdIdusuarioAndIdCodsisdocente(idUsuario, codsisDocente)
+                .findByIdIdusuario(idUsuario)
                 .stream()
                 .map(da -> da.getId().getIdasignatura())
                 .toList();
 
         List<Asignatura> asignaturas = asignaturaRepository.findAllById(ids);
-        return mapToDtosBatch(asignaturas);
+
+        // El nombre del docente ya se conoce (es quien pidió los datos) — no
+        // hace falta el mapa global de resolverNombresDocentesBatch(), que
+        // mezclaba los nombres de TODOS los docentes de cada asignatura sin
+        // filtrar por el solicitante (por eso salían 3 nombres pegados).
+        String nombreDocente = resolverNombrePropio(idUsuario);
+        return mapear(asignaturas, idAsig -> nombreDocente);
     }
 
     public List<AsignaturaResponseDto> obtenerTodas() {
         List<Asignatura> asignaturas = asignaturaRepository.findAll();
-        return mapToDtosBatch(asignaturas);
+        Map<Integer, String> docentesMap = resolverNombresDocentesBatch();
+        return mapear(asignaturas, idAsig -> docentesMap.getOrDefault(idAsig, "Docente Asignado"));
     }
 
-    private List<AsignaturaResponseDto> mapToDtosBatch(List<Asignatura> asignaturas) {
+    private String resolverNombrePropio(Integer idUsuario) {
+        return usuarioRepository.findById(idUsuario)
+                .map(u -> ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " "
+                        + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim())
+                .filter(nombre -> !nombre.isEmpty())
+                .orElse("Docente Asignado");
+    }
+
+    private List<AsignaturaResponseDto> mapear(List<Asignatura> asignaturas, Function<Integer, String> resolverNombreDocente) {
         if (asignaturas == null || asignaturas.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // 1. Obtener conteos masivos en 1 sola consulta SQL
+        // Obtener conteos masivos en 1 sola consulta SQL
         Map<Integer, int[]> conteosMap = new HashMap<>();
         List<Object[]> counts = habilitacionRepository.countHabilitacionesGroupedByAsignatura();
         for (Object[] row : counts) {
@@ -76,17 +96,13 @@ public class AsignaturaService {
             }
         }
 
-        // 2. Pre-cargar nombres de docentes masivamente
-        Map<Integer, String> docentesMap = resolverNombresDocentesBatch();
-
-        // 3. Mapear asignaturas a DTOs
         return asignaturas.stream().map(asig -> {
             Integer idAsig = asig.getIdAsignatura();
             int[] countsArr = conteosMap.getOrDefault(idAsig, new int[]{0, 0});
             int hab = countsArr[0];
             int inhab = countsArr[1];
             int total = hab + inhab;
-            String docente = docentesMap.getOrDefault(idAsig, "Docente Asignado");
+            String docente = resolverNombreDocente.apply(idAsig);
 
             return new AsignaturaResponseDto(
                     asig.getIdAsignatura(),

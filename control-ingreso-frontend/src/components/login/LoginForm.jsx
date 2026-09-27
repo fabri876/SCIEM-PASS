@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import imgLogoUmss from "../../assets/images/logo-umss.png";
 import FormField from "../common/FormField";
@@ -18,6 +18,19 @@ export default function LoginForm() {
 
   const { boolShowPassword, fnToggleShowPassword, strInputType } =
     usePasswordVisibility();
+
+  // TC-211/TC-215 (QA): el mensaje de sesión expirada se guardaba en
+  // sessionStorage (por inactividad en App.jsx, o por un 401 en los
+  // servicios) pero nada lo leía nunca — por eso el aviso jamás aparecía
+  // en pantalla. Se lee una sola vez al montar y se borra, para no
+  // repetirlo en un login normal posterior.
+  useEffect(() => {
+    const strMensaje = sessionStorage.getItem("mensajeSesion");
+    if (strMensaje) {
+      setStrErrorEnvio(strMensaje);
+      sessionStorage.removeItem("mensajeSesion");
+    }
+  }, []);
 
   const fnActualizarCampo = (strCampo) => (e) => {
     setObjFormData((prev) => ({ ...prev, [strCampo]: e.target.value }));

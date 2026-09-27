@@ -63,6 +63,19 @@ export async function obtenerNormasParticularesAdmin({ idAsignatura, idExamen } 
     return fetchAutenticado(`/api/admin/normas-particulares${strQuery}`);
 }
 
+// BUG-006 (QA): el GET público (obtenerNormasGenerales en examenService.js)
+// solo trae activas — este trae TODAS (activas e inactivas) para que el
+// admin pueda ver y reactivar las desactivadas.
+export async function listarTodasNormasGeneralesAdmin() {
+    return fetchAutenticado("/api/admin/normas-generales");
+}
+
+export async function activarNormaGeneralAdmin(idNormaGeneral) {
+    return fetchAutenticado(`/api/admin/normas-generales/${idNormaGeneral}/activar`, {
+        method: "PATCH",
+    });
+}
+
 export async function crearNormaGeneralAdmin(strDescripcionNorma) {
     return fetchAutenticado("/api/admin/normas-generales", {
         method: "POST",

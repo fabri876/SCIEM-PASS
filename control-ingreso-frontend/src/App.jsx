@@ -76,6 +76,13 @@ function App() {
     const intervaloVerificacion = setInterval(() => {
       if (estaSesionExpirada() && localStorage.getItem("token")) {
         cerrarSesion();
+        // TC-211/TC-215 (QA): antes no se guardaba este mensaje acá, solo en
+        // los servicios que reaccionan a un 401 — por eso nunca se veía
+        // "Sesión expirada" al cerrar sesión por inactividad.
+        sessionStorage.setItem(
+          "mensajeSesion",
+          "Sesión expirada. Por favor, inicia sesión nuevamente."
+        );
         window.location.href = "/login";
       }
     }, 30000); // Revisa cada 30 segundos si expiro la sesión por inactividad

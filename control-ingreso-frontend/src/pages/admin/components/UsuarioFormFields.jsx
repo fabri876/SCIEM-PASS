@@ -86,7 +86,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
         contrasena: "",
         telefono: usuarioInicial.telefono || "",
         rol: usuarioInicial.rol || rolesDisponibles[0]?.valor,
-        codigoSis: "",
+        codigoSis: usuarioInicial.codigoSis ?? "",
       });
       setStrRolOriginal(usuarioInicial.rol || null);
     } else {

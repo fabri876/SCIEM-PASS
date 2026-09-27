@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { obtenerHabilitaciones, actualizarHabilitacion } from "../../services/habilitacionService";
+import { obtenerHabilitaciones, actualizarHabilitacion, exportarListaOficial } from "../../services/habilitacionService";
 import { obtenerExamenPorAsignatura } from "../../services/asignaturaService";
 
 // Iconos SVG centralizados
@@ -231,13 +231,14 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
     const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
     const [cargando, setCargando] = useState(false);
     const [guardando, setGuardando] = useState(false);
-    const [infoExamen, setInfoExamen] = useState({
-        nombreExamen: 'Primer Parcial',
-        fecha: '2026-11-10',
-        hora: '09:45 - 11:15',
-        duracion: '90 min',
-        ambiente: '693B · Facultad de Ciencias y Tecnología'
-    });
+    const [exportando, setExportando] = useState(false);
+    // BUG-008 (QA): antes arrancaba con datos de examen inventados y, si la
+    // consulta fallaba, el catch solo hacía console.warn y se quedaban esos
+    // datos falsos en pantalla sin ningún aviso. Ahora arranca vacío y un
+    // error real se muestra como error, no como datos de mentira.
+    const [infoExamen, setInfoExamen] = useState(null);
+    const [cargandoExamen, setCargandoExamen] = useState(false);
+    const [errorExamen, setErrorExamen] = useState(false);
     const [motivoSelectValue, setMotivoSelectValue] = useState('');
     const [motivoPersonalizado, setMotivoPersonalizado] = useState('');
     const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false);
@@ -251,23 +252,35 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
         let cancel = false;
         async function cargarExamen() {
             if (!materia?.idAsignatura && !materia?.id) return;
+            setCargandoExamen(true);
+            setErrorExamen(false);
             try {
                 const idAsig = materia.idAsignatura || materia.id;
                 const data = await obtenerExamenPorAsignatura(idAsig);
-                if (!cancel && data) {
-                    setInfoExamen({
-                        nombreExamen: data.nombreExamen || 'Primer Parcial',
-                        fecha: data.fecha || '2026-11-10',
-                        hora: data.hora || '09:45 - 11:15',
-                        duracion: data.duracion || '90 min',
-                        ambiente: data.ambiente || '693B · Facultad de Ciencias y Tecnología'
-                    });
-                    if (data.nombreDocente && materia) {
-                        materia.docente = data.nombreDocente;
+                if (!cancel) {
+                    if (data) {
+                        setInfoExamen({
+                            nombreExamen: data.nombreExamen || null,
+                            fecha: data.fecha || null,
+                            hora: data.hora || null,
+                            duracion: data.duracion || null,
+                            ambiente: data.ambiente || null,
+                        });
+                        if (data.nombreDocente && materia) {
+                            materia.docente = data.nombreDocente;
+                        }
+                    } else {
+                        setInfoExamen(null);
                     }
                 }
             } catch (err) {
-                console.warn("Usando información de examen por defecto:", err);
+                if (!cancel) {
+                    console.error("Error al cargar la información del examen:", err);
+                    setInfoExamen(null);
+                    setErrorExamen(true);
+                }
+            } finally {
+                if (!cancel) setCargandoExamen(false);
             }
         }
         cargarExamen();
@@ -282,6 +295,28 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
         "Medida disciplinaria académica vigente por Consejo Facultativo"
     ];
     const elementosPorPagina = 5;
+
+    // BUG-007 (QA): antes solo mostraba un toast falso, no descargaba nada.
+    const handleExportarListaOficial = async () => {
+        const idAsig = materia?.idAsignatura || materia?.id;
+        setExportando(true);
+        try {
+            const blob = await exportarListaOficial(idAsig);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lista_habilitaciones_${idAsig || 'general'}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            mostrarToast('success', 'Lista oficial descargada.');
+        } catch (err) {
+            mostrarToast('error', err.message || 'No se pudo exportar la lista oficial.');
+        } finally {
+            setExportando(false);
+        }
+    };
 
     const mostrarToast = (type, message) => {
         if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -450,9 +485,9 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
                     <div className="flex items-center gap-3.5">
                         <div>
                             <div className="flex items-center gap-2 flex-wrap">
-                                {(materia.codigo || infoExamen.siglaAsignatura) && (
+                                {(materia.codigo || infoExamen?.siglaAsignatura) && (
                                     <span className="bg-blue-100/80 text-primary-blue font-extrabold px-2.5 py-0.5 rounded-lg text-xs border border-blue-200 uppercase tracking-wider">
-                                        {materia.codigo || infoExamen.siglaAsignatura}
+                                        {materia.codigo || infoExamen?.siglaAsignatura}
                                     </span>
                                 )}
                                 <h2 className="text-lg font-black text-[#1A365D]">{materia.nombre}</h2>
@@ -465,83 +500,97 @@ export default function TablaHabilitacionesEstudiantes({ materia }) {
                     </div>
                     <button
                         type="button"
-                        onClick={() => mostrarToast('success', 'Exportando lista oficial de estudiantes habilitados...')}
-                        className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-2 justify-center"
+                        onClick={handleExportarListaOficial}
+                        disabled={exportando}
+                        className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-2 justify-center disabled:opacity-50"
                     >
-                        <Icono nombre="exportar" className="w-4 h-4 text-primary-blue" /> Exportar lista oficial
+                        <Icono nombre="exportar" className="w-4 h-4 text-primary-blue" />
+                        {exportando ? 'Exportando…' : 'Exportar lista oficial'}
                     </button>
                 </div>
             )}
 
-            {/* 5 TARJETAS INFORMATIVAS DEL EXAMEN (EXAMEN, FECHA, HORA, DURACIÓN, AMBIENTE) */}
-            <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
-                <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3 first:pl-0">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
-                        <Icono nombre="documento" />
-                    </div>
-                    <div className="min-w-0">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">EXAMEN</span>
-                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{infoExamen.nombreExamen || '---'}</p>
-                    </div>
+            {/* 5 TARJETAS INFORMATIVAS DEL EXAMEN (EXAMEN, FECHA, HORA, DURACIÓN, AMBIENTE).
+                BUG-008 (QA): si la consulta falla se muestra un aviso real en
+                vez de datos inventados con el mismo formato que los reales. */}
+            {errorExamen ? (
+                <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 flex items-center gap-3">
+                    <Icono nombre="pregunta" className="w-5 h-5 text-rose-600 shrink-0" />
+                    <p className="text-xs font-bold text-rose-700">
+                        No se pudo cargar la información del examen de esta asignatura. Intenta recargar la página.
+                    </p>
                 </div>
-                <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
-                        <Icono nombre="calendario" />
+            ) : (
+                <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+                    <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3 first:pl-0">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
+                            <Icono nombre="documento" />
+                        </div>
+                        <div className="min-w-0">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">EXAMEN</span>
+                            <p className="text-xs font-extrabold text-[#1A365D] truncate">{cargandoExamen ? 'Cargando…' : (infoExamen?.nombreExamen || '---')}</p>
+                        </div>
                     </div>
-                    <div className="min-w-0">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">FECHA</span>
-                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{infoExamen.fecha || '---'}</p>
+                    <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
+                            <Icono nombre="calendario" />
+                        </div>
+                        <div className="min-w-0">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">FECHA</span>
+                            <p className="text-xs font-extrabold text-[#1A365D] truncate">{cargandoExamen ? '…' : (infoExamen?.fecha || '---')}</p>
+                        </div>
                     </div>
-                </div>
-                <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
-                        <Icono nombre="horario" />
+                    <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
+                            <Icono nombre="horario" />
+                        </div>
+                        <div className="min-w-0">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">HORA</span>
+                            <p className="text-xs font-extrabold text-[#1A365D] truncate">{cargandoExamen ? '…' : (infoExamen?.hora || '---')}</p>
+                        </div>
                     </div>
-                    <div className="min-w-0">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">HORA</span>
-                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{infoExamen.hora || '---'}</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
-                        <Icono nombre="reloj" />
-                    </div>
-                    <div className="min-w-0">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">DURACIÓN</span>
-                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{(() => {
-                            const calcDuracion = (dur, hor) => {
-                                if (hor && hor.includes('-')) {
-                                    const partes = hor.split('-').map(s => s.trim());
-                                    if (partes.length === 2) {
-                                        const [h1, m1] = partes[0].split(':').map(Number);
-                                        const [h2, m2] = partes[1].split(':').map(Number);
-                                        if (!isNaN(h1) && !isNaN(m1) && !isNaN(h2) && !isNaN(m2)) {
-                                            const diffMins = (h2 * 60 + m2) - (h1 * 60 + m1);
-                                            if (diffMins > 0) {
-                                                const hrs = Math.floor(diffMins / 60);
-                                                const mins = diffMins % 60;
-                                                return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}`;
+                    <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
+                            <Icono nombre="reloj" />
+                        </div>
+                        <div className="min-w-0">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">DURACIÓN</span>
+                            <p className="text-xs font-extrabold text-[#1A365D] truncate">{(() => {
+                                if (cargandoExamen) return '…';
+                                const calcDuracion = (dur, hor) => {
+                                    if (hor && hor.includes('-')) {
+                                        const partes = hor.split('-').map(s => s.trim());
+                                        if (partes.length === 2) {
+                                            const [h1, m1] = partes[0].split(':').map(Number);
+                                            const [h2, m2] = partes[1].split(':').map(Number);
+                                            if (!isNaN(h1) && !isNaN(m1) && !isNaN(h2) && !isNaN(m2)) {
+                                                const diffMins = (h2 * 60 + m2) - (h1 * 60 + m1);
+                                                if (diffMins > 0) {
+                                                    const hrs = Math.floor(diffMins / 60);
+                                                    const mins = diffMins % 60;
+                                                    return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}`;
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                if (dur && dur !== '---') return dur;
-                                return '01:30';
-                            };
-                            return calcDuracion(infoExamen.duracion, infoExamen.hora);
-                        })()}</p>
+                                    if (dur && dur !== '---') return dur;
+                                    return '---';
+                                };
+                                return calcDuracion(infoExamen?.duracion, infoExamen?.hora);
+                            })()}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
+                            <Icono nombre="ubicacion" />
+                        </div>
+                        <div className="min-w-0">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">AMBIENTE</span>
+                            <p className="text-xs font-extrabold text-[#1A365D] break-words line-clamp-2" title={infoExamen?.ambiente}>{cargandoExamen ? '…' : (infoExamen?.ambiente || '---')}</p>
+                        </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary-blue flex items-center justify-center flex-shrink-0">
-                        <Icono nombre="ubicacion" />
-                    </div>
-                    <div className="min-w-0">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">AMBIENTE</span>
-                        <p className="text-xs font-extrabold text-[#1A365D] break-words line-clamp-2" title={infoExamen.ambiente}>{infoExamen.ambiente || '---'}</p>
-                    </div>
-                </div>
-            </div>
+            )}
 
             {/* TARJETAS DE MÉTRICAS */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
