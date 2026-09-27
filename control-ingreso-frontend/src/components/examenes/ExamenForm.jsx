@@ -6,9 +6,10 @@ import {
     obtenerAulas,
     obtenerNormasGenerales,
     obtenerTiposExamen,
-    obtenerPerfilDocente,
 } from "../../services/examenService";
 import { obtenerUsuarioActual } from "../../services/authService";
+
+import { obtenerTiposUsados } from "../../services/adminNormasService";
 
 
 //ExamenForm.jsx
@@ -23,6 +24,11 @@ const DIAS_SEMANA = {
     6: "Sábado",
     7: "Domingo",
 };
+
+// Horario académico de la facultad: primer horario 6:45, último termina 21:45.
+// Solo aplica a EVENTUAL — el REGULAR ya viene validado por el horario fijo del docente.
+const HORA_ACADEMICA_INICIO = "06:45";
+const HORA_ACADEMICA_FIN = "21:45";
 
 function diaSemanaDeFecha(strFechaYYYYMMDD) {
     if (!strFechaYYYYMMDD) return null;
@@ -61,8 +67,8 @@ function IconoNormas() {
 export default function ExamenForm({ onCancelar }) {
     const objUsuario = obtenerUsuarioActual();
 
-    // Código SIS real del docente, obtenido desde /api/docente/perfil
-    const [intCodsisDocente, setIntCodsisDocente] = useState(null);
+
+    const intCodsisDocente = objUsuario?.codsisDocente ?? null;
 
     const [objFormData, setObjFormData] = useState({
         idAsignatura: "",
@@ -73,6 +79,7 @@ export default function ExamenForm({ onCancelar }) {
 
     const [arrAsignaturas, setArrAsignaturas] = useState([]);
     const [arrTiposExamen, setArrTiposExamen] = useState([]);
+    const [arrIdTiposUsados, setArrIdTiposUsados] = useState([]);
     const [arrHorariosRegulares, setArrHorariosRegulares] = useState([]);
     const [strTipoHorario, setStrTipoHorario] = useState("REGULAR");
     const [idHorarioRegularSeleccionado, setIdHorarioRegularSeleccionado] = useState("");
@@ -112,13 +119,6 @@ export default function ExamenForm({ onCancelar }) {
         arrNormasEspecificas,
     ]);
 
-    // Código SIS del docente logueado
-    useEffect(() => {
-        obtenerPerfilDocente()
-            .then((perfil) => setIntCodsisDocente(perfil.codigoSis))
-            .catch(() => setIntCodsisDocente(null));
-    }, []);
-
     // Catálogos que no dependen del código SIS
     useEffect(() => {
         obtenerAulas().then(setArrAulas).catch(() => setArrAulas([]));
@@ -153,6 +153,17 @@ export default function ExamenForm({ onCancelar }) {
                 setStrTipoHorario(horarios.length > 0 ? "REGULAR" : "EVENTUAL");
             })
             .catch(() => setArrHorariosRegulares([]));
+    }, [objFormData.idAsignatura, intCodsisDocente]);
+
+    // Tipos de examen ya registrados por este docente en esta asignatura
+    useEffect(() => {
+        if (!objFormData.idAsignatura || !intCodsisDocente) {
+            setArrIdTiposUsados([]);
+            return;
+        }
+        obtenerTiposUsados(objFormData.idAsignatura, intCodsisDocente)
+            .then((tipos) => setArrIdTiposUsados(tipos || []))
+            .catch(() => setArrIdTiposUsados([]));
     }, [objFormData.idAsignatura, intCodsisDocente]);
 
     // Al elegir un horario regular: precarga su aula (la fecha queda vacía, sin sugerencia)
@@ -275,6 +286,18 @@ export default function ExamenForm({ onCancelar }) {
             setStrMensaje("Complete hora de inicio y hora de fin.");
             return;
         }
+        if (
+            strTipoHorario === "EVENTUAL" &&
+            (objEventual.horaInicio < HORA_ACADEMICA_INICIO ||
+                objEventual.horaInicio > HORA_ACADEMICA_FIN ||
+                objEventual.horaFin < HORA_ACADEMICA_INICIO ||
+                objEventual.horaFin > HORA_ACADEMICA_FIN)
+        ) {
+            setStrMensaje(
+                `El horario debe estar dentro del horario académico (${HORA_ACADEMICA_INICIO} - ${HORA_ACADEMICA_FIN}).`
+            );
+            return;
+        }
         if (boolFechaNoCoincide) {
             setStrMensaje(
                 `La fecha no corresponde a ${DIAS_SEMANA[objHorarioSeleccionado.diaSemana]}, el día de ese horario regular. Ajuste la fecha o el horario para continuar.`
@@ -392,11 +415,21 @@ export default function ExamenForm({ onCancelar }) {
                             className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
                         >
                             <option value="" disabled>Seleccione el tipo</option>
-                            {arrTiposExamen.map((tipo) => (
-                                <option key={tipo.idTipoExamen} value={tipo.idTipoExamen}>
-                                    {tipo.nombreTipoExamen}
-                                </option>
-                            ))}
+                            {arrTiposExamen.map((tipo) => {
+                                // "Otro" (requiereDescripcion) es una opción abierta: puede
+                                // usarse las veces que haga falta, distinguiéndose por el
+                                // texto que el docente escribe cada vez. No cuenta como "ya
+                                // usado" aunque ya se haya elegido antes.
+                                const boolYaUsado =
+                                    !tipo.requiereDescripcion &&
+                                    arrIdTiposUsados.map(String).includes(String(tipo.idTipoExamen));
+                                return (
+                                    <option key={tipo.idTipoExamen} value={tipo.idTipoExamen} disabled={boolYaUsado}>
+                                        {tipo.nombreTipoExamen}
+                                        {boolYaUsado ? " (ya registrado)" : ""}
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
                 </div>
@@ -436,7 +469,7 @@ export default function ExamenForm({ onCancelar }) {
                                     onChange={() => setStrTipoHorario("REGULAR")}
                                     className="accent-[#163F79]"
                                 />
-                                Usar mi horario de siempre
+                                Horario regular
                             </label>
                             <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
                                 <input
@@ -445,7 +478,7 @@ export default function ExamenForm({ onCancelar }) {
                                     onChange={() => setStrTipoHorario("EVENTUAL")}
                                     className="accent-[#163F79]"
                                 />
-                                Es un horario especial para este examen
+                                Horario eventual
                             </label>
                         </div>
                     )}
@@ -476,6 +509,8 @@ export default function ExamenForm({ onCancelar }) {
                                     value={objEventual.horaInicio}
                                     onChange={handleChangeEventual}
                                     required
+                                    min={HORA_ACADEMICA_INICIO}
+                                    max={HORA_ACADEMICA_FIN}
                                     className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
                                 />
                             </div>
@@ -487,9 +522,14 @@ export default function ExamenForm({ onCancelar }) {
                                     value={objEventual.horaFin}
                                     onChange={handleChangeEventual}
                                     required
+                                    min={HORA_ACADEMICA_INICIO}
+                                    max={HORA_ACADEMICA_FIN}
                                     className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
                                 />
                             </div>
+                            <p className="text-[11px] text-gray-500 col-span-2">
+                                El horario debe estar dentro del horario académico ({HORA_ACADEMICA_INICIO} - {HORA_ACADEMICA_FIN}).
+                            </p>
                         </div>
                     )}
 
@@ -511,8 +551,8 @@ export default function ExamenForm({ onCancelar }) {
                         onChange={handleChange}
                         required
                         className={`h-[42px] w-full border rounded-md text-[13.5px] px-3 focus:ring-3 ${boolFechaNoCoincide
-                                ? "border-red-400 focus:border-red-500 focus:ring-red-400/15"
-                                : "border-[#C8D6E8] focus:border-[#2B6CB0] focus:ring-[#2B6CB0]/15"
+                            ? "border-red-400 focus:border-red-500 focus:ring-red-400/15"
+                            : "border-[#C8D6E8] focus:border-[#2B6CB0] focus:ring-[#2B6CB0]/15"
                             }`}
                     />
                     {boolFechaNoCoincide && (
@@ -581,11 +621,6 @@ export default function ExamenForm({ onCancelar }) {
                             );
                         })}
                     </div>
-                    <p className="text-[11.5px] text-gray-500 mt-2">
-                        {strTipoHorario === "REGULAR"
-                            ? "El aula de arriba va sí o sí (la asigna el horario regular). Puede sumar otra(s) si el examen las necesita."
-                            : "Puede quitar el ambiente sugerido y agregar otro, o sumar más de uno si el examen lo requiere."}
-                    </p>
                 </div>
             </div>
 
@@ -629,8 +664,8 @@ export default function ExamenForm({ onCancelar }) {
                                     : "Escriba una indicación y presione Agregar"
                             }
                             className={`h-[38px] flex-1 border rounded-md text-[13px] px-3 ${intIndexNormaEnEdicion !== null
-                                    ? "border-[#2B6CB0] bg-[#2B6CB0]/[0.06]"
-                                    : "border-[#C8D6E8]"
+                                ? "border-[#2B6CB0] bg-[#2B6CB0]/[0.06]"
+                                : "border-[#C8D6E8]"
                                 }`}
                         />
                         <button
@@ -655,8 +690,8 @@ export default function ExamenForm({ onCancelar }) {
                             <div
                                 key={index}
                                 className={`flex items-center justify-between border rounded-md px-3 py-1.5 text-[12.5px] text-gray-700 ${intIndexNormaEnEdicion === index
-                                        ? "bg-[#2B6CB0]/[0.06] border-[#2B6CB0]"
-                                        : "bg-[#F4F7FB] border-[#E2E8F0]"
+                                    ? "bg-[#2B6CB0]/[0.06] border-[#2B6CB0]"
+                                    : "bg-[#F4F7FB] border-[#E2E8F0]"
                                     }`}
                             >
                                 {norma}

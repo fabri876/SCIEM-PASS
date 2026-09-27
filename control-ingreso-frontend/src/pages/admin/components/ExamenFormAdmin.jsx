@@ -7,7 +7,11 @@ import {
     obtenerNormasGenerales,
     obtenerTiposExamen,
 } from "../../../services/examenService";
-import { obtenerDocentesAdmin } from "../../../services/adminNormasService";
+import {
+    obtenerDocentesAdmin,
+    actualizarExamen,
+    obtenerTiposUsados,
+} from "../../../services/adminNormasService";
 
 
 const DIAS_SEMANA = {
@@ -19,6 +23,11 @@ const DIAS_SEMANA = {
     6: "Sábado",
     7: "Domingo",
 };
+
+// Horario académico de la facultad: primer horario 6:45, último termina 21:45.
+// Solo aplica a EVENTUAL — el REGULAR ya viene validado por el horario fijo del docente.
+const HORA_ACADEMICA_INICIO = "06:45";
+const HORA_ACADEMICA_FIN = "21:45";
 
 function diaSemanaDeFecha(strFechaYYYYMMDD) {
     if (!strFechaYYYYMMDD) return null;
@@ -63,12 +72,17 @@ function IconoDocente() {
     );
 }
 
-export default function ExamenFormAdmin({ onCancelar }) {
+export default function ExamenFormAdmin({
+    onCancelar,
+    objExamenAEditar,
+    arrAmbientesExamenAEditar,
+    arrNormasParticularesExamenAEditar,
+}) {
+    const boolEditando = !!objExamenAEditar;
+
     const [arrDocentes, setArrDocentes] = useState([]);
     const [idUsuarioDocente, setIdUsuarioDocente] = useState("");
 
-    // Código SIS del docente elegido. GET /api/admin/docentes devuelve el
-    // campo como "codsisDocente" 
 
     const objDocenteSeleccionado = arrDocentes.find(
         (d) => String(d.idUsuario) === String(idUsuarioDocente)
@@ -97,6 +111,8 @@ export default function ExamenFormAdmin({ onCancelar }) {
     const [strBusquedaAula, setStrBusquedaAula] = useState("");
     const [boolSugerenciasAulaVisibles, setBoolSugerenciasAulaVisibles] = useState(false);
 
+    const [arrIdTiposUsados, setArrIdTiposUsados] = useState([]);
+
     const [arrAulas, setArrAulas] = useState([]);
     const [arrNormasGeneralesCatalogo, setArrNormasGeneralesCatalogo] = useState([]);
     const [arrIdNormasSeleccionadas, setArrIdNormasSeleccionadas] = useState([]);
@@ -107,6 +123,12 @@ export default function ExamenFormAdmin({ onCancelar }) {
     const [strMensaje, setStrMensaje] = useState("");
     const [strTipoMensaje, setStrTipoMensaje] = useState("error"); // "error" | "exito"
 
+
+    const [boolPrefillDatosHecho, setBoolPrefillDatosHecho] = useState(false);
+    const [boolPrefillAmbienteHecho, setBoolPrefillAmbienteHecho] = useState(false);
+
+    // El mensaje de arriba (error o éxito) no debe quedarse pegado cuando el
+    // admin sigue editando el formulario después de verlo.
     useEffect(() => {
         setStrMensaje("");
     }, [
@@ -120,12 +142,71 @@ export default function ExamenFormAdmin({ onCancelar }) {
         arrNormasEspecificas,
     ]);
 
-    // Lista de docentes activos para el selector (GET /api/admin/docentes
+
     useEffect(() => {
         obtenerDocentesAdmin()
             .then(setArrDocentes)
             .catch(() => setArrDocentes([]));
     }, []);
+
+    useEffect(() => {
+        if (!boolEditando || boolPrefillDatosHecho || arrDocentes.length === 0) return;
+
+        setIdUsuarioDocente(String(objExamenAEditar.idUsuario));
+        setObjFormData({
+            idAsignatura: String(objExamenAEditar.idAsignatura),
+            idTipoExamen: String(objExamenAEditar.idTipoExamen),
+            detalleTipoExamen: objExamenAEditar.detalleTipoExamen || "",
+            fecha: (objExamenAEditar.fechaExamen || "").slice(0, 10),
+        });
+        setArrNormasEspecificas(
+            (arrNormasParticularesExamenAEditar || []).map((n) => n.descripcionNorma)
+        );
+        setBoolPrefillDatosHecho(true);
+    }, [boolEditando, boolPrefillDatosHecho, arrDocentes, objExamenAEditar, arrNormasParticularesExamenAEditar]);
+
+
+    useEffect(() => {
+        if (!boolEditando || boolPrefillAmbienteHecho || !boolPrefillDatosHecho) return;
+        if (!Array.isArray(arrAmbientesExamenAEditar)) return; // todavía "cargando" o "error"
+
+        const arrAmbientes = arrAmbientesExamenAEditar;
+        const principal = arrAmbientes[0];
+        const strTipoDelExamen = principal?.tipoHorario || "EVENTUAL";
+
+        if (strTipoDelExamen === "REGULAR") {
+            if (arrHorariosRegulares.length === 0) return; // esperar a que carguen
+
+            setStrTipoHorario("REGULAR");
+            const intDiaExamen = diaSemanaDeFecha(objExamenAEditar.fechaExamen?.slice(0, 10));
+            const horarioEncontrado = arrHorariosRegulares.find(
+                (h) =>
+                    h.idAula === principal?.idAula &&
+                    h.horaInicio === principal?.horaInicio &&
+                    h.horaFin === principal?.horaFin &&
+                    h.diaSemana === intDiaExamen
+            );
+            if (horarioEncontrado) {
+                setIdHorarioRegularSeleccionado(String(horarioEncontrado.idHorarioRegular));
+            }
+            setArrIdAulasSeleccionadas(arrAmbientes.slice(1).map((a) => a.idAula));
+        } else {
+            setStrTipoHorario("EVENTUAL");
+            setArrIdAulasSeleccionadas(arrAmbientes.map((a) => a.idAula));
+            setObjEventual({
+                horaInicio: (principal?.horaInicio || "").slice(0, 5),
+                horaFin: (principal?.horaFin || "").slice(0, 5),
+            });
+        }
+        setBoolPrefillAmbienteHecho(true);
+    }, [
+        boolEditando,
+        boolPrefillDatosHecho,
+        boolPrefillAmbienteHecho,
+        arrAmbientesExamenAEditar,
+        arrHorariosRegulares,
+        objExamenAEditar,
+    ]);
 
     // Catálogos que no dependen del docente ni del código SIS
     useEffect(() => {
@@ -163,17 +244,25 @@ export default function ExamenFormAdmin({ onCancelar }) {
         obtenerHorariosRegulares(idUsuarioDocente, intCodsisDocente, objFormData.idAsignatura)
             .then((horarios) => {
                 setArrHorariosRegulares(horarios);
-                setStrTipoHorario(horarios.length > 0 ? "REGULAR" : "EVENTUAL");
+
+                if (!boolEditando) {
+                    setStrTipoHorario(horarios.length > 0 ? "REGULAR" : "EVENTUAL");
+                }
             })
             .catch(() => setArrHorariosRegulares([]));
     }, [objFormData.idAsignatura]);
 
-    // Al cambiar a EVENTUAL, no se precarga ningún aula
+    // Tipos de examen ya usados por este docente en esta asignatura (para
+    // deshabilitarlos en el selector, sin dejar repetir el mismo tipo).
     useEffect(() => {
-        if (strTipoHorario === "EVENTUAL") {
-            setArrIdAulasSeleccionadas([]);
+        if (!objFormData.idAsignatura || !intCodsisDocente) {
+            setArrIdTiposUsados([]);
+            return;
         }
-    }, [strTipoHorario]);
+        obtenerTiposUsados(objFormData.idAsignatura, intCodsisDocente)
+            .then((tipos) => setArrIdTiposUsados(tipos || []))
+            .catch(() => setArrIdTiposUsados([]));
+    }, [objFormData.idAsignatura, intCodsisDocente]);
 
     const objTipoExamenSeleccionado = arrTiposExamen.find(
         (t) => String(t.idTipoExamen) === String(objFormData.idTipoExamen)
@@ -191,6 +280,7 @@ export default function ExamenFormAdmin({ onCancelar }) {
         diaSemanaDeFecha(objFormData.fecha) !== objHorarioSeleccionado.diaSemana;
 
     // En REGULAR, excluye también el aula principal del horario elegido
+    // (para no dejar que la agreguen otra vez como "adicional" -> error 400).
     const arrAulasFiltradas = arrAulas.filter(
         (aula) =>
             !arrIdAulasSeleccionadas.includes(aula.idAula) &&
@@ -199,7 +289,14 @@ export default function ExamenFormAdmin({ onCancelar }) {
     );
 
     function handleChangeDocente(e) {
+
         setIdUsuarioDocente(e.target.value);
+        setObjFormData((prev) => ({ ...prev, idAsignatura: "", idTipoExamen: "", detalleTipoExamen: "" }));
+        setArrHorariosRegulares([]);
+        setStrTipoHorario("REGULAR");
+        setIdHorarioRegularSeleccionado("");
+        setArrIdAulasSeleccionadas([]);
+        setObjEventual({ horaInicio: "", horaFin: "" });
     }
 
     function handleChange(e) {
@@ -261,6 +358,18 @@ export default function ExamenFormAdmin({ onCancelar }) {
             setStrMensaje("Complete aula, hora de inicio y hora de fin.");
             return;
         }
+        if (
+            strTipoHorario === "EVENTUAL" &&
+            (objEventual.horaInicio < HORA_ACADEMICA_INICIO ||
+                objEventual.horaInicio > HORA_ACADEMICA_FIN ||
+                objEventual.horaFin < HORA_ACADEMICA_INICIO ||
+                objEventual.horaFin > HORA_ACADEMICA_FIN)
+        ) {
+            setStrMensaje(
+                `El horario debe estar dentro del horario académico (${HORA_ACADEMICA_INICIO} - ${HORA_ACADEMICA_FIN}).`
+            );
+            return;
+        }
         if (boolFechaNoCoincide) {
             setStrMensaje(
                 `La fecha no corresponde a ${DIAS_SEMANA[objHorarioSeleccionado.diaSemana]}, el día de ese horario regular. Ajuste la fecha o el horario para continuar.`
@@ -299,7 +408,6 @@ export default function ExamenFormAdmin({ onCancelar }) {
         } else {
             // En EVENTUAL, la primera aula elegida es la principal (idAula);
             // el resto son adicionales.
-
             objBody.idAula = parseInt(arrIdAulasSeleccionadas[0], 10);
             if (arrIdAulasSeleccionadas.length > 1) {
                 objBody.idsAulasAdicionales = arrIdAulasSeleccionadas
@@ -311,12 +419,21 @@ export default function ExamenFormAdmin({ onCancelar }) {
         }
 
         try {
-            await registrarExamen(objBody);
-            setStrTipoMensaje("exito");
-            setStrMensaje("Examen registrado correctamente.");
+            if (boolEditando) {
+                await actualizarExamen(objExamenAEditar.idExamen, objBody);
+                setStrTipoMensaje("exito");
+                setStrMensaje("Examen actualizado correctamente.");
+            } else {
+                await registrarExamen(objBody);
+                setStrTipoMensaje("exito");
+                setStrMensaje("Examen registrado correctamente.");
+            }
         } catch (error) {
             setStrTipoMensaje("error");
-            setStrMensaje(error.message || "Ocurrió un error al registrar el examen.");
+            setStrMensaje(
+                error.message ||
+                `Ocurrió un error al ${boolEditando ? "actualizar" : "registrar"} el examen.`
+            );
         } finally {
             setBoolEnviando(false);
         }
@@ -329,9 +446,13 @@ export default function ExamenFormAdmin({ onCancelar }) {
                     <IconoDocumento />
                 </div>
                 <div>
-                    <h2 className="text-[19px] font-bold text-[#163F79]">Registrar examen</h2>
+                    <h2 className="text-[19px] font-bold text-[#163F79]">
+                        {boolEditando ? "Editar examen" : "Registrar examen"}
+                    </h2>
                     <p className="text-[12.5px] text-gray-500">
-                        Complete el formulario para programar la evaluación académica
+                        {boolEditando
+                            ? "Modifique los datos y guarde los cambios"
+                            : "Complete el formulario para programar la evaluación académica"}
                     </p>
                 </div>
             </div>
@@ -404,11 +525,19 @@ export default function ExamenFormAdmin({ onCancelar }) {
                                 className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
                             >
                                 <option value="" disabled>Seleccione el tipo</option>
-                                {arrTiposExamen.map((tipo) => (
-                                    <option key={tipo.idTipoExamen} value={tipo.idTipoExamen}>
-                                        {tipo.nombreTipoExamen}
-                                    </option>
-                                ))}
+                                {arrTiposExamen.map((tipo) => {
+
+                                    const boolYaUsado =
+                                        !tipo.requiereDescripcion &&
+                                        arrIdTiposUsados.map(String).includes(String(tipo.idTipoExamen)) &&
+                                        !(boolEditando && String(objExamenAEditar.idTipoExamen) === String(tipo.idTipoExamen));
+                                    return (
+                                        <option key={tipo.idTipoExamen} value={tipo.idTipoExamen} disabled={boolYaUsado}>
+                                            {tipo.nombreTipoExamen}
+                                            {boolYaUsado ? " (ya registrado)" : ""}
+                                        </option>
+                                    );
+                                })}
                             </select>
                         </div>
                     </div>
@@ -445,19 +574,25 @@ export default function ExamenFormAdmin({ onCancelar }) {
                                     <input
                                         type="radio"
                                         checked={strTipoHorario === "REGULAR"}
-                                        onChange={() => setStrTipoHorario("REGULAR")}
+                                        onChange={() => {
+                                            setStrTipoHorario("REGULAR");
+                                            setArrIdAulasSeleccionadas([]);
+                                        }}
                                         className="accent-[#163F79]"
                                     />
-                                    Usar el horario de siempre del docente
+                                    Horario regular
                                 </label>
                                 <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
                                     <input
                                         type="radio"
                                         checked={strTipoHorario === "EVENTUAL"}
-                                        onChange={() => setStrTipoHorario("EVENTUAL")}
+                                        onChange={() => {
+                                            setStrTipoHorario("EVENTUAL");
+                                            setArrIdAulasSeleccionadas([]);
+                                        }}
                                         className="accent-[#163F79]"
                                     />
-                                    Es un horario especial para este examen
+                                    Horario eventual
                                 </label>
                             </div>
                         )}
@@ -549,7 +684,7 @@ export default function ExamenFormAdmin({ onCancelar }) {
                         {strTipoHorario === "EVENTUAL" && (
                             <div className="space-y-3">
                                 <div className="relative">
-                                    <label className="block text-[11.5px] text-gray-500 mb-1">Aula(s) — la primera que agregue será la principal</label>
+                                    <label className="block text-[11.5px] text-gray-500 mb-1">Aula(s)</label>
                                     <div className="relative">
                                         <span className="absolute left-3 top-[13px] text-gray-400">⌕</span>
                                         <input
@@ -607,6 +742,8 @@ export default function ExamenFormAdmin({ onCancelar }) {
                                             value={objEventual.horaInicio}
                                             onChange={handleChangeEventual}
                                             required
+                                            min={HORA_ACADEMICA_INICIO}
+                                            max={HORA_ACADEMICA_FIN}
                                             className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
                                         />
                                     </div>
@@ -618,9 +755,14 @@ export default function ExamenFormAdmin({ onCancelar }) {
                                             value={objEventual.horaFin}
                                             onChange={handleChangeEventual}
                                             required
+                                            min={HORA_ACADEMICA_INICIO}
+                                            max={HORA_ACADEMICA_FIN}
                                             className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
                                         />
                                     </div>
+                                    <p className="text-[11px] text-gray-500 col-span-2">
+                                        Dentro del horario académico ({HORA_ACADEMICA_INICIO} - {HORA_ACADEMICA_FIN}).
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -665,6 +807,11 @@ export default function ExamenFormAdmin({ onCancelar }) {
                         <label className="block text-[12.5px] font-semibold text-[#163F79] mb-2">
                             Normas generales
                         </label>
+                        {boolEditando && (
+                            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-2.5">
+                                El backend todavía no informa qué normas generales tenía marcadas este examen, así que no se pudieron precargar. Vuelva a marcar las que correspondan antes de guardar — de lo contrario, se quitarán del examen.
+                            </p>
+                        )}
                         <div className="flex flex-col gap-2">
                             {arrNormasGeneralesCatalogo.map((norma) => (
                                 <label key={norma.idNormaGeneral} className="flex items-start gap-2 text-[13px] text-gray-700 cursor-pointer">
@@ -747,7 +894,13 @@ export default function ExamenFormAdmin({ onCancelar }) {
                         disabled={boolEnviando || !idUsuarioDocente}
                         className="h-[42px] px-5 rounded-md bg-[#163F79] text-white font-semibold text-[13.5px] disabled:opacity-60"
                     >
-                        {boolEnviando ? "Registrando..." : "Registrar examen"}
+                        {boolEnviando
+                            ? boolEditando
+                                ? "Guardando..."
+                                : "Registrando..."
+                            : boolEditando
+                                ? "Guardar cambios"
+                                : "Registrar examen"}
                     </button>
                 </div>
             </div>
