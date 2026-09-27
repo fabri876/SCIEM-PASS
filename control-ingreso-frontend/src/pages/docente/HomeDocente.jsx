@@ -96,7 +96,7 @@ export default function HomeDocente() {
                             {strIniciales}
                         </div>
                         <h3 className="font-extrabold text-[#1A365D] text-sm">{strNombre} {strApellido}</h3>
-                        <span className="text-[11px] text-[#2563EB] font-bold mb-4">DOCENTE UMSS</span>
+                        <span className="text-[11px] text-[#1A365D] font-bold mb-4">DOCENTE UMSS</span>
                         <div className="w-full border-t border-slate-100 pt-3 text-left space-y-2 text-xs">
                             <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Facultad:</span> Cs. y Tecnología</p>
                             <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Código Docente:</span> {usuario?.codigoSis || "-"}</p>
@@ -104,24 +104,24 @@ export default function HomeDocente() {
                     </div>
 
                     <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-                        <button className="w-full flex items-center gap-3 px-4 py-3 bg-[#2563EB] text-white rounded-xl font-bold text-xs shadow-xs">
+                        <button className="w-full flex items-center gap-3 px-4 py-3 bg-[#1A365D] text-white rounded-xl font-bold text-xs shadow-xs">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                             Inicio
                         </button>
                         <button onClick={() => setBoolModalAbierto(true)} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
-                            <svg className="w-4 h-4 text-[#2563EB]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                            <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
                             Registrar Examen
                         </button>
                         <button className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
-                            <svg className="w-4 h-4 text-[#2563EB]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                             Mis Exámenes
                         </button>
                         <button className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
-                            <svg className="w-4 h-4 text-[#2563EB]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                             Reportes y Asistencia
                         </button>
                         <button onClick={() => { setStrSeccionRegistro("individual"); setBoolModalRegistroAbierto(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
-                            <svg className="w-4 h-4 text-[#2563EB]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                            <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
                             Registrar Estudiante/Ayudante
                         </button>
                     </div>
@@ -155,12 +155,12 @@ export default function HomeDocente() {
                                             Mis Exámenes de Hoy
                                         </h3>
                                         <p className="text-xs text-slate-500 font-medium">
-                                            Viernes, 5 de septiembre de 2026 – <span className="font-bold text-[#2563EB]">2 programados</span>
+                                            Viernes, 5 de septiembre de 2026 – <span className="font-bold text-[#1A365D]">2 programados</span>
                                         </p>
                                     </div>
                                     <button
                                         onClick={() => setBoolModalAbierto(true)}
-                                        className="bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
+                                        className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
                                     >
                                         + Registrar examen
                                     </button>
@@ -173,20 +173,20 @@ export default function HomeDocente() {
                                             <div key={examen.idExamen} className="bg-[#F8FAFC] p-5 rounded-2xl border border-slate-200 space-y-3">
                                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                                     <div className="flex items-start gap-3">
-                                                        <div className="w-10 h-10 rounded-xl bg-[#2563EB] text-white flex items-center justify-center text-lg font-bold shadow-xs shrink-0">
+                                                        <div className="w-10 h-10 rounded-xl bg-[#1A365D] text-white flex items-center justify-center text-lg font-bold shadow-xs shrink-0">
                                                             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                                                         </div>
                                                         <div>
                                                             <h4 className="font-black text-sm text-[#1A365D]">{examen.nombreExamen}</h4>
                                                             <p className="text-xs text-slate-600 font-bold mt-0.5">
-                                                                {examen.aula} · <span className="text-[#2563EB]">{examen.horario}</span>
+                                                                {examen.aula} · <span className="text-[#1A365D]">{examen.horario}</span>
                                                             </p>
                                                         </div>
                                                     </div>
 
                                                     <button
                                                         onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`)}
-                                                        className="bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer self-start sm:self-center"
+                                                        className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer self-start sm:self-center"
                                                     >
                                                         Gestionar Habilitaciones
                                                     </button>
@@ -210,7 +210,7 @@ export default function HomeDocente() {
                                                         <span className="font-mono">{examen.ingresados} / {examen.totalInscritos}</span>
                                                     </div>
                                                     <div className="w-full bg-white h-2 rounded-full overflow-hidden border border-slate-200">
-                                                        <div className="bg-[#2563EB] h-full rounded-full transition-all duration-500" style={{ width: `${porcentaje}%` }}></div>
+                                                        <div className="bg-[#1A365D] h-full rounded-full transition-all duration-500" style={{ width: `${porcentaje}%` }}></div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -225,7 +225,7 @@ export default function HomeDocente() {
                         <div className="space-y-6">
                             <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
                                 <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <svg className="w-4 h-4 text-[#2563EB]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                                     Calendario Académico
                                 </h4>
                                 <div className="text-center bg-[#F8FAFC] p-4 rounded-2xl border border-slate-200">
@@ -241,7 +241,7 @@ export default function HomeDocente() {
                                         {Array.from({ length: 30 }, (_, i) => i + 1).map((dia) => (
                                             <span
                                                 key={dia}
-                                                className={`py-1 rounded-lg ${dia === 5 ? 'bg-[#2563EB] text-white font-black' : 'hover:bg-slate-200'}`}
+                                                className={`py-1 rounded-lg ${dia === 5 ? 'bg-[#1A365D] text-white font-black' : 'hover:bg-slate-200'}`}
                                             >
                                                 {dia}
                                             </span>
@@ -257,7 +257,7 @@ export default function HomeDocente() {
                                 <div className="p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
                                     <p className="font-extrabold text-xs text-[#1A365D]">Inteligencia Artificial</p>
                                     <p className="text-[11px] text-slate-600 mt-0.5">Viernes, 5 de Septiembre · 09:00</p>
-                                    <p className="text-[10px] text-[#2563EB] font-bold mt-2">Aula 612 · Bloque F</p>
+                                    <p className="text-[10px] text-[#1A365D] font-bold mt-2">Aula 612 · Bloque F</p>
                                 </div>
 
                             </div>
@@ -271,11 +271,6 @@ export default function HomeDocente() {
             </div>
 
 
-
-
-
-
-
             <VentanaEmergente
                 boolAbierto={boolModalAbierto}
                 onCerrar={() => setBoolModalAbierto(false)}
@@ -283,12 +278,7 @@ export default function HomeDocente() {
                 <ExamenForm onCancelar={() => setBoolModalAbierto(false)} />
             </VentanaEmergente>
 
-            {/* Registrar Estudiante/Ayudante: carga masiva (solo Estudiantes) y
-                registro individual (Estudiante o Ayudante), reusando los
-                mismos componentes del panel de admin (ver
-                UsuarioFormFields.jsx / BulkUploadCard.jsx). Se muestra una
-                sección a la vez, elegida con las pestañas de arriba —
-                "Individual" abre por defecto. */}
+
             <VentanaEmergente
                 boolAbierto={boolModalRegistroAbierto}
                 onCerrar={() => setBoolModalRegistroAbierto(false)}

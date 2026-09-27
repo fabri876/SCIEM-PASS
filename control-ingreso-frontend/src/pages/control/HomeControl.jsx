@@ -87,8 +87,7 @@ export default function HomeControl() {
   return (
     <div className="min-h-screen bg-[#F1F5F9] text-slate-800 font-nunito pb-16">
 
-      {/* HEADER SUPERIOR FIJO (incluye el menú de cuenta: cambiar
-          contraseña / cerrar sesión, ver Header.jsx) */}
+      {/* HEADER SUPERIOR FIJO */}
       <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200/80 shadow-xs">
         <Header strRutaActiva="Inicio" />
       </div>
@@ -100,7 +99,7 @@ export default function HomeControl() {
         <aside className="lg:col-span-3 space-y-6">
           {/* Tarjeta de Perfil Usuario */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-xs mb-3">
+            <div className="w-16 h-16 rounded-2xl bg-[#0B2545] text-white font-black text-xl flex items-center justify-center shadow-xs mb-3">
               {usuario ? `${usuario.nombre.charAt(0)}${usuario.apellido ? usuario.apellido.charAt(0) : ''}` : "RV"}
             </div>
             <h2 className="text-sm font-black text-slate-800">
@@ -115,15 +114,15 @@ export default function HomeControl() {
 
           {/* Menú de Navegación Lateral */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-3 shadow-xs space-y-1">
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#2563EB] text-white font-extrabold text-xs shadow-xs">
+            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#0B2545] text-white font-extrabold text-xs shadow-xs transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
               <span>Inicio</span>
             </button>
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-600 hover:bg-slate-50 font-bold text-xs transition-colors">
+            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition-colors">
               <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
               <span>Escáner Activo</span>
             </button>
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-600 hover:bg-slate-50 font-bold text-xs transition-colors">
+            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition-colors">
               <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
               <span>Reporte de Ingresos</span>
             </button>
@@ -133,13 +132,13 @@ export default function HomeControl() {
         {/* COLUMNA CENTRAL Y DERECHA */}
         <section className="lg:col-span-9 space-y-6">
 
-          {/* BANNER PRINCIPAL CON LUZ VERDE PARPADEANTE */}
+          {/* BANNER PRINCIPAL (Intacto) */}
           <div
             className="w-full text-white p-6 md:p-8 rounded-3xl shadow-sm relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
-            style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}
+            style={{ backgroundImage: 'linear-gradient(to right, #0B2545, #2563EB, #DC2626)' }}
           >
             <div>
-              {/* Insignia con luz verde intermitente */}
+
               <span className="bg-white/20 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full border border-white/30 inline-flex items-center gap-2 mb-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping absolute"></span>
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34D399]"></span>
@@ -168,7 +167,7 @@ export default function HomeControl() {
           {/* MÓDULO DE VERIFICACIÓN / BUSCADOR */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-4">
             <div>
-              <h2 className="text-base font-black text-[#1A365D]">Verificación de Ingreso de Estudiante</h2>
+              <h2 className="text-base font-black text-[#0B2545]">Verificación de Ingreso de Estudiante</h2>
               <p className="text-xs text-slate-500 font-medium mt-0.5">Escanea el código QR del carnet universitario o escribe el CI / Código SIS.</p>
             </div>
 
@@ -179,7 +178,7 @@ export default function HomeControl() {
                   placeholder="Escanea el QR o ingresa CI / Código SIS..."
                   value={strBusqueda}
                   onChange={(e) => setStrBusqueda(e.target.value)}
-                  className="w-full h-12 pl-11 pr-4 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 text-xs font-bold outline-none transition-all"
+                  className="w-full h-12 pl-11 pr-4 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#0B2545] focus:ring-2 focus:ring-[#0B2545]/20 text-xs font-bold outline-none transition-all"
                 />
                 <span className="absolute left-3.5 top-3.5 text-slate-400">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -187,7 +186,7 @@ export default function HomeControl() {
               </div>
               <button
                 type="submit"
-                className="h-12 px-6 bg-[#2563EB] hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition cursor-pointer shrink-0"
+                className="h-12 px-6 bg-[#0B2545] hover:bg-[#13315C] text-white font-extrabold text-xs rounded-xl shadow-xs transition cursor-pointer shrink-0"
               >
                 Verificar Habilitación
               </button>
@@ -199,21 +198,21 @@ export default function HomeControl() {
               <button
                 type="button"
                 onClick={() => setStrBusqueda("8765432 CB")}
-                className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                className="text-[11px] bg-slate-100 hover:bg-[#0B2545] hover:text-white text-slate-700 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
               >
                 8765432 CB (Habilitado)
               </button>
               <button
                 type="button"
                 onClick={() => setStrBusqueda("1234567 CB")}
-                className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                className="text-[11px] bg-slate-100 hover:bg-[#0B2545] hover:text-white text-slate-700 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
               >
                 1234567 CB (Duplicado)
               </button>
               <button
                 type="button"
                 onClick={() => setStrBusqueda("9988776 CB")}
-                className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                className="text-[11px] bg-slate-100 hover:bg-[#0B2545] hover:text-white text-slate-700 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
               >
                 9988776 CB (Inhabilitado)
               </button>
@@ -224,10 +223,10 @@ export default function HomeControl() {
           {objResultadoVerificacion && (
             <div
               className={`border rounded-3xl p-6 shadow-xs transition-all animate-in fade-in duration-200 ${objResultadoVerificacion.estado === "HABILITADO"
-                  ? "bg-emerald-50/90 border-emerald-200 text-emerald-950"
-                  : objResultadoVerificacion.estado === "DUPLICADO"
-                    ? "bg-amber-50/90 border-amber-200 text-amber-950"
-                    : "bg-rose-50/90 border-rose-200 text-rose-950"
+                ? "bg-emerald-50/90 border-emerald-200 text-emerald-950"
+                : objResultadoVerificacion.estado === "DUPLICADO"
+                  ? "bg-amber-50/90 border-amber-200 text-amber-950"
+                  : "bg-rose-50/90 border-rose-200 text-rose-950"
                 }`}
             >
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -239,13 +238,13 @@ export default function HomeControl() {
                   />
                   <div>
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <h3 className="text-lg font-black text-[#1A365D]">{objResultadoVerificacion.nombre}</h3>
+                      <h3 className="text-lg font-black text-[#0B2545]">{objResultadoVerificacion.nombre}</h3>
                       <span
                         className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5 ${objResultadoVerificacion.estado === "HABILITADO"
-                            ? "bg-emerald-600 text-white"
-                            : objResultadoVerificacion.estado === "DUPLICADO"
-                              ? "bg-amber-500 text-white"
-                              : "bg-rose-600 text-white"
+                          ? "bg-emerald-600 text-white"
+                          : objResultadoVerificacion.estado === "DUPLICADO"
+                            ? "bg-amber-500 text-white"
+                            : "bg-rose-600 text-white"
                           }`}
                       >
                         {objResultadoVerificacion.estado === "HABILITADO" && (
