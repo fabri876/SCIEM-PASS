@@ -2,13 +2,13 @@ import Icono from './Icono';
 
 export default function ModalConfirmacion({ mostrar, estudiante, motivoTexto, guardando, onCancelar, onConfirmar }) {
     if (!mostrar || !estudiante) return null;
-    const nombre = `${estudiante.nombreEstudiante} ${estudiante.apellidoEstudiante}`;
+    const nombre = `${estudiante.nombreEstudiante || ''} ${estudiante.apellidoEstudiante || ''}`.trim();
     const habilitado = estudiante.estadoHabilitacion;
     const mensaje = habilitado
-        ? `${nombre} quedará habilitado para rendir el examen y se generará el respectivo pase de ingreso.`
+        ? `El estudiante ${nombre} será registrado como Habilitado.`
         : motivoTexto
-            ? `${nombre} figurará como Inhabilitado con el motivo "${motivoTexto}". Quedará registro en la auditoría oficial institucional.`
-            : `${nombre} figurará como Inhabilitado. Quedará registro en la auditoría oficial institucional.`;
+            ? `El estudiante ${nombre} figurará como Inhabilitado con el motivo "${motivoTexto}".`
+            : `El estudiante ${nombre} será registrado como Inhabilitado.`;
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
             <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full p-4 sm:p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">

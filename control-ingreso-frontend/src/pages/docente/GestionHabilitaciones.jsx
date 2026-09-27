@@ -35,7 +35,7 @@ function normalizarHabilitaciones(lista) {
             nombreEstudiante: item.nombreEstudiante || 'Estudiante',
             apellidoEstudiante: item.apellidoEstudiante || '',
             emailEstudiante: item.correoEstudiante || item.emailEstudiante || `${(item.nombreEstudiante || 'estudiante').toLowerCase().charAt(0)}.${(item.apellidoEstudiante || 'apellido').toLowerCase().split(' ')[0]}@univalle.edu.bo`,
-            carreraEstudiante: item.carreraEstudiante || 'Ingeniería de Sistemas',
+
             codSisEstudiante: item.codSisEstudiante || '---',
             ciEstudiante: item.ciEstudiante || '---',
             estadoHabilitacion: estaHabilitado,
@@ -50,7 +50,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     const examenIdActivo = propExamenId || paramIdExamen;
 
     const [usuario, setUsuario] = useState(null);
-    const [infoExamen] = useState({ nombreExamen: '', fecha: '', hora: '', ambiente: '' });
+    const [infoExamen, setInfoExamen] = useState({ nombreExamen: 'Primer Parcial', fecha: '2026-11-10', hora: '09:45 - 11:15', duracion: '90 min', ambiente: '693B · Facultad de Ciencias y Tecnología' });
     const [estudiantes, setEstudiantes] = useState([]);
     const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
     const [cargando, setCargando] = useState(false);
@@ -156,7 +156,12 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                 }
                 return e;
             }));
-            mostrarToast('success', 'Habilitación actualizada exitosamente.');
+            const mensajeToast = estaHabilitado
+                ? 'Estudiante registrado como Habilitado exitosamente.'
+                : (textoMotivoFinal && textoMotivoFinal !== 'Sin motivo especificado')
+                    ? 'Estudiante inhabilitado exitosamente con el motivo especificado.'
+                    : 'Estudiante registrado como Inhabilitado sin motivo especificado.';
+            mostrarToast('success', mensajeToast);
             setMostrarModalConfirmacion(false);
             setEstudianteSeleccionado(null);
         } catch (err) {
@@ -178,10 +183,31 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
         { titulo: 'INHABILITADOS', valor: totalInhabilitados, icono: 'inhabilitado', detalle: <span className="text-xs text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">{porcentaje(totalInhabilitados)}%</span>, claseNumero: 'text-rose-600', claseIcono: 'bg-rose-50 text-rose-600' },
     ];
 
+    const obtenerDuracionCalculada = (dur, hor) => {
+        if (dur && dur !== '---') return dur;
+        if (hor && hor.includes('-')) {
+            const partes = hor.split('-').map((s) => s.trim());
+            if (partes.length === 2) {
+                const [h1, m1] = partes[0].split(':').map(Number);
+                const [h2, m2] = partes[1].split(':').map(Number);
+                if (!isNaN(h1) && !isNaN(m1) && !isNaN(h2) && !isNaN(m2)) {
+                    const diffMins = (h2 * 60 + m2) - (h1 * 60 + m1);
+                    if (diffMins > 0) {
+                        const hrs = Math.floor(diffMins / 60);
+                        const mins = diffMins % 60;
+                        return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+                    }
+                }
+            }
+        }
+        return '01:30';
+    };
+
     const filasExamen = [
         { etiqueta: 'EXAMEN', valor: infoExamen.nombreExamen, icono: 'documento' },
         { etiqueta: 'FECHA', valor: infoExamen.fecha, icono: 'calendario' },
         { etiqueta: 'HORA', valor: infoExamen.hora, icono: 'horario' },
+        { etiqueta: 'DURACIÓN', valor: obtenerDuracionCalculada(infoExamen.duracion, infoExamen.hora), icono: 'reloj' },
         { etiqueta: 'AMBIENTE', valor: infoExamen.ambiente, icono: 'ubicacion' },
     ];
 
@@ -206,12 +232,12 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
 
             <DocenteHeader usuario={usuario} onCerrarSesion={fnCerrarSesion} />
 
-            <div className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-[76px] sm:pt-[130px]">
-                <main className="w-full space-y-4 sm:space-y-6">
+            <div className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-[72px] sm:pt-[106px]">
+                <main className="w-full space-y-4 sm:space-y-5">
 
                     <CabeceraModulo onExportar={() => mostrarToast('success', 'Exportando lista de estudiantes...')} />
 
-                    <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 grid grid-cols-1 sm:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+                    <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
                         {filasExamen.map((f) => (
                             <div key={f.etiqueta} className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3 first:pl-0">
                                 <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center flex-shrink-0">
@@ -219,7 +245,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                 </div>
                                 <div className="min-w-0">
                                     <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">{f.etiqueta}</span>
-                                    <p className="text-xs font-extrabold text-[#1A365D] truncate">{f.valor || '---'}</p>
+                                    <p className="text-xs font-extrabold text-[#1A365D] break-words line-clamp-2" title={f.valor}>{f.valor || '---'}</p>
                                 </div>
                             </div>
                         ))}
@@ -263,25 +289,26 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                 <div className="hidden md:block overflow-x-auto">
                                     <table className="w-full min-w-[760px] text-left text-xs">
                                         <thead>
-                                        <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider bg-[#F8FAFC]">
-                                            <th className="py-3.5 px-3 sm:px-6">N°</th>
-                                            <th className="py-3.5 px-3 sm:px-6">Estudiante</th>
-                                            <th className="py-3.5 px-3 sm:px-6">CI</th>
-                                            <th className="py-3.5 px-3 sm:px-6">Código SIS</th>
-                                            <th className="py-3.5 px-3 sm:px-6">Estado de habilitación</th>
-                                            <th className="py-3.5 px-3 sm:px-6">Motivo</th>
-                                            <th className="py-3.5 px-3 sm:px-6 text-right">Acciones</th>
-                                        </tr>
+                                            <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider bg-[#F8FAFC]">
+                                                <th className="py-3.5 px-3 sm:px-6">N°</th>
+                                                <th className="py-3.5 px-3 sm:px-6">Estudiante</th>
+
+                                                <th className="py-3.5 px-3 sm:px-6">CI</th>
+                                                <th className="py-3.5 px-3 sm:px-6">Código SIS</th>
+                                                <th className="py-3.5 px-3 sm:px-6">Estado de habilitación</th>
+                                                <th className="py-3.5 px-3 sm:px-6">Motivo</th>
+                                                <th className="py-3.5 px-3 sm:px-6 text-right">Acciones</th>
+                                            </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 font-medium">
-                                        {estudiantesPaginados.map((est, index) => (
-                                            <FilaEstudiante
-                                                key={est.idHabilitacion}
-                                                est={est}
-                                                numeroFila={(paginaActual - 1) * ELEMENTOS_POR_PAGINA + index + 1}
-                                                onGestionar={abrirDrawer}
-                                            />
-                                        ))}
+                                            {estudiantesPaginados.map((est, index) => (
+                                                <FilaEstudiante
+                                                    key={est.idHabilitacion}
+                                                    est={est}
+                                                    numeroFila={(paginaActual - 1) * ELEMENTOS_POR_PAGINA + index + 1}
+                                                    onGestionar={abrirDrawer}
+                                                />
+                                            ))}
                                         </tbody>
                                     </table>
                                 </div>
@@ -326,7 +353,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                 </span>
                                 <div className="min-w-0">
                                     <h4 className="font-extrabold text-xs text-[#1A365D] truncate">{`${estudianteSeleccionado.nombreEstudiante} ${estudianteSeleccionado.apellidoEstudiante}`}</h4>
-                                    <p className="text-[11px] text-[#2563EB] font-semibold">{estudianteSeleccionado.carreraEstudiante}</p>
+                                    <p className="text-[11px] text-[#2563EB] font-semibold">{estudianteSeleccionado.carreraEstudiante || estudianteSeleccionado.carrera || 'Ingeniería de Sistemas'}</p>
                                     <p className="text-[10px] text-slate-500 font-medium mt-0.5">{estudianteSeleccionado.codSisEstudiante} &bull; {estudianteSeleccionado.ciEstudiante}</p>
                                 </div>
                             </div>

@@ -12,7 +12,10 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.Habilitacio
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,18 +36,14 @@ public class HabilitacionService {
 
     @Transactional(readOnly = true)
     public List<HabilitacionResponseDto> obtenerTodas() {
-        return habilitacionRepository.findAllConDetalles()
-                .stream()
-                .map(this::mapearADto)
-                .collect(Collectors.toList());
+        List<Habilitacion> lista = habilitacionRepository.findAllConDetalles();
+        return mapearADtosBatch(lista);
     }
 
     @Transactional(readOnly = true)
     public List<HabilitacionResponseDto> obtenerPorAsignatura(Integer idAsignatura) {
-        return habilitacionRepository.findByIdAsignaturaConDetalles(idAsignatura)
-                .stream()
-                .map(this::mapearADto)
-                .collect(Collectors.toList());
+        List<Habilitacion> lista = habilitacionRepository.findByIdAsignaturaConDetalles(idAsignatura);
+        return mapearADtosBatch(lista);
     }
 
     @Transactional(readOnly = true)
@@ -83,6 +82,28 @@ public class HabilitacionService {
         return mapearADto(guardada);
     }
 
+    private List<HabilitacionResponseDto> mapearADtosBatch(List<Habilitacion> lista) {
+        if (lista == null || lista.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<Integer> userIds = lista.stream()
+                .filter(h -> h.getEstudiante() != null && h.getEstudiante().getIdUsuario() != null)
+                .map(h -> h.getEstudiante().getIdUsuario())
+                .collect(Collectors.toSet());
+
+        Map<Integer, Usuario> usuariosMap = userIds.isEmpty() ? Collections.emptyMap() :
+                usuarioRepository.findAllById(userIds).stream()
+                        .collect(Collectors.toMap(Usuario::getIdusuario, u -> u, (u1, u2) -> u1));
+
+        return lista.stream()
+                .map(h -> {
+                    Usuario u = (h.getEstudiante() != null && h.getEstudiante().getIdUsuario() != null)
+                            ? usuariosMap.get(h.getEstudiante().getIdUsuario()) : null;
+                    return HabilitacionResponseDto.fromEntity(h, u);
+                })
+                .collect(Collectors.toList());
+    }
 
     private HabilitacionResponseDto mapearADto(Habilitacion h) {
         Usuario u = null;
@@ -92,4 +113,5 @@ public class HabilitacionService {
         return HabilitacionResponseDto.fromEntity(h, u);
     }
 }
+
 

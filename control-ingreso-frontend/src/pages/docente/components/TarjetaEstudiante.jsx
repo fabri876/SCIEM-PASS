@@ -28,10 +28,12 @@ export default function TarjetaEstudiante({ est, numeroFila, onGestionar }) {
             <div className="mb-3">
                 <BadgeEstado habilitado={est.estadoHabilitacion} />
             </div>
-            {est.nombreMotivo && est.nombreMotivo !== '-' && (
+            {!est.estadoHabilitacion && (
                 <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
                     <span className="font-bold text-slate-400 uppercase text-[9px] tracking-wider block">Motivo</span>
-                    {est.nombreMotivo}
+                    {(!est.nombreMotivo || est.nombreMotivo === '-' || est.nombreMotivo === '')
+                        ? 'Sin motivo especificado'
+                        : est.nombreMotivo}
                 </p>
             )}
             <button onClick={() => onGestionar(est)} className="w-full bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center justify-center gap-1.5">

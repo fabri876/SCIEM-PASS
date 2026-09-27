@@ -18,7 +18,11 @@ export default function FilaEstudiante({ est, numeroFila, onGestionar }) {
             <td className="py-4 px-3 sm:px-6 text-slate-600 font-medium">{est.ciEstudiante}</td>
             <td className="py-4 px-3 sm:px-6 text-slate-600 font-mono font-semibold">{est.codSisEstudiante}</td>
             <td className="py-4 px-3 sm:px-6"><BadgeEstado habilitado={est.estadoHabilitacion} /></td>
-            <td className="py-4 px-3 sm:px-6 text-slate-600 max-w-xs truncate" title={est.nombreMotivo}>{est.nombreMotivo}</td>
+            <td className="py-4 px-3 sm:px-6 text-slate-600 max-w-xs truncate" title={est.nombreMotivo}>
+                {!est.estadoHabilitacion && (!est.nombreMotivo || est.nombreMotivo === '-' || est.nombreMotivo === '')
+                    ? 'Sin motivo especificado'
+                    : est.nombreMotivo}
+            </td>
             <td className="py-4 px-3 sm:px-6 text-right">
                 <button onClick={() => onGestionar(est)} className="bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-1.5">
                     <Icono nombre="lapiz" className="w-[15px] h-[15px]" /> Modificar estado
