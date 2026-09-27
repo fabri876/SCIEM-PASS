@@ -11,7 +11,9 @@
 export default function Footer() {
   return (
     <footer className="bg-primary-navy text-white text-center text-sm font-semibold py-6">
-      Desarrollado por WindSoft
+      Desarrollado por Wind Software S.R.L © 2026
+      <br />
+      Cochabamba - Bolivia
     </footer>
   );
 }
