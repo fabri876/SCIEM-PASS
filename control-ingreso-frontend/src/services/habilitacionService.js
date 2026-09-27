@@ -3,95 +3,122 @@
  *
  * Funciones para interactuar con los endpoints de habilitación y motivos
  * de inhabilitación del backend en Spring Boot.
+ *
+ * TC-217 (QA): estas rutas eran públicas y estas funciones nunca mandaban
+ * el token — al asegurarlas en SecurityConfig.java, hay que mandar
+ * Authorization acá también (mismo patrón fetchAutenticado que ya usan
+ * adminService.js/usuarioService.js; se copia en vez de importar para no
+ * crear una dependencia circular entre services).
  */
 import { strApiBaseUrl } from "./apiConfig";
+import { obtenerToken, cerrarSesion } from "./authService";
+
+async function fetchAutenticado(strRuta, objOpciones = {}) {
+    const strToken = obtenerToken();
+
+    const response = await fetch(`${strApiBaseUrl}${strRuta}`, {
+        ...objOpciones,
+        headers: {
+            "Content-Type": "application/json",
+            ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
+            ...(objOpciones.headers || {}),
+        },
+    });
+
+    if (response.status === 401) {
+        cerrarSesion();
+        sessionStorage.setItem(
+            "mensajeSesion",
+            "Sesión expirada. Por favor, inicia sesión nuevamente."
+        );
+        window.location.href = "/login";
+        throw new Error("Sesión expirada.");
+    }
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.mensaje || `Error ${response.status}: no se pudo completar la operación.`);
+    }
+
+    if (response.status === 204) {
+        return null;
+    }
+
+    return response.json();
+}
 
 /**
  * Obtiene la lista de habilitaciones desde el backend, opcionalmente filtrada por idAsignatura.
  */
 export async function obtenerHabilitaciones(idAsignatura) {
-    try {
-        const url = idAsignatura
-            ? `${strApiBaseUrl}/api/habilitaciones?idAsignatura=${idAsignatura}`
-            : `${strApiBaseUrl}/api/habilitaciones`;
-        const response = await fetch(url);
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.mensaje || `Error ${response.status}: No se pudo obtener la lista de habilitaciones`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error("Error en obtenerHabilitaciones:", error);
-        throw error;
-    }
+    const strRuta = idAsignatura
+        ? `/api/habilitaciones?idAsignatura=${idAsignatura}`
+        : `/api/habilitaciones`;
+    return fetchAutenticado(strRuta);
 }
 
 /**
  * Obtiene el catálogo de motivos de inhabilitación.
  */
 export async function obtenerMotivosInhabilitacion() {
-    try {
-        const response = await fetch(`${strApiBaseUrl}/api/motivos-inhabilitacion`);
-        if (!response.ok) {
-            throw new Error(`Error ${response.status}: No se pudieron cargar los motivos`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error("Error en obtenerMotivosInhabilitacion:", error);
-        throw error;
-    }
+    return fetchAutenticado(`/api/motivos-inhabilitacion`);
 }
 
 /**
  * Registra un nuevo motivo de inhabilitación en el backend.
  */
 export async function crearMotivoInhabilitacion({ nombreMotivo, descripcionMotivo }) {
-    try {
-        const response = await fetch(`${strApiBaseUrl}/api/motivos-inhabilitacion`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                nombreMotivo: nombreMotivo.trim(),
-                descripcionMotivo: descripcionMotivo ? descripcionMotivo.trim() : null
-            })
-        });
+    return fetchAutenticado(`/api/motivos-inhabilitacion`, {
+        method: "POST",
+        body: JSON.stringify({
+            nombreMotivo: nombreMotivo.trim(),
+            descripcionMotivo: descripcionMotivo ? descripcionMotivo.trim() : null,
+        }),
+    });
+}
 
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.mensaje || 'Error al registrar el motivo en el servidor.');
-        }
+/**
+ * BUG-007 (QA): descarga real de la lista oficial en Excel (antes el botón
+ * era decorativo). Devuelve el Blob del archivo — el componente que llama
+ * es responsable de disparar la descarga en el navegador.
+ */
+export async function exportarListaOficial(idAsignatura) {
+    const strToken = obtenerToken();
+    const strRuta = idAsignatura
+        ? `/api/habilitaciones/exportar?idAsignatura=${idAsignatura}`
+        : `/api/habilitaciones/exportar`;
 
-        return await response.json();
-    } catch (error) {
-        console.error("Error en crearMotivoInhabilitacion:", error);
-        throw error;
+    const response = await fetch(`${strApiBaseUrl}${strRuta}`, {
+        headers: strToken ? { Authorization: `Bearer ${strToken}` } : {},
+    });
+
+    if (response.status === 401) {
+        cerrarSesion();
+        sessionStorage.setItem(
+            "mensajeSesion",
+            "Sesión expirada. Por favor, inicia sesión nuevamente."
+        );
+        window.location.href = "/login";
+        throw new Error("Sesión expirada.");
     }
+
+    if (!response.ok) {
+        throw new Error(`Error ${response.status}: no se pudo generar la lista oficial.`);
+    }
+
+    return response.blob();
 }
 
 /**
  * Actualiza el estado de habilitación u observación de un estudiante por su idHabilitacion.
  */
 export async function actualizarHabilitacion(idHabilitacion, { estadoHabilitacion, observacionHabilitacion, idMotivo }) {
-    try {
-        const response = await fetch(`${strApiBaseUrl}/api/habilitaciones/${idHabilitacion}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                estadoHabilitacion,
-                observacionHabilitacion: estadoHabilitacion ? null : (observacionHabilitacion || null),
-                idMotivo
-            })
-        });
-
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.mensaje || `Error ${response.status}: No se pudo actualizar la habilitación`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error("Error en actualizarHabilitacion:", error);
-        throw error;
-    }
+    return fetchAutenticado(`/api/habilitaciones/${idHabilitacion}`, {
+        method: "PUT",
+        body: JSON.stringify({
+            estadoHabilitacion,
+            observacionHabilitacion: estadoHabilitacion ? null : (observacionHabilitacion || null),
+            idMotivo,
+        }),
+    });
 }
-

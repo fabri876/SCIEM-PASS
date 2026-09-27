@@ -10,4 +10,6 @@ import java.util.List;
 @Repository
 public interface NormaGeneralRepository extends JpaRepository<NormaGeneral, Integer> {
     List<NormaGeneral> findByEstadoNormaTrue();
+
+
 }

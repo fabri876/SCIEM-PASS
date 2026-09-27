@@ -6,6 +6,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.*;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.*;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenRespuestaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AmbienteRespuestaDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.NormaGeneralRespuestaDto;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenDetalleDto;
 
@@ -38,6 +39,7 @@ public class ExamenService {
     private final DocenteRepository docenteRepository;
     private final AsignaturaRepository asignaturaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final NormaGeneralRepository normaGeneralRepository; // <-- NUEVO
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -50,7 +52,8 @@ public class ExamenService {
             AulaRepository aulaRepository,
             DocenteRepository docenteRepository,
             AsignaturaRepository asignaturaRepository,
-            UsuarioRepository usuarioRepository) {
+            UsuarioRepository usuarioRepository,
+            NormaGeneralRepository normaGeneralRepository) { // <-- NUEVO
 
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
@@ -63,6 +66,7 @@ public class ExamenService {
         this.docenteRepository = docenteRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.normaGeneralRepository = normaGeneralRepository; // <-- NUEVO
     }
 
     // -------------------------------------------------------------------------
@@ -77,8 +81,6 @@ public class ExamenService {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMINISTRADOR"));
 
         if (!esAdmin) {
-            // FIX #1: leer codsisdocente real desde la tabla docente, NO forzarlo
-            // igual a idUsuario.
             Integer idUsuarioAutenticado = (Integer) auth.getDetails();
             Docente docente = docenteRepository.findByIdusuario(idUsuarioAutenticado)
                     .orElseThrow(() -> new IllegalArgumentException(
@@ -86,7 +88,6 @@ public class ExamenService {
             request.setIdUsuario(idUsuarioAutenticado);
             request.setCodsisDocente(docente.getCodsisdocente());
         }
-        // Si es admin, se respeta lo que venga en el body (idUsuario/codsisDocente del docente elegido)
 
         return crearOActualizarExamen(null, request);
     }
@@ -117,9 +118,7 @@ public class ExamenService {
             request.setIdUsuario(idUsuarioAutenticado);
             request.setCodsisDocente(docente.getCodsisdocente());
         }
-        // Si es admin, puede editar el examen de cualquier docente respetando lo que venga en el body.
 
-        // Borrar ambientes viejos y normas viejas (se regeneran con crearOActualizarExamen)
         ambienteRepository.deleteAll(ambienteRepository.findByIdExamen(idExamen));
         examenNormaGeneralRepository.deleteAll(
                 examenNormaGeneralRepository.findByIdIdExamen(idExamen));
@@ -156,9 +155,6 @@ public class ExamenService {
                     "Debe especificar el detalle del tipo de examen.");
         }
 
-        // FIX #4 (punto 4 de la lista urgente): impedir que un docente repita
-        // el mismo tipo de examen (ej. "Primer Parcial") en la misma asignatura.
-        // Al editar, se permite que el examen conserve su propio tipo sin chocar consigo mismo.
         List<Integer> tiposYaUsados = examenRepository.findTiposUsadosByAsignaturaAndDocente(
                 request.getIdAsignatura(), request.getCodsisDocente());
         boolean yaExisteEseTipo = tiposYaUsados.contains(request.getIdTipoExamen());
@@ -191,7 +187,12 @@ public class ExamenService {
                         "Ese horario regular no pertenece a este docente/asignatura.");
             }
 
-            idAula = hr.getIdAula();
+            // FIX: el aula puede diferir de la registrada en el horario regular
+            // (ej. el docente necesita un aula más grande para el examen). Si el
+            // frontend no manda idAula, se mantiene el comportamiento anterior
+            // (usa el aula por defecto del horario regular). La hora siempre viene
+            // del horario regular, porque es lo que define cuándo es el examen.
+            idAula = (request.getIdAula() != null) ? request.getIdAula() : hr.getIdAula();
             horaInicio = hr.getHoraInicio();
             horaFin = hr.getHoraFin();
             idHorarioRegularUsado = hr.getIdHorarioRegular();
@@ -208,7 +209,6 @@ public class ExamenService {
                     "La hora de fin debe ser posterior a la hora de inicio.");
         }
 
-        // Validar existencia y estado de TODAS las aulas ANTES de guardar nada.
         List<Integer> aulasAdicionales = request.getIdsAulasAdicionales();
         validarAulaActiva(idAula);
         if (aulasAdicionales != null && !aulasAdicionales.isEmpty()) {
@@ -300,14 +300,13 @@ public class ExamenService {
         return enriquecerLote(examenRepository.findByIdUsuarioAndCodsisDocente(idUsuario, codsisDocente));
     }
 
-    /** Construye el DTO enriquecido para un único examen (usa el batch de tamaño 1). */
     public ExamenRespuestaDto enriquecerExamen(Examen examen) {
         return enriquecerLote(List.of(examen)).get(0);
     }
 
     /** Enriquece una lista de exámenes con UNA consulta por tipo de dato relacionado
-     *  (asignaturas, tipos, docentes, ambientes, aulas), en vez de una consulta por
-     *  examen. Evita el patrón N+1 que causaba ~10s de latencia con pocos registros. */
+     *  (asignaturas, tipos, docentes, ambientes, aulas, normas generales), en vez de
+     *  una consulta por examen. Evita el patrón N+1. */
     private List<ExamenRespuestaDto> enriquecerLote(List<Examen> examenes) {
         if (examenes.isEmpty()) {
             return List.of();
@@ -338,6 +337,18 @@ public class ExamenService {
                         .collect(Collectors.toMap(Aula::getIdAula, a -> a));
         Map<Integer, List<Ambiente>> ambientesPorExamen = todosAmbientes.stream()
                 .collect(Collectors.groupingBy(Ambiente::getIdExamen));
+
+        // --- NUEVO: batch de normas generales ---
+        List<ExamenNormaGeneral> todasRelaciones = examenNormaGeneralRepository.findByIdIdExamenIn(idsExamen);
+        List<Integer> idsNormaGeneral = todasRelaciones.stream()
+                .map(rel -> rel.getId().getIdNormaGeneral()).distinct().toList();
+        Map<Integer, NormaGeneral> normasGeneralesPorId = idsNormaGeneral.isEmpty()
+                ? Map.of()
+                : normaGeneralRepository.findAllById(idsNormaGeneral).stream()
+                        .collect(Collectors.toMap(NormaGeneral::getIdNormaGeneral, n -> n));
+        Map<Integer, List<ExamenNormaGeneral>> relacionesPorExamen = todasRelaciones.stream()
+                .collect(Collectors.groupingBy(rel -> rel.getId().getIdExamen()));
+        // --- FIN NUEVO ---
 
         return examenes.stream().map(examen -> {
             ExamenRespuestaDto dto = new ExamenRespuestaDto();
@@ -373,6 +384,7 @@ public class ExamenService {
                 AmbienteRespuestaDto amb = new AmbienteRespuestaDto();
                 amb.setIdAmbiente(a.getIdAmbiente());
                 amb.setIdAula(a.getIdAula());
+                amb.setIdHorarioRegular(a.getIdHorarioRegular());   // <-- NUEVO
                 amb.setTipoHorario(a.getTipoHorario() != null ? a.getTipoHorario().name() : null);
                 amb.setHoraInicio(a.getHoraInicio() != null ? a.getHoraInicio().toString() : null);
                 amb.setHoraFin(a.getHoraFin() != null ? a.getHoraFin().toString() : null);
@@ -386,6 +398,23 @@ public class ExamenService {
                 return amb;
             }).collect(Collectors.toList());
             dto.setAmbientes(ambientesDto);
+
+            // --- NUEVO: poblar normasGenerales del DTO ---
+            List<ExamenNormaGeneral> relacionesDeEsteExamen =
+                    relacionesPorExamen.getOrDefault(examen.getIdExamen(), List.of());
+            List<NormaGeneralRespuestaDto> normasGeneralesDto = relacionesDeEsteExamen.stream().map(rel -> {
+                NormaGeneralRespuestaDto ng = new NormaGeneralRespuestaDto();
+                NormaGeneral norma = normasGeneralesPorId.get(rel.getId().getIdNormaGeneral());
+                if (norma != null) {
+                    ng.setIdNormaGeneral(norma.getIdNormaGeneral());
+                    ng.setDescripcionNorma(norma.getDescripcionNorma());
+                } else {
+                    ng.setIdNormaGeneral(rel.getId().getIdNormaGeneral());
+                }
+                return ng;
+            }).collect(Collectors.toList());
+            dto.setNormasGenerales(normasGeneralesDto);
+            // --- FIN NUEVO ---
 
             return dto;
         }).collect(Collectors.toList());
@@ -415,7 +444,7 @@ public class ExamenService {
     // -------------------------------------------------------------------------
 
     public List<AmbienteRespuestaDto> obtenerAmbientesDeExamen(Integer idExamen) {
-        List<Ambiente> ambientes = ambienteRepository.findByIdExamen(idExamen);
+    List<Ambiente> ambientes = ambienteRepository.findByIdExamen(idExamen);
         if (ambientes.isEmpty()) {
             return List.of();
         }
@@ -427,6 +456,7 @@ public class ExamenService {
             AmbienteRespuestaDto amb = new AmbienteRespuestaDto();
             amb.setIdAmbiente(a.getIdAmbiente());
             amb.setIdAula(a.getIdAula());
+            amb.setIdHorarioRegular(a.getIdHorarioRegular());   // <-- NUEVO
             amb.setTipoHorario(a.getTipoHorario() != null ? a.getTipoHorario().name() : null);
             amb.setHoraInicio(a.getHoraInicio() != null ? a.getHoraInicio().toString() : null);
             amb.setHoraFin(a.getHoraFin() != null ? a.getHoraFin().toString() : null);
@@ -437,6 +467,33 @@ public class ExamenService {
                 amb.setCapacidadAmbiente(aula.getCapacidadAula());
             }
             return amb;
+        }).collect(Collectors.toList());
+    }
+
+    // -------------------------------------------------------------------------
+    // NORMAS GENERALES DE UN EXAMEN (NUEVO)
+    // -------------------------------------------------------------------------
+
+    public List<NormaGeneralRespuestaDto> obtenerNormasGeneralesDeExamen(Integer idExamen) {
+        List<ExamenNormaGeneral> relaciones = examenNormaGeneralRepository.findByIdIdExamen(idExamen);
+        if (relaciones.isEmpty()) {
+            return List.of();
+        }
+        List<Integer> idsNormaGeneral = relaciones.stream()
+                .map(rel -> rel.getId().getIdNormaGeneral()).distinct().toList();
+        Map<Integer, NormaGeneral> normasPorId = normaGeneralRepository.findAllById(idsNormaGeneral).stream()
+                .collect(Collectors.toMap(NormaGeneral::getIdNormaGeneral, n -> n));
+
+        return relaciones.stream().map(rel -> {
+            NormaGeneralRespuestaDto ng = new NormaGeneralRespuestaDto();
+            NormaGeneral norma = normasPorId.get(rel.getId().getIdNormaGeneral());
+            if (norma != null) {
+                ng.setIdNormaGeneral(norma.getIdNormaGeneral());
+                ng.setDescripcionNorma(norma.getDescripcionNorma());
+            } else {
+                ng.setIdNormaGeneral(rel.getId().getIdNormaGeneral());
+            }
+            return ng;
         }).collect(Collectors.toList());
     }
 
@@ -564,7 +621,6 @@ public class ExamenService {
         LocalTime hInicio = null;
         LocalTime hFin = null;
 
-        // 1. Intentar obtener de la tabla Ambiente vinculada al examen o la asignatura
         List<Ambiente> ambientes = ambienteRepository.findByIdExamen(examen.getIdExamen());
         if (ambientes.isEmpty()) {
             ambientes = ambienteRepository.findByIdAsignatura(idAsignatura);
@@ -586,7 +642,6 @@ public class ExamenService {
             }
         }
 
-        // 2. Fallback: Si hora o ambiente siguen siendo "---", consultar HorarioRegular
         if ("---".equals(hora) || "---".equals(ambienteNombre)) {
             List<HorarioRegular> horarios = horarioRegularRepository.findByIdAsignatura(idAsignatura);
             if (!horarios.isEmpty()) {
@@ -605,8 +660,6 @@ public class ExamenService {
             }
         }
 
-        // 3. Duración de examen: siempre calcular a partir de horaInicio y horaFin si están disponibles.
-        // Solo usar el valor guardado en BD como último recurso (puede estar desactualizado).
         String duracionExamen;
         if (hInicio != null && hFin != null) {
             long minutos = java.time.Duration.between(hInicio, hFin).toMinutes();
@@ -626,7 +679,6 @@ public class ExamenService {
             duracionExamen = "01:30";
         }
 
-        // 4. Obtener nombre del docente
         String nombreDocente = "Docente Asignado";
         if (examen.getIdUsuario() != null) {
             Usuario u = usuarioRepository.findById(examen.getIdUsuario()).orElse(null);

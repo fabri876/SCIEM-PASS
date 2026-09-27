@@ -615,10 +615,10 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[760px] text-left text-xs">
                                 <thead>
-                                        <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider bg-[#F8FAFC]">
-                                            <th className="py-3.5 px-3 sm:px-6">N°</th>
-                                            <th className="py-3.5 px-3 sm:px-6">Estudiante</th>
-                                            <th className="py-3.5 px-3 sm:px-6">CI</th>
+                                    <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider bg-[#F8FAFC]">
+                                        <th className="py-3.5 px-3 sm:px-6">N°</th>
+                                        <th className="py-3.5 px-3 sm:px-6">Estudiante</th>
+                                        <th className="py-3.5 px-3 sm:px-6">CI</th>
                                         <th className="py-3.5 px-3 sm:px-6">Código SIS</th>
                                         <th className="py-3.5 px-3 sm:px-6">Estado de habilitación</th>
                                         <th className="py-3.5 px-3 sm:px-6">Motivo</th>

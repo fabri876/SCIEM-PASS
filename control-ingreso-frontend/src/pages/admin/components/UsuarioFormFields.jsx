@@ -14,6 +14,14 @@ const ROLES_CREABLES = [
 // codsisestudiante) además de idusuario.
 const ROLES_CON_CODIGO_SIS = ["DOCENTE", "ESTUDIANTE"];
 
+// Validaciones básicas de formato, para cortar de raíz registros como
+// "correo sin @/dominio", "nombre con números", "teléfono con letras o
+// vacío" y "código SIS con letras" (bugs reportados en QA).
+const REGEX_SOLO_LETRAS = /^[A-Za-zÁÉÍÓÚÜñÑáéíóúü\s]+$/;
+const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const REGEX_SOLO_NUMEROS = /^[0-9]+$/;
+const REGEX_TELEFONO = /^[0-9]{7,8}$/;
+
 const VALORES_INICIALES = {
   primerNombre: "",
   segundoNombre: "",
@@ -64,6 +72,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
   const [strRolOriginal, setStrRolOriginal] = useState(null);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strError, setStrError] = useState("");
+  const [objErrores, setObjErrores] = useState({});
 
   const { boolShowPassword, fnToggleShowPassword, strInputType } = usePasswordVisibility();
 
@@ -86,7 +95,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
         contrasena: "",
         telefono: usuarioInicial.telefono || "",
         rol: usuarioInicial.rol || rolesDisponibles[0]?.valor,
-        codigoSis: "",
+        codigoSis: usuarioInicial.codigoSis ?? "",
       });
       setStrRolOriginal(usuarioInicial.rol || null);
     } else {
@@ -97,11 +106,82 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
 
   const fnActualizarCampo = (strCampo) => (e) => {
     setObjFormData((prev) => ({ ...prev, [strCampo]: e.target.value }));
+    setObjErrores((prev) => {
+      if (!prev[strCampo]) return prev;
+      const { [strCampo]: strOmitido, ...resto } = prev;
+      return resto;
+    });
+  };
+
+  // Valida formato de cada campo antes de tocar el backend. Devuelve un
+  // objeto { nombreCampo: "mensaje" } vacío cuando todo está bien.
+  const fnValidarFormulario = () => {
+    const errores = {};
+
+    if (!REGEX_SOLO_LETRAS.test(objFormData.primerNombre.trim())) {
+      errores.primerNombre = objFormData.primerNombre.trim()
+        ? "El primer nombre solo puede contener letras"
+        : "El primer nombre es obligatorio";
+    }
+    if (objFormData.segundoNombre.trim() && !REGEX_SOLO_LETRAS.test(objFormData.segundoNombre.trim())) {
+      errores.segundoNombre = "El segundo nombre solo puede contener letras";
+    }
+    if (!REGEX_SOLO_LETRAS.test(objFormData.apellidoPaterno.trim())) {
+      errores.apellidoPaterno = objFormData.apellidoPaterno.trim()
+        ? "El apellido paterno solo puede contener letras"
+        : "El apellido paterno es obligatorio";
+    }
+    if (objFormData.apellidoMaterno.trim() && !REGEX_SOLO_LETRAS.test(objFormData.apellidoMaterno.trim())) {
+      errores.apellidoMaterno = "El apellido materno solo puede contener letras";
+    }
+
+    if (!objFormData.correo.trim()) {
+      errores.correo = "El correo es obligatorio";
+    } else if (!REGEX_CORREO.test(objFormData.correo.trim())) {
+      errores.correo = "Ingrese un correo válido, con dominio y extensión (ej. usuario@dominio.com)";
+    }
+
+    if (!objFormData.telefono.trim()) {
+      errores.telefono = "El teléfono es obligatorio";
+    } else if (!REGEX_TELEFONO.test(objFormData.telefono.trim())) {
+      errores.telefono = "Ingrese un teléfono válido, solo números (7 u 8 dígitos)";
+    }
+
+    if (!boolEsEdicion) {
+      if (!objFormData.ci.trim()) {
+        errores.ci = "El carnet de identidad es obligatorio";
+      } else if (!REGEX_SOLO_NUMEROS.test(objFormData.ci.trim())) {
+        errores.ci = "El carnet de identidad solo puede contener números";
+      }
+
+      if (objFormData.rol !== "ESTUDIANTE" && !objFormData.contrasena) {
+        errores.contrasena = "La contraseña es obligatoria";
+      }
+    }
+
+    if (boolPideCodigoSis) {
+      if (!objFormData.codigoSis.trim()) {
+        errores.codigoSis = "El código SIS es obligatorio para este rol";
+      } else if (!REGEX_SOLO_NUMEROS.test(objFormData.codigoSis.trim())) {
+        errores.codigoSis = "Ingrese un código SIS válido, solo números";
+      }
+    }
+
+    return errores;
   };
 
   const fnManejarEnvio = async (e) => {
     e.preventDefault();
     setStrError("");
+
+    const errores = fnValidarFormulario();
+    if (Object.keys(errores).length > 0) {
+      setObjErrores(errores);
+      setStrError("Revisa los campos marcados en rojo antes de continuar.");
+      return;
+    }
+    setObjErrores({});
+
     setBoolIsSubmitting(true);
     try {
       const intTelefono = objFormData.telefono ? Number(objFormData.telefono) : null;
@@ -166,19 +246,29 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
             Nombres
           </label>
           <div className="grid grid-cols-2 gap-4">
-            <FormField
-              placeholder="Primer nombre"
-              aria-label="Primer nombre"
-              value={objFormData.primerNombre}
-              onChange={fnActualizarCampo("primerNombre")}
-              required
-            />
-            <FormField
-              placeholder="Segundo nombre (si tiene)"
-              aria-label="Segundo nombre"
-              value={objFormData.segundoNombre}
-              onChange={fnActualizarCampo("segundoNombre")}
-            />
+            <div>
+              <FormField
+                placeholder="Primer nombre"
+                aria-label="Primer nombre"
+                value={objFormData.primerNombre}
+                onChange={fnActualizarCampo("primerNombre")}
+                required
+              />
+              {objErrores.primerNombre && (
+                <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.primerNombre}</p>
+              )}
+            </div>
+            <div>
+              <FormField
+                placeholder="Segundo nombre (si tiene)"
+                aria-label="Segundo nombre"
+                value={objFormData.segundoNombre}
+                onChange={fnActualizarCampo("segundoNombre")}
+              />
+              {objErrores.segundoNombre && (
+                <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.segundoNombre}</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -187,71 +277,94 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
             Apellidos
           </label>
           <div className="grid grid-cols-2 gap-4">
-            <FormField
-              placeholder="Apellido paterno"
-              aria-label="Apellido paterno"
-              value={objFormData.apellidoPaterno}
-              onChange={fnActualizarCampo("apellidoPaterno")}
-              required
-            />
-            <FormField
-              placeholder="Apellido materno"
-              aria-label="Apellido materno"
-              value={objFormData.apellidoMaterno}
-              onChange={fnActualizarCampo("apellidoMaterno")}
-            />
+            <div>
+              <FormField
+                placeholder="Apellido paterno"
+                aria-label="Apellido paterno"
+                value={objFormData.apellidoPaterno}
+                onChange={fnActualizarCampo("apellidoPaterno")}
+                required
+              />
+              {objErrores.apellidoPaterno && (
+                <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.apellidoPaterno}</p>
+              )}
+            </div>
+            <div>
+              <FormField
+                placeholder="Apellido materno"
+                aria-label="Apellido materno"
+                value={objFormData.apellidoMaterno}
+                onChange={fnActualizarCampo("apellidoMaterno")}
+              />
+              {objErrores.apellidoMaterno && (
+                <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.apellidoMaterno}</p>
+              )}
+            </div>
           </div>
         </div>
 
-        <FormField
-          label="Teléfono"
-          type="tel"
-          placeholder="Ej. 71234567"
-          value={objFormData.telefono}
-          onChange={fnActualizarCampo("telefono")}
-          className="col-span-2"
-          icon={
-            <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
-              <path d="M6 3h4l2 5-3 2a13 13 0 0 0 5 5l2-3 5 2v4c0 1-1 2-2 2C10 20 4 14 4 5c0-1 1-2 2-2Z" />
-            </svg>
-          }
-        />
-
-        <FormField
-          label="Correo"
-          type="email"
-          placeholder="ejemplo@dominio.com"
-          value={objFormData.correo}
-          onChange={fnActualizarCampo("correo")}
-          required
-          className="col-span-2"
-          icon={
-            <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
-              <rect x="3" y="5" width="18" height="14" rx="2" />
-              <path d="m4 7 8 6 8-6" />
-            </svg>
-          }
-        />
-
-        {!boolEsEdicion && (
+        <div className="col-span-2">
           <FormField
-            label="Carnet de Identidad"
-            placeholder="Ej. 12345678"
-            value={objFormData.ci}
-            onChange={fnActualizarCampo("ci")}
-            required
-            className={boolPideCodigoSis || objFormData.rol !== "ESTUDIANTE" ? "" : "col-span-2"}
+            label="Teléfono"
+            type="tel"
+            placeholder="Ej. 71234567"
+            value={objFormData.telefono}
+            onChange={fnActualizarCampo("telefono")}
             icon={
               <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <circle cx="8" cy="12" r="2" />
-                <path d="M12 10h6M12 14h4" />
+                <path d="M6 3h4l2 5-3 2a13 13 0 0 0 5 5l2-3 5 2v4c0 1-1 2-2 2C10 20 4 14 4 5c0-1 1-2 2-2Z" />
               </svg>
             }
           />
+          {objErrores.telefono && (
+            <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.telefono}</p>
+          )}
+        </div>
+
+        <div className="col-span-2">
+          <FormField
+            label="Correo"
+            type="email"
+            placeholder="ejemplo@dominio.com"
+            value={objFormData.correo}
+            onChange={fnActualizarCampo("correo")}
+            required
+            icon={
+              <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="m4 7 8 6 8-6" />
+              </svg>
+            }
+          />
+          {objErrores.correo && (
+            <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.correo}</p>
+          )}
+        </div>
+
+        {!boolEsEdicion && (
+          <div className={boolPideCodigoSis || objFormData.rol !== "ESTUDIANTE" ? "" : "col-span-2"}>
+            <FormField
+              label="Carnet de Identidad"
+              placeholder="Ej. 12345678"
+              value={objFormData.ci}
+              onChange={fnActualizarCampo("ci")}
+              required
+              icon={
+                <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <circle cx="8" cy="12" r="2" />
+                  <path d="M12 10h6M12 14h4" />
+                </svg>
+              }
+            />
+            {objErrores.ci && (
+              <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.ci}</p>
+            )}
+          </div>
         )}
 
         {!boolEsEdicion && objFormData.rol !== "ESTUDIANTE" && (
+          <div className={boolPideCodigoSis ? "col-span-2" : ""}>
           <FormField
             label="Contraseña"
             type={strInputType}
@@ -259,7 +372,6 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
             value={objFormData.contrasena}
             onChange={fnActualizarCampo("contrasena")}
             required
-            className={boolPideCodigoSis ? "col-span-2" : ""}
             icon={
               <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -287,23 +399,31 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
               </button>
             }
           />
+          {objErrores.contrasena && (
+            <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.contrasena}</p>
+          )}
+          </div>
         )}
 
         {boolPideCodigoSis && (
-          <FormField
-            label="Código SIS"
-            placeholder="Ej. 123456"
-            value={objFormData.codigoSis}
-            onChange={fnActualizarCampo("codigoSis")}
-            required
-            className={boolEsEdicion ? "col-span-2" : ""}
-            icon={
-              <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
-                <rect x="3" y="6" width="18" height="12" rx="2" />
-                <path d="M7 10h4M7 14h7" />
-              </svg>
-            }
-          />
+          <div className={boolEsEdicion ? "col-span-2" : ""}>
+            <FormField
+              label="Código SIS"
+              placeholder="Ej. 123456"
+              value={objFormData.codigoSis}
+              onChange={fnActualizarCampo("codigoSis")}
+              required
+              icon={
+                <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">
+                  <rect x="3" y="6" width="18" height="12" rx="2" />
+                  <path d="M7 10h4M7 14h7" />
+                </svg>
+              }
+            />
+            {objErrores.codigoSis && (
+              <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.codigoSis}</p>
+            )}
+          </div>
         )}
 
         <div className="col-span-2">

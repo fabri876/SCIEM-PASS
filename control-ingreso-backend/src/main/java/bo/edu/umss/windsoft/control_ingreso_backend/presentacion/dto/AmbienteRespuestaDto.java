@@ -20,6 +20,11 @@ public class AmbienteRespuestaDto {
 
     public AmbienteRespuestaDto() {}
 
+    private Integer idHorarioRegular;
+
+    public Integer getIdHorarioRegular() { return idHorarioRegular; }
+    public void setIdHorarioRegular(Integer idHorarioRegular) { this.idHorarioRegular = idHorarioRegular; }
+    
     public Integer getIdAmbiente() { return idAmbiente; }
     public void setIdAmbiente(Integer idAmbiente) { this.idAmbiente = idAmbiente; }
     public Integer getIdAula() { return idAula; }

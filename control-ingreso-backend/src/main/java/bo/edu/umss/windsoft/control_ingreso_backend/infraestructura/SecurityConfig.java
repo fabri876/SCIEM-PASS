@@ -50,13 +50,18 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/ping",
+                                "/api/ping"
+                        ).permitAll()
+                        // TC-217 (QA): estas rutas estaban 100% públicas (sin JWT). Ahora
+                        // exigen sesión — cualquier rol logueado puede usarlas, ya que
+                        // tanto docentes como el administrador trabajan con habilitaciones.
+                        .requestMatchers(
                                 "/api/motivos-inhabilitacion/**",
                                 "/api/motivosinhabilitacion/**",
                                 "/api/habilitaciones/**",
                                 "/api/habilitacion/**",
                                 "/habilitacion/**"
-                        ).permitAll()
+                        ).authenticated()
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRADOR")
                         .requestMatchers("/api/examenes/**").hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers("/api/usuarios/**").hasAnyRole("ADMINISTRADOR", "DOCENTE")

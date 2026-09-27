@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/admin/normas-generales")
 public class NormaGeneralAdminController {
@@ -16,6 +18,20 @@ public class NormaGeneralAdminController {
 
     public NormaGeneralAdminController(NormaGeneralService normaGeneralService) {
         this.normaGeneralService = normaGeneralService;
+    }
+
+    // BUG-006 (QA): distinto del GET público (/api/normas-generales), que
+    // solo trae activas — el admin necesita ver también las inactivas para
+    // poder reactivarlas.
+    @GetMapping
+    public ResponseEntity<List<NormaGeneral>> listarTodas() {
+        return ResponseEntity.ok(normaGeneralService.obtenerTodas());
+    }
+
+    @PatchMapping("/{id}/activar")
+    public ResponseEntity<Void> activar(@PathVariable Integer id) {
+        normaGeneralService.activar(id);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import imgLogoUmss from "../../assets/images/logo-umss.png";
 import FormField from "../common/FormField";
@@ -18,6 +18,19 @@ export default function LoginForm() {
 
   const { boolShowPassword, fnToggleShowPassword, strInputType } =
     usePasswordVisibility();
+
+  // TC-211/TC-215 (QA): el mensaje de sesión expirada se guardaba en
+  // sessionStorage (por inactividad en App.jsx, o por un 401 en los
+  // servicios) pero nada lo leía nunca — por eso el aviso jamás aparecía
+  // en pantalla. Se lee una sola vez al montar y se borra, para no
+  // repetirlo en un login normal posterior.
+  useEffect(() => {
+    const strMensaje = sessionStorage.getItem("mensajeSesion");
+    if (strMensaje) {
+      setStrErrorEnvio(strMensaje);
+      sessionStorage.removeItem("mensajeSesion");
+    }
+  }, []);
 
   const fnActualizarCampo = (strCampo) => (e) => {
     setObjFormData((prev) => ({ ...prev, [strCampo]: e.target.value }));
@@ -40,22 +53,36 @@ export default function LoginForm() {
   };
 
   return (
-    <section className="min-h-[780px] bg-white/97 border border-border/75 rounded-[10px] shadow-[0_10px_35px_rgba(15,23,42,0.07)] px-[80px] pt-[90px] pb-7 flex flex-col">
+    <section className="min-h-[600px] sm:min-h-[700px] md:min-h-[780px] bg-white/97 border border-border/75 rounded-[10px] shadow-[0_10px_35px_rgba(15,23,42,0.07)] px-6 sm:px-10 md:px-[80px] pt-12 sm:pt-16 md:pt-[90px] pb-7 flex flex-col overflow-hidden">
+      {/*
+        El logo se "zoomea" con un transform: scale(...) porque el archivo
+        original es chico y así se ve nítido y grande. El factor de escala
+        ahora vive en la variable CSS "--logo-scale" y cambia por
+        breakpoint (mobile más chico, desktop el valor original de 6), en
+        vez de estar fijo — así no se sale del cuadro en pantallas angostas.
+        El "overflow-hidden" del <section> es la red de seguridad: si algún
+        dispositivo intermedio calculara un ancho de imagen más grande de
+        lo esperado, se recorta en vez de desbordar el layout.
+      */}
       <div
-        className="self-center"
+        className="self-center [--logo-scale:3.2] sm:[--logo-scale:4.2] md:[--logo-scale:6]"
         style={{
-          transform: "scale(6) translateY(-17px)",
+          transform: "scale(var(--logo-scale)) translateY(-17px)",
           transformOrigin: "center top",
         }}
       >
-        <img src={imgLogoUmss} alt="Universidad Mayor de San Simón" className="h-[51px] w-auto" />
+        <img
+          src={imgLogoUmss}
+          alt="Universidad Mayor de San Simón"
+          className="h-[51px] w-auto max-w-none"
+        />
       </div>
 
       <div className="flex-1 flex flex-col justify-center">
-        <h2 className="text-[34px] font-extrabold text-primary-navy mt-0.5 mb-0">
+        <h2 className="text-2xl sm:text-3xl md:text-[34px] font-extrabold text-primary-navy mt-0.5 mb-0">
           Iniciar sesión
         </h2>
-        <p className="text-[17px] text-[#3F6CA9] mt-1 mb-[25px]">
+        <p className="text-sm sm:text-base md:text-[17px] text-[#3F6CA9] mt-1 mb-5 md:mb-[25px]">
           Ingresa tus datos para acceder al sistema.
         </p>
 
