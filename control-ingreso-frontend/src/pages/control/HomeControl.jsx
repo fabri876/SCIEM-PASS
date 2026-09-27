@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Header from "../../components/layout/Header";
-import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
-import { useNavigate } from "react-router-dom";
-import UserAccountMenu from "../../components/common/UserAccountMenu";
+import { obtenerUsuarioActual } from "../../services/authService";
 
 export default function HomeControl() {
-  const navigate = useNavigate();
   const [usuario, setUsuario] = useState(null);
   const [strBusqueda, setStrBusqueda] = useState("");
   const [objResultadoVerificacion, setObjResultadoVerificacion] = useState(null);
@@ -26,11 +23,6 @@ export default function HomeControl() {
       });
     }
   }, []);
-
-  const fnCerrarSesion = () => {
-    cerrarSesion();
-    navigate("/login");
-  };
 
   const listEstudiantesMock = [
     {
@@ -95,21 +87,10 @@ export default function HomeControl() {
   return (
     <div className="min-h-screen bg-[#F1F5F9] text-slate-800 font-nunito pb-16">
 
-      {/* HEADER SUPERIOR FIJO */}
+      {/* HEADER SUPERIOR FIJO (incluye el menú de cuenta: cambiar
+          contraseña / cerrar sesión, ver Header.jsx) */}
       <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200/80 shadow-xs">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <Header strRutaActiva="Inicio" />
-          </div>
-
-          <div className="h-[98px] flex items-center pr-[55px] pl-4 bg-white shrink-0">
-            <UserAccountMenu
-              usuario={usuario}
-              onCerrarSesion={fnCerrarSesion}
-              strClaseAvatar="bg-[#1A365D]"
-            />
-          </div>
-        </div>
+        <Header strRutaActiva="Inicio" />
       </div>
 
       {/* CONTENIDO PRINCIPAL DISTRIBUIDO EN GRID */}

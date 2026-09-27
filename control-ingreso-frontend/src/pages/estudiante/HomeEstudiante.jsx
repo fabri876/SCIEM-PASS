@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from "react";
 import Header from "../../components/layout/Header";
-import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
-import { useNavigate } from "react-router-dom";
+import { obtenerUsuarioActual } from "../../services/authService";
 import StudentExamList from "./components/StudentExamList";
-import UserAccountMenu from "../../components/common/UserAccountMenu";
 
 export default function HomeEstudiante() {
-  const navigate = useNavigate();
   const [usuario, setUsuario] = useState(null);
   const [activeMenu, setActiveMenu] = useState("Inicio");
   const [listExamenes, setListExamenes] = useState([]);
@@ -69,11 +66,6 @@ export default function HomeEstudiante() {
     cargarExamenesEstudiante();
   }, []);
 
-  const fnCerrarSesion = () => {
-    cerrarSesion();
-    navigate("/login");
-  };
-
   const strNombre = usuario?.nombre || "Estudiante";
   const strApellido = usuario?.apellido || "";
   const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`;
@@ -135,34 +127,22 @@ export default function HomeEstudiante() {
   return (
     <div className="h-screen w-screen bg-[var(--color-bg-app)] font-[var(--font-nunito)] text-[var(--color-text-body)] overflow-hidden flex flex-col">
 
-      {/* Header Fijo Superior.
-          BUG-003 (QA): "backdrop-blur-md" es un backdrop-filter, y cualquier
-          filter/backdrop-filter en un ancestro convierte a ese ancestro en el
-          contenedor de posicionamiento de sus descendientes "fixed" — el
-          modal de "Cambiar contraseña" (fixed inset-0 dentro de VentanaEmergente)
-          quedaba recortado a los 80px de este header en vez de centrarse en
-          el viewport. Los demás paneles (docente/admin/operador) no tienen
-          este problema porque su header fijo usa bg sólido, sin blur. */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-white/95 border-b border-[var(--color-border)] flex items-center justify-between pr-6 h-20 shadow-xs">
-        <div className="flex-1 origin-left overflow-hidden">
-          <Header strRutaActiva="Inicio" />
-        </div>
-
-        {/* Perfil Header (menú de cuenta: cambiar contraseña / cerrar sesión) */}
-        <div className="flex items-center pl-4 border-l border-[var(--color-border)] shrink-0">
-          <UserAccountMenu
-            usuario={usuario}
-            onCerrarSesion={fnCerrarSesion}
-            strClaseAvatar="bg-[var(--color-primary-navy)]"
-          />
-        </div>
+      {/* Header Fijo Superior (incluye el menú de cuenta: cambiar
+          contraseña / cerrar sesión, ver Header.jsx). Altura en 98px para
+          coincidir con la altura fija que ya trae Header.jsx — antes este
+          wrapper forzaba 80px (h-20) y el header interno de 98px quedaba
+          recortado (BUG-003 QA de "backdrop-blur-md": ver commit anterior,
+          ya corregido; esto es el ajuste de altura que faltaba al mover
+          UserAccountMenu adentro de Header.jsx). */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-white/95 border-b border-[var(--color-border)] h-[98px] shadow-xs">
+        <Header strRutaActiva="Inicio" />
       </header>
 
       {/* Contenedor Principal con Layout Sidebar + Workspace */}
-      <div className="flex pt-20 h-full w-full overflow-hidden">
+      <div className="flex pt-[98px] h-full w-full overflow-hidden">
 
         {/* Sidebar Estilo Dashboard */}
-        <aside className="w-72 shrink-0 h-[calc(100vh-80px)] bg-[var(--color-bg-card)] border-r border-[var(--color-border)] p-6 flex flex-col justify-between overflow-y-auto hidden lg:flex">
+        <aside className="w-72 shrink-0 h-[calc(100vh-98px)] bg-[var(--color-bg-card)] border-r border-[var(--color-border)] p-6 flex flex-col justify-between overflow-y-auto hidden lg:flex">
           <div className="space-y-6">
 
             {/* Tarjeta de perfil en el sidebar */}
@@ -228,7 +208,7 @@ export default function HomeEstudiante() {
         </aside>
 
         {/* Área Central de Contenido */}
-        <main className="flex-1 h-[calc(100vh-80px)] overflow-y-auto px-6 lg:px-10 py-8 space-y-8">
+        <main className="flex-1 h-[calc(100vh-98px)] overflow-y-auto px-6 lg:px-10 py-8 space-y-8">
 
           {/* Banner de Bienvenida Estilo Corporativo */}
           <section className="relative bg-[image:var(--gradient-banner)] rounded-3xl p-8 text-white shadow-lg overflow-hidden border border-blue-900/20">
