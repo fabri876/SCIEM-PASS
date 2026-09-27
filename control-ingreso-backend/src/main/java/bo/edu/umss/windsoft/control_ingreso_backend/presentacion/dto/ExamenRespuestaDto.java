@@ -28,6 +28,11 @@ public class ExamenRespuestaDto {
 
     public ExamenRespuestaDto() {}
 
+    private List<NormaGeneralRespuestaDto> normasGenerales;
+
+    public List<NormaGeneralRespuestaDto> getNormasGenerales() { return normasGenerales; }
+    public void setNormasGenerales(List<NormaGeneralRespuestaDto> normasGenerales) { this.normasGenerales = normasGenerales; }
+
     public Integer getIdExamen() { return idExamen; }
     public void setIdExamen(Integer idExamen) { this.idExamen = idExamen; }
 

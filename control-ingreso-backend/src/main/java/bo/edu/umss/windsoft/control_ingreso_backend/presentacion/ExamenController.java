@@ -5,7 +5,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ExamenService;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.dto.ExamenRequest;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HorarioRegular;
-
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.NormaGeneralRespuestaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenRespuestaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AmbienteRespuestaDto;
 
@@ -90,5 +90,10 @@ public class ExamenController {
             @RequestParam Integer idAsignatura,
             @RequestParam Integer codsisDocente) {
         return ResponseEntity.ok(examenService.obtenerTiposUsados(idAsignatura, codsisDocente));
+    }
+
+    @GetMapping("/{id}/normas-generales")
+    public ResponseEntity<List<NormaGeneralRespuestaDto>> obtenerNormasGenerales(@PathVariable Integer id) {
+        return ResponseEntity.ok(examenService.obtenerNormasGeneralesDeExamen(id));
     }
 }

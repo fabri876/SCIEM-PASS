@@ -12,9 +12,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 public class TipoUsuarioResolver {
@@ -54,38 +54,34 @@ public class TipoUsuarioResolver {
     }
 
     public Map<Integer, String> resolverTodos(Collection<Integer> idsUsuario) {
-        Set<Integer> idsAdmin = new HashSet<>();
-        for (Admin admin : adminRepository.findAll()) {
-            idsAdmin.add(admin.getIdusuario());
-        }
-
-        Set<Integer> idsDocente = new HashSet<>();
-        for (Docente docente : docenteRepository.findAll()) {
-            idsDocente.add(docente.getIdusuario());
-        }
-
-        Set<Integer> idsAyudante = new HashSet<>();
-        for (Ayudante ayudante : ayudanteRepository.findAll()) {
-            idsAyudante.add(ayudante.getIdusuario());
-        }
-
-        Set<Integer> idsEstudiantePorUsuario = new HashSet<>();
-        for (Estudiante estudiante : estudianteRepository.findAll()) {
-            idsEstudiantePorUsuario.add(estudiante.getIdusuario());
-        }
-
         Map<Integer, String> resultado = new HashMap<>();
-        for (Integer idUsuario : idsUsuario) {
-            if (idsAdmin.contains(idUsuario)) {
-                resultado.put(idUsuario, ADMINISTRADOR);
-            } else if (idsDocente.contains(idUsuario)) {
-                resultado.put(idUsuario, DOCENTE);
-            } else if (idsAyudante.contains(idUsuario)) {
-                resultado.put(idUsuario, OPERADOR);
-            } else if (idsEstudiantePorUsuario.contains(idUsuario)) {
-                resultado.put(idUsuario, ESTUDIANTE);
+        if (idsUsuario == null || idsUsuario.isEmpty()) {
+            return resultado;
+        }
+
+        Set<Integer> idsAdmin = adminRepository.findByIdusuarioIn(idsUsuario)
+                .stream().map(Admin::getIdusuario).collect(Collectors.toSet());
+
+        Set<Integer> idsDocente = docenteRepository.findByIdusuarioIn(idsUsuario)
+                .stream().map(Docente::getIdusuario).collect(Collectors.toSet());
+
+        Set<Integer> idsAyudante = ayudanteRepository.findByIdusuarioIn(idsUsuario)
+                .stream().map(Ayudante::getIdusuario).collect(Collectors.toSet());
+
+        Set<Integer> idsEstudiante = estudianteRepository.findByIdusuarioIn(idsUsuario)
+                .stream().map(Estudiante::getIdusuario).collect(Collectors.toSet());
+
+        for (Integer id : idsUsuario) {
+            if (idsAdmin.contains(id)) {
+                resultado.put(id, ADMINISTRADOR);
+            } else if (idsDocente.contains(id)) {
+                resultado.put(id, DOCENTE);
+            } else if (idsAyudante.contains(id)) {
+                resultado.put(id, OPERADOR);
+            } else if (idsEstudiante.contains(id)) {
+                resultado.put(id, ESTUDIANTE);
             } else {
-                resultado.put(idUsuario, null);
+                resultado.put(id, null);
             }
         }
         return resultado;
