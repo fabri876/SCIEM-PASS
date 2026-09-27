@@ -5,8 +5,7 @@ import VentanaEmergente from "../../components/common/VentanaEmergente";
 import ExamenForm from "../../components/examenes/ExamenForm";
 import BulkUploadCard from "../admin/components/BulkUploadCard";
 import UsuarioFormFields from "../admin/components/UsuarioFormFields";
-import UserAccountMenu from "../../components/common/UserAccountMenu";
-import { obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
+import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
 
 // Un docente no puede registrar a otro docente, solo Ayudante o Estudiante
@@ -69,11 +68,6 @@ export default function HomeDocente() {
     const [boolModalRegistroAbierto, setBoolModalRegistroAbierto] = useState(false);
     const [strSeccionRegistro, setStrSeccionRegistro] = useState("individual");
 
-    const fnCerrarSesion = () => {
-        cerrarSesion();
-        navigate("/login");
-    };
-
     const fnCargarMasiva = async (file) => {
         return cargarUsuariosMasivo(file, "ESTUDIANTE");
     };
@@ -86,21 +80,10 @@ export default function HomeDocente() {
     return (
         <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-nunito pb-16">
 
-            {/* HEADER FIJO */}
+            {/* HEADER FIJO (incluye el menú de cuenta: cambiar contraseña /
+                cerrar sesión, ver Header.jsx) */}
             <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200">
-                <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                        <Header strRutaActiva="Inicio" />
-                    </div>
-
-                    <div className="h-[98px] flex items-center pr-[55px] pl-4 bg-white shrink-0">
-                        <UserAccountMenu
-                            usuario={usuario}
-                            onCerrarSesion={fnCerrarSesion}
-                            strClaseAvatar="bg-[#1A365D]"
-                        />
-                    </div>
-                </div>
+                <Header strRutaActiva="Inicio" />
             </div>
 
             {/* CONTENEDOR PRINCIPAL */}

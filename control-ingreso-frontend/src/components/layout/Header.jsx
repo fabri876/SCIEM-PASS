@@ -1,6 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "../common/Logo";
-import { obtenerToken, obtenerUsuarioActual } from "../../services/authService";
+import UserAccountMenu from "../common/UserAccountMenu";
+import { obtenerToken, obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
 
 /**
  * Header.jsx
@@ -21,11 +22,14 @@ import { obtenerToken, obtenerUsuarioActual } from "../../services/authService";
  * PaginaEnConstruccion.jsx), pero el link y la rayita activa ya
  * funcionan.
  *
- * El botón "Iniciar sesión" (extremo derecho) solo se muestra si NO hay
- * sesión iniciada (se fija con obtenerToken()/obtenerUsuarioActual() de
- * authService, igual que ya lo hacen los guards de rutas en App.jsx).
- * Cuando SÍ hay sesión, esa zona queda vacía por ahora — ahí va a ir
- * "Cuenta" (avatar/nombre + menú) el día que se implemente.
+ * El extremo derecho muestra "Iniciar sesión" si NO hay sesión iniciada
+ * (se fija con obtenerToken()/obtenerUsuarioActual() de authService, igual
+ * que ya lo hacen los guards de rutas en App.jsx), o el menú de cuenta
+ * (UserAccountMenu: avatar/nombre, "Cambiar contraseña", "Cerrar sesión")
+ * si SÍ la hay. Antes cada panel (admin/docente/ayudante/estudiante)
+ * renderizaba su propia copia de UserAccountMenu al lado de este Header;
+ * ahora vive acá para que salga automáticamente en cualquier pantalla que
+ * use este componente, sin duplicarlo panel por panel.
  */
 const arrNavItems = [
   {
@@ -106,7 +110,14 @@ function NavItem({ strTexto, strRuta, svgIcono, boolActivo = false }) {
 
 export default function Header() {
   const location = useLocation();
-  const boolAutenticado = Boolean(obtenerToken() && obtenerUsuarioActual());
+  const navigate = useNavigate();
+  const usuarioActual = obtenerUsuarioActual();
+  const boolAutenticado = Boolean(obtenerToken() && usuarioActual);
+
+  const fnCerrarSesion = () => {
+    cerrarSesion();
+    navigate("/login");
+  };
 
   return (
     <header className="h-[98px] flex items-center px-[55px] bg-white/72 border-b border-[#E2E8F0]/75">
@@ -125,16 +136,18 @@ export default function Header() {
         ))}
       </nav>
 
-      {!boolAutenticado && (
-        <div className="ml-10 pl-10 h-full flex items-center border-l border-[#CBD5E1]">
+      <div className="ml-10 pl-10 h-full flex items-center border-l border-[#CBD5E1]">
+        {boolAutenticado ? (
+          <UserAccountMenu usuario={usuarioActual} onCerrarSesion={fnCerrarSesion} />
+        ) : (
           <Link
             to="/login"
             className="inline-flex items-center h-10 px-5 rounded-md bg-primary-navy text-white text-sm font-extrabold whitespace-nowrap transition-colors duration-200 hover:bg-primary-blue"
           >
             Iniciar sesión
           </Link>
-        </div>
-      )}
+        )}
+      </div>
     </header>
   );
 }
