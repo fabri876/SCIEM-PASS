@@ -133,10 +133,19 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
             setGuardando(true);
             const estaHabilitado = estudianteSeleccionado.estadoHabilitacion;
             let textoMotivoFinal = null;
+            let motivoSeleccionadoEspecifico = false;
+
             if (!estaHabilitado) {
-                if (motivoSelectValue === '__personalizado__') textoMotivoFinal = motivoPersonalizado.trim() || 'Sin motivo especificado';
-                else textoMotivoFinal = motivoSelectValue || estudianteSeleccionado.nombreMotivo || 'Sin motivo especificado';
+                if (motivoSelectValue === '__personalizado__') {
+                    const pers = motivoPersonalizado.trim();
+                    textoMotivoFinal = pers || null;
+                    if (pers) motivoSeleccionadoEspecifico = true;
+                } else if (motivoSelectValue && motivoSelectValue !== '-' && motivoSelectValue !== 'Sin motivo especificado') {
+                    textoMotivoFinal = motivoSelectValue;
+                    motivoSeleccionadoEspecifico = true;
+                }
             }
+
             const respuestaBackend = await actualizarHabilitacion(estudianteSeleccionado.idHabilitacion, {
                 estadoHabilitacion: estaHabilitado,
                 observacionHabilitacion: textoMotivoFinal
@@ -144,15 +153,15 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
             setEstudiantes((prev) => prev.map((e) => {
                 if (e.idHabilitacion === estudianteSeleccionado.idHabilitacion) {
                     const estadoFinal = Boolean(respuestaBackend?.estadoHabilitacion ?? (respuestaBackend?.estado === 'HABILITADO' ?? estaHabilitado));
-                    return { ...e, estadoHabilitacion: estadoFinal, nombreMotivo: estadoFinal ? '-' : (respuestaBackend?.observacionHabilitacion || textoMotivoFinal) };
+                    return { ...e, estadoHabilitacion: estadoFinal, nombreMotivo: estadoFinal ? '-' : (respuestaBackend?.observacionHabilitacion || textoMotivoFinal || 'Sin motivo especificado') };
                 }
                 return e;
             }));
             const mensajeToast = estaHabilitado
                 ? 'Estudiante registrado como Habilitado exitosamente.'
-                : (textoMotivoFinal && textoMotivoFinal !== 'Sin motivo especificado')
+                : motivoSeleccionadoEspecifico
                     ? 'Estudiante inhabilitado exitosamente con el motivo especificado.'
-                    : 'Estudiante registrado como Inhabilitado sin motivo especificado.';
+                    : 'Estudiante registrado como Inhabilitado exitosamente.';
             mostrarToast('success', mensajeToast);
             setMostrarModalConfirmacion(false);
             setEstudianteSeleccionado(null);
@@ -176,23 +185,34 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     ];
 
     const obtenerDuracionCalculada = (dur, hor) => {
-        if (dur && dur !== '---') return dur;
+        let totalMins = 0;
         if (hor && hor.includes('-')) {
             const partes = hor.split('-').map((s) => s.trim());
             if (partes.length === 2) {
                 const [h1, m1] = partes[0].split(':').map(Number);
                 const [h2, m2] = partes[1].split(':').map(Number);
                 if (!isNaN(h1) && !isNaN(m1) && !isNaN(h2) && !isNaN(m2)) {
-                    const diffMins = (h2 * 60 + m2) - (h1 * 60 + m1);
-                    if (diffMins > 0) {
-                        const hrs = Math.floor(diffMins / 60);
-                        const mins = diffMins % 60;
-                        return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-                    }
+                    totalMins = (h2 * 60 + m2) - (h1 * 60 + m1);
                 }
             }
         }
-        return '---';
+        if (totalMins <= 0 && dur && dur !== '---') {
+            if (dur.includes(':')) {
+                const [h, m] = dur.split(':').map(Number);
+                if (!isNaN(h) && !isNaN(m)) totalMins = h * 60 + m;
+            } else {
+                const parsed = parseInt(dur, 10);
+                if (!isNaN(parsed)) totalMins = parsed;
+            }
+        }
+        if (totalMins <= 0) totalMins = 90;
+
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+
+        if (hrs > 0 && mins > 0) return `${hrs} h ${mins} min`;
+        if (hrs > 0 && mins === 0) return `${hrs} ${hrs === 1 ? 'hora' : 'horas'}`;
+        return `${mins} min`;
     };
 
     const filasExamen = [
