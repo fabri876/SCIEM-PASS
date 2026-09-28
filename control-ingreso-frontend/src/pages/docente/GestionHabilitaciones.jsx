@@ -146,6 +146,11 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState('todos');
     const [paginaActual, setPaginaActual] = useState(1);
+    // Marca si la tabla se esta mostrando con filas reales del servidor o con
+    // los estudiantes de muestra. El guardado solo pega al backend cuando hay
+    // filas reales: con datos de muestra el PUT pediria un idHabilitacion que no
+    // existe en la base y responderia 404.
+    const [datosReales, setDatosReales] = useState(false);
     const [toast, setToast] = useState(null);
     const toastTimer = useRef(null);
 
@@ -179,7 +184,9 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                     // para poder revisar la pantalla. En cuanto la API responda
                     // datos reales, estos se descartan automaticamente.
                     const muestra = MOCK_POR_EXAMEN[examenIdActivo] || MOCK_POR_EXAMEN[MOCK_ID_EXAMEN_POR_DEFECTO];
-                    const lista = Array.isArray(data) && data.length > 0 ? data : muestra.estudiantes;
+                    const hayFilasReales = Array.isArray(data) && data.length > 0;
+                    const lista = hayFilasReales ? data : muestra.estudiantes;
+                    setDatosReales(hayFilasReales);
                     setEstudiantes(normalizarHabilitaciones(lista));
                 }
             } catch (err) {
@@ -239,10 +246,23 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                 }
             }
 
-            const respuestaBackend = await actualizarHabilitacion(estudianteSeleccionado.idHabilitacion, {
-                estadoHabilitacion: estaHabilitado,
-                observacionHabilitacion: textoMotivoFinal
-            });
+            // Con estudiantes de muestra no se llama al backend: esos
+            // idHabilitacion no existen en la base, asi que el PUT solo
+            // devolveria 404. Se arma la misma respuesta que daria el servidor
+            // para que el resto del flujo (contadores, toast, tabla) sea
+            // identico al de admin.
+            let respuestaBackend;
+            if (datosReales) {
+                respuestaBackend = await actualizarHabilitacion(estudianteSeleccionado.idHabilitacion, {
+                    estadoHabilitacion: estaHabilitado,
+                    observacionHabilitacion: textoMotivoFinal
+                });
+            } else {
+                respuestaBackend = {
+                    estadoHabilitacion: estaHabilitado,
+                    observacionHabilitacion: textoMotivoFinal
+                };
+            }
             setEstudiantes((prev) => prev.map((e) => {
                 if (e.idHabilitacion === estudianteSeleccionado.idHabilitacion) {
                     const estadoFinal = Boolean(respuestaBackend?.estadoHabilitacion ?? (respuestaBackend?.estado === 'HABILITADO' ?? estaHabilitado));
