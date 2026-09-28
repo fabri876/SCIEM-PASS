@@ -2,7 +2,10 @@ export default function SeccionMotivo({ nombreMotivo, motivoSelectValue, motivoP
     const existeMotivo = nombreMotivo && nombreMotivo !== '-';
     return (
         <div className="mb-5 space-y-3">
-            <div className="flex items-center justify-between">
+            {/* flex-wrap + gap-2: la etiqueta y las acciones ("Opcional |
+                Modificar | Eliminar") no entran en una sola linea en pantallas
+                angostas y se empujaban fuera del drawer. */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">MOTIVO DE INHABILITACIÓN</label>
                 {existeMotivo && (
                     <div className="flex items-center gap-2">
