@@ -22,20 +22,24 @@ export default function ModalConfirmacion({ mostrar, estudiante, motivoTexto, gu
                     </div>
                 </div>
 
-                <div className="bg-[#F8FAFC] border border-slate-200 rounded-2xl p-3 flex items-center justify-between text-xs">
-                    <div>
+                {/* min-w-0 + truncate en el nombre y shrink-0 en el estado: sin
+                    esto un nombre largo (medido: "Michelle Beatriz Sandoval
+                    Loayza" ocupa 190px) empujaba el bloque NUEVO ESTADO fuera
+                    del modal en pantallas angostas. */}
+                <div className="bg-[#F8FAFC] border border-slate-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
+                    <div className="min-w-0">
                         <span className="block text-[10px] font-bold text-slate-400 uppercase">ESTUDIANTE</span>
-                        <span className="font-extrabold text-[#1A365D]">{nombre}</span>
+                        <span className="font-extrabold text-[#1A365D] block truncate" title={nombre}>{nombre}</span>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                         <span className="block text-[10px] font-bold text-slate-400 uppercase">NUEVO ESTADO</span>
                         <span className={`font-black ${habilitado ? 'text-emerald-600' : 'text-rose-600'}`}>{habilitado ? 'Habilitado' : 'Inhabilitado'}</span>
                     </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-2">
-                    <button type="button" onClick={onCancelar} disabled={guardando} className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition cursor-pointer disabled:opacity-50">Cancelar</button>
-                    <button type="button" onClick={onConfirmar} disabled={guardando} className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#2563EB] hover:bg-blue-700 transition shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50">
+                <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+                    <button type="button" onClick={onCancelar} disabled={guardando} className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition cursor-pointer disabled:opacity-50">Cancelar</button>
+                    <button type="button" onClick={onConfirmar} disabled={guardando} className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#2563EB] hover:bg-blue-700 transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50">
                         <span>✔</span> {guardando ? 'Guardando...' : 'Sí, confirmar'}
                     </button>
                 </div>
