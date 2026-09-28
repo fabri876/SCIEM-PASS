@@ -2,13 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import {
     obtenerExamenes,
     obtenerTiposExamen,
+    obtenerNormasGenerales,
 } from "../../../services/examenService";
 import {
     obtenerDocentesAdmin,
     obtenerAmbientesPorExamen,
     obtenerNormasParticularesAdmin,
-    listarTodasNormasGeneralesAdmin,
-    activarNormaGeneralAdmin,
     crearNormaGeneralAdmin,
     editarNormaGeneralAdmin,
     eliminarNormaGeneralAdmin,
@@ -19,6 +18,10 @@ import ExamenFormAdmin from "./ExamenFormAdmin";
 
 const INT_EXAMENES_POR_PAGINA = 10;
 
+// Colores para agrupar visualmente normas particulares con texto idéntico
+// (no necesariamente exacto: el admin puede notar a ojo que dos dicen lo
+// mismo con otras palabras, pero el agrupado automático solo detecta texto
+// igual una vez normalizado — ver normalizarTexto más abajo).
 const PALETA_GRUPOS = ["#F0F5FB", "#FBF3E9", "#F1F8F1", "#FCEFF5", "#F5F1FB"];
 
 function IconoMas() {
@@ -135,7 +138,10 @@ function normalizarTexto(strTexto) {
     return (strTexto || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-
+// Extrae la clave de comparación según el criterio elegido.
+// "registro": cuándo se cargó el examen en el sistema (fechaCreacionExamen,
+//   con idExamen como respaldo si esa fecha no viene en la respuesta).
+// "examen": cuándo se rinde el examen (fechaExamen).
 function obtenerClaveOrden(ex, strCriterio) {
     if (strCriterio === "examen") {
         return ex.fechaExamen || null;
@@ -177,10 +183,6 @@ export default function SeccionRegistroExamenes() {
     const [strCriterioOrden, setStrCriterioOrden] = useState("registro"); // "registro" | "examen"
     const [strDireccionOrden, setStrDireccionOrden] = useState("desc"); // "desc" | "asc"
     const [intPaginaActual, setIntPaginaActual] = useState(1);
-    // BUG-012 (QA): no había forma de buscar un examen puntual entre los 40+
-    // del período — filtro client-side (mismo criterio que ya usa
-    // GestionHabilitaciones.jsx) por asignatura, tipo de examen o docente.
-    const [strBusqueda, setStrBusqueda] = useState("");
 
     // Ambientes (aulas asignadas) por examen, para la columna "Docente / Aula / Hora".
     // Se piden solo para los exámenes visibles en la página actual (10 como
@@ -201,7 +203,7 @@ export default function SeccionRegistroExamenes() {
             obtenerExamenes(),
             obtenerTiposExamen(),
             obtenerDocentesAdmin(),
-            listarTodasNormasGeneralesAdmin(),
+            obtenerNormasGenerales(),
             obtenerNormasParticularesAdmin(),
         ])
             .then(([examenes, tipos, docentes, normasGenerales, normasParticulares]) => {
@@ -251,32 +253,24 @@ export default function SeccionRegistroExamenes() {
         return copia;
     }, [arrExamenes, strCriterioOrden, strDireccionOrden]);
 
-    const arrExamenesFiltrados = useMemo(() => {
-        const q = strBusqueda.trim().toLowerCase();
-        if (!q) return arrExamenesOrdenados;
-        return arrExamenesOrdenados.filter((ex) => {
-            const strAsignatura = (ex.nombreAsignatura || "").toLowerCase();
-            const strTipo = (mapTiposExamen[ex.idTipoExamen] || "").toLowerCase();
-            const strDocente = (ex.nombreDocente || mapDocentePorId[ex.idUsuario] || "").toLowerCase();
-            return strAsignatura.includes(q) || strTipo.includes(q) || strDocente.includes(q);
-        });
-    }, [arrExamenesOrdenados, strBusqueda, mapTiposExamen, mapDocentePorId]);
-
     const intTotalPaginas = Math.max(
         1,
-        Math.ceil(arrExamenesFiltrados.length / INT_EXAMENES_POR_PAGINA)
+        Math.ceil(arrExamenesOrdenados.length / INT_EXAMENES_POR_PAGINA)
     );
 
+    // Si cambia el orden o la página quedó fuera de rango (p.ej. tras recargar
+    // con menos exámenes), volvemos a una página válida.
     useEffect(() => {
         setIntPaginaActual((prev) => Math.min(prev, intTotalPaginas));
-    }, [strCriterioOrden, strDireccionOrden, strBusqueda, intTotalPaginas]);
+    }, [strCriterioOrden, strDireccionOrden, intTotalPaginas]);
 
-    const arrExamenesPagina = arrExamenesFiltrados.slice(
+    const arrExamenesPagina = arrExamenesOrdenados.slice(
         (intPaginaActual - 1) * INT_EXAMENES_POR_PAGINA,
         intPaginaActual * INT_EXAMENES_POR_PAGINA
     );
 
-
+    // Trae los ambientes de los exámenes de la página actual que todavía no
+    // se hayan pedido (se cachean en mapAmbientesPorExamen para no repetir).
     useEffect(() => {
         const arrIdsFaltantes = arrExamenesPagina
             .map((ex) => ex.idExamen)
@@ -284,7 +278,8 @@ export default function SeccionRegistroExamenes() {
 
         if (arrIdsFaltantes.length === 0) return;
 
-
+        // Marca como "cargando" de inmediato para no repetir el fetch si el
+        // efecto se vuelve a disparar antes de que respondan.
         setMapAmbientesPorExamen((prev) => {
             const siguiente = { ...prev };
             arrIdsFaltantes.forEach((id) => {
@@ -320,7 +315,10 @@ export default function SeccionRegistroExamenes() {
     }
 
     function handleEditar(ex) {
-
+        // Ya existe PUT /api/examenes/{id} (confirmado en ExamenController.java).
+        // Si los ambientes de este examen todavía no se pidieron (no debería
+        // pasar, ya que se precargan para toda la página visible, pero por
+        // las dudas), se piden ahora antes de abrir el formulario.
         if (!(ex.idExamen in mapAmbientesPorExamen)) {
             setMapAmbientesPorExamen((prev) => ({ ...prev, [ex.idExamen]: "cargando" }));
             obtenerAmbientesPorExamen(ex.idExamen)
@@ -337,35 +335,16 @@ export default function SeccionRegistroExamenes() {
 
     async function handleEliminarNormaGeneral(norma) {
         const boolConfirmado = window.confirm(
-            `¿Desactivar la norma general "${norma.descripcionNorma}"? Los exámenes que ya la usaron no se ven afectados y vas a poder reactivarla después.`
+            `¿Eliminar la norma general "${norma.descripcionNorma}"? Los exámenes que ya la usaron no se ven afectados.`
         );
         if (!boolConfirmado) return;
 
         setStrMensajeNormas("");
         try {
             await eliminarNormaGeneralAdmin(norma.idNormaGeneral);
-            // BUG-006 (QA): antes se sacaba del array (desaparecía sin dejar
-            // forma de reactivarla) — ahora se mantiene visible con su
-            // estado actualizado, ya que solo es baja lógica.
-            setArrNormasGenerales((prev) =>
-                prev.map((n) => (n.idNormaGeneral === norma.idNormaGeneral ? { ...n, estadoNorma: false } : n))
-            );
+            setArrNormasGenerales((prev) => prev.filter((n) => n.idNormaGeneral !== norma.idNormaGeneral));
         } catch (error) {
-            setStrMensajeNormas(error.message || "No se pudo desactivar la norma general.");
-        }
-    }
-
-    // BUG-006 (QA): "Eliminar" nunca borra físicamente (es estadoNorma=false),
-    // así que hace falta el camino inverso para poder reactivarla.
-    async function handleActivarNormaGeneral(norma) {
-        setStrMensajeNormas("");
-        try {
-            await activarNormaGeneralAdmin(norma.idNormaGeneral);
-            setArrNormasGenerales((prev) =>
-                prev.map((n) => (n.idNormaGeneral === norma.idNormaGeneral ? { ...n, estadoNorma: true } : n))
-            );
-        } catch (error) {
-            setStrMensajeNormas(error.message || "No se pudo activar la norma general.");
+            setStrMensajeNormas(error.message || "No se pudo eliminar la norma general.");
         }
     }
 
@@ -407,6 +386,12 @@ export default function SeccionRegistroExamenes() {
             return <span className="text-gray-400">{strNombreDocente}</span>;
         }
         if (!ambientes || ambientes.length === 0) {
+            // Un examen normal siempre debería tener al menos el ambiente
+            // principal (el backend lo crea siempre al registrar, tanto en
+            // REGULAR como en EVENTUAL). Si esto aparece, no es un estado
+            // válido — probablemente un examen de antes de que se completara
+            // la funcionalidad de ambientes, o un bug real. Se marca en rojo
+            // a propósito para que no se confunda con algo esperado.
             return (
                 <span className="text-red-600 font-semibold">
                     {strNombreDocente} · ⚠ sin aula/horario registrado (revisar)
@@ -428,9 +413,9 @@ export default function SeccionRegistroExamenes() {
 
     async function handleGuardarNuevaGeneral() {
         const strTexto = strNuevaDescripcionGeneral.trim();
-        // BUG-006 (QA): antes cortaba acá sin avisar nada — el botón parecía roto.
-        if (!strTexto) {
-            setStrMensajeNormas("El texto de la norma es obligatorio.");
+        if (!strTexto) return;
+        if (arrNormasGenerales.some((n) => normalizarTexto(n.descripcionNorma) === normalizarTexto(strTexto))) {
+            setStrMensajeNormas("Ya existe una norma general con ese texto.");
             return;
         }
         setStrMensajeNormas("");
@@ -457,8 +442,15 @@ export default function SeccionRegistroExamenes() {
 
     async function handleGuardarEdicionGeneral(idNormaGeneral) {
         const strTexto = strTextoEdicionGeneral.trim();
-        if (!strTexto) {
-            setStrMensajeNormas("El texto de la norma es obligatorio.");
+        if (!strTexto) return;
+        if (
+            arrNormasGenerales.some(
+                (n) =>
+                    n.idNormaGeneral !== idNormaGeneral &&
+                    normalizarTexto(n.descripcionNorma) === normalizarTexto(strTexto)
+            )
+        ) {
+            setStrMensajeNormas("Ya existe otra norma general con ese texto.");
             return;
         }
         setStrMensajeNormas("");
@@ -514,11 +506,11 @@ export default function SeccionRegistroExamenes() {
                 </div>
             </div>
 
-            <div className="flex gap-6 border-b border-[#EEF1F8] mb-5">
+            <div className="flex gap-4 sm:gap-6 border-b border-[#EEF1F8] mb-5 overflow-x-auto whitespace-nowrap">
                 <button
                     type="button"
                     onClick={() => setStrTabActiva("examenes")}
-                    className={`py-3 text-[13.5px] font-bold relative ${strTabActiva === "examenes" ? "text-[#163F79]" : "text-gray-400"
+                    className={`py-3 text-[13.5px] font-bold relative shrink-0 ${strTabActiva === "examenes" ? "text-[#163F79]" : "text-gray-400"
                         }`}
                 >
                     Exámenes registrados
@@ -529,7 +521,7 @@ export default function SeccionRegistroExamenes() {
                 <button
                     type="button"
                     onClick={() => setStrTabActiva("generales")}
-                    className={`py-3 text-[13.5px] font-bold relative ${strTabActiva === "generales" ? "text-[#163F79]" : "text-gray-400"
+                    className={`py-3 text-[13.5px] font-bold relative shrink-0 ${strTabActiva === "generales" ? "text-[#163F79]" : "text-gray-400"
                         }`}
                 >
                     Normas generales
@@ -540,7 +532,7 @@ export default function SeccionRegistroExamenes() {
                 <button
                     type="button"
                     onClick={() => setStrTabActiva("particulares")}
-                    className={`py-3 text-[13.5px] font-bold relative flex items-center gap-2 ${strTabActiva === "particulares" ? "text-[#163F79]" : "text-gray-400"
+                    className={`py-3 text-[13.5px] font-bold relative flex items-center gap-2 shrink-0 ${strTabActiva === "particulares" ? "text-[#163F79]" : "text-gray-400"
                         }`}
                 >
                     Normas particulares
@@ -562,26 +554,17 @@ export default function SeccionRegistroExamenes() {
             {/* ===================== TAB: Exámenes registrados ===================== */}
             {!boolCargando && strTabActiva === "examenes" && (
                 <>
-                    <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
                         <p className="text-[13px] text-gray-500">
                             {arrExamenes.length} examen{arrExamenes.length === 1 ? "" : "es"} en el periodo actual
                         </p>
-                        <div className="flex items-center gap-2.5">
-                            {arrExamenes.length > 0 && (
-                                <input
-                                    type="text"
-                                    value={strBusqueda}
-                                    onChange={(e) => setStrBusqueda(e.target.value)}
-                                    placeholder="Buscar por asignatura, tipo o docente..."
-                                    className="h-[42px] px-3 w-[240px] rounded-md border border-[#C8D6E8] text-[#163F79] text-[12.5px] font-medium placeholder:text-[#8FA6C4] focus:outline-none focus:border-primary-blue"
-                                />
-                            )}
+                        <div className="flex flex-wrap items-center gap-2.5">
                             {arrExamenes.length > 0 && (
                                 <>
                                     <select
                                         value={strCriterioOrden}
                                         onChange={handleCambiarCriterio}
-                                        className="h-[42px] px-3 rounded-md border border-[#C8D6E8] text-[#163F79] text-[12.5px] font-semibold"
+                                        className="h-[42px] px-3 rounded-md border border-[#C8D6E8] text-[#163F79] text-[12.5px] font-semibold max-w-full"
                                     >
                                         <option value="registro">Ordenar por: fecha de registro</option>
                                         <option value="examen">Ordenar por: fecha del examen</option>
@@ -617,13 +600,7 @@ export default function SeccionRegistroExamenes() {
                         </p>
                     )}
 
-                    {arrExamenes.length > 0 && arrExamenesFiltrados.length === 0 && (
-                        <p className="text-[13px] text-gray-500 py-6 text-center">
-                            Ningún examen coincide con "{strBusqueda}".
-                        </p>
-                    )}
-
-                    {arrExamenesFiltrados.length > 0 && (
+                    {arrExamenes.length > 0 && (
                         <>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
@@ -635,6 +612,7 @@ export default function SeccionRegistroExamenes() {
                                             <th className="pb-3 pr-3">Registrado el</th>
                                             <th className="pb-3 pr-3">Duración</th>
                                             <th className="pb-3 pr-3">Docente / Aula / Hora</th>
+                                            <th className="pb-3 pr-3">Estado</th>
                                             <th className="pb-3">Acciones</th>
                                         </tr>
                                     </thead>
@@ -657,6 +635,16 @@ export default function SeccionRegistroExamenes() {
                                                     </td>
                                                     <td className="py-3.5 pr-3">{formatearDuracion(ex.duracionExamen)}</td>
                                                     <td className="py-3.5 pr-3">{renderCeldaDocenteAulaHora(ex)}</td>
+                                                    <td className="py-3.5 pr-3">
+                                                        <span
+                                                            className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold ${ex.estadoExamen
+                                                                    ? "bg-[#EAF7EF] text-[#1C8A4C]"
+                                                                    : "bg-[#F4F6FA] text-gray-500"
+                                                                }`}
+                                                        >
+                                                            {ex.estadoExamen ? "Programado" : "Inactivo"}
+                                                        </span>
+                                                    </td>
                                                     <td className="py-3.5">
                                                         <div className="flex items-center gap-3.5">
                                                             <button type="button" title="Ver detalles" onClick={() => handleVerDetalle(ex)} className="text-[#5E71A0] hover:text-[#163F79]">
@@ -675,7 +663,7 @@ export default function SeccionRegistroExamenes() {
                             </div>
 
                             {intTotalPaginas > 1 && (
-                                <div className="flex items-center justify-between mt-5 pt-4 border-t border-[#EEF1F8]">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-5 pt-4 border-t border-[#EEF1F8] gap-3">
                                     <p className="text-[12.5px] text-gray-500">
                                         Página {intPaginaActual} de {intTotalPaginas}
                                     </p>
@@ -721,11 +709,12 @@ export default function SeccionRegistroExamenes() {
                     </div>
 
                     {boolFormularioNuevaGeneralAbierto && (
-                        <div className="flex gap-2.5 mb-4 bg-[#F4F6FA] p-3.5 rounded-lg">
+                        <div className="flex flex-col sm:flex-row gap-2.5 mb-4 bg-[#F4F6FA] p-3.5 rounded-lg">
                             <input
                                 type="text"
                                 value={strNuevaDescripcionGeneral}
                                 onChange={(e) => setStrNuevaDescripcionGeneral(e.target.value)}
+                                maxLength={100}
                                 placeholder="Escriba el texto de la nueva norma general..."
                                 className="h-[40px] flex-1 border border-[#C8D6E8] rounded-md px-3 text-[13px]"
                             />
@@ -769,11 +758,12 @@ export default function SeccionRegistroExamenes() {
                                     </div>
                                     <div className="flex-1">
                                         {idNormaGeneralEnEdicion === norma.idNormaGeneral ? (
-                                            <div className="flex gap-2">
+                                            <div className="flex flex-col sm:flex-row gap-2">
                                                 <input
                                                     type="text"
                                                     value={strTextoEdicionGeneral}
                                                     onChange={(e) => setStrTextoEdicionGeneral(e.target.value)}
+                                                    maxLength={100}
                                                     className="h-[36px] flex-1 border border-[#2B6CB0] rounded-md px-3 text-[13px]"
                                                     autoFocus
                                                 />
@@ -793,49 +783,29 @@ export default function SeccionRegistroExamenes() {
                                                 </button>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="text-[13.5px] font-semibold text-[#22304F]">
-                                                    {norma.descripcionNorma}
-                                                </span>
-                                                <span className={`text-[10.5px] font-extrabold px-2 py-0.5 rounded-full ${norma.estadoNorma
-                                                    ? "bg-emerald-50 text-emerald-600"
-                                                    : "bg-gray-100 text-gray-500"
-                                                    }`}>
-                                                    {norma.estadoNorma ? "Activa" : "Inactiva"}
-                                                </span>
+                                            <div className="text-[13.5px] font-semibold text-[#22304F]">
+                                                {norma.descripcionNorma}
                                             </div>
                                         )}
                                     </div>
                                     {idNormaGeneralEnEdicion !== norma.idNormaGeneral && (
                                         <div className="flex items-center gap-2.5 flex-shrink-0">
-                                            {norma.estadoNorma && (
-                                                <button
-                                                    type="button"
-                                                    title="Editar"
-                                                    onClick={() => handleEmpezarEdicionGeneral(norma)}
-                                                    className="text-[#5E71A0] hover:text-[#163F79]"
-                                                >
-                                                    <IconoLapiz />
-                                                </button>
-                                            )}
-                                            {norma.estadoNorma ? (
-                                                <button
-                                                    type="button"
-                                                    title="Desactivar"
-                                                    onClick={() => handleEliminarNormaGeneral(norma)}
-                                                    className="text-[#5E71A0] hover:text-red-600"
-                                                >
-                                                    <IconoBasurero />
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleActivarNormaGeneral(norma)}
-                                                    className="text-[11.5px] font-bold text-emerald-600 hover:text-emerald-700 px-2 py-1 rounded-md hover:bg-emerald-50"
-                                                >
-                                                    Activar
-                                                </button>
-                                            )}
+                                            <button
+                                                type="button"
+                                                title="Editar"
+                                                onClick={() => handleEmpezarEdicionGeneral(norma)}
+                                                className="text-[#5E71A0] hover:text-[#163F79]"
+                                            >
+                                                <IconoLapiz />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                title="Eliminar"
+                                                onClick={() => handleEliminarNormaGeneral(norma)}
+                                                className="text-[#5E71A0] hover:text-red-600"
+                                            >
+                                                <IconoBasurero />
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -948,7 +918,7 @@ export default function SeccionRegistroExamenes() {
                             <IconoUbicacion />
                             Información general
                         </div>
-                        <div className="p-6 grid grid-cols-2 gap-x-4 gap-y-4">
+                        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
                             <div>
                                 <div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">
                                     Fecha del examen
@@ -981,6 +951,21 @@ export default function SeccionRegistroExamenes() {
                                     {examenEnDetalle.nombreDocente ||
                                         mapDocentePorId[examenEnDetalle.idUsuario] ||
                                         `Docente #${examenEnDetalle.idUsuario ?? "-"}`}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">
+                                    Estado
+                                </div>
+                                <div>
+                                    <span
+                                        className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold ${examenEnDetalle.estadoExamen
+                                                ? "bg-[#EAF7EF] text-[#1C8A4C]"
+                                                : "bg-[#F4F6FA] text-gray-500"
+                                            }`}
+                                    >
+                                        {examenEnDetalle.estadoExamen ? "Programado" : "Inactivo"}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -1025,17 +1010,32 @@ export default function SeccionRegistroExamenes() {
 
                         <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
                             <IconoNormas />
-                            Normas generales
+                            Normas generales de este examen
                         </div>
                         <div className="p-6">
-                            <span className="text-[12.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 inline-block">
-                                No disponible todavía
-                            </span>
+                            {(() => {
+                                // Neil, 27/09/2026: ExamenRespuestaDto ahora trae "normasGenerales"
+                                // embebido, ya no hace falta el aviso de que no estaba disponible.
+                                const normasGeneralesDelExamen = examenEnDetalle.normasGenerales || [];
+                                if (normasGeneralesDelExamen.length === 0) {
+                                    return <span className="text-[13px] text-gray-400">Ninguna</span>;
+                                }
+                                return (
+                                    <ul className="space-y-1.5">
+                                        {normasGeneralesDelExamen.map((n) => (
+                                            <li key={n.idNormaGeneral} className="text-[13px] text-[#22304F] flex gap-2">
+                                                <span className="text-[#2B6CB0] flex-shrink-0">•</span>
+                                                {n.descripcionNorma}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                );
+                            })()}
                         </div>
 
                         <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
                             <IconoNormas />
-                            Normas particulares
+                            Normas particulares de este examen
                         </div>
                         <div className="p-6">
                             {(() => {

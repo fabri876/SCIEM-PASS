@@ -8,7 +8,6 @@ import {
     obtenerTiposExamen,
 } from "../../services/examenService";
 import { obtenerUsuarioActual } from "../../services/authService";
-
 import { obtenerTiposUsados } from "../../services/adminNormasService";
 
 
@@ -29,6 +28,19 @@ const DIAS_SEMANA = {
 // Solo aplica a EVENTUAL — el REGULAR ya viene validado por el horario fijo del docente.
 const HORA_ACADEMICA_INICIO = "06:45";
 const HORA_ACADEMICA_FIN = "21:45";
+
+// Cadena de prerrequisitos entre tipos de examen fijos (Segundo parcial
+// requiere Primer parcial ya registrado, y así sucesivamente). "Otro" queda
+// fuera de esta cadena a propósito. 
+const CADENA_TIPOS = ["primer parcial", "segundo parcial", "examen final", "segunda instancia"];
+
+function normalizarNombreTipo(strNombre) {
+    return (strNombre || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+}
 
 function diaSemanaDeFecha(strFechaYYYYMMDD) {
     if (!strFechaYYYYMMDD) return null;
@@ -67,7 +79,6 @@ function IconoNormas() {
 export default function ExamenForm({ onCancelar }) {
     const objUsuario = obtenerUsuarioActual();
 
-
     const intCodsisDocente = objUsuario?.codsisDocente ?? null;
 
     const [objFormData, setObjFormData] = useState({
@@ -94,6 +105,12 @@ export default function ExamenForm({ onCancelar }) {
     const [strBusquedaAula, setStrBusquedaAula] = useState("");
     const [boolSugerenciasAulaVisibles, setBoolSugerenciasAulaVisibles] = useState(false);
 
+
+    const [idAulaSeleccionadaRegular, setIdAulaSeleccionadaRegular] = useState(null);
+    const [boolCambiandoAulaRegular, setBoolCambiandoAulaRegular] = useState(false);
+    const [strBusquedaAulaPrincipal, setStrBusquedaAulaPrincipal] = useState("");
+    const [boolSugerenciasAulaPrincipalVisibles, setBoolSugerenciasAulaPrincipalVisibles] = useState(false);
+
     const [arrAulas, setArrAulas] = useState([]);
     const [arrNormasGeneralesCatalogo, setArrNormasGeneralesCatalogo] = useState([]);
     const [arrIdNormasSeleccionadas, setArrIdNormasSeleccionadas] = useState([]);
@@ -118,6 +135,14 @@ export default function ExamenForm({ onCancelar }) {
         arrIdNormasSeleccionadas,
         arrNormasEspecificas,
     ]);
+
+    // Los mensajes de error/éxito también desaparecen solos después de un
+    // rato, sin que el usuario tenga que tocar el formulario.
+    useEffect(() => {
+        if (!strMensaje) return;
+        const idTimer = setTimeout(() => setStrMensaje(""), 6000);
+        return () => clearTimeout(idTimer);
+    }, [strMensaje]);
 
     // Catálogos que no dependen del código SIS
     useEffect(() => {
@@ -156,6 +181,8 @@ export default function ExamenForm({ onCancelar }) {
     }, [objFormData.idAsignatura, intCodsisDocente]);
 
     // Tipos de examen ya registrados por este docente en esta asignatura
+    // (el backend igual bloquea repetir uno al guardar; esto es para
+    // deshabilitarlo directamente en el selector).
     useEffect(() => {
         if (!objFormData.idAsignatura || !intCodsisDocente) {
             setArrIdTiposUsados([]);
@@ -170,9 +197,10 @@ export default function ExamenForm({ onCancelar }) {
     useEffect(() => {
         if (strTipoHorario !== "REGULAR" || !idHorarioRegularSeleccionado) return;
 
-        // La aula del horario ya no se mete acá — se muestra aparte como tag
-        // fijo. Este array queda solo para aulas adicionales de verdad.
+        // La aula del horario ya no se mete acá — se muestra aparte como tag.
+        // Este array queda solo para aulas adicionales de verdad.
         setArrIdAulasSeleccionadas([]);
+        setIdAulaSeleccionadaRegular(null);
         setObjFormData((prev) => ({ ...prev, fecha: "" }));
     }, [idHorarioRegularSeleccionado, strTipoHorario]);
 
@@ -180,6 +208,7 @@ export default function ExamenForm({ onCancelar }) {
     useEffect(() => {
         if (strTipoHorario === "EVENTUAL") {
             setArrIdAulasSeleccionadas([]);
+            setIdAulaSeleccionadaRegular(null);
         }
     }, [strTipoHorario]);
 
@@ -198,18 +227,50 @@ export default function ExamenForm({ onCancelar }) {
         objFormData.fecha &&
         diaSemanaDeFecha(objFormData.fecha) !== objHorarioSeleccionado.diaSemana;
 
-    // En REGULAR, excluye también el aula fija del horario de las sugerencias
-    // de aula adicional (esa ya va sí o sí, el backend la asigna solo).
+    // Aula principal real para REGULAR: la del horario por defecto, salvo que
+    // se haya elegido un reemplazo (idAulaSeleccionadaRegular).
+    const intIdAulaPrincipalRegular = idAulaSeleccionadaRegular
+        ? parseInt(idAulaSeleccionadaRegular, 10)
+        : objHorarioSeleccionado?.idAula;
+    const strNombreAulaPrincipalRegular = arrAulas.find(
+        (a) => a.idAula === intIdAulaPrincipalRegular
+    )?.nombreAula;
+
+    // En REGULAR, excluye también el aula principal actual (por defecto o
+    // reemplazada) de las sugerencias de aula adicional.
     const arrAulasFiltradas = arrAulas.filter(
         (aula) =>
             !arrIdAulasSeleccionadas.includes(aula.idAula) &&
-            !(strTipoHorario === "REGULAR" && objHorarioSeleccionado && aula.idAula === objHorarioSeleccionado.idAula) &&
+            !(strTipoHorario === "REGULAR" && aula.idAula === intIdAulaPrincipalRegular) &&
             aula.nombreAula.toLowerCase().includes(strBusquedaAula.toLowerCase())
+    );
+
+    // Sugerencias para el buscador de reemplazo del aula principal (excluye
+    // la actual y las ya elegidas como adicionales).
+    const arrAulasFiltradasPrincipal = arrAulas.filter(
+        (aula) =>
+            aula.idAula !== intIdAulaPrincipalRegular &&
+            !arrIdAulasSeleccionadas.includes(aula.idAula) &&
+            aula.nombreAula.toLowerCase().includes(strBusquedaAulaPrincipal.toLowerCase())
     );
 
     function handleChange(e) {
         const { name, value } = e.target;
         setObjFormData((prev) => ({ ...prev, [name]: value }));
+    }
+
+    function handleChangeAsignatura(e) {
+        const strValor = e.target.value;
+        // Al cambiar de asignatura, el tipo/horario/fecha/ambientes elegidos
+        // ya no tienen por qué corresponder — se limpian para forzar a
+        // elegir de nuevo (antes se quedaban pegados de la asignatura anterior).
+        setObjFormData((prev) => ({ ...prev, idAsignatura: strValor, idTipoExamen: "", detalleTipoExamen: "", fecha: "" }));
+        setArrHorariosRegulares([]);
+        setStrTipoHorario("REGULAR");
+        setIdHorarioRegularSeleccionado("");
+        setIdAulaSeleccionadaRegular(null);
+        setArrIdAulasSeleccionadas([]);
+        setObjEventual({ horaInicio: "", horaFin: "" });
     }
 
     function handleChangeEventual(e) {
@@ -227,6 +288,18 @@ export default function ExamenForm({ onCancelar }) {
 
     function handleQuitarAula(idAula) {
         setArrIdAulasSeleccionadas((prev) => prev.filter((id) => id !== idAula));
+    }
+
+    function handleElegirAulaPrincipal(aula) {
+        setIdAulaSeleccionadaRegular(String(aula.idAula));
+        setStrBusquedaAulaPrincipal("");
+        setBoolCambiandoAulaRegular(false);
+        setBoolSugerenciasAulaPrincipalVisibles(false);
+    }
+
+    function handleRestablecerAulaPrincipal() {
+        setIdAulaSeleccionadaRegular(null);
+        setBoolCambiandoAulaRegular(false);
     }
 
     function handleToggleNormaGeneral(idNorma) {
@@ -278,6 +351,14 @@ export default function ExamenForm({ onCancelar }) {
             setStrMensaje("No se pudo obtener el código SIS del docente. Intente recargar la página.");
             return;
         }
+
+        // No se puede programar un examen en una fecha ya pasada.
+        const strHoyISO = new Date().toISOString().slice(0, 10);
+        if (objFormData.fecha && objFormData.fecha < strHoyISO) {
+            setStrMensaje("No se puede programar un examen en una fecha pasada.");
+            return;
+        }
+
         if (strTipoHorario === "REGULAR" && !idHorarioRegularSeleccionado) {
             setStrMensaje("Debe seleccionar un horario regular.");
             return;
@@ -296,6 +377,38 @@ export default function ExamenForm({ onCancelar }) {
             setStrMensaje(
                 `El horario debe estar dentro del horario académico (${HORA_ACADEMICA_INICIO} - ${HORA_ACADEMICA_FIN}).`
             );
+            return;
+        }
+        if (
+            strTipoHorario === "EVENTUAL" &&
+            objEventual.horaInicio &&
+            objEventual.horaFin &&
+            objEventual.horaFin <= objEventual.horaInicio
+        ) {
+            setStrMensaje("La hora de fin debe ser posterior a la hora de inicio.");
+            return;
+        }
+        // Si la fecha elegida es hoy mismo, la hora de inicio ya no puede ser una hora que ya pasó.
+        if (
+            strTipoHorario === "EVENTUAL" &&
+            objFormData.fecha === strHoyISO &&
+            objEventual.horaInicio
+        ) {
+            const strHoraActual = new Date().toTimeString().slice(0, 5);
+            if (objEventual.horaInicio < strHoraActual) {
+                setStrMensaje("La hora de inicio ya pasó para el día de hoy.");
+                return;
+            }
+        }
+        if (
+            boolRequiereDescripcion &&
+            arrTiposExamen.some(
+                (t) =>
+                    !t.requiereDescripcion &&
+                    t.nombreTipoExamen.trim().toLowerCase() === objFormData.detalleTipoExamen.trim().toLowerCase()
+            )
+        ) {
+            setStrMensaje("El nombre no puede coincidir con un tipo de examen fijo existente.");
             return;
         }
         if (boolFechaNoCoincide) {
@@ -332,9 +445,12 @@ export default function ExamenForm({ onCancelar }) {
         }
 
         if (strTipoHorario === "REGULAR") {
-            // El aula principal se saca sola del horario regular. Todo lo que
-            // el docente haya agregado en el buscador es adicional de verdad.
+            // El aula principal se saca del horario regular por defecto, salvo
+            // que el docente la haya reemplazado explícitamente 
             objBody.idHorarioRegular = parseInt(idHorarioRegularSeleccionado, 10);
+            if (idAulaSeleccionadaRegular) {
+                objBody.idAula = parseInt(idAulaSeleccionadaRegular, 10);
+            }
             if (arrIdAulasSeleccionadas.length > 0) {
                 objBody.idsAulasAdicionales = arrIdAulasSeleccionadas.map((id) => parseInt(id, 10));
             }
@@ -391,7 +507,7 @@ export default function ExamenForm({ onCancelar }) {
                         <select
                             name="idAsignatura"
                             value={objFormData.idAsignatura}
-                            onChange={handleChange}
+                            onChange={handleChangeAsignatura}
                             required
                             className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
                         >
@@ -412,27 +528,49 @@ export default function ExamenForm({ onCancelar }) {
                             value={objFormData.idTipoExamen}
                             onChange={handleChange}
                             required
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                            disabled={!objFormData.idAsignatura}
+                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15 disabled:opacity-50 disabled:bg-gray-50"
                         >
                             <option value="" disabled>Seleccione el tipo</option>
                             {arrTiposExamen.map((tipo) => {
-                                // "Otro" (requiereDescripcion) es una opción abierta: puede
-                                // usarse las veces que haga falta, distinguiéndose por el
-                                // texto que el docente escribe cada vez. No cuenta como "ya
-                                // usado" aunque ya se haya elegido antes.
+
                                 const boolYaUsado =
                                     !tipo.requiereDescripcion &&
                                     arrIdTiposUsados.map(String).includes(String(tipo.idTipoExamen));
+
+
+                                const strNombreNormalizado = normalizarNombreTipo(tipo.nombreTipoExamen);
+                                const intPosicionCadena = CADENA_TIPOS.indexOf(strNombreNormalizado);
+                                let boolFaltaPrerrequisito = false;
+                                if (intPosicionCadena > 0) {
+                                    const strNombrePrevio = CADENA_TIPOS[intPosicionCadena - 1];
+                                    const boolPrevioRegistrado = arrTiposExamen.some(
+                                        (t) =>
+                                            normalizarNombreTipo(t.nombreTipoExamen) === strNombrePrevio &&
+                                            arrIdTiposUsados.map(String).includes(String(t.idTipoExamen))
+                                    );
+                                    boolFaltaPrerrequisito = !boolPrevioRegistrado;
+                                }
+
+                                const boolDeshabilitado = boolYaUsado || boolFaltaPrerrequisito;
+
                                 return (
-                                    <option key={tipo.idTipoExamen} value={tipo.idTipoExamen} disabled={boolYaUsado}>
+                                    <option key={tipo.idTipoExamen} value={tipo.idTipoExamen} disabled={boolDeshabilitado}>
                                         {tipo.nombreTipoExamen}
                                         {boolYaUsado ? " (ya registrado)" : ""}
+                                        {!boolYaUsado && boolFaltaPrerrequisito ? " (requiere el anterior)" : ""}
                                     </option>
                                 );
                             })}
                         </select>
                     </div>
                 </div>
+
+                {!objFormData.idAsignatura && (
+                    <p className="text-[11.5px] text-gray-500 -mt-2.5">
+                        Seleccione una asignatura para continuar.
+                    </p>
+                )}
 
                 {boolRequiereDescripcion && (
                     <div>
@@ -455,173 +593,249 @@ export default function ExamenForm({ onCancelar }) {
                     </div>
                 )}
 
-                <div>
-                    <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
-                        Horario <span className="text-red-600">*</span>
-                    </label>
+                <fieldset disabled={!objFormData.idAsignatura} className="space-y-4 disabled:opacity-50">
+                    <div>
+                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                            Horario <span className="text-red-600">*</span>
+                        </label>
 
-                    {arrHorariosRegulares.length > 0 && (
-                        <div className="flex gap-4 mb-2.5">
-                            <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
-                                <input
-                                    type="radio"
-                                    checked={strTipoHorario === "REGULAR"}
-                                    onChange={() => setStrTipoHorario("REGULAR")}
-                                    className="accent-[#163F79]"
-                                />
-                                Horario regular
-                            </label>
-                            <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
-                                <input
-                                    type="radio"
-                                    checked={strTipoHorario === "EVENTUAL"}
-                                    onChange={() => setStrTipoHorario("EVENTUAL")}
-                                    className="accent-[#163F79]"
-                                />
-                                Horario eventual
-                            </label>
-                        </div>
-                    )}
-
-                    {strTipoHorario === "REGULAR" && arrHorariosRegulares.length > 0 && (
-                        <select
-                            value={idHorarioRegularSeleccionado}
-                            onChange={(e) => setIdHorarioRegularSeleccionado(e.target.value)}
-                            required
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
-                        >
-                            <option value="" disabled>Seleccione un horario</option>
-                            {arrHorariosRegulares.map((h) => (
-                                <option key={h.idHorarioRegular} value={h.idHorarioRegular}>
-                                    {DIAS_SEMANA[h.diaSemana]} · {h.horaInicio.slice(0, 5)} - {h.horaFin.slice(0, 5)}
-                                </option>
-                            ))}
-                        </select>
-                    )}
-
-                    {strTipoHorario === "EVENTUAL" && (
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-[11.5px] text-gray-500 mb-1">Hora inicio</label>
-                                <input
-                                    type="time"
-                                    name="horaInicio"
-                                    value={objEventual.horaInicio}
-                                    onChange={handleChangeEventual}
-                                    required
-                                    min={HORA_ACADEMICA_INICIO}
-                                    max={HORA_ACADEMICA_FIN}
-                                    className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[11.5px] text-gray-500 mb-1">Hora fin</label>
-                                <input
-                                    type="time"
-                                    name="horaFin"
-                                    value={objEventual.horaFin}
-                                    onChange={handleChangeEventual}
-                                    required
-                                    min={HORA_ACADEMICA_INICIO}
-                                    max={HORA_ACADEMICA_FIN}
-                                    className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
-                                />
-                            </div>
-                            <p className="text-[11px] text-gray-500 col-span-2">
-                                El horario debe estar dentro del horario académico ({HORA_ACADEMICA_INICIO} - {HORA_ACADEMICA_FIN}).
-                            </p>
-                        </div>
-                    )}
-
-                    {arrHorariosRegulares.length === 0 && objFormData.idAsignatura && (
-                        <p className="text-[11.5px] text-gray-500 mt-1.5">
-                            No tiene un horario regular para esta asignatura, complete un horario eventual.
-                        </p>
-                    )}
-                </div>
-
-                <div>
-                    <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
-                        Fecha del Examen <span className="text-red-600">*</span>
-                    </label>
-                    <input
-                        type="date"
-                        name="fecha"
-                        value={objFormData.fecha}
-                        onChange={handleChange}
-                        required
-                        className={`h-[42px] w-full border rounded-md text-[13.5px] px-3 focus:ring-3 ${boolFechaNoCoincide
-                            ? "border-red-400 focus:border-red-500 focus:ring-red-400/15"
-                            : "border-[#C8D6E8] focus:border-[#2B6CB0] focus:ring-[#2B6CB0]/15"
-                            }`}
-                    />
-                    {boolFechaNoCoincide && (
-                        <p className="text-[11px] text-red-600 mt-1">
-                            La fecha no corresponde a {DIAS_SEMANA[objHorarioSeleccionado.diaSemana]}, el día de ese horario regular.
-                        </p>
-                    )}
-                </div>
-
-                <div className="relative">
-                    <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
-                        Ambiente(s) {strTipoHorario === "EVENTUAL" && <span className="text-red-600">*</span>}
-                    </label>
-
-                    {strTipoHorario === "REGULAR" && objHorarioSeleccionado && (
-                        <div className="flex flex-wrap gap-1.5 mb-2.5">
-                            <span className="inline-flex items-center gap-1.5 bg-[#F4F6FA] text-[#5E6B8A] border border-[#E2E8F0] px-2.5 py-1 rounded-full text-[12px] font-semibold">
-                                {arrAulas.find((a) => a.idAula === objHorarioSeleccionado.idAula)?.nombreAula || "Aula del horario"}
-                            </span>
-                        </div>
-                    )}
-
-                    <div className="relative">
-                        <span className="absolute left-3 top-[13px] text-gray-400">⌕</span>
-                        <input
-                            type="text"
-                            placeholder={strTipoHorario === "REGULAR" ? "Buscar aula adicional (opcional)..." : "Buscar ambiente..."}
-                            value={strBusquedaAula}
-                            onChange={(e) => setStrBusquedaAula(e.target.value)}
-                            onFocus={() => setBoolSugerenciasAulaVisibles(true)}
-                            onBlur={() => setTimeout(() => setBoolSugerenciasAulaVisibles(false), 150)}
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
-                        />
-                        {boolSugerenciasAulaVisibles && arrAulasFiltradas.length > 0 && (
-                            <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
-                                {arrAulasFiltradas.map((aula) => (
-                                    <div
-                                        key={aula.idAula}
-                                        onMouseDown={() => handleAgregarAula(aula)}
-                                        className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
-                                    >
-                                        {aula.nombreAula}
-                                    </div>
-                                ))}
+                        {arrHorariosRegulares.length > 0 && (
+                            <div className="flex gap-4 mb-2.5">
+                                <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        checked={strTipoHorario === "REGULAR"}
+                                        onChange={() => setStrTipoHorario("REGULAR")}
+                                        className="accent-[#163F79]"
+                                    />
+                                    Horario regular
+                                </label>
+                                <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        checked={strTipoHorario === "EVENTUAL"}
+                                        onChange={() => setStrTipoHorario("EVENTUAL")}
+                                        className="accent-[#163F79]"
+                                    />
+                                    Horario eventual
+                                </label>
                             </div>
                         )}
+
+                        {strTipoHorario === "REGULAR" && arrHorariosRegulares.length > 0 && (
+                            <select
+                                value={idHorarioRegularSeleccionado}
+                                onChange={(e) => setIdHorarioRegularSeleccionado(e.target.value)}
+                                required
+                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                            >
+                                <option value="" disabled>Seleccione un horario</option>
+                                {arrHorariosRegulares.map((h) => (
+                                    <option key={h.idHorarioRegular} value={h.idHorarioRegular}>
+                                        {DIAS_SEMANA[h.diaSemana]} · {h.horaInicio.slice(0, 5)} - {h.horaFin.slice(0, 5)}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+
+                        {strTipoHorario === "EVENTUAL" && (
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-[11.5px] text-gray-500 mb-1">Hora inicio</label>
+                                    <input
+                                        type="time"
+                                        name="horaInicio"
+                                        value={objEventual.horaInicio}
+                                        onChange={handleChangeEventual}
+                                        required
+                                        min={HORA_ACADEMICA_INICIO}
+                                        max={HORA_ACADEMICA_FIN}
+                                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[11.5px] text-gray-500 mb-1">Hora fin</label>
+                                    <input
+                                        type="time"
+                                        name="horaFin"
+                                        value={objEventual.horaFin}
+                                        onChange={handleChangeEventual}
+                                        required
+                                        min={HORA_ACADEMICA_INICIO}
+                                        max={HORA_ACADEMICA_FIN}
+                                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
+                                    />
+                                </div>
+                                <p className="text-[11px] text-gray-500 col-span-2">
+                                    Dentro del horario académico ({HORA_ACADEMICA_INICIO} - {HORA_ACADEMICA_FIN}).
+                                </p>
+                            </div>
+                        )}
+
+                        {arrHorariosRegulares.length === 0 && objFormData.idAsignatura && (
+                            <p className="text-[11.5px] text-gray-500 mt-1.5">
+                                No tiene un horario regular para esta asignatura, complete un horario eventual.
+                            </p>
+                        )}
                     </div>
-                    <div className="flex flex-wrap gap-1.5 mt-2.5">
-                        {arrIdAulasSeleccionadas.map((idAula) => {
-                            const aula = arrAulas.find((a) => a.idAula === idAula);
-                            if (!aula) return null;
-                            return (
-                                <span
-                                    key={idAula}
-                                    className="inline-flex items-center gap-1.5 bg-[#EBF3FA] text-[#163F79] border border-[#D3E2F5] px-2.5 py-1 rounded-full text-[12px] font-semibold"
-                                >
-                                    {aula.nombreAula}
-                                    <button
-                                        type="button"
-                                        onClick={() => handleQuitarAula(idAula)}
-                                        className="text-[#2B6CB0] font-bold leading-none"
+
+                    <div>
+                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                            Fecha del Examen <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                            type="date"
+                            name="fecha"
+                            value={objFormData.fecha}
+                            onChange={handleChange}
+                            required
+                            min={new Date().toISOString().slice(0, 10)}
+                            className={`h-[42px] w-full border rounded-md text-[13.5px] px-3 focus:ring-3 ${boolFechaNoCoincide
+                                ? "border-red-400 focus:border-red-500 focus:ring-red-400/15"
+                                : "border-[#C8D6E8] focus:border-[#2B6CB0] focus:ring-[#2B6CB0]/15"
+                                }`}
+                        />
+                        {boolFechaNoCoincide && (
+                            <p className="text-[11px] text-red-600 mt-1">
+                                La fecha no corresponde a {DIAS_SEMANA[objHorarioSeleccionado.diaSemana]}, el día de ese horario regular.
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="relative">
+                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                            Ambiente(s) {strTipoHorario === "EVENTUAL" && <span className="text-red-600">*</span>}
+                        </label>
+
+                        {strTipoHorario === "REGULAR" && objHorarioSeleccionado && (
+                            <div className="mb-2.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <span
+                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold ${idAulaSeleccionadaRegular
+                                            ? "bg-[#EBF3FA] text-[#163F79] border border-[#D3E2F5]"
+                                            : "bg-[#F4F6FA] text-[#5E6B8A] border border-[#E2E8F0]"
+                                            }`}
                                     >
-                                        &times;
-                                    </button>
-                                </span>
-                            );
-                        })}
+                                        {strNombreAulaPrincipalRegular || "Aula del horario"}
+                                    </span>
+                                    {!boolCambiandoAulaRegular && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setBoolCambiandoAulaRegular(true)}
+                                            className="text-[11.5px] text-[#2B6CB0] font-semibold"
+                                        >
+                                            Cambiar aula
+                                        </button>
+                                    )}
+                                    {idAulaSeleccionadaRegular && !boolCambiandoAulaRegular && (
+                                        <button
+                                            type="button"
+                                            onClick={handleRestablecerAulaPrincipal}
+                                            className="text-[11.5px] text-gray-500 font-semibold"
+                                        >
+                                            Usar la aula del horario
+                                        </button>
+                                    )}
+                                </div>
+
+                                {boolCambiandoAulaRegular && (
+                                    <div className="relative mt-2">
+                                        <span className="absolute left-3 top-[13px] text-gray-400">⌕</span>
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar aula de reemplazo..."
+                                            value={strBusquedaAulaPrincipal}
+                                            onChange={(e) => setStrBusquedaAulaPrincipal(e.target.value)}
+                                            onFocus={() => setBoolSugerenciasAulaPrincipalVisibles(true)}
+                                            onBlur={() => setTimeout(() => setBoolSugerenciasAulaPrincipalVisibles(false), 150)}
+                                            autoFocus
+                                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                        />
+                                        {boolSugerenciasAulaPrincipalVisibles && (
+                                            <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
+                                                {arrAulasFiltradasPrincipal.length > 0 ? (
+                                                    arrAulasFiltradasPrincipal.map((aula) => (
+                                                        <div
+                                                            key={aula.idAula}
+                                                            onMouseDown={() => handleElegirAulaPrincipal(aula)}
+                                                            className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
+                                                        >
+                                                            {aula.nombreAula}
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="px-3 py-2 text-[13px] text-gray-500">
+                                                        No se encontraron aulas.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => setBoolCambiandoAulaRegular(false)}
+                                            className="text-[11.5px] text-gray-500 font-semibold mt-1.5"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="relative">
+                            <span className="absolute left-3 top-[13px] text-gray-400">⌕</span>
+                            <input
+                                type="text"
+                                placeholder={strTipoHorario === "REGULAR" ? "Buscar aula adicional (opcional)..." : "Buscar ambiente..."}
+                                value={strBusquedaAula}
+                                onChange={(e) => setStrBusquedaAula(e.target.value)}
+                                onFocus={() => setBoolSugerenciasAulaVisibles(true)}
+                                onBlur={() => setTimeout(() => setBoolSugerenciasAulaVisibles(false), 150)}
+                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                            />
+                            {boolSugerenciasAulaVisibles && (
+                                <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
+                                    {arrAulasFiltradas.length > 0 ? (
+                                        arrAulasFiltradas.map((aula) => (
+                                            <div
+                                                key={aula.idAula}
+                                                onMouseDown={() => handleAgregarAula(aula)}
+                                                className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
+                                            >
+                                                {aula.nombreAula}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="px-3 py-2 text-[13px] text-gray-500">
+                                            No se encontraron aulas.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mt-2.5">
+                            {arrIdAulasSeleccionadas.map((idAula) => {
+                                const aula = arrAulas.find((a) => a.idAula === idAula);
+                                if (!aula) return null;
+                                return (
+                                    <span
+                                        key={idAula}
+                                        className="inline-flex items-center gap-1.5 bg-[#EBF3FA] text-[#163F79] border border-[#D3E2F5] px-2.5 py-1 rounded-full text-[12px] font-semibold"
+                                    >
+                                        {aula.nombreAula}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleQuitarAula(idAula)}
+                                            className="text-[#2B6CB0] font-bold leading-none"
+                                        >
+                                            &times;
+                                        </button>
+                                    </span>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
+                </fieldset>
             </div>
 
             <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
@@ -658,6 +872,7 @@ export default function ExamenForm({ onCancelar }) {
                             type="text"
                             value={strNuevaNormaEspecifica}
                             onChange={(e) => setStrNuevaNormaEspecifica(e.target.value)}
+                            maxLength={100}
                             placeholder={
                                 intIndexNormaEnEdicion !== null
                                     ? "Edite la indicación"

@@ -29,6 +29,21 @@ const DIAS_SEMANA = {
 const HORA_ACADEMICA_INICIO = "06:45";
 const HORA_ACADEMICA_FIN = "21:45";
 
+// Cadena de prerrequisitos entre tipos de examen fijos (Segundo parcial
+// requiere Primer parcial ya registrado, y así sucesivamente). "Otro" queda
+// fuera de esta cadena a propósito. Heurística por nombre normalizado, ya
+// que el catálogo no trae un campo de "orden" — si Neil cambia estos
+// nombres en la BD, hay que ajustar este arreglo.
+const CADENA_TIPOS = ["primer parcial", "segundo parcial", "examen final", "segunda instancia"];
+
+function normalizarNombreTipo(strNombre) {
+    return (strNombre || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+}
+
 function diaSemanaDeFecha(strFechaYYYYMMDD) {
     if (!strFechaYYYYMMDD) return null;
     const d = new Date(`${strFechaYYYYMMDD}T00:00:00`);
@@ -83,7 +98,9 @@ export default function ExamenFormAdmin({
     const [arrDocentes, setArrDocentes] = useState([]);
     const [idUsuarioDocente, setIdUsuarioDocente] = useState("");
 
-
+    // Código SIS del docente elegido. GET /api/admin/docentes devuelve el
+    // campo como "codsisDocente" (distinto del "codigoSis" que traía el
+    // endpoint viejo /api/admin/usuarios).
     const objDocenteSeleccionado = arrDocentes.find(
         (d) => String(d.idUsuario) === String(idUsuarioDocente)
     );
@@ -111,6 +128,18 @@ export default function ExamenFormAdmin({
     const [strBusquedaAula, setStrBusquedaAula] = useState("");
     const [boolSugerenciasAulaVisibles, setBoolSugerenciasAulaVisibles] = useState(false);
 
+    // Reemplazo del aula principal para REGULAR (Neil, 27/09/2026: el backend
+    // ahora acepta idAula también cuando tipoHorario=REGULAR, para reemplazar
+    // el aula por defecto del horario regular en vez de solo poder agregar
+    // aulas adicionales). null = usar la del horario regular, sin cambios.
+    const [idAulaSeleccionadaRegular, setIdAulaSeleccionadaRegular] = useState(null);
+    const [boolCambiandoAulaRegular, setBoolCambiandoAulaRegular] = useState(false);
+    const [strBusquedaAulaPrincipal, setStrBusquedaAulaPrincipal] = useState("");
+    const [boolSugerenciasAulaPrincipalVisibles, setBoolSugerenciasAulaPrincipalVisibles] = useState(false);
+
+    // Tipos de examen que este docente ya registró para la asignatura elegida
+    // (GET /api/examenes/tipos-usados) — el backend igual lo bloquea al
+    // guardar, pero así no se deja ni elegirlos desde la interfaz.
     const [arrIdTiposUsados, setArrIdTiposUsados] = useState([]);
 
     const [arrAulas, setArrAulas] = useState([]);
@@ -123,7 +152,10 @@ export default function ExamenFormAdmin({
     const [strMensaje, setStrMensaje] = useState("");
     const [strTipoMensaje, setStrTipoMensaje] = useState("error"); // "error" | "exito"
 
-
+    // Precarga en dos pasos al editar: primero los datos "simples" del
+    // examen (docente, asignatura, tipo, fecha, normas particulares), y
+    // luego -una vez que arrHorariosRegulares terminó de cargar para esa
+    // asignatura- el horario/aula, que depende de esa lista.
     const [boolPrefillDatosHecho, setBoolPrefillDatosHecho] = useState(false);
     const [boolPrefillAmbienteHecho, setBoolPrefillAmbienteHecho] = useState(false);
 
@@ -137,18 +169,32 @@ export default function ExamenFormAdmin({
         strTipoHorario,
         idHorarioRegularSeleccionado,
         arrIdAulasSeleccionadas,
+        idAulaSeleccionadaRegular,
         objEventual,
         arrIdNormasSeleccionadas,
         arrNormasEspecificas,
     ]);
 
+    // Los mensajes de error/éxito también desaparecen solos después de un
+    // rato, sin que el admin tenga que tocar el formulario.
+    useEffect(() => {
+        if (!strMensaje) return;
+        const idTimer = setTimeout(() => setStrMensaje(""), 6000);
+        return () => clearTimeout(idTimer);
+    }, [strMensaje]);
 
+    // Lista de docentes activos para el selector (GET /api/admin/docentes,
+    // distinto de /api/admin/usuarios?rol=DOCENTE que usábamos antes)
     useEffect(() => {
         obtenerDocentesAdmin()
             .then(setArrDocentes)
             .catch(() => setArrDocentes([]));
     }, []);
 
+    // ===== Precarga al editar (paso 1: datos simples) =====
+    // Se espera a que arrDocentes tenga contenido para poder resolver el
+    // codsisDocente del docente dueño del examen (viene del selector, no
+    // del propio examen).
     useEffect(() => {
         if (!boolEditando || boolPrefillDatosHecho || arrDocentes.length === 0) return;
 
@@ -162,10 +208,21 @@ export default function ExamenFormAdmin({
         setArrNormasEspecificas(
             (arrNormasParticularesExamenAEditar || []).map((n) => n.descripcionNorma)
         );
+        // Neil, 27/09/2026: ExamenRespuestaDto ahora trae "normasGenerales"
+        // embebido (mismo shape que el catálogo: idNormaGeneral/descripcionNorma),
+        // así que ya se puede precargar sin pedir nada aparte.
+        setArrIdNormasSeleccionadas(
+            (objExamenAEditar.normasGenerales || []).map((n) => n.idNormaGeneral)
+        );
         setBoolPrefillDatosHecho(true);
     }, [boolEditando, boolPrefillDatosHecho, arrDocentes, objExamenAEditar, arrNormasParticularesExamenAEditar]);
 
-
+    // ===== Precarga al editar (paso 2: horario y aula(s)) =====
+    // Neil, 27/09/2026: /api/examenes/{id}/ambientes ahora sí devuelve
+    // idHorarioRegular en cada ambiente, así que para REGULAR ya no hace
+    // falta adivinar el horario por coincidencia de aula+hora+día — se usa
+    // directamente. Si además el idAula del ambiente principal no coincide
+    // con el del horario (fue reemplazada), se precarga como reemplazo.
     useEffect(() => {
         if (!boolEditando || boolPrefillAmbienteHecho || !boolPrefillDatosHecho) return;
         if (!Array.isArray(arrAmbientesExamenAEditar)) return; // todavía "cargando" o "error"
@@ -178,16 +235,18 @@ export default function ExamenFormAdmin({
             if (arrHorariosRegulares.length === 0) return; // esperar a que carguen
 
             setStrTipoHorario("REGULAR");
-            const intDiaExamen = diaSemanaDeFecha(objExamenAEditar.fechaExamen?.slice(0, 10));
-            const horarioEncontrado = arrHorariosRegulares.find(
-                (h) =>
-                    h.idAula === principal?.idAula &&
-                    h.horaInicio === principal?.horaInicio &&
-                    h.horaFin === principal?.horaFin &&
-                    h.diaSemana === intDiaExamen
+            if (principal?.idHorarioRegular) {
+                setIdHorarioRegularSeleccionado(String(principal.idHorarioRegular));
+            }
+            const horarioCorrespondiente = arrHorariosRegulares.find(
+                (h) => String(h.idHorarioRegular) === String(principal?.idHorarioRegular)
             );
-            if (horarioEncontrado) {
-                setIdHorarioRegularSeleccionado(String(horarioEncontrado.idHorarioRegular));
+            if (
+                horarioCorrespondiente &&
+                principal?.idAula != null &&
+                principal.idAula !== horarioCorrespondiente.idAula
+            ) {
+                setIdAulaSeleccionadaRegular(String(principal.idAula));
             }
             setArrIdAulasSeleccionadas(arrAmbientes.slice(1).map((a) => a.idAula));
         } else {
@@ -244,7 +303,13 @@ export default function ExamenFormAdmin({
         obtenerHorariosRegulares(idUsuarioDocente, intCodsisDocente, objFormData.idAsignatura)
             .then((horarios) => {
                 setArrHorariosRegulares(horarios);
-
+                // Al editar, el tipo de horario (REGULAR/EVENTUAL) lo decide
+                // el examen real, vía el efecto de precarga de ambiente más
+                // abajo — no hay que pisarlo con el default de "si tiene
+                // horarios regulares, asumir REGULAR" (eso es correcto solo
+                // al registrar uno nuevo, y este fetch resuelve después de
+                // que ya se precargó el tipo correcto, causando que siempre
+                // se viera REGULAR marcado aunque el examen fuera eventual).
                 if (!boolEditando) {
                     setStrTipoHorario(horarios.length > 0 ? "REGULAR" : "EVENTUAL");
                 }
@@ -279,22 +344,45 @@ export default function ExamenFormAdmin({
         objFormData.fecha &&
         diaSemanaDeFecha(objFormData.fecha) !== objHorarioSeleccionado.diaSemana;
 
-    // En REGULAR, excluye también el aula principal del horario elegido
-    // (para no dejar que la agreguen otra vez como "adicional" -> error 400).
+    // Aula principal real para REGULAR: la del horario por defecto, salvo que
+    // se haya elegido un reemplazo (idAulaSeleccionadaRegular).
+    const intIdAulaPrincipalRegular = idAulaSeleccionadaRegular
+        ? parseInt(idAulaSeleccionadaRegular, 10)
+        : objHorarioSeleccionado?.idAula;
+    const strNombreAulaPrincipalRegular = arrAulas.find(
+        (a) => a.idAula === intIdAulaPrincipalRegular
+    )?.nombreAula;
+
+    // En REGULAR, excluye también el aula principal actual (por defecto o
+    // reemplazada) de las sugerencias de aula adicional (para no dejar que
+    // la agreguen otra vez como "adicional" -> error 400).
     const arrAulasFiltradas = arrAulas.filter(
         (aula) =>
             !arrIdAulasSeleccionadas.includes(aula.idAula) &&
-            !(strTipoHorario === "REGULAR" && objHorarioSeleccionado && aula.idAula === objHorarioSeleccionado.idAula) &&
+            !(strTipoHorario === "REGULAR" && aula.idAula === intIdAulaPrincipalRegular) &&
             aula.nombreAula.toLowerCase().includes(strBusquedaAula.toLowerCase())
     );
 
-    function handleChangeDocente(e) {
+    // Sugerencias para el buscador de reemplazo del aula principal (excluye
+    // la actual y las ya elegidas como adicionales).
+    const arrAulasFiltradasPrincipal = arrAulas.filter(
+        (aula) =>
+            aula.idAula !== intIdAulaPrincipalRegular &&
+            !arrIdAulasSeleccionadas.includes(aula.idAula) &&
+            aula.nombreAula.toLowerCase().includes(strBusquedaAulaPrincipal.toLowerCase())
+    );
 
+    function handleChangeDocente(e) {
+        // Si ya había una asignatura/tipo/horario elegidos para el docente
+        // anterior, no tienen por qué seguir siendo válidos para el nuevo
+        // (la asignatura ni siquiera le pertenece). Se limpia todo lo que
+        // depende del docente para forzar a elegir de nuevo.
         setIdUsuarioDocente(e.target.value);
         setObjFormData((prev) => ({ ...prev, idAsignatura: "", idTipoExamen: "", detalleTipoExamen: "" }));
         setArrHorariosRegulares([]);
         setStrTipoHorario("REGULAR");
         setIdHorarioRegularSeleccionado("");
+        setIdAulaSeleccionadaRegular(null);
         setArrIdAulasSeleccionadas([]);
         setObjEventual({ horaInicio: "", horaFin: "" });
     }
@@ -302,6 +390,20 @@ export default function ExamenFormAdmin({
     function handleChange(e) {
         const { name, value } = e.target;
         setObjFormData((prev) => ({ ...prev, [name]: value }));
+    }
+
+    function handleChangeAsignatura(e) {
+        const strValor = e.target.value;
+        // La asignatura puede cambiar independientemente del docente; si eso
+        // pasa, el tipo/horario/fecha/ambientes elegidos ya no corresponden
+        // (antes se quedaban pegados de la asignatura anterior).
+        setObjFormData((prev) => ({ ...prev, idAsignatura: strValor, idTipoExamen: "", detalleTipoExamen: "", fecha: "" }));
+        setArrHorariosRegulares([]);
+        setStrTipoHorario("REGULAR");
+        setIdHorarioRegularSeleccionado("");
+        setIdAulaSeleccionadaRegular(null);
+        setArrIdAulasSeleccionadas([]);
+        setObjEventual({ horaInicio: "", horaFin: "" });
     }
 
     function handleChangeEventual(e) {
@@ -319,6 +421,18 @@ export default function ExamenFormAdmin({
 
     function handleQuitarAula(idAula) {
         setArrIdAulasSeleccionadas((prev) => prev.filter((id) => id !== idAula));
+    }
+
+    function handleElegirAulaPrincipal(aula) {
+        setIdAulaSeleccionadaRegular(String(aula.idAula));
+        setStrBusquedaAulaPrincipal("");
+        setBoolCambiandoAulaRegular(false);
+        setBoolSugerenciasAulaPrincipalVisibles(false);
+    }
+
+    function handleRestablecerAulaPrincipal() {
+        setIdAulaSeleccionadaRegular(null);
+        setBoolCambiandoAulaRegular(false);
     }
 
     function handleToggleNormaGeneral(idNorma) {
@@ -347,6 +461,17 @@ export default function ExamenFormAdmin({
             setStrMensaje("Debe seleccionar para qué docente es el examen.");
             return;
         }
+
+        // No se puede programar un examen en una fecha ya pasada. Al editar,
+        // no se bloquea (un examen histórico puede seguir teniendo su fecha
+        // real en el pasado; lo que no se permite es MOVER uno a una fecha
+        // ya pasada al registrar uno nuevo).
+        const strHoyISO = new Date().toISOString().slice(0, 10);
+        if (!boolEditando && objFormData.fecha && objFormData.fecha < strHoyISO) {
+            setStrMensaje("No se puede programar un examen en una fecha pasada.");
+            return;
+        }
+
         if (strTipoHorario === "REGULAR" && !idHorarioRegularSeleccionado) {
             setStrMensaje("Debe seleccionar un horario regular.");
             return;
@@ -368,6 +493,39 @@ export default function ExamenFormAdmin({
             setStrMensaje(
                 `El horario debe estar dentro del horario académico (${HORA_ACADEMICA_INICIO} - ${HORA_ACADEMICA_FIN}).`
             );
+            return;
+        }
+        if (
+            strTipoHorario === "EVENTUAL" &&
+            objEventual.horaInicio &&
+            objEventual.horaFin &&
+            objEventual.horaFin <= objEventual.horaInicio
+        ) {
+            setStrMensaje("La hora de fin debe ser posterior a la hora de inicio.");
+            return;
+        }
+        // Si la fecha elegida es hoy mismo, la hora de inicio ya no puede ser una hora que ya pasó.
+        if (
+            !boolEditando &&
+            strTipoHorario === "EVENTUAL" &&
+            objFormData.fecha === strHoyISO &&
+            objEventual.horaInicio
+        ) {
+            const strHoraActual = new Date().toTimeString().slice(0, 5);
+            if (objEventual.horaInicio < strHoraActual) {
+                setStrMensaje("La hora de inicio ya pasó para el día de hoy.");
+                return;
+            }
+        }
+        if (
+            boolRequiereDescripcion &&
+            arrTiposExamen.some(
+                (t) =>
+                    !t.requiereDescripcion &&
+                    t.nombreTipoExamen.trim().toLowerCase() === objFormData.detalleTipoExamen.trim().toLowerCase()
+            )
+        ) {
+            setStrMensaje("El nombre no puede coincidir con un tipo de examen fijo existente.");
             return;
         }
         if (boolFechaNoCoincide) {
@@ -401,7 +559,13 @@ export default function ExamenFormAdmin({
 
         if (strTipoHorario === "REGULAR") {
             objBody.idHorarioRegular = parseInt(idHorarioRegularSeleccionado, 10);
-
+            // El aula principal se saca del horario regular por defecto, salvo
+            // que el admin la haya reemplazado explícitamente (Neil, 27/09/2026:
+            // el backend ahora acepta idAula también en REGULAR para eso).
+            if (idAulaSeleccionadaRegular) {
+                objBody.idAula = parseInt(idAulaSeleccionadaRegular, 10);
+            }
+            // Lo que el admin haya buscado acá aparte son aulas EXTRA, todas opcionales.
             if (arrIdAulasSeleccionadas.length > 0) {
                 objBody.idsAulasAdicionales = arrIdAulasSeleccionadas.map((id) => parseInt(id, 10));
             }
@@ -493,7 +657,7 @@ export default function ExamenFormAdmin({
                 </div>
 
                 <div className="p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-3.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
                             <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
                                 Asignatura <span className="text-red-600">*</span>
@@ -501,7 +665,7 @@ export default function ExamenFormAdmin({
                             <select
                                 name="idAsignatura"
                                 value={objFormData.idAsignatura}
-                                onChange={handleChange}
+                                onChange={handleChangeAsignatura}
                                 required
                                 className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
                             >
@@ -526,15 +690,41 @@ export default function ExamenFormAdmin({
                             >
                                 <option value="" disabled>Seleccione el tipo</option>
                                 {arrTiposExamen.map((tipo) => {
-
+                                    // Al editar, el propio tipo del examen no cuenta como "ya usado"
+                                    // (si no, ni siquiera se podría guardar sin cambiar de tipo).
+                                    // "Otro" (requiereDescripcion) es una opción abierta, se puede
+                                    // usar más de una vez distinguiéndose por el texto escrito.
+                                    const boolEsElTipoActual =
+                                        boolEditando && String(objExamenAEditar.idTipoExamen) === String(tipo.idTipoExamen);
                                     const boolYaUsado =
                                         !tipo.requiereDescripcion &&
                                         arrIdTiposUsados.map(String).includes(String(tipo.idTipoExamen)) &&
-                                        !(boolEditando && String(objExamenAEditar.idTipoExamen) === String(tipo.idTipoExamen));
+                                        !boolEsElTipoActual;
+
+                                    // Cadena de prerrequisitos: si este tipo está en la cadena
+                                    // fija y el anterior de la cadena todavía no fue registrado
+                                    // (por nombre, ver CADENA_TIPOS arriba), se deshabilita —
+                                    // salvo que sea el propio tipo actual del examen en edición.
+                                    const strNombreNormalizado = normalizarNombreTipo(tipo.nombreTipoExamen);
+                                    const intPosicionCadena = CADENA_TIPOS.indexOf(strNombreNormalizado);
+                                    let boolFaltaPrerrequisito = false;
+                                    if (intPosicionCadena > 0 && !boolEsElTipoActual) {
+                                        const strNombrePrevio = CADENA_TIPOS[intPosicionCadena - 1];
+                                        const boolPrevioRegistrado = arrTiposExamen.some(
+                                            (t) =>
+                                                normalizarNombreTipo(t.nombreTipoExamen) === strNombrePrevio &&
+                                                arrIdTiposUsados.map(String).includes(String(t.idTipoExamen))
+                                        );
+                                        boolFaltaPrerrequisito = !boolPrevioRegistrado;
+                                    }
+
+                                    const boolDeshabilitado = boolYaUsado || boolFaltaPrerrequisito;
+
                                     return (
-                                        <option key={tipo.idTipoExamen} value={tipo.idTipoExamen} disabled={boolYaUsado}>
+                                        <option key={tipo.idTipoExamen} value={tipo.idTipoExamen} disabled={boolDeshabilitado}>
                                             {tipo.nombreTipoExamen}
                                             {boolYaUsado ? " (ya registrado)" : ""}
+                                            {!boolYaUsado && boolFaltaPrerrequisito ? " (requiere el anterior)" : ""}
                                         </option>
                                     );
                                 })}
@@ -577,6 +767,7 @@ export default function ExamenFormAdmin({
                                         onChange={() => {
                                             setStrTipoHorario("REGULAR");
                                             setArrIdAulasSeleccionadas([]);
+                                            setIdAulaSeleccionadaRegular(null);
                                         }}
                                         className="accent-[#163F79]"
                                     />
@@ -589,6 +780,7 @@ export default function ExamenFormAdmin({
                                         onChange={() => {
                                             setStrTipoHorario("EVENTUAL");
                                             setArrIdAulasSeleccionadas([]);
+                                            setIdAulaSeleccionadaRegular(null);
                                         }}
                                         className="accent-[#163F79]"
                                     />
@@ -604,6 +796,7 @@ export default function ExamenFormAdmin({
                                     setIdHorarioRegularSeleccionado(e.target.value);
                                     setObjFormData((prev) => ({ ...prev, fecha: "" }));
                                     setArrIdAulasSeleccionadas([]);
+                                    setIdAulaSeleccionadaRegular(null);
                                 }}
                                 required
                                 className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
@@ -623,10 +816,77 @@ export default function ExamenFormAdmin({
                                     Ambiente(s)
                                 </label>
                                 {objHorarioSeleccionado && (
-                                    <div className="flex flex-wrap gap-1.5 mb-2.5">
-                                        <span className="inline-flex items-center gap-1.5 bg-[#F4F6FA] text-[#5E6B8A] border border-[#E2E8F0] px-2.5 py-1 rounded-full text-[12px] font-semibold">
-                                            {arrAulas.find((a) => a.idAula === objHorarioSeleccionado.idAula)?.nombreAula || "Aula del horario"}
-                                        </span>
+                                    <div className="mb-2.5">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <span
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold ${idAulaSeleccionadaRegular
+                                                        ? "bg-[#EBF3FA] text-[#163F79] border border-[#D3E2F5]"
+                                                        : "bg-[#F4F6FA] text-[#5E6B8A] border border-[#E2E8F0]"
+                                                    }`}
+                                            >
+                                                {strNombreAulaPrincipalRegular || "Aula del horario"}
+                                            </span>
+                                            {!boolCambiandoAulaRegular && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setBoolCambiandoAulaRegular(true)}
+                                                    className="text-[11.5px] text-[#2B6CB0] font-semibold"
+                                                >
+                                                    Cambiar aula
+                                                </button>
+                                            )}
+                                            {idAulaSeleccionadaRegular && !boolCambiandoAulaRegular && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleRestablecerAulaPrincipal}
+                                                    className="text-[11.5px] text-gray-500 font-semibold"
+                                                >
+                                                    Usar la aula del horario
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {boolCambiandoAulaRegular && (
+                                            <div className="relative mt-2">
+                                                <span className="absolute left-3 top-[13px] text-gray-400">⌕</span>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Buscar aula de reemplazo..."
+                                                    value={strBusquedaAulaPrincipal}
+                                                    onChange={(e) => setStrBusquedaAulaPrincipal(e.target.value)}
+                                                    onFocus={() => setBoolSugerenciasAulaPrincipalVisibles(true)}
+                                                    onBlur={() => setTimeout(() => setBoolSugerenciasAulaPrincipalVisibles(false), 150)}
+                                                    autoFocus
+                                                    className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                                />
+                                                {boolSugerenciasAulaPrincipalVisibles && (
+                                                    <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
+                                                        {arrAulasFiltradasPrincipal.length > 0 ? (
+                                                            arrAulasFiltradasPrincipal.map((aula) => (
+                                                                <div
+                                                                    key={aula.idAula}
+                                                                    onMouseDown={() => handleElegirAulaPrincipal(aula)}
+                                                                    className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
+                                                                >
+                                                                    {aula.nombreAula}
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="px-3 py-2 text-[13px] text-gray-500">
+                                                                No se encontraron aulas.
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setBoolCambiandoAulaRegular(false)}
+                                                    className="text-[11.5px] text-gray-500 font-semibold mt-1.5"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 <label className="block text-[11.5px] text-gray-500 mb-1">
@@ -643,17 +903,23 @@ export default function ExamenFormAdmin({
                                         onBlur={() => setTimeout(() => setBoolSugerenciasAulaVisibles(false), 150)}
                                         className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
                                     />
-                                    {boolSugerenciasAulaVisibles && arrAulasFiltradas.length > 0 && (
+                                    {boolSugerenciasAulaVisibles && (
                                         <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
-                                            {arrAulasFiltradas.map((aula) => (
-                                                <div
-                                                    key={aula.idAula}
-                                                    onMouseDown={() => handleAgregarAula(aula)}
-                                                    className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
-                                                >
-                                                    {aula.nombreAula}
+                                            {arrAulasFiltradas.length > 0 ? (
+                                                arrAulasFiltradas.map((aula) => (
+                                                    <div
+                                                        key={aula.idAula}
+                                                        onMouseDown={() => handleAgregarAula(aula)}
+                                                        className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
+                                                    >
+                                                        {aula.nombreAula}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="px-3 py-2 text-[13px] text-gray-500">
+                                                    No se encontraron aulas.
                                                 </div>
-                                            ))}
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -696,17 +962,23 @@ export default function ExamenFormAdmin({
                                             onBlur={() => setTimeout(() => setBoolSugerenciasAulaVisibles(false), 150)}
                                             className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
                                         />
-                                        {boolSugerenciasAulaVisibles && arrAulasFiltradas.length > 0 && (
+                                        {boolSugerenciasAulaVisibles && (
                                             <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
-                                                {arrAulasFiltradas.map((aula) => (
-                                                    <div
-                                                        key={aula.idAula}
-                                                        onMouseDown={() => handleAgregarAula(aula)}
-                                                        className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
-                                                    >
-                                                        {aula.nombreAula}
+                                                {arrAulasFiltradas.length > 0 ? (
+                                                    arrAulasFiltradas.map((aula) => (
+                                                        <div
+                                                            key={aula.idAula}
+                                                            onMouseDown={() => handleAgregarAula(aula)}
+                                                            className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
+                                                        >
+                                                            {aula.nombreAula}
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="px-3 py-2 text-[13px] text-gray-500">
+                                                        No se encontraron aulas.
                                                     </div>
-                                                ))}
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -733,7 +1005,7 @@ export default function ExamenFormAdmin({
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-[11.5px] text-gray-500 mb-1">Hora inicio</label>
                                         <input
@@ -784,9 +1056,10 @@ export default function ExamenFormAdmin({
                             value={objFormData.fecha}
                             onChange={handleChange}
                             required
+                            min={boolEditando ? undefined : new Date().toISOString().slice(0, 10)}
                             className={`h-[42px] w-full border rounded-md text-[13.5px] px-3 focus:ring-3 ${boolFechaNoCoincide
-                                ? "border-red-400 focus:border-red-500 focus:ring-red-400/15"
-                                : "border-[#C8D6E8] focus:border-[#2B6CB0] focus:ring-[#2B6CB0]/15"
+                                    ? "border-red-400 focus:border-red-500 focus:ring-red-400/15"
+                                    : "border-[#C8D6E8] focus:border-[#2B6CB0] focus:ring-[#2B6CB0]/15"
                                 }`}
                         />
                         {boolFechaNoCoincide && (
@@ -807,11 +1080,6 @@ export default function ExamenFormAdmin({
                         <label className="block text-[12.5px] font-semibold text-[#163F79] mb-2">
                             Normas generales
                         </label>
-                        {boolEditando && (
-                            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-2.5">
-                                El backend todavía no informa qué normas generales tenía marcadas este examen, así que no se pudieron precargar. Vuelva a marcar las que correspondan antes de guardar — de lo contrario, se quitarán del examen.
-                            </p>
-                        )}
                         <div className="flex flex-col gap-2">
                             {arrNormasGeneralesCatalogo.map((norma) => (
                                 <label key={norma.idNormaGeneral} className="flex items-start gap-2 text-[13px] text-gray-700 cursor-pointer">
@@ -836,6 +1104,7 @@ export default function ExamenFormAdmin({
                                 type="text"
                                 value={strNuevaNormaEspecifica}
                                 onChange={(e) => setStrNuevaNormaEspecifica(e.target.value)}
+                                maxLength={100}
                                 placeholder="Escriba una indicación y presione Agregar"
                                 className="h-[38px] flex-1 border border-[#C8D6E8] rounded-md text-[13px] px-3"
                             />
@@ -877,7 +1146,7 @@ export default function ExamenFormAdmin({
                 </p>
             )}
 
-            <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-t border-gray-100">
                 <span className="text-[11.5px] text-gray-500">
                     Campos con (<span className="text-red-600">*</span>) son obligatorios
                 </span>
