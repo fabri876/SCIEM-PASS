@@ -1,0 +1,172 @@
+package bo.edu.umss.windsoft.control_ingreso_backend.infraestructura;
+
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CredencialesInvalidasException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CuentaBloqueadaException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CuentaInactivaException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoDuplicadoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ErrorResponseDto;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    // --- Excepciones del flujo de auto-registro genérico (RegistroUsuarioService) ---
+    // Nota: bo.edu.umss...infraestructura.RecursoDuplicadoException es una clase distinta
+    // de bo.edu.umss...dominio.exception.RecursoDuplicadoException (mismo nombre simple,
+    // paquete distinto), por eso se referencia con el nombre completo aquí abajo.
+
+    @ExceptionHandler(bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.RecursoDuplicadoException.class)
+    public ResponseEntity<Map<String, String>> handleRecursoDuplicadoRegistro(
+            bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.RecursoDuplicadoException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("mensaje", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(ValidacionNegocioException.class)
+    public ResponseEntity<Map<String, String>> handleValidacionNegocio(ValidacionNegocioException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("mensaje", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("mensaje", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    // --- Excepciones del módulo de administración de usuarios/roles/auditoría (HU16) ---
+
+    @ExceptionHandler(RecursoNoEncontradoException.class)
+    public ResponseEntity<ErrorResponseDto> handleNotFound(RecursoNoEncontradoException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.NOT_FOUND.value(),
+                "Not Found",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+    }
+
+    @ExceptionHandler(RecursoDuplicadoException.class)
+    public ResponseEntity<ErrorResponseDto> handleConflict(RecursoDuplicadoException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
+    }
+
+    @ExceptionHandler(SolicitudInvalidaException.class)
+    public ResponseEntity<ErrorResponseDto> handleBadRequest(SolicitudInvalidaException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+    }
+
+    @ExceptionHandler(CredencialesInvalidasException.class)
+    public ResponseEntity<ErrorResponseDto> handleUnauthorized(CredencialesInvalidasException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.UNAUTHORIZED.value(),
+                "Unauthorized",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorDto);
+    }
+
+    @ExceptionHandler(CuentaBloqueadaException.class)
+    public ResponseEntity<ErrorResponseDto> handleBlocked(CuentaBloqueadaException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.FORBIDDEN.value(),
+                "Forbidden",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
+    }
+
+    @ExceptionHandler(CuentaInactivaException.class)
+    public ResponseEntity<ErrorResponseDto> handleInactive(CuentaInactivaException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.FORBIDDEN.value(),
+                "Forbidden",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponseDto> handleAccessDenied(AccessDeniedException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.FORBIDDEN.value(),
+                "Forbidden",
+                "Acceso denegado: no cuenta con los permisos necesarios para realizar esta acción."
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
+    }
+
+    // --- Compartidas por ambos flujos ---
+    // Solo puede existir un @ExceptionHandler por tipo de excepción en toda la clase,
+    // así que esta usa el formato ErrorResponseDto (HU16) pero conserva en "mensaje"
+    // el mismo texto (primer error de campo) que ya devolvía el flujo de registro.
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponseDto> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errores = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach(error -> {
+            String nombreCampo = ((FieldError) error).getField();
+            String mensajeError = error.getDefaultMessage();
+            errores.put(nombreCampo, mensajeError);
+        });
+
+        String primerMensaje = ex.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage)
+                .findFirst()
+                .orElse("Datos de entrada inválidos.");
+
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                primerMensaje,
+                errores
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponseDto> handleHttpMessageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        String mensaje = "El formato del JSON enviado es inválido. Verifique la sintaxis: comas de más, llaves sin cerrar o comillas faltantes.";
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                mensaje
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponseDto> handleGeneral(Exception ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Internal Server Error",
+                "Ha ocurrido un error inesperado en el servidor: " + ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+    }
+}
