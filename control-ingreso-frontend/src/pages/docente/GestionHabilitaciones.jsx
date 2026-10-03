@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { obtenerHabilitaciones, actualizarHabilitacion } from "../../services/habilitacionService";
+import { obtenerHabilitaciones, actualizarHabilitacion, exportarListaOficial } from "../../services/habilitacionService";
+import { obtenerExamenPorId } from "../../services/examenService";
+import { obtenerExamenPorAsignatura } from "../../services/asignaturaService";
 import Icono from "./components/Icono";
 import Toast from "./components/Toast";
 import DocenteHeader from "./components/DocenteHeader";
@@ -21,90 +23,10 @@ const MOTIVOS_PREDEFINIDOS = [
     "Medida disciplinaria académica vigente por Consejo Facultativo"
 ];
 
-// Filas por pagina. Con los datos de muestra de este modulo (10 estudiantes en
-// Inteligencia Artificial y 15 en Machine Learning) queda en 1 y 2 paginas
-// respectivamente, que es lo que se ve al realista en un parcial.
 const ELEMENTOS_POR_PAGINA = 10;
 
-// BUG-009 (QA): esta vista navega con :idExamen pero el endpoint de
-// habilitaciones filtra por idAsignatura, asi que hoy la API siempre responde
-// [] y la pantalla queda vacia (EXAMEN/FECHA/HORA/AMBIENTE en "---" y tabla sin
-// filas). Estos datos de muestra son SOLO de desarrollo para poder revisar el
-// diseno; en cuanto exista el endpoint que resuelva idExamen -> idAsignatura se
-// sustituyen por la respuesta real.
-//
-// Cada examen de HomeDocente tiene su propio bloque, porque el idExamen de la
-// ruta es lo unico que distingue una tarjeta de otra. Antes era un unico objeto
-// estatico y por eso Machine Learning ("idExamen: 2") pintaba los datos de
-// Inteligencia Artificial. Los nombres de examen, aula y horario coinciden con
-// los de HomeDocente.jsx para que las dos pantallas no se contradigan.
-const MOCK_POR_EXAMEN = {
-    1: {
-        // Inteligencia Artificial — Aula 612, 09:00 a 11:00
-        infoExamen: {
-            nombreExamen: 'Primer Parcial',
-            fecha: '2026-09-05',
-            hora: '09:00 - 11:00',
-            duracion: '120 min',
-            ambiente: '612 · Bloque F',
-        },
-        // 10 estudiantes ficticios para validar tabla, buscador, filtros,
-        // paginacion y el flujo de habilitar/inhabilitar. Los motivos coinciden
-        // con MOTIVOS_PREDEFINIDOS para que el selector del drawer los
-        // reconozca, y uno usa motivo libre para ejercitar la rama
-        // "personalizado".
-        estudiantes: [
-            { idHabilitacion: 901, nombreEstudiante: "Carlos", apellidoEstudiante: "Álvarez Rojas", correoEstudiante: "carlos.alvarez@est.umss.edu", codSisEstudiante: 202104512, ciEstudiante: "8492012 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 902, nombreEstudiante: "María René", apellidoEstudiante: "Guzmán Villarroel", correoEstudiante: "maria.guzman@est.umss.edu", codSisEstudiante: 202001948, ciEstudiante: "7391024 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 903, nombreEstudiante: "José Luis", apellidoEstudiante: "Vargas Céspedes", correoEstudiante: "jose.vargas@est.umss.edu", codSisEstudiante: 201908231, ciEstudiante: "6481093 CB", estadoHabilitacion: false, observacionHabilitacion: "Porcentaje de inasistencias superior al límite reglamentario (Art. 42)" },
-            { idHabilitacion: 904, nombreEstudiante: "Andrea", apellidoEstudiante: "Torrico Ribera", correoEstudiante: "andrea.torrico@est.umss.edu", codSisEstudiante: 202203110, ciEstudiante: "9312048 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 905, nombreEstudiante: "Fernando", apellidoEstudiante: "Claros Menacho", correoEstudiante: "fernando.claros@est.umss.edu", codSisEstudiante: 202109822, ciEstudiante: "8203911 CB", estadoHabilitacion: false, observacionHabilitacion: "Trámite de convalidación académica pendiente de resolución" },
-            { idHabilitacion: 906, nombreEstudiante: "Lucía", apellidoEstudiante: "Salazar Serrudo", correoEstudiante: "lucia.salazar@est.umss.edu", codSisEstudiante: 202201445, ciEstudiante: "9102384 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 907, nombreEstudiante: "Diego", apellidoEstudiante: "Mendoza Roca", correoEstudiante: "diego.mendoza@est.umss.edu", codSisEstudiante: 202005611, ciEstudiante: "7810239 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 908, nombreEstudiante: "Camila", apellidoEstudiante: "Rojas Mamani", correoEstudiante: "camila.rojas@est.umss.edu", codSisEstudiante: 202107334, ciEstudiante: "8671209 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 909, nombreEstudiante: "Rodrigo", apellidoEstudiante: "Antezana Cinti", correoEstudiante: "rodrigo.antezana@est.umss.edu", codSisEstudiante: 202004872, ciEstudiante: "7553019 CB", estadoHabilitacion: false, observacionHabilitacion: "Incompatibilidad de prerrequisitos curriculares reglamentarios" },
-            { idHabilitacion: 910, nombreEstudiante: "Gabriela", apellidoEstudiante: "Núñez Peña", correoEstudiante: "gabriela.nunez@est.umss.edu", codSisEstudiante: 202302517, ciEstudiante: "9946803 CB", estadoHabilitacion: false, observacionHabilitacion: "No justifica el retiro de la asignatura ante la Jefatura de Carrera" }
-        ]
-    },
-    2: {
-        // Machine Learning — Aulas 305 y 306, 14:00 a 16:00
-        infoExamen: {
-            nombreExamen: 'Segundo Parcial',
-            fecha: '2026-09-12',
-            hora: '14:00 - 16:00',
-            duracion: '120 min',
-            ambiente: '305 + 306',
-        },
-        // 15 estudiantes ficticios propios de este examen: 9 habilitados y 6
-        // inhabilitados. Con 15 filas la paginacion de 4 por pagina da 4 paginas
-        // (la ultima con 3), que es donde se nota el comportamiento del boton
-        // "siguiente" deshabilitado. Los ids 951-965 no se pisan con los 901-910
-        // de Inteligencia Artificial.
-        estudiantes: [
-            { idHabilitacion: 951, nombreEstudiante: "Adriana", apellidoEstudiante: "Ocampo Villarroel", correoEstudiante: "adriana.ocampo@est.umss.edu", codSisEstudiante: 202101673, ciEstudiante: "8124567 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 952, nombreEstudiante: "Sebastián", apellidoEstudiante: "Quisbert Mamani", correoEstudiante: "sebastian.quisbert@est.umss.edu", codSisEstudiante: 202206914, ciEstudiante: "9260543 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 953, nombreEstudiante: "Daniela", apellidoEstudiante: "Pórcel Guzmán", correoEstudiante: "daniela.porcel@est.umss.edu", codSisEstudiante: 202003185, ciEstudiante: "7053891 CB", estadoHabilitacion: false, observacionHabilitacion: "Porcentaje de inasistencias superior al límite reglamentario (Art. 42)" },
-            { idHabilitacion: 954, nombreEstudiante: "Marco Antonio", apellidoEstudiante: "Añez Choque", correoEstudiante: "marco.anez@est.umss.edu", codSisEstudiante: 202300275, ciEstudiante: "8812470 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 955, nombreEstudiante: "Lucía", apellidoEstudiante: "Mendoza Palomino", correoEstudiante: "lucia.mendoza@est.umss.edu", codSisEstudiante: 202108439, ciEstudiante: "9638015 CB", estadoHabilitacion: false, observacionHabilitacion: "Trámite de convalidación académica pendiente de resolución" },
-            { idHabilitacion: 956, nombreEstudiante: "Rodrigo", apellidoEstudiante: "Apaza Condori", correoEstudiante: "rodrigo.apaza@est.umss.edu", codSisEstudiante: 202203748, ciEstudiante: "7940236 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 957, nombreEstudiante: "Michelle Beatriz", apellidoEstudiante: "Sandoval Loayza", correoEstudiante: "michelle.sandoval@est.umss.edu", codSisEstudiante: 201900562, ciEstudiante: "8506178 CB", estadoHabilitacion: false, observacionHabilitacion: "Incompatibilidad de prerrequisitos curriculares reglamentarios" },
-            { idHabilitacion: 958, nombreEstudiante: "Iván", apellidoEstudiante: "Chumacero Ticona", correoEstudiante: "ivan.chumacero@est.umss.edu", codSisEstudiante: 202205821, ciEstudiante: "9173254 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 959, nombreEstudiante: "Nataly", apellidoEstudiante: "Copa Ortiz", correoEstudiante: "nataly.copa@est.umss.edu", codSisEstudiante: 202104396, ciEstudiante: "7681945 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 960, nombreEstudiante: "Álvaro", apellidoEstudiante: "Justiniano Flores", correoEstudiante: "alvaro.justiniano@est.umss.edu", codSisEstudiante: 202207314, ciEstudiante: "9027361 CB", estadoHabilitacion: false, observacionHabilitacion: "Entrega del carnet de estudiante en fotocopia legible ante la Secretaría Académica" },
-            { idHabilitacion: 961, nombreEstudiante: "Pamela", apellidoEstudiante: "Yana Marca", correoEstudiante: "pamela.yana@est.umss.edu", codSisEstudiante: 202302688, ciEstudiante: "8714028 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 962, nombreEstudiante: "Sergio", apellidoEstudiante: "Yucra Céspedes", correoEstudiante: "sergio.yucra@est.umss.edu", codSisEstudiante: 202006927, ciEstudiante: "7468193 CB", estadoHabilitacion: false, observacionHabilitacion: "Inscripción invalidada por el sistema SIS al detectar doble matrícula en la gestión 2026-1" },
-            { idHabilitacion: 963, nombreEstudiante: "Tatiana", apellidoEstudiante: "Vargas Choque", correoEstudiante: "tatiana.vargas@est.umss.edu", codSisEstudiante: 202111765, ciEstudiante: "8853046 CB", estadoHabilitacion: false, observacionHabilitacion: "Solicitud de retiro de asignatura en trámite ante la Junta Académica de Carrera" },
-            { idHabilitacion: 964, nombreEstudiante: "Héctor", apellidoEstudiante: "Limón Sandoval", correoEstudiante: "hector.limon@est.umss.edu", codSisEstudiante: 202209453, ciEstudiante: "9302715 CB", estadoHabilitacion: true, observacionHabilitacion: "-" },
-            { idHabilitacion: 965, nombreEstudiante: "Bryana Erin", apellidoEstudiante: "Escóbar Villca", correoEstudiante: "bryana.escobar@est.umss.edu", codSisEstudiante: 202105028, ciEstudiante: "8174952 CB", estadoHabilitacion: true, observacionHabilitacion: "-" }
-        ]
-    }
-};
-
-// Cualquier idExamen que no este en el mapa (por ejemplo si se abre la ruta a
-// mano) cae en el bloque 1, que es el primer examen de HomeDocente.
-const MOCK_ID_EXAMEN_POR_DEFECTO = 1;
-
 function normalizarHabilitaciones(lista) {
+    if (!Array.isArray(lista)) return [];
     return lista.map((item) => {
         const estaHabilitado = Boolean(item.estadoHabilitacion ?? (item.estado === 'HABILITADO'));
         const motivoBackend = item.observacionHabilitacion || item.nombreMotivo || item.observacion;
@@ -112,10 +34,10 @@ function normalizarHabilitaciones(lista) {
             idHabilitacion: item.idHabilitacion,
             nombreEstudiante: item.nombreEstudiante || 'Estudiante',
             apellidoEstudiante: item.apellidoEstudiante || '',
-            emailEstudiante: item.correoEstudiante || item.emailEstudiante || `${(item.nombreEstudiante || 'estudiante').toLowerCase().charAt(0)}.${(item.apellidoEstudiante || 'apellido').toLowerCase().split(' ')[0]}@univalle.edu.bo`,
-
+            emailEstudiante: item.correoEstudiante || item.emailEstudiante || (item.nombreEstudiante ? `${item.nombreEstudiante.toLowerCase().charAt(0)}.${(item.apellidoEstudiante || 'apellido').toLowerCase().split(' ')[0]}@est.umss.edu` : '---'),
             codSisEstudiante: item.codSisEstudiante || '---',
             ciEstudiante: item.ciEstudiante || '---',
+            carreraEstudiante: item.carreraEstudiante || item.carrera || item.nombreCarrera || '',
             estadoHabilitacion: estaHabilitado,
             nombreMotivo: estaHabilitado ? '-' : (motivoBackend || 'Sin motivo especificado')
         };
@@ -127,14 +49,13 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     const examenIdActivo = propExamenId || paramIdExamen;
     const navegar = useNavigate();
 
-    // BUG-008 (QA): este estado arrancaba con datos de examen inventados y
-    // nunca se actualizaba con datos reales (no hay ningún endpoint que
-    // devuelva horario/ambiente a partir de solo el idExamen todavía).
-    // BUG-009: ahora se deriva del bloque de muestra que corresponde al
-    // idExamen de la ruta, asi que cada tarjeta muestra su propio examen. No es
-    // estado porque setInfoExamen nunca se usaba: se reemplaza por la respuesta
-    // real cuando exista el endpoint.
-    const infoExamen = (MOCK_POR_EXAMEN[examenIdActivo] || MOCK_POR_EXAMEN[MOCK_ID_EXAMEN_POR_DEFECTO]).infoExamen;
+    const [infoExamen, setInfoExamen] = useState({
+        nombreExamen: 'Cargando...',
+        fecha: '---',
+        hora: '---',
+        duracion: '---',
+        ambiente: '---',
+    });
 
     const [estudiantes, setEstudiantes] = useState([]);
     const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
@@ -146,11 +67,6 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState('todos');
     const [paginaActual, setPaginaActual] = useState(1);
-    // Marca si la tabla se esta mostrando con filas reales del servidor o con
-    // los estudiantes de muestra. El guardado solo pega al backend cuando hay
-    // filas reales: con datos de muestra el PUT pediria un idHabilitacion que no
-    // existe en la base y responderia 404.
-    const [datosReales, setDatosReales] = useState(false);
     const [toast, setToast] = useState(null);
     const toastTimer = useRef(null);
 
@@ -176,18 +92,102 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
         async function cargar() {
             try {
                 setCargando(true);
-                const data = await obtenerHabilitaciones(examenIdActivo);
+                let targetIdAsignatura = examenIdActivo;
+                let exData = null;
+                let asigData = null;
+
+                try {
+                    exData = await obtenerExamenPorId(examenIdActivo);
+                    if (exData && exData.idAsignatura) {
+                        targetIdAsignatura = exData.idAsignatura;
+                    }
+                } catch (errEx) {
+                    // Si el parámetro no es un idExamen directo, es targetIdAsignatura
+                }
+
+                try {
+                    asigData = await obtenerExamenPorAsignatura(targetIdAsignatura);
+                } catch (errAsig) {
+                    // Silencioso si no hay examen por asignatura aún
+                }
+
                 if (!cancel) {
-                    // BUG-009: si la API no devuelve filas (hoy siempre, porque
-                    // se consulta por idAsignatura usando el idExamen de la ruta)
-                    // se muestran los estudiantes de muestra del examen activo
-                    // para poder revisar la pantalla. En cuanto la API responda
-                    // datos reales, estos se descartan automaticamente.
-                    const muestra = MOCK_POR_EXAMEN[examenIdActivo] || MOCK_POR_EXAMEN[MOCK_ID_EXAMEN_POR_DEFECTO];
-                    const hayFilasReales = Array.isArray(data) && data.length > 0;
-                    const lista = hayFilasReales ? data : muestra.estudiantes;
-                    setDatosReales(hayFilasReales);
-                    setEstudiantes(normalizarHabilitaciones(lista));
+                    let nombreExamen = 'Examen Oficial';
+                    let fecha = '---';
+                    let hora = '---';
+                    let duracionTexto = '---';
+                    let ambiente = 'Aula por definir';
+
+                    if (exData) {
+                        nombreExamen = exData.nombreTipoExamen
+                            ? `${exData.nombreTipoExamen}${exData.detalleTipoExamen ? ' (' + exData.detalleTipoExamen + ')' : ''}`
+                            : (exData.nombreAsignatura || 'Examen Oficial');
+                        fecha = exData.fechaExamen || '---';
+
+                        if (exData.ambientes && exData.ambientes.length > 0) {
+                            const a0 = exData.ambientes[0];
+                            if (a0.horaInicio && a0.horaFin) {
+                                hora = `${a0.horaInicio.substring(0, 5)} - ${a0.horaFin.substring(0, 5)}`;
+                            }
+                            ambiente = exData.ambientes.map(a => {
+                                const nom = a.nombreAmbiente || a.nombreAula || 'Aula';
+                                const ubi = a.ubicacionAmbiente || a.bloque || a.ubicacionAula || '';
+                                return ubi ? `${nom} · ${ubi}` : nom;
+                            }).join(' + ');
+                        }
+
+                        if (exData.duracionExamen) {
+                            const durStr = String(exData.duracionExamen);
+                            if (durStr.includes(':')) {
+                                const [hrs, mins] = durStr.split(':').map(Number);
+                                if (hrs > 0 && mins > 0) duracionTexto = `${hrs} h ${mins} min`;
+                                else if (hrs > 0) duracionTexto = `${hrs} ${hrs === 1 ? 'hora' : 'horas'}`;
+                                else if (mins > 0) duracionTexto = `${mins} min`;
+                            } else {
+                                duracionTexto = `${durStr} min`;
+                            }
+                        }
+                    }
+
+                    if (asigData) {
+                        if (nombreExamen === 'Examen Oficial' && asigData.nombreExamen) {
+                            nombreExamen = asigData.nombreExamen;
+                        }
+                        if (fecha === '---' && asigData.fecha && asigData.fecha !== '---') {
+                            fecha = asigData.fecha;
+                        }
+                        if (hora === '---' && asigData.hora && asigData.hora !== '---') {
+                            hora = asigData.hora;
+                        }
+                        if ((ambiente === 'Aula por definir' || ambiente === 'Aula') && asigData.ambiente && asigData.ambiente !== '---') {
+                            ambiente = asigData.ambiente;
+                        }
+                        if (duracionTexto === '---' && asigData.duracion && asigData.duracion !== '---') {
+                            const durStr = String(asigData.duracion);
+                            if (durStr.includes(':')) {
+                                const [hrs, mins] = durStr.split(':').map(Number);
+                                if (hrs > 0 && mins > 0) duracionTexto = `${hrs} h ${mins} min`;
+                                else if (hrs > 0) duracionTexto = `${hrs} ${hrs === 1 ? 'hora' : 'horas'}`;
+                                else if (mins > 0) duracionTexto = `${mins} min`;
+                            } else {
+                                duracionTexto = `${durStr} min`;
+                            }
+                        }
+                    }
+
+                    setInfoExamen({
+                        idAsignatura: targetIdAsignatura,
+                        nombreExamen,
+                        fecha,
+                        hora,
+                        duracion: duracionTexto,
+                        ambiente,
+                    });
+                }
+
+                const data = await obtenerHabilitaciones(targetIdAsignatura).catch(() => []);
+                if (!cancel) {
+                    setEstudiantes(normalizarHabilitaciones(Array.isArray(data) ? data : []));
                 }
             } catch (err) {
                 console.error("Error al obtener habilitaciones desde el backend:", err);
@@ -246,23 +246,10 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                 }
             }
 
-            // Con estudiantes de muestra no se llama al backend: esos
-            // idHabilitacion no existen en la base, asi que el PUT solo
-            // devolveria 404. Se arma la misma respuesta que daria el servidor
-            // para que el resto del flujo (contadores, toast, tabla) sea
-            // identico al de admin.
-            let respuestaBackend;
-            if (datosReales) {
-                respuestaBackend = await actualizarHabilitacion(estudianteSeleccionado.idHabilitacion, {
-                    estadoHabilitacion: estaHabilitado,
-                    observacionHabilitacion: textoMotivoFinal
-                });
-            } else {
-                respuestaBackend = {
-                    estadoHabilitacion: estaHabilitado,
-                    observacionHabilitacion: textoMotivoFinal
-                };
-            }
+            const respuestaBackend = await actualizarHabilitacion(estudianteSeleccionado.idHabilitacion, {
+                estadoHabilitacion: estaHabilitado,
+                observacionHabilitacion: textoMotivoFinal
+            });
             setEstudiantes((prev) => prev.map((e) => {
                 if (e.idHabilitacion === estudianteSeleccionado.idHabilitacion) {
                     const estadoFinal = Boolean(respuestaBackend?.estadoHabilitacion ?? (respuestaBackend?.estado === 'HABILITADO' ?? estaHabilitado));
@@ -370,7 +357,23 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                     <CabeceraModulo
                         onVolver={() => navegar('/home/docente')}
                         textoVolver="Volver a Mis Exámenes"
-                        onExportar={() => mostrarToast('success', 'Exportando lista oficial de estudiantes habilitados...')}
+                        onExportar={async () => {
+                            try {
+                                mostrarToast('info', 'Generando lista oficial...');
+                                const blob = await exportarListaOficial(infoExamen.idAsignatura || examenIdActivo);
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `Lista_Oficial_Habilitados_${(infoExamen.nombreExamen || 'Examen').replace(/\s+/g, '_')}.xlsx`;
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                window.URL.revokeObjectURL(url);
+                                mostrarToast('success', 'Lista oficial descargada exitosamente.');
+                            } catch (e) {
+                                mostrarToast('error', e.message || 'Error al exportar la lista oficial.');
+                            }
+                        }}
                     />
 
                     {/* Los separadores van con border-l explicito en "lg" y no con
@@ -496,7 +499,9 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                 </span>
                                 <div className="min-w-0">
                                     <h4 className="font-extrabold text-xs text-[#1A365D] truncate">{`${estudianteSeleccionado.nombreEstudiante} ${estudianteSeleccionado.apellidoEstudiante}`}</h4>
-                                    <p className="text-[11px] text-[#2563EB] font-semibold">{estudianteSeleccionado.carreraEstudiante || estudianteSeleccionado.carrera || 'Ingeniería de Sistemas'}</p>
+                                    {estudianteSeleccionado.carreraEstudiante && (
+                                        <p className="text-[11px] text-[#2563EB] font-semibold">{estudianteSeleccionado.carreraEstudiante}</p>
+                                    )}
                                     <p className="text-[10px] text-slate-500 font-medium mt-0.5">{estudianteSeleccionado.codSisEstudiante} &bull; {estudianteSeleccionado.ciEstudiante}</p>
                                 </div>
                             </div>

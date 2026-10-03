@@ -113,3 +113,27 @@ export async function obtenerExamenes() {
 
     return response.json();
 }
+
+export async function obtenerMisExamenes() {
+    const response = await fetch(`${strApiBaseUrl}/api/examenes/mis-examenes`, {
+        headers: construirHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error("No se pudieron obtener los exámenes del docente");
+    }
+
+    return response.json();
+}
+
+export async function obtenerExamenPorId(idExamen) {
+    const response = await fetch(`${strApiBaseUrl}/api/examenes/${idExamen}`, {
+        headers: construirHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error("No se pudo obtener el examen");
+    }
+
+    return response.json();
+}
