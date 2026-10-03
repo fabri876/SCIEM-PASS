@@ -4,8 +4,8 @@ spring:
     # el pooler de Supabase en :6543 es modo "transaction" (recicla la conexión física
     # entre transacciones), y esos prepared statements de Hibernate quedan huérfanos
     # cuando eso pasa, causando "bad SQL grammar" al hacer commit.
-    url: ${DATABASE_URL:jdbc:postgresql://aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0}
-    username: ${DATABASE_USER:postgres.xuyfxhrofzavamwxwpeb}
+    url: jdbc:postgresql://aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
+    username: postgres.xuyfxhrofzavamwxwpeb
     driver-class-name: org.postgresql.Driver
   config:
     import: "optional:application-local.yaml"
@@ -22,4 +22,4 @@ spring:
       max-request-size: 10MB
 
 server:
-  port: ${PORT:8080}
+  port: 8080
