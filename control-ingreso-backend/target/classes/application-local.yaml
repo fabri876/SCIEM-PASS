@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    password: ${DATABASE_PASSWORD:WindSoftTIS2026}
+
+jwt:
+  secret: ${JWT_SECRET:WindSoftTIS2026ClaveSecretaParaTokensSuperSegura123456789ABCDEF}
+  expiration: 1800000   
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:zvgaadix}
+  api-key: ${CLOUDINARY_API_KEY:266938383412423}
+  api-secret: ${CLOUDINARY_API_SECRET:1bODnDy8Tqh7KTGnk3LVUcXtd5g}
