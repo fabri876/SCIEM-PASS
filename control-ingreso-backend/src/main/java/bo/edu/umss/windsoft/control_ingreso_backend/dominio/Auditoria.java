@@ -2,6 +2,8 @@ package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -11,7 +13,15 @@ import java.time.LocalDateTime;
 @Table(name = "historialauditoria")
 public class Auditoria {
 
+    // Antes el id se calculaba como MAX(idauditoria) + 1, y con dos
+    // registros simultáneos ambos tomaban el mismo id: uno fallaba y esa
+    // auditoría se perdía. A diferencia de usuario/examen, esta columna SÍ es
+    // IDENTITY (BY DEFAULT) en la base real (verificado contra
+    // information_schema), así que el id lo genera PostgreSQL. Antes de usar
+    // esto hay que sincronizar la identity con el MAX actual (ver
+    // docs/migraciones/2026-10-04_secuencia_historialauditoria.sql).
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "idauditoria")
     private Integer idAuditoria;
 
