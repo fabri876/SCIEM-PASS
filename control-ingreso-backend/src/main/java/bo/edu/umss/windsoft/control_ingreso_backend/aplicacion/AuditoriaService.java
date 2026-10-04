@@ -47,10 +47,8 @@ public class AuditoriaService {
                     + " | ip=" + valorOr(ipOrigen)
                     + " | " + valorOr(detalles);
 
+            // El id lo genera PostgreSQL (columna IDENTITY, ver Auditoria.java).
             Auditoria auditoria = new Auditoria(idUsuario, accion);
-            Integer maxId = auditoriaRepository.findMaxIdAuditoria();
-            auditoria.setIdAuditoria(maxId + 1);
-
             auditoriaRepository.save(auditoria);
         } catch (Exception e) {
             logger.error("Error al registrar auditoría: {}", e.getMessage());
