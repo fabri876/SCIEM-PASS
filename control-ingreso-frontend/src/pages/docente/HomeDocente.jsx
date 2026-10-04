@@ -7,6 +7,7 @@ import BulkUploadCard from "../admin/components/BulkUploadCard";
 import UsuarioFormFields from "../admin/components/UsuarioFormFields";
 import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
+import { obtenerMisExamenes, obtenerAsignaturasPorDocente } from "../../services/examenService";
 
 // Un docente no puede registrar a otro docente, solo Ayudante o Estudiante
 // (el backend ya lo valida igual en UsuarioService.validarPermisosRegistro).
@@ -18,6 +19,8 @@ const ROLES_REGISTRABLES_POR_DOCENTE = [
 export default function HomeDocente() {
     const navigate = useNavigate();
     const [usuario, setUsuario] = useState(null);
+    const [examenes, setExamenes] = useState([]);
+    const [boolCargando, setBoolCargando] = useState(true);
 
     useEffect(() => {
         const user = obtenerUsuarioActual();
@@ -35,34 +38,87 @@ export default function HomeDocente() {
         }
     }, []);
 
+    useEffect(() => {
+        let cancel = false;
+        async function cargarExamenesDocente() {
+            setBoolCargando(true);
+            try {
+                const dataExamenes = await obtenerMisExamenes();
+                if (!cancel && Array.isArray(dataExamenes) && dataExamenes.length > 0) {
+                    const mapeados = dataExamenes.map((ex) => {
+                        const strAula = ex.ambientes && ex.ambientes.length > 0
+                            ? ex.ambientes.map(a => `${a.nombreAula || 'Aula'} · ${a.bloque || ''}`.trim()).join(' + ')
+                            : 'Aula por definir';
+                        const strHorario = ex.horaInicio && ex.horaFin
+                            ? `${ex.horaInicio.substring(0, 5)} – ${ex.horaFin.substring(0, 5)}`
+                            : (ex.duracionExamen ? `${ex.duracionExamen}` : 'Horario programado');
+
+                        const total = ex.totalInscritos || ex.totalEstudiantes || 0;
+                        const ing = ex.ingresados || 0;
+                        const inhab = ex.inhabilitados || 0;
+                        const faltan = ex.noLlegan !== undefined ? ex.noLlegan : Math.max(0, total - ing - inhab);
+
+                        return {
+                            idExamen: ex.idExamen,
+                            idAsignatura: ex.idAsignatura,
+                            nombreExamen: ex.nombreAsignatura || ex.nombreTipoExamen || 'Examen Programado',
+                            siglaAsignatura: ex.siglaAsignatura || '',
+                            aula: strAula,
+                            horario: strHorario,
+                            ingresados: ing,
+                            noLlegan: faltan,
+                            inhabilitados: inhab,
+                            totalInscritos: total,
+                        };
+                    });
+                    setExamenes(mapeados);
+                    setBoolCargando(false);
+                    return;
+                }
+            } catch (err) {
+                console.warn("No se pudieron cargar exámenes desde /mis-examenes:", err);
+            }
+
+            // Fallback: Si no hay exámenes aún, cargar las asignaturas reales asociadas a este docente
+            try {
+                const current = usuario || obtenerUsuarioActual();
+                if (current?.idUsuario && current?.codigoSis) {
+                    const asigs = await obtenerAsignaturasPorDocente(current.idUsuario, current.codigoSis);
+                    if (!cancel && Array.isArray(asigs) && asigs.length > 0) {
+                        const mapeadosAsig = asigs.map((a, idx) => {
+                            const total = a.totalEstudiantes || (a.cantidadHabilitados || 0) + (a.cantidadInhabilitados || 0);
+                            const hab = a.cantidadHabilitados || 0;
+                            const inhab = a.cantidadInhabilitados || 0;
+                            return {
+                                idExamen: a.idAsignatura || idx + 1,
+                                idAsignatura: a.idAsignatura,
+                                nombreExamen: a.nombreAsignatura || a.nombre,
+                                siglaAsignatura: a.siglaAsignatura || a.codigo || '',
+                                aula: 'Asignatura Asignada · UMSS',
+                                horario: 'Gestión Oficial',
+                                ingresados: hab,
+                                noLlegan: Math.max(0, total - hab - inhab),
+                                inhabilitados: inhab,
+                                totalInscritos: total,
+                            };
+                        });
+                        setExamenes(mapeadosAsig);
+                    }
+                }
+            } catch (errAsig) {
+                console.warn("No se pudieron cargar asignaturas del docente:", errAsig);
+            } finally {
+                if (!cancel) setBoolCargando(false);
+            }
+        }
+
+        cargarExamenesDocente();
+        return () => { cancel = true; };
+    }, [usuario]);
+
     const strNombre = usuario?.nombre || "Docente";
     const strApellido = usuario?.apellido || "";
     const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`;
-
-    const [examenesHoy] = useState([
-        {
-            idExamen: 1,
-            nombreExamen: 'Inteligencia Artificial',
-            aula: 'Aula 612 · Bloque F',
-            horario: '09:00 – 11:00',
-            ingresados: 31,
-            noLlegan: 13,
-            inhabilitados: 3,
-            totalInscritos: 47,
-
-        },
-        {
-            idExamen: 2,
-            nombreExamen: 'Machine Learning',
-            aula: 'Aula 305 + Aula 306',
-            horario: '14:00 – 16:00',
-            ingresados: 0,
-            noLlegan: 134,
-            inhabilitados: 6,
-            totalInscritos: 140,
-
-        }
-    ]);
 
     const [boolModalAbierto, setBoolModalAbierto] = useState(false);
     const [boolModalRegistroAbierto, setBoolModalRegistroAbierto] = useState(false);
@@ -152,10 +208,10 @@ export default function HomeDocente() {
                                 <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
                                     <div>
                                         <h3 className="text-base font-black text-[#1A365D]">
-                                            Mis Exámenes de Hoy
+                                            Mis Exámenes / Asignaturas
                                         </h3>
                                         <p className="text-xs text-slate-500 font-medium">
-                                            Viernes, 5 de septiembre de 2026 – <span className="font-bold text-[#1A365D]">2 programados</span>
+                                            Docente Activo – <span className="font-bold text-[#1A365D]">{examenes.length} registradas</span>
                                         </p>
                                     </div>
                                     <button
@@ -167,55 +223,74 @@ export default function HomeDocente() {
                                 </div>
 
                                 <div className="space-y-4">
-                                    {examenesHoy.map((examen) => {
-                                        const porcentaje = Math.round((examen.ingresados / examen.totalInscritos) * 100);
-                                        return (
-                                            <div key={examen.idExamen} className="bg-[#F8FAFC] p-5 rounded-2xl border border-slate-200 space-y-3">
-                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                    <div className="flex items-start gap-3">
-                                                        <div className="w-10 h-10 rounded-xl bg-[#1A365D] text-white flex items-center justify-center text-lg font-bold shadow-xs shrink-0">
-                                                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                                    {boolCargando ? (
+                                        <div className="text-center py-8 text-slate-500 text-xs font-semibold animate-pulse">
+                                            Cargando asignaturas y exámenes del docente...
+                                        </div>
+                                    ) : examenes.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-500 text-xs font-semibold bg-[#F8FAFC] rounded-2xl border border-slate-200">
+                                            No tienes exámenes ni asignaturas asignadas en el sistema.
+                                        </div>
+                                    ) : (
+                                        examenes.map((examen) => {
+                                            const porcentaje = examen.totalInscritos > 0
+                                                ? Math.round((examen.ingresados / examen.totalInscritos) * 100)
+                                                : 0;
+                                            return (
+                                                <div key={examen.idExamen} className="bg-[#F8FAFC] p-5 rounded-2xl border border-slate-200 space-y-3">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="w-10 h-10 rounded-xl bg-[#1A365D] text-white flex items-center justify-center text-lg font-bold shadow-xs shrink-0">
+                                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <h4 className="font-black text-sm text-[#1A365D]">{examen.nombreExamen}</h4>
+                                                                    {examen.siglaAsignatura && (
+                                                                        <span className="bg-blue-100 text-[#2563EB] font-extrabold px-2 py-0.5 rounded text-[10px]">
+                                                                            {examen.siglaAsignatura}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs text-slate-600 font-bold mt-0.5">
+                                                                    {examen.aula} · <span className="text-[#1A365D]">{examen.horario}</span>
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <h4 className="font-black text-sm text-[#1A365D]">{examen.nombreExamen}</h4>
-                                                            <p className="text-xs text-slate-600 font-bold mt-0.5">
-                                                                {examen.aula} · <span className="text-[#1A365D]">{examen.horario}</span>
-                                                            </p>
+
+                                                        <button
+                                                            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`)}
+                                                            className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer self-start sm:self-center"
+                                                        >
+                                                            Gestionar Habilitaciones
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-2 pt-1">
+                                                        <span className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
+                                                            ✓ {examen.ingresados} Ingresaron
+                                                        </span>
+                                                        <span className="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
+                                                            ⏱ {examen.noLlegan} Faltan
+                                                        </span>
+                                                        <span className="bg-red-50 border border-red-200 text-rose-600 text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
+                                                            ✕ {examen.inhabilitados} Inhabilitados
+                                                        </span>
+                                                    </div>
+
+                                                    <div>
+                                                        <div className="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
+                                                            <span>Progreso de acceso</span>
+                                                            <span className="font-mono">{examen.ingresados} / {examen.totalInscritos}</span>
+                                                        </div>
+                                                        <div className="w-full bg-white h-2 rounded-full overflow-hidden border border-slate-200">
+                                                            <div className="bg-[#1A365D] h-full rounded-full transition-all duration-500" style={{ width: `${porcentaje}%` }}></div>
                                                         </div>
                                                     </div>
-
-                                                    <button
-                                                        onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`)}
-                                                        className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer self-start sm:self-center"
-                                                    >
-                                                        Gestionar Habilitaciones
-                                                    </button>
                                                 </div>
-
-                                                <div className="flex flex-wrap gap-2 pt-1">
-                                                    <span className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
-                                                        ✓ {examen.ingresados} Ingresaron
-                                                    </span>
-                                                    <span className="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
-                                                        ⏱ {examen.noLlegan} Faltan
-                                                    </span>
-                                                    <span className="bg-red-50 border border-red-200 text-rose-600 text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
-                                                        ✕ {examen.inhabilitados} Inhabilitados
-                                                    </span>
-                                                </div>
-
-                                                <div>
-                                                    <div className="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
-                                                        <span>Progreso de acceso</span>
-                                                        <span className="font-mono">{examen.ingresados} / {examen.totalInscritos}</span>
-                                                    </div>
-                                                    <div className="w-full bg-white h-2 rounded-full overflow-hidden border border-slate-200">
-                                                        <div className="bg-[#1A365D] h-full rounded-full transition-all duration-500" style={{ width: `${porcentaje}%` }}></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })
+                                    )}
                                 </div>
                             </div>
 
