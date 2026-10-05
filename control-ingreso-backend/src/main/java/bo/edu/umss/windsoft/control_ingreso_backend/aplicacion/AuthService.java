@@ -126,11 +126,12 @@ public class AuthService {
             throw new SolicitudInvalidaException(
                     "El rol solicitado debe ser DOCENTE u OPERADOR (ayudante/auxiliar).");
         }
-        validarUnicidad(ci, correo);
+        String ciNormalizado = CiNormalizador.normalizar(ci);
+        validarUnicidad(ciNormalizado, correo);
 
         // Cuenta pendiente de aprobación: estadousuario = false hasta que el
         // administrador la active (PATCH /api/admin/usuarios/{id}/estado).
-        Usuario usuario = new Usuario(ci, nombre, apellido, telefono, correo,
+        Usuario usuario = new Usuario(ciNormalizado, nombre, apellido, telefono, correo,
                 passwordEncoder.encode(contrasena), false);
         usuario = usuarioRepository.save(usuario);
 
