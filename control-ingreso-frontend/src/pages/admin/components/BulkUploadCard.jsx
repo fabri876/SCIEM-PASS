@@ -11,6 +11,21 @@ const FORMATO_COLUMNAS = [
     { col: "F", nombre: "TELEFONO", ejemplo: "70756498" },
 ];
 
+// Datos mockeados: el backend los reemplazará con los datos reales de la BD.
+const DOCENTES_MOCK = [
+    { idDocente: 1, nombreDocente: "Dr. Carlos Mendoza Rojas" },
+    { idDocente: 2, nombreDocente: "Lic. María Fernández Quispe" },
+    { idDocente: 3, nombreDocente: "Ing. Jorge Villarroel Soliz" },
+    { idDocente: 4, nombreDocente: "MSc. Ana Cabrera Montaño" },
+];
+
+const GRUPOS_MOCK = [
+    { idGrupo: 1, nombreGrupo: "Grupo 1" },
+    { idGrupo: 2, nombreGrupo: "Grupo 2" },
+    { idGrupo: 3, nombreGrupo: "Grupo 3" },
+    { idGrupo: 4, nombreGrupo: "Grupo 4" },
+];
+
 const EXTENSIONES_VALIDAS = [".xlsx", ".pdf"];
 const TAMANO_MAXIMO_MB = 10;
 const TAMANO_MAXIMO_BYTES = TAMANO_MAXIMO_MB * 1024 * 1024;
@@ -33,6 +48,8 @@ export default function BulkUploadCard({ onProcesar }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [mostrarFormato, setMostrarFormato] = useState(false);
     const [materia, setMateria] = useState("");
+    const [docente, setDocente] = useState("");
+    const [grupo, setGrupo] = useState("");
     const [tipoCarga, setTipoCarga] = useState("estudiantes"); // "estudiantes" | "docentes"
     const [arrAsignaturas, setArrAsignaturas] = useState([]);
 
@@ -93,8 +110,8 @@ export default function BulkUploadCard({ onProcesar }) {
     const handleCambiarTipoCarga = (tipo) => {
         setTipoCarga(tipo);
         if (tipo === "docentes") {
-            // El combobox de asignatura es exclusivo para estudiantes.
-            setMateria("");
+            // El combobox de docente solo aplica para carga de estudiantes.
+            setDocente("");
         }
     };
 
@@ -106,7 +123,7 @@ export default function BulkUploadCard({ onProcesar }) {
 
         try {
             if (onProcesar) {
-                const res = await onProcesar(file, materia, tipoCarga);
+                const res = await onProcesar(file, materia, tipoCarga, docente, grupo);
                 setResultado(res);
                 setFile(null);
             }
@@ -270,25 +287,51 @@ export default function BulkUploadCard({ onProcesar }) {
             </div>
 
             <div className="mt-6 space-y-3">
-                {/* Combobox de asignatura (exclusivo para carga de estudiantes) */}
+                {/* Combobox de docente (solo para carga de estudiantes, datos mockeados) */}
+                {!esCargaDocentes && (
+                    <div>
+                        <label className="block text-badge font-bold mb-1.5 text-primary-navy">
+                            Docentes (Opcional)
+                        </label>
+                        <div className="relative">
+                            <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-primary-blue" />
+                            <select
+                                value={docente}
+                                onChange={(e) => setDocente(e.target.value)}
+                                className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-border bg-bg-app text-secondary font-semibold focus:outline-none focus:ring-2 focus:ring-primary-blue/40 text-primary-navy cursor-pointer"
+                            >
+                                <option value="">Selecciona un docente</option>
+                                {DOCENTES_MOCK.map((d) => (
+                                    <option key={d.idDocente} value={d.idDocente}>
+                                        {d.nombreDocente}
+                                    </option>
+                                ))}
+                            </select>
+                        <svg
+                            className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-body/60"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                        </div>
+                    </div>
+                )}
+
+                {/* Combobox de asignatura (aplica para estudiantes y docentes) */}
                 <div>
-                    <label className={`block text-badge font-bold mb-1.5 ${esCargaDocentes ? "text-text-body/40" : "text-primary-navy"}`}>
+                    <label className="block text-badge font-bold mb-1.5 text-primary-navy">
                         Asignatura (Opcional)
                     </label>
                     <div className="relative">
-                        <BookOpen className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${esCargaDocentes ? "text-text-body/30" : "text-primary-blue"}`} />
+                        <BookOpen className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-primary-blue" />
                         <select
                             value={materia}
                             onChange={(e) => setMateria(e.target.value)}
-                            disabled={esCargaDocentes}
-                            className={`w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-border bg-bg-app text-secondary font-semibold focus:outline-none focus:ring-2 focus:ring-primary-blue/40 ${esCargaDocentes
-                                ? "text-text-body/40 cursor-not-allowed"
-                                : "text-primary-navy cursor-pointer"
-                                }`}
+                            className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-border bg-bg-app text-secondary font-semibold focus:outline-none focus:ring-2 focus:ring-primary-blue/40 text-primary-navy cursor-pointer"
                         >
-                            <option value="">
-                                {esCargaDocentes ? "No aplica para docentes" : "Selecciona una asignatura"}
-                            </option>
+                            <option value="">Selecciona una asignatura</option>
                             {arrAsignaturas.map((a) => (
                                 <option key={a.idAsignatura} value={a.idAsignatura}>
                                     {a.nombreAsignatura}
@@ -296,7 +339,37 @@ export default function BulkUploadCard({ onProcesar }) {
                             ))}
                         </select>
                         <svg
-                            className={`w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${esCargaDocentes ? "text-text-body/30" : "text-text-body/60"}`}
+                            className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-body/60"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                </div>
+
+                {/* Combobox de grupos (aplica para estudiantes y docentes, datos mockeados) */}
+                <div>
+                    <label className="block text-badge font-bold mb-1.5 text-primary-navy">
+                        Grupos (Opcional)
+                    </label>
+                    <div className="relative">
+                        <LayoutGrid className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-primary-blue" />
+                        <select
+                            value={grupo}
+                            onChange={(e) => setGrupo(e.target.value)}
+                            className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-border bg-bg-app text-secondary font-semibold focus:outline-none focus:ring-2 focus:ring-primary-blue/40 text-primary-navy cursor-pointer"
+                        >
+                            <option value="">Selecciona un grupo</option>
+                            {GRUPOS_MOCK.map((g) => (
+                                <option key={g.idGrupo} value={g.idGrupo}>
+                                    {g.nombreGrupo}
+                                </option>
+                            ))}
+                        </select>
+                        <svg
+                            className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-body/60"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
