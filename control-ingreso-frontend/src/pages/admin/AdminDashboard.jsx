@@ -8,6 +8,7 @@ import AuditoriaTable from "./components/AuditoriaTable";
 import RolesTable from "./components/RolesTable";
 import SeccionRegistroExamenes from "./components/SeccionRegistroExamenes";
 import SeccionGestionHabilitacionesAdmin from "./components/SeccionGestionHabilitacionesAdmin";
+import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import { obtenerUsuarioActual } from "../../services/authService";
 import {
     listarUsuarios,
@@ -245,6 +246,13 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                         ================================================= */}
                     {activeMenu === "Habilitación de Estudiantes" && (
                         <SeccionGestionHabilitacionesAdmin />
+                    )}
+
+                    {/* =================================================
+                        INCIDENCIAS E INGRESO EXCEPCIONAL (HU06)
+                        ================================================= */}
+                    {activeMenu === "Incidencias" && (
+                        <SeccionIncidencias rol="ADMINISTRADOR" />
                     )}
                 </main>
             </div>
