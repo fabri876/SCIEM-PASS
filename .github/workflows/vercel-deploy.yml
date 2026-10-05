@@ -1,11 +1,26 @@
-name: Vercel Team Deployment
+name: Vercel Team Deploy
 on:
   push:
     branches:
-      - main # Cambia esto si tu rama principal tiene otro nombre
+      - main
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Vercel Deploy Hook
-        run: curl -X POST ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+      - name: Obtener el código
+        uses: actions/checkout@v4
+      
+      - name: Instalar Vercel CLI
+        run: npm install --global vercel@latest
+        
+      - name: Sincronizar con Vercel
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        
+      - name: Construir el proyecto
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        
+      - name: Desplegar a producción
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
