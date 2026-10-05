@@ -21,6 +21,9 @@ import HomeEstudiante from "./pages/estudiante/HomeEstudiante";
 
 // Páginas de Personal de Control (Operador)
 import HomeControl from "./pages/control/HomeControl";
+import ConectadoOperador from "./pages/control/conectado/ConectadoOperador";
+import OffLineOperador from "./pages/control/offline/OffLineOperador";
+import ForzarSincronizacionOperador from "./pages/control/forzar/ForzarSincronizacionOperador";
 
 /**
  * Componente Guard para Rutas Públicas (Login / Registro).
@@ -176,7 +179,12 @@ function App() {
               <HomeControl />
             </RutaProtegida>
           }
-        />
+        >
+          <Route index element={<Navigate to="conectado" replace />} />
+          <Route path="conectado" element={<ConectadoOperador />} />
+          <Route path="offline" element={<OffLineOperador />} />
+          <Route path="forzar" element={<ForzarSincronizacionOperador />} />
+        </Route>
         <Route path="/home/control" element={<Navigate to="/control" replace />} />
 
         {/* Redirección por defecto: ahora entra directo al Home */}
