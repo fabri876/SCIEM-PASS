@@ -1,0 +1,30 @@
+/* Solo lo que Tailwind no cubre fácil: visor QR y animaciones */
+
+.ci-visor .ci-esq { position: absolute; width: 32px; height: 32px; border: 4px solid #4A97D3; z-index: 2; }
+.ci-visor .ci-tl { top: 18px; left: 18px; border-right: none; border-bottom: none; border-radius: 8px 0 0 0; }
+.ci-visor .ci-tr { top: 18px; right: 18px; border-left: none; border-bottom: none; border-radius: 0 8px 0 0; }
+.ci-visor .ci-bl { bottom: 18px; left: 18px; border-right: none; border-top: none; border-radius: 0 0 0 8px; }
+.ci-visor .ci-br { bottom: 18px; right: 18px; border-left: none; border-top: none; border-radius: 0 0 8px 0; }
+
+.ci-visor .ci-linea {
+  position: absolute; left: 30px; right: 30px; height: 2px; z-index: 2;
+  background: #83B7E2; box-shadow: 0 0 12px #4A97D3; display: none;
+}
+.ci-visor.ci-leyendo .ci-linea { display: block; animation: ci-escanear 1s ease-in-out infinite; }
+@keyframes ci-escanear { 0%, 100% { top: 14%; } 50% { top: 84%; } }
+
+/* Video que inserta html5-qrcode dentro del visor */
+.ci-visor .ci-camara { position: absolute; inset: 0; }
+.ci-visor .ci-camara video { width: 100% !important; height: 100% !important; object-fit: cover; }
+.ci-visor .ci-camara img, .ci-visor .ci-camara #qr-shaded-region { display: none !important; }
+
+.ci-aparecer { animation: ci-aparecer .2s ease-out; }
+@keyframes ci-aparecer { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.ci-deslizar { animation: ci-deslizar .22s ease-out; }
+@keyframes ci-deslizar { from { transform: translateX(40px); opacity: .6; } to { transform: none; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ci-visor.ci-leyendo .ci-linea { animation: none; top: 50%; }
+  .ci-aparecer, .ci-deslizar { animation: none; }
+}
