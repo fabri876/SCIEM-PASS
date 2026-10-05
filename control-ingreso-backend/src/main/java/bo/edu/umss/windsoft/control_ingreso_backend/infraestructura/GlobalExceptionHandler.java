@@ -1,5 +1,7 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.infraestructura;
 
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CredencialesInvalidasException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CuentaBloqueadaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CuentaInactivaException;
@@ -14,6 +16,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -118,6 +121,40 @@ public class GlobalExceptionHandler {
                 "Acceso denegado: no cuenta con los permisos necesarios para realizar esta acción."
         );
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
+    }
+
+    // --- HU06: incidencias e ingreso excepcional ---
+
+    @ExceptionHandler(AccesoDenegadoException.class)
+    public ResponseEntity<ErrorResponseDto> handleAccesoDenegado(AccesoDenegadoException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.FORBIDDEN.value(),
+                "Forbidden",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
+    }
+
+    @ExceptionHandler(ConflictoEstadoException.class)
+    public ResponseEntity<ErrorResponseDto> handleConflictoEstado(ConflictoEstadoException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
+    }
+
+    // Sin esto, un archivo de más de 10 MB (límite global de multipart) caía
+    // en el handler genérico como "error inesperado del servidor".
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponseDto> handleArchivoMuyGrande(MaxUploadSizeExceededException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                "El archivo es demasiado grande."
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }
 
     // --- Compartidas por ambos flujos ---
