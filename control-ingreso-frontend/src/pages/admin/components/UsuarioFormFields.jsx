@@ -20,6 +20,16 @@ const ROLES_CON_CODIGO_SIS = ["DOCENTE", "ESTUDIANTE"];
 const REGEX_SOLO_LETRAS = /^[A-Za-zÁÉÍÓÚÜñÑáéíóúü\s]+$/;
 const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const REGEX_SOLO_NUMEROS = /^[0-9]+$/;
+// CI boliviano: número base + complemento opcional alfanumérico (ej. "13193019-1N",
+// "4567890 CB"), separado por espacio, guión o pegado directo.
+const REGEX_CI = /^[0-9]+([\s-]?[0-9A-Za-z]{1,3})?$/;
+
+// Mismo criterio que CiNormalizador.java en el backend: sin puntos, guiones
+// ni espacios, en mayúsculas. Se muestra como preview para que quede claro
+// cómo va a quedar guardado antes de enviar el formulario.
+function normalizarCi(ci) {
+  return ci.trim().toUpperCase().replace(/[.\-\s]/g, "");
+}
 const REGEX_TELEFONO = /^[0-9]{7,8}$/;
 
 const VALORES_INICIALES = {
@@ -150,8 +160,8 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
     if (!boolEsEdicion) {
       if (!objFormData.ci.trim()) {
         errores.ci = "El carnet de identidad es obligatorio";
-      } else if (!REGEX_SOLO_NUMEROS.test(objFormData.ci.trim())) {
-        errores.ci = "El carnet de identidad solo puede contener números";
+      } else if (!REGEX_CI.test(objFormData.ci.trim())) {
+        errores.ci = "Ingrese un carnet de identidad válido (número, con complemento opcional como \"1N\")";
       }
 
       if (objFormData.rol !== "ESTUDIANTE" && !objFormData.contrasena) {
@@ -357,8 +367,14 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
                 </svg>
               }
             />
-            {objErrores.ci && (
+            {objErrores.ci ? (
               <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.ci}</p>
+            ) : (
+              objFormData.ci.trim() && (
+                <p className="mt-1 text-badge text-text-body/60">
+                  Se guardará como: <span className="font-semibold text-primary-navy">{normalizarCi(objFormData.ci)}</span>
+                </p>
+              )
             )}
           </div>
         )}

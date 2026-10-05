@@ -94,15 +94,16 @@ public class UsuarioService {
             }
         }
 
-        validarUnicidad(dto.getCi(), dto.getCorreo());
+        String ciNormalizado = CiNormalizador.normalizar(dto.getCi());
+        validarUnicidad(ciNormalizado, dto.getCorreo());
         validarCodigoDisponible(rolNormalizado, dto.getCodigoSis());
 
-        // Si no se proporciona contraseña, se usa automáticamente el CI como contraseña inicial
+        // Si no se proporciona contraseña, se usa automáticamente el CI (normalizado) como contraseña inicial
         String rawPassword = (dto.getContrasena() == null || dto.getContrasena().trim().isEmpty())
-                ? dto.getCi().trim()
+                ? ciNormalizado
                 : dto.getContrasena().trim();
 
-        Usuario usuario = new Usuario(dto.getCi().trim(), dto.getNombre().trim(), dto.getApellido().trim(), dto.getTelefono(),
+        Usuario usuario = new Usuario(ciNormalizado, dto.getNombre().trim(), dto.getApellido().trim(), dto.getTelefono(),
                 dto.getCorreo().trim(), passwordEncoder.encode(rawPassword), true);
         usuario = usuarioRepository.save(usuario);
 

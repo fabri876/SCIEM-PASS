@@ -106,14 +106,15 @@ public class RegistroUsuarioService {
         }
 
         // 5. Encriptar contraseña con BCrypt (si no se especifica, por defecto es el Carnet de Identidad)
+        String ciNormalizado = CiNormalizador.normalizar(dto.getCarnetIdentidad());
         String rawPassword = (dto.getContrasena() == null || dto.getContrasena().trim().isEmpty())
-                ? dto.getCarnetIdentidad().trim()
+                ? ciNormalizado
                 : dto.getContrasena().trim();
         String contraseniaEncriptada = passwordEncoder.encode(rawPassword);
 
         // 6. Guardar la entidad Usuario
         Usuario usuario = new Usuario(
-                dto.getCarnetIdentidad().trim(),
+                ciNormalizado,
                 nombreFinal,
                 apellidoFinal,
                 telefono,
