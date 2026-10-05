@@ -103,7 +103,7 @@ public class CargaMasivaService {
         for (FilaUsuarioData fila : filas) {
             List<String> erroresFila = new ArrayList<>();
 
-            String ci = fila.ci != null ? fila.ci.trim() : "";
+            String ci = fila.ci != null ? CiNormalizador.normalizar(fila.ci) : "";
             String nombre = fila.nombre != null ? fila.nombre.trim() : "";
             String apellido = fila.apellido != null ? fila.apellido.trim() : "";
             String correo = fila.correo != null ? fila.correo.trim().toLowerCase() : "";
