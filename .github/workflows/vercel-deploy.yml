@@ -1,0 +1,11 @@
+name: Vercel Team Deployment
+on:
+  push:
+    branches:
+      - main # Cambia esto si tu rama principal tiene otro nombre
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook
+        run: curl -X POST ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
