@@ -64,6 +64,17 @@ public class SecurityConfig {
                                 "/api/habilitacion/**",
                                 "/habilitacion/**"
                         ).authenticated()
+                        // HU06: el operador puede registrar incidencias (y ver lo que
+                        // necesita su formulario), pero no autorizar ingresos
+                        // excepcionales ni gestionar incidencias. La materia del
+                        // docente se valida en el servicio.
+                        .requestMatchers(HttpMethod.POST, "/api/incidencias")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/incidencias/catalogos",
+                                "/api/incidencias/ambientes", "/api/incidencias/estudiante")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers("/api/incidencias/**", "/api/ingresos-excepcionales/**")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRADOR")
                         .requestMatchers("/api/examenes/**").hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers("/api/usuarios/**").hasAnyRole("ADMINISTRADOR", "DOCENTE")
