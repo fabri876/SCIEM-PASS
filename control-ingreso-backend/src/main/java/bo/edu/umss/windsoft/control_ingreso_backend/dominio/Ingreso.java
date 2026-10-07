@@ -74,6 +74,10 @@ public class Ingreso {
     @Column(name = "evidenciaurl")
     private String evidenciaUrl;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "metodo_ingreso", nullable = false)
+    private MetodoIngreso metodoIngreso = MetodoIngreso.ESCANEO;
+
     public Ingreso() {
     }
 
@@ -108,4 +112,6 @@ public class Ingreso {
     public void setObservacionIngreso(String observacionIngreso) { this.observacionIngreso = observacionIngreso; }
     public String getEvidenciaUrl() { return evidenciaUrl; }
     public void setEvidenciaUrl(String evidenciaUrl) { this.evidenciaUrl = evidenciaUrl; }
+    public MetodoIngreso getMetodoIngreso() { return metodoIngreso; }
+    public void setMetodoIngreso(MetodoIngreso metodoIngreso) { this.metodoIngreso = metodoIngreso; }
 }
