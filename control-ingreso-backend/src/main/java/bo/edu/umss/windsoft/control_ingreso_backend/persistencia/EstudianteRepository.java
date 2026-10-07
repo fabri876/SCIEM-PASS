@@ -10,6 +10,8 @@ import java.util.Collection;
 
 @Repository
 public interface EstudianteRepository extends JpaRepository<Estudiante, Integer> {
+    @org.springframework.data.jpa.repository.Query("SELECT e.codsisestudiante FROM Estudiante e WHERE e.codsisestudiante IN :valores")
+    List<Integer> buscarCodigosExistentes(@org.springframework.data.repository.query.Param("valores") List<Integer> valores);
 
     boolean existsByIdusuario(Integer idusuario);
 

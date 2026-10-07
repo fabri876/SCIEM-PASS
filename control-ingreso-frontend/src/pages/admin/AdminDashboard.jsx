@@ -3,6 +3,8 @@ import Header from "../../components/layout/Header";
 import AdminSidebar from "./components/AdminSidebar";
 import AdminMetricsCards from "./components/AdminMetricsCards";
 import BulkUploadCard from "./components/BulkUploadCard";
+import GestionGruposAsignaturaCard from "./components/GestionAcademicaCard";
+import CatalogoAcademicoTable from "./components/CatalogoAcademicoTable";
 import UserTableCard from "./components/UserTableCard";
 import AuditoriaTable from "./components/AuditoriaTable";
 import RolesTable from "./components/RolesTable";
@@ -23,6 +25,7 @@ import {
 
 export default function AdminDashboard({ onNavigateToLogin }) {
     const [activeMenu, setActiveMenu] = useState("Gestión de Usuarios");
+    const [revisionAcademica, setRevisionAcademica] = useState(0);
     const usuarioSesion = obtenerUsuarioActual();
 
     const [usuarios, setUsuarios] = useState([]);
@@ -135,10 +138,10 @@ export default function AdminDashboard({ onNavigateToLogin }) {
         await fnCargarUsuarios();
     };
 
-    const fnCargarMasiva = async (file, materia, tipoCarga) => {
+    const fnCargarMasiva = async (file, materia, tipoCarga, docente, grupo) => {
         const strRolTarget = tipoCarga === "docentes" ? "DOCENTE" : "ESTUDIANTE";
-        const resultado = await cargarUsuariosMasivo(file, strRolTarget);
-        await fnCargarUsuarios();
+        const resultado = await cargarUsuariosMasivo(file, strRolTarget, grupo ? Number(grupo) : null);
+        void fnCargarUsuarios();
         return resultado;
     };
 
@@ -192,9 +195,16 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                         <>
                             <AdminMetricsCards usuarios={usuarios} />
 
+                            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary-blue/20 bg-primary-blue/5 p-4">
+                                <p className="text-secondary text-primary-navy">Importar horario o crear materias y grupos. Las personas se vinculan al registrarlas.</p>
+                                <button type="button" onClick={() => setActiveMenu("Gestión de Asignaturas y Grupos")} className="shrink-0 rounded-xl bg-primary-blue px-4 py-2.5 text-secondary font-bold text-white hover:bg-primary-navy transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-blue">
+                                    Ir a asignaturas y grupos
+                                </button>
+                            </div>
+
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pb-6">
 
-                                <div className="lg:col-span-5 xl:col-span-4">
+                                <div className="lg:col-span-5 xl:col-span-4 space-y-5">
                                     <BulkUploadCard onProcesar={fnCargarMasiva} />
                                 </div>
 
@@ -213,6 +223,11 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                             </div>
                         </>
                     )}
+
+                    {activeMenu === "Gestión de Asignaturas y Grupos" && <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+                        <div className="xl:col-span-5"><GestionGruposAsignaturaCard docentes={usuarios.filter(u => u.rol === "DOCENTE")} onCatalogChange={() => setRevisionAcademica(v => v + 1)} /></div>
+                        <div className="xl:col-span-7 min-w-0"><CatalogoAcademicoTable revision={revisionAcademica} docentes={usuarios.filter(u => u.rol === "DOCENTE")} /></div>
+                    </div>}
 
                     {/* =================================================
                         HISTORIAL DE AUDITORÍA

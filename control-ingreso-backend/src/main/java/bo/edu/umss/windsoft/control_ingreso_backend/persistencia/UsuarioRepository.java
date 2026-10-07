@@ -11,6 +11,10 @@ import java.util.Optional;
 
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
+    @Query("SELECT u.ciusuario FROM Usuario u WHERE u.ciusuario IN :valores")
+    List<String> buscarCisExistentes(@Param("valores") List<String> valores);
+    @Query("SELECT u.correousuario FROM Usuario u WHERE u.correousuario IN :valores")
+    List<String> buscarCorreosExistentes(@Param("valores") List<String> valores);
 
     Optional<Usuario> findByCorreousuario(String correousuario);
 

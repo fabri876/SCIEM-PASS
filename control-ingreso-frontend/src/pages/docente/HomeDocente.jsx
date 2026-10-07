@@ -145,8 +145,8 @@ export default function HomeDocente() {
     const [boolModalRegistroAbierto, setBoolModalRegistroAbierto] = useState(false);
     const [strSeccionRegistro, setStrSeccionRegistro] = useState("individual");
 
-    const fnCargarMasiva = async (file) => {
-        return cargarUsuariosMasivo(file, "ESTUDIANTE");
+    const fnCargarMasiva = async (file, materia, tipoCarga, docente, grupo) => {
+        return cargarUsuariosMasivo(file, "ESTUDIANTE", grupo ? Number(grupo) : null);
     };
 
     const fnRegistrarIndividual = async (datos) => {
@@ -449,7 +449,7 @@ export default function HomeDocente() {
                             boolActivo={boolModalRegistroAbierto && strSeccionRegistro === "individual"}
                         />
                     ) : (
-                        <BulkUploadCard onProcesar={fnCargarMasiva} />
+                        <BulkUploadCard onProcesar={fnCargarMasiva} soloEstudiantes />
                     )}
                 </div>
             </VentanaEmergente>
