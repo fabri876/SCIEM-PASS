@@ -1,39 +1,22 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Admin;
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ayudante;
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Docente;
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.*;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
-import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AdminRepository;
-import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteRepository;
-import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteRepository;
-import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
-import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.*;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CargaMasivaErrorFilaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CargaMasivaRespuestaDto;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.usermodel.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CargaMasivaVistaPreviaDto;
 
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,27 +30,70 @@ public class CargaMasivaService {
     private final DocenteRepository docenteRepository;
     private final AyudanteRepository ayudanteRepository;
     private final EstudianteRepository estudianteRepository;
+    private final AsignaturaRepository asignaturaRepository;
+    private final GrupoRepository grupoRepository;
+    private final GrupoService grupoService;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoriaService;
     private final TipoUsuarioResolver tipoUsuarioResolver;
 
     public CargaMasivaService(UsuarioRepository usuarioRepository, AdminRepository adminRepository,
-                              DocenteRepository docenteRepository, AyudanteRepository ayudanteRepository,
-                              EstudianteRepository estudianteRepository, PasswordEncoder passwordEncoder,
-                              AuditoriaService auditoriaService, TipoUsuarioResolver tipoUsuarioResolver) {
+                               DocenteRepository docenteRepository, AyudanteRepository ayudanteRepository,
+                               EstudianteRepository estudianteRepository, AsignaturaRepository asignaturaRepository,
+                               GrupoRepository grupoRepository, GrupoService grupoService,
+                               PasswordEncoder passwordEncoder, AuditoriaService auditoriaService,
+                               TipoUsuarioResolver tipoUsuarioResolver) {
         this.usuarioRepository = usuarioRepository;
         this.adminRepository = adminRepository;
         this.docenteRepository = docenteRepository;
         this.ayudanteRepository = ayudanteRepository;
         this.estudianteRepository = estudianteRepository;
+        this.asignaturaRepository = asignaturaRepository;
+        this.grupoRepository = grupoRepository;
+        this.grupoService = grupoService;
         this.passwordEncoder = passwordEncoder;
         this.auditoriaService = auditoriaService;
         this.tipoUsuarioResolver = tipoUsuarioResolver;
     }
 
+    @Transactional(readOnly = true)
+    public CargaMasivaVistaPreviaDto previsualizar(MultipartFile archivo, String targetRol, String correoEjecutor, Integer idGrupo) {
+        validarArchivoBase(archivo);
+        Usuario ejecutor = usuarioRepository.findByCorreousuario(correoEjecutor)
+                .orElseThrow(() -> new AccessDeniedException("Usuario no encontrado."));
+        String rolEjecutor = tipoUsuarioResolver.resolver(ejecutor.getIdusuario());
+        validarPermisosCargaMasiva(rolEjecutor, targetRol);
+        if (idGrupo != null) grupoService.validarAccesoRegistro(List.of(idGrupo), normalizarRol(targetRol));
+        var filas = leerFilas(archivo);
+        var resultado = new ArrayList<CargaMasivaVistaPreviaDto.Fila>();
+        for (var f : filas) {
+            String rol = normalizarRol(f.rol == null || f.rol.isBlank() ? targetRol == null || targetRol.isBlank() ? "ESTUDIANTE" : targetRol : f.rol);
+            if (TipoUsuarioResolver.DOCENTE.equals(rolEjecutor) && !TipoUsuarioResolver.ESTUDIANTE.equals(rol))
+                throw new AccessDeniedException("Un docente solo puede cargar estudiantes.");
+            resultado.add(new CargaMasivaVistaPreviaDto.Fila(f.numeroFila, f.nombre, f.apellido, f.ci, f.codigoSis,
+                    f.correo, f.telefono, rol, f.asignatura, f.nombreGrupo));
+        }
+        return new CargaMasivaVistaPreviaDto(archivo.getOriginalFilename(), resultado);
+    }
+
+    private List<FilaUsuarioData> leerFilas(MultipartFile archivo) {
+        try (InputStream is = archivo.getInputStream()) {
+            var filas = obtenerExtension(archivo.getOriginalFilename()).equalsIgnoreCase(".pdf") ? extraerFilasDePdf(is) : extraerFilasDeExcel(is);
+            if (filas.isEmpty()) throw new SolicitudInvalidaException("El archivo no contiene filas procesables.");
+            return filas;
+        } catch (SolicitudInvalidaException e) { throw e; }
+        catch (Exception e) { throw new SolicitudInvalidaException("No se pudo leer el archivo. Revise su formato y columnas."); }
+    }
+
     @Transactional
     public CargaMasivaRespuestaDto procesarCargaMasiva(MultipartFile archivo, String targetRol,
                                                        String executorCorreo, String ip) {
+        return procesarCargaMasiva(archivo, targetRol, executorCorreo, ip, null);
+    }
+
+    @Transactional
+    public CargaMasivaRespuestaDto procesarCargaMasiva(MultipartFile archivo, String targetRol,
+                                                       String executorCorreo, String ip, Integer idGrupoSeleccionado) {
         validarArchivoBase(archivo);
 
         Usuario ejecutor = usuarioRepository.findByCorreousuario(executorCorreo)
@@ -75,6 +101,9 @@ public class CargaMasivaService {
 
         String rolEjecutor = tipoUsuarioResolver.resolver(ejecutor.getIdusuario());
         validarPermisosCargaMasiva(rolEjecutor, targetRol);
+        if (idGrupoSeleccionado != null) {
+            grupoService.validarAccesoRegistro(List.of(idGrupoSeleccionado), normalizarRol(targetRol));
+        }
 
         String extension = obtenerExtension(archivo.getOriginalFilename());
         List<FilaUsuarioData> filas;
@@ -99,6 +128,17 @@ public class CargaMasivaService {
 
         int exitosos = 0;
         int fallidos = 0;
+        // Cachés locales a esta carga: nunca compartir resultados entre solicitudes.
+        Map<String, Optional<Asignatura>> materiasConsultadas = new HashMap<>();
+        Map<String, Optional<Grupo>> gruposConsultados = new HashMap<>();
+        Set<String> permisosValidados = new HashSet<>();
+        List<String> cis = filas.stream().filter(f -> f.ci != null).map(f -> CiNormalizador.normalizar(f.ci)).distinct().toList();
+        List<String> correos = filas.stream().filter(f -> f.correo != null).map(f -> f.correo.trim().toLowerCase()).distinct().toList();
+        List<Integer> codigos = filas.stream().map(f -> f.codigoSis).filter(Objects::nonNull).distinct().toList();
+        Set<String> cisExistentes = cis.isEmpty() ? Set.of() : new HashSet<>(usuarioRepository.buscarCisExistentes(cis));
+        Set<String> correosExistentes = correos.isEmpty() ? Set.of() : new HashSet<>(usuarioRepository.buscarCorreosExistentes(correos));
+        Set<Integer> sisDocentes = codigos.isEmpty() ? Set.of() : new HashSet<>(docenteRepository.buscarCodigosExistentes(codigos));
+        Set<Integer> sisEstudiantes = codigos.isEmpty() ? Set.of() : new HashSet<>(estudianteRepository.buscarCodigosExistentes(codigos));
 
         for (FilaUsuarioData fila : filas) {
             List<String> erroresFila = new ArrayList<>();
@@ -145,7 +185,7 @@ public class CargaMasivaService {
 
             // Validar duplicados en la base de datos y dentro del mismo archivo
             if (!ci.isBlank()) {
-                if (usuarioRepository.existsByCiusuario(ci)) {
+                if (cisExistentes.contains(ci)) {
                     erroresFila.add("Ya existe un usuario en la BD con el CI '" + ci + "'.");
                 } else if (!cisEnArchivo.add(ci)) {
                     erroresFila.add("El CI '" + ci + "' está duplicado en el mismo archivo.");
@@ -153,7 +193,7 @@ public class CargaMasivaService {
             }
 
             if (!correo.isBlank() && correo.contains("@")) {
-                if (usuarioRepository.existsByCorreousuario(correo)) {
+                if (correosExistentes.contains(correo)) {
                     erroresFila.add("Ya existe un usuario en la BD con el correo '" + correo + "'.");
                 } else if (!correosEnArchivo.add(correo)) {
                     erroresFila.add("El correo '" + correo + "' está duplicado en el mismo archivo.");
@@ -162,17 +202,74 @@ public class CargaMasivaService {
 
             if (codSis != null) {
                 if (TipoUsuarioResolver.ESTUDIANTE.equals(rolFila)) {
-                    if (estudianteRepository.findByCodsisestudiante(codSis).isPresent()) {
+                    if (sisEstudiantes.contains(codSis)) {
                         erroresFila.add("Ya existe un estudiante en la BD con el Código SIS " + codSis + ".");
                     } else if (!codSisEnArchivo.add(codSis)) {
                         erroresFila.add("El Código SIS " + codSis + " está duplicado en el mismo archivo.");
                     }
                 } else if (TipoUsuarioResolver.DOCENTE.equals(rolFila)) {
-                    if (docenteRepository.findByCodsisdocente(codSis).isPresent()) {
+                    if (sisDocentes.contains(codSis)) {
                         erroresFila.add("Ya existe un docente en la BD con el Código SIS " + codSis + ".");
                     } else if (!codSisEnArchivo.add(codSis)) {
                         erroresFila.add("El Código SIS " + codSis + " está duplicado en el mismo archivo.");
                     }
+                }
+            }
+
+            // Determinar o resolver ID de grupo si viene especificado
+            Set<Integer> gruposResueltos = new LinkedHashSet<>();
+            if (idGrupoSeleccionado != null) gruposResueltos.add(idGrupoSeleccionado);
+            boolean traeAsignatura = fila.asignatura != null && !fila.asignatura.isBlank();
+            boolean traeGrupo = fila.nombreGrupo != null && !fila.nombreGrupo.isBlank();
+            if (traeAsignatura != traeGrupo) {
+                erroresFila.add("Debe indicar asignatura y grupo juntos en el archivo.");
+            }
+            if (fila.nombreGrupo != null && !fila.nombreGrupo.isBlank() && fila.asignatura != null && !fila.asignatura.isBlank()) {
+                String[] materiasFila = fila.asignatura.split(";", -1);
+                String[] gruposFila = fila.nombreGrupo.split(";", -1);
+                if (materiasFila.length != gruposFila.length || materiasFila.length > 100) {
+                    erroresFila.add("ASIGNATURA y GRUPO deben tener la misma cantidad de elementos separados por punto y coma (máximo 100).");
+                } else for (int indice = 0; indice < materiasFila.length; indice++) {
+                String materiaFila = materiasFila[indice].trim(), grupoFila = gruposFila[indice].trim();
+                if (materiaFila.isBlank() || grupoFila.isBlank()) {
+                    erroresFila.add("No deje elementos vacíos en las listas de asignaturas y grupos."); continue;
+                }
+                Optional<Asignatura> asigOpt = materiasConsultadas.computeIfAbsent(materiaFila,
+                        this::buscarAsignaturaCarga);
+                if (asigOpt.isPresent()) {
+                    Integer idAsig = asigOpt.get().getIdAsignatura();
+                    Optional<Grupo> gOpt = gruposConsultados.computeIfAbsent(idAsig + ":" + grupoFila.toUpperCase(Locale.ROOT),
+                            clave -> grupoRepository.findByIdAsignaturaAndNombreGrupoIgnoreCase(idAsig, grupoFila));
+                    if (gOpt.isPresent()) {
+                        if (idGrupoSeleccionado != null && !idGrupoSeleccionado.equals(gOpt.get().getIdGrupo())) {
+                            erroresFila.add("El grupo de la fila no coincide con el seleccionado para el lote.");
+                        }
+                        gruposResueltos.add(gOpt.get().getIdGrupo());
+                    } else {
+                        erroresFila.add("El grupo indicado no existe en la asignatura. Registre primero el horario o el grupo.");
+                    }
+                } else {
+                    erroresFila.add("La asignatura indicada no existe. Registre primero el horario o la asignatura.");
+                }
+                }
+            }
+
+            if ((TipoUsuarioResolver.DOCENTE.equals(rolFila) || TipoUsuarioResolver.ESTUDIANTE.equals(rolFila)) && gruposResueltos.isEmpty()) {
+                erroresFila.add("Debe indicar asignatura y grupo para registrar docentes o estudiantes.");
+            }
+            if (!gruposResueltos.isEmpty()) {
+                try {
+                    List<Integer> pendientes = new ArrayList<>();
+                    for (Integer idGrupo : gruposResueltos) {
+                        if (!permisosValidados.contains(rolFila + ":" + idGrupo)) pendientes.add(idGrupo);
+                    }
+                    if (!pendientes.isEmpty()) {
+                        grupoService.validarAccesoRegistro(pendientes, rolFila);
+                        for (Integer idGrupo : pendientes) permisosValidados.add(rolFila + ":" + idGrupo);
+                    }
+                } catch (bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ValidacionNegocioException
+                         | AccessDeniedException ex) {
+                    erroresFila.add(ex.getMessage());
                 }
             }
 
@@ -185,7 +282,16 @@ public class CargaMasivaService {
                 Usuario nuevo = new Usuario(ci, nombre, apellido, fila.telefono, correo, contrasenaHasheada, true);
                 nuevo = usuarioRepository.save(nuevo);
 
-                crearFilaTablaHija(rolFila, nuevo.getIdusuario(), codSis);
+                crearFilaTablaHija(rolFila, nuevo.getIdusuario(), codSis, null);
+                int sisFinal = codSis != null ? codSis : nuevo.getIdusuario();
+                for (Integer idGrupo : gruposResueltos) {
+                    switch (rolFila) {
+                        case TipoUsuarioResolver.DOCENTE -> grupoService.asignarDocenteAGrupo(nuevo.getIdusuario(), sisFinal, idGrupo);
+                        case TipoUsuarioResolver.ESTUDIANTE -> grupoService.inscribirEstudianteAGrupo(nuevo.getIdusuario(), sisFinal, idGrupo);
+                        case TipoUsuarioResolver.OPERADOR -> grupoService.asignarAyudanteAGrupo(nuevo.getIdusuario(), idGrupo);
+                        default -> throw new SolicitudInvalidaException("Ese rol no admite grupos académicos.");
+                    }
+                }
                 exitosos++;
             }
         }
@@ -195,6 +301,17 @@ public class CargaMasivaService {
 
         String resumenMensaje = exitosos + " usuario(s) registrados exitosamente" + (fallidos > 0 ? ", " + fallidos + " con errores." : ".");
         return new CargaMasivaRespuestaDto(resumenMensaje, filas.size(), exitosos, fallidos, errores);
+    }
+
+    private Optional<Asignatura> buscarAsignaturaCarga(String valor) {
+        if (valor.toUpperCase(Locale.ROOT).startsWith("ID:")) {
+            try { return asignaturaRepository.findById(Integer.valueOf(valor.substring(3).trim())); }
+            catch (NumberFormatException ex) { return Optional.empty(); }
+        }
+        Optional<Asignatura> resultado = asignaturaRepository.findByCodigoOficial(valor);
+        if (resultado.isEmpty()) resultado = asignaturaRepository.findBySiglaAsignatura(valor);
+        if (resultado.isEmpty()) resultado = asignaturaRepository.findByNombreAsignaturaIgnoreCase(valor);
+        return resultado;
     }
 
     private void validarArchivoBase(MultipartFile archivo) {
@@ -246,7 +363,7 @@ public class CargaMasivaService {
             }
 
             FilaUsuarioData data = new FilaUsuarioData();
-            data.numeroFila = i + 1; // 1-based line number for user UI
+            data.numeroFila = i + 1;
 
             data.ci = getValorCeldaString(row, colIndices.getOrDefault("ci", 2));
             data.nombre = getValorCeldaString(row, colIndices.getOrDefault("nombre", 4));
@@ -270,6 +387,12 @@ public class CargaMasivaService {
             }
 
             data.rol = getValorCeldaString(row, colIndices.getOrDefault("rol", -1));
+            data.asignatura = getValorCeldaString(row, colIndices.getOrDefault("asignatura", -1));
+            if (colIndices.containsKey("idasignatura") && !data.asignatura.isBlank()) {
+                data.asignatura = Arrays.stream(data.asignatura.split(";", -1))
+                        .map(valor -> "ID:" + valor.trim()).collect(java.util.stream.Collectors.joining(";"));
+            }
+            data.nombreGrupo = getValorCeldaString(row, colIndices.getOrDefault("grupo", -1));
 
             resultado.add(data);
         }
@@ -280,10 +403,15 @@ public class CargaMasivaService {
     private Map<String, Integer> parsearEncabezadosExcel(Row headerRow) {
         Map<String, Integer> map = new HashMap<>();
         if (headerRow == null) return map;
+        int columnasAsignatura = 0;
 
         for (int c = 0; c < headerRow.getLastCellNum(); c++) {
             String val = getValorCeldaRaw(headerRow.getCell(c)).toUpperCase();
-            if (val.contains("SIS") || val.contains("CODSIS")) {
+            if (val.contains("ASIGNATURA") || val.contains("MATERIA") || val.contains("SIGLA")) columnasAsignatura++;
+            if (val.trim().equals("ID_ASIGNATURA") || val.trim().equals("ID ASIGNATURA")) {
+                map.put("idasignatura", c);
+                map.put("asignatura", c);
+            } else if (val.contains("SIS") || val.contains("CODSIS")) {
                 map.put("codsis", c);
             } else if (val.contains("CORREO") || val.contains("EMAIL")) {
                 map.put("correo", c);
@@ -297,8 +425,13 @@ public class CargaMasivaService {
                 map.put("telefono", c);
             } else if (val.contains("ROL")) {
                 map.put("rol", c);
+            } else if (val.contains("ASIGNATURA") || val.contains("MATERIA") || val.contains("SIGLA")) {
+                map.put("asignatura", c);
+            } else if (val.contains("GRUPO")) {
+                map.put("grupo", c);
             }
         }
+        if (columnasAsignatura > 1) throw new SolicitudInvalidaException("Use una sola columna de asignatura: ID_ASIGNATURA, CODIGO_ASIGNATURA o ASIGNATURA.");
         return map;
     }
 
@@ -327,18 +460,16 @@ public class CargaMasivaService {
     }
 
     private FilaUsuarioData parsearLineaPdf(String linea, int numFila) {
-        // Expresión para detectar campos típicos: CodSis (números), Correo, CI (números), Nombres, Apellidos
         Pattern emailPattern = Pattern.compile("([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})");
         Matcher emailMatcher = emailPattern.matcher(linea);
 
         if (!emailMatcher.find()) {
-            return null; // Si no hay correo, no es una fila de usuario
+            return null;
         }
 
         String correo = emailMatcher.group(1);
         String resto = linea.replace(correo, " ");
 
-        // Buscar números para CI y SIS
         Pattern numPattern = Pattern.compile("\\b\\d{5,10}\\b");
         Matcher numMatcher = numPattern.matcher(resto);
         List<String> numeros = new ArrayList<>();
@@ -354,57 +485,49 @@ public class CargaMasivaService {
         data.numeroFila = numFila;
         data.correo = correo;
 
-        if (numeros.size() >= 3) {
-            try {
-                data.codigoSis = Integer.parseInt(numeros.get(0));
-            } catch (Exception ignored) {}
-            data.ci = numeros.get(1);
-            try {
-                data.telefono = Integer.parseInt(numeros.get(2));
-            } catch (Exception ignored) {}
-        } else if (numeros.size() == 2) {
-            try {
-                data.codigoSis = Integer.parseInt(numeros.get(0));
-            } catch (Exception ignored) {}
+        if (numeros.size() >= 2) {
+            data.codigoSis = Integer.parseInt(numeros.get(0));
             data.ci = numeros.get(1);
         } else {
             data.ci = numeros.get(0);
+            data.codigoSis = Integer.parseInt(numeros.get(0));
         }
 
-        // Limpiar el texto restante para nombres y apellidos
-        String nombresApellidos = resto;
-        for (String n : numeros) {
-            nombresApellidos = nombresApellidos.replace(n, " ");
-        }
-        nombresApellidos = nombresApellidos.replaceAll("[^a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]", "").trim();
-        String[] partes = nombresApellidos.split("\\s+");
-
+        String textoSinNumeros = resto.replaceAll("\\b\\d{5,10}\\b", " ").replaceAll("\\s+", " ").trim();
+        String[] partes = textoSinNumeros.split(",");
         if (partes.length >= 2) {
-            data.nombre = partes[0];
-            StringBuilder sb = new StringBuilder();
-            for (int i = 1; i < partes.length; i++) {
-                if (i > 1) sb.append(" ");
-                sb.append(partes[i]);
-            }
-            data.apellido = sb.toString();
-        } else if (partes.length == 1) {
-            data.nombre = partes[0];
-            data.apellido = partes[0];
+            data.apellido = partes[0].trim();
+            data.nombre = partes[1].trim();
         } else {
-            data.nombre = "Usuario";
-            data.apellido = "Registrado";
+            data.nombre = textoSinNumeros;
+            data.apellido = "";
         }
 
         return data;
     }
 
-    private void crearFilaTablaHija(String rol, Integer idUsuario, Integer codigoSis) {
+    private void crearFilaTablaHija(String rol, Integer idUsuario, Integer codigoSis, Integer idGrupo) {
         int codSisFinal = codigoSis != null ? codigoSis : idUsuario;
         switch (rol) {
             case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.save(new Admin(idUsuario));
-            case TipoUsuarioResolver.DOCENTE -> docenteRepository.save(new Docente(idUsuario, codSisFinal));
-            case TipoUsuarioResolver.OPERADOR -> ayudanteRepository.save(new Ayudante(idUsuario));
-            case TipoUsuarioResolver.ESTUDIANTE -> estudianteRepository.save(new Estudiante(idUsuario, codSisFinal));
+            case TipoUsuarioResolver.DOCENTE -> {
+                docenteRepository.save(new Docente(idUsuario, codSisFinal));
+                if (idGrupo != null) {
+                    grupoService.asignarDocenteAGrupo(idUsuario, codSisFinal, idGrupo);
+                }
+            }
+            case TipoUsuarioResolver.OPERADOR -> {
+                ayudanteRepository.save(new Ayudante(idUsuario));
+                if (idGrupo != null) {
+                    grupoService.asignarAyudanteAGrupo(idUsuario, idGrupo);
+                }
+            }
+            case TipoUsuarioResolver.ESTUDIANTE -> {
+                estudianteRepository.save(new Estudiante(idUsuario, codSisFinal));
+                if (idGrupo != null) {
+                    grupoService.inscribirEstudianteAGrupo(idUsuario, codSisFinal, idGrupo);
+                }
+            }
             default -> throw new SolicitudInvalidaException("Rol no soportado: " + rol);
         }
     }
@@ -467,5 +590,7 @@ public class CargaMasivaService {
         Integer telefono;
         Integer codigoSis;
         String rol;
+        String asignatura;
+        String nombreGrupo;
     }
 }

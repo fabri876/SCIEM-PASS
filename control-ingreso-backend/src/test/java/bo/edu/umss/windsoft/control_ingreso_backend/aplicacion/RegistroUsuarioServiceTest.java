@@ -42,6 +42,8 @@ class RegistroUsuarioServiceTest {
     private AdminRepository adminRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private GrupoService grupoService;
 
     @InjectMocks
     private RegistroUsuarioService registroUsuarioService;
@@ -59,10 +61,12 @@ class RegistroUsuarioServiceTest {
 
     /** Crea una solicitud de registro de estudiante con los datos indicados. */
     private RegistroUsuarioRequestDTO solicitudEstudiante(String correo, String contrasena, String ci) {
-        return new RegistroUsuarioRequestDTO(
+        var solicitud = new RegistroUsuarioRequestDTO(
                 "QA", null, "Unitaria", null,
                 "71234567", correo, contrasena, ci, "202301999",
                 List.of("estudiante"));
+        solicitud.setIdGrupos(List.of(7));
+        return solicitud;
     }
 
     @Test

@@ -11,7 +11,7 @@ public class Asignatura {
     @Column(name = "idasignatura")
     private Integer idAsignatura;
 
-    @Column(name = "idinscripcion", nullable = false)
+    @Column(name = "idinscripcion")
     private Integer idInscripcion;
 
     @Column(name = "nombreasignatura")
@@ -19,6 +19,9 @@ public class Asignatura {
 
     @Column(name = "siglaasignatura")
     private String siglaAsignatura;
+
+    @Column(name = "codigooficial", length = 20)
+    private String codigoOficial;
 
     public Asignatura() {}
 
@@ -30,4 +33,6 @@ public class Asignatura {
     public void setNombreAsignatura(String nombreAsignatura) { this.nombreAsignatura = nombreAsignatura; }
     public String getSiglaAsignatura() { return siglaAsignatura; }
     public void setSiglaAsignatura(String siglaAsignatura) { this.siglaAsignatura = siglaAsignatura; }
+    public String getCodigoOficial() { return codigoOficial; }
+    public void setCodigoOficial(String codigoOficial) { this.codigoOficial = codigoOficial; }
 }

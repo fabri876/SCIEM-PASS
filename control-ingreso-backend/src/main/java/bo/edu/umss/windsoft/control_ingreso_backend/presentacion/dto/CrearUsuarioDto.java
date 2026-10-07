@@ -26,8 +26,15 @@ public class CrearUsuarioDto {
     @NotBlank(message = "El rol es obligatorio")
     private String rol;
 
-    // Solo obligatorio cuando rol=ESTUDIANTE.
+    // Solo obligatorio cuando rol=ESTUDIANTE o DOCENTE.
     private Integer codigoSis;
+
+    // Opcional para vinculacion con Grupo
+    private Integer idGrupo;
+    private java.util.List<Integer> idGrupos;
+
+    public java.util.List<Integer> getIdGrupos() { return idGrupos; }
+    public void setIdGrupos(java.util.List<Integer> idGrupos) { this.idGrupos = idGrupos; }
 
     public String getNombre() {
         return nombre;
@@ -92,4 +99,7 @@ public class CrearUsuarioDto {
     public void setCodigoSis(Integer codigoSis) {
         this.codigoSis = codigoSis;
     }
+
+    public Integer getIdGrupo() { return idGrupo; }
+    public void setIdGrupo(Integer idGrupo) { this.idGrupo = idGrupo; }
 }

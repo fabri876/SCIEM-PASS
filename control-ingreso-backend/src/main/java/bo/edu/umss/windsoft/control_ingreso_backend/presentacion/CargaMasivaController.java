@@ -35,11 +35,20 @@ public class CargaMasivaController {
     public ResponseEntity<CargaMasivaRespuestaDto> cargaMasiva(
             @RequestParam("archivo") MultipartFile archivo,
             @RequestParam(value = "rol", required = false) String targetRol,
+            @RequestParam(value = "idGrupo", required = false) Integer idGrupo,
             HttpServletRequest request) {
         String correoEjecutor = SecurityContextHolder.getContext().getAuthentication().getName();
         CargaMasivaRespuestaDto respuesta = cargaMasivaService.procesarCargaMasiva(
-                archivo, targetRol, correoEjecutor, ClientIpResolver.resolver(request));
+                archivo, targetRol, correoEjecutor, ClientIpResolver.resolver(request), idGrupo);
         return ResponseEntity.ok(respuesta);
+    }
+
+    @PostMapping(value = "/carga-masiva/vista-previa", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CargaMasivaVistaPreviaDto previsualizar(
+            @RequestParam("archivo") MultipartFile archivo,
+            @RequestParam(value = "rol", required = false) String rol,
+            @RequestParam(value = "idGrupo", required = false) Integer idGrupo) {
+        return cargaMasivaService.previsualizar(archivo, rol, SecurityContextHolder.getContext().getAuthentication().getName(), idGrupo);
     }
 
     @PostMapping("/registro-individual")

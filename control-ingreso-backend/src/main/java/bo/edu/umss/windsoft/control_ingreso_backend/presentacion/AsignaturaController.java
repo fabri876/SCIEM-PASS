@@ -20,8 +20,8 @@ public class AsignaturaController {
 
     @GetMapping("/por-docente")
     public ResponseEntity<List<AsignaturaResponseDto>> porDocente(
-            @RequestParam Integer idUsuario,
-            @RequestParam Integer codsisDocente) {
+            @RequestParam(required = false) Integer idUsuario,
+            @RequestParam(required = false) Integer codsisDocente) {
         return ResponseEntity.ok(asignaturaService.obtenerPorDocente(idUsuario, codsisDocente));
     }
 
