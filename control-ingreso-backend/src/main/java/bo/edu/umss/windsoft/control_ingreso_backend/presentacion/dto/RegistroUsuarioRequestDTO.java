@@ -42,6 +42,11 @@ public class RegistroUsuarioRequestDTO {
     @NotEmpty(message = "Debe seleccionar al menos un rol (Estudiante, Docente o Ayudante)")
     private List<String> roles;
 
+    // Opcionales para vinculacion con asignatura y grupos
+    private Integer idAsignatura;
+    private Integer idGrupo;
+    private List<Integer> idGrupos;
+
     public RegistroUsuarioRequestDTO() {
     }
 
@@ -137,4 +142,13 @@ public class RegistroUsuarioRequestDTO {
     public void setRoles(List<String> roles) {
         this.roles = roles;
     }
+
+    public Integer getIdAsignatura() { return idAsignatura; }
+    public void setIdAsignatura(Integer idAsignatura) { this.idAsignatura = idAsignatura; }
+
+    public Integer getIdGrupo() { return idGrupo; }
+    public void setIdGrupo(Integer idGrupo) { this.idGrupo = idGrupo; }
+
+    public List<Integer> getIdGrupos() { return idGrupos; }
+    public void setIdGrupos(List<Integer> idGrupos) { this.idGrupos = idGrupos; }
 }

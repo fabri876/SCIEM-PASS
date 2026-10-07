@@ -33,6 +33,7 @@ public class RegistroUsuarioService {
     private final DocenteRepository docenteRepository;
     private final AyudanteRepository ayudanteRepository;
     private final AdminRepository adminRepository;
+    private final GrupoService grupoService;
     private final PasswordEncoder passwordEncoder;
 
     public RegistroUsuarioService(
@@ -41,12 +42,14 @@ public class RegistroUsuarioService {
             DocenteRepository docenteRepository,
             AyudanteRepository ayudanteRepository,
             AdminRepository adminRepository,
+            GrupoService grupoService,
             PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.estudianteRepository = estudianteRepository;
         this.docenteRepository = docenteRepository;
         this.ayudanteRepository = ayudanteRepository;
         this.adminRepository = adminRepository;
+        this.grupoService = grupoService;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -79,6 +82,10 @@ public class RegistroUsuarioService {
 
         if (rolesNormalizados.isEmpty()) {
             throw new ValidacionNegocioException("Debe seleccionar al menos un rol válido.");
+        }
+        if ((rolesNormalizados.contains("docente") || rolesNormalizados.contains("estudiante"))
+                && dto.getIdGrupo() == null && (dto.getIdGrupos() == null || dto.getIdGrupos().isEmpty())) {
+            throw new ValidacionNegocioException("Debe asignar una asignatura y grupo al registrar docentes o estudiantes.");
         }
 
         // 3. Normalizar nombres y apellidos
@@ -125,7 +132,7 @@ public class RegistroUsuarioService {
         Usuario usuarioGuardado = usuarioRepository.save(usuario);
         Integer idUsuarioGenerado = usuarioGuardado.getIdusuario();
 
-        // 7. Guardar en las tablas de roles correspondientes
+        // 7. Guardar en las tablas de roles correspondientes y sus vincualciones con grupos
         Integer codigoSisParsed = null;
         if (dto.getCodigoSis() != null && !dto.getCodigoSis().trim().isEmpty()) {
             try {
@@ -135,17 +142,54 @@ public class RegistroUsuarioService {
             }
         }
 
+        java.util.Set<Integer> gruposSolicitados = new java.util.LinkedHashSet<>();
+        if (dto.getIdGrupo() != null) gruposSolicitados.add(dto.getIdGrupo());
+        if (dto.getIdGrupos() != null) gruposSolicitados.addAll(dto.getIdGrupos());
+        if (gruposSolicitados.size() > 100) throw new ValidacionNegocioException("Se admiten hasta 100 grupos.");
         for (String rol : rolesNormalizados) {
+            String destino = switch (rol) {
+                case "docente" -> TipoUsuarioResolver.DOCENTE;
+                case "estudiante" -> TipoUsuarioResolver.ESTUDIANTE;
+                case "ayudante" -> TipoUsuarioResolver.OPERADOR;
+                default -> TipoUsuarioResolver.ADMINISTRADOR;
+            };
+            grupoService.validarAccesoRegistro(new java.util.ArrayList<>(gruposSolicitados), destino);
             switch (rol) {
                 case "estudiante" -> {
                     int codSis = codigoSisParsed != null ? codigoSisParsed : idUsuarioGenerado;
                     estudianteRepository.save(new Estudiante(idUsuarioGenerado, codSis));
+                    if (dto.getIdGrupo() != null) {
+                        grupoService.inscribirEstudianteAGrupo(idUsuarioGenerado, codSis, dto.getIdGrupo());
+                    }
+                    if (dto.getIdGrupos() != null) {
+                        for (Integer idG : dto.getIdGrupos()) {
+                            grupoService.inscribirEstudianteAGrupo(idUsuarioGenerado, codSis, idG);
+                        }
+                    }
                 }
                 case "docente" -> {
                     int codSis = codigoSisParsed != null ? codigoSisParsed : idUsuarioGenerado;
                     docenteRepository.save(new Docente(idUsuarioGenerado, codSis));
+                    if (dto.getIdGrupo() != null) {
+                        grupoService.asignarDocenteAGrupo(idUsuarioGenerado, codSis, dto.getIdGrupo());
+                    }
+                    if (dto.getIdGrupos() != null) {
+                        for (Integer idG : dto.getIdGrupos()) {
+                            grupoService.asignarDocenteAGrupo(idUsuarioGenerado, codSis, idG);
+                        }
+                    }
                 }
-                case "ayudante" -> ayudanteRepository.save(new Ayudante(idUsuarioGenerado));
+                case "ayudante" -> {
+                    ayudanteRepository.save(new Ayudante(idUsuarioGenerado));
+                    if (dto.getIdGrupo() != null) {
+                        grupoService.asignarAyudanteAGrupo(idUsuarioGenerado, dto.getIdGrupo());
+                    }
+                    if (dto.getIdGrupos() != null) {
+                        for (Integer idG : dto.getIdGrupos()) {
+                            grupoService.asignarAyudanteAGrupo(idUsuarioGenerado, idG);
+                        }
+                    }
+                }
                 case "admin" -> adminRepository.save(new Admin(idUsuarioGenerado));
             }
         }
