@@ -9,6 +9,10 @@ import RegistroExamenPage from "./pages/RegistroExamenPage";
 import HomePage from "./pages/HomePage";
 import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
+// Páginas de Exámenes (próximos y pasados)
+import Examenes from "./pages/examenesHome/Examenes";
+import ExamenesPasados from "./pages/examenesHome/ExamenesPasados";
+
 // Páginas de Administrador
 import AdminDashboard from "./pages/admin/AdminDashboard";
 
@@ -122,13 +126,12 @@ function App() {
         <Route path="/registro-examen" element={<RegistroExamenPage />} />
 
         {/* Home público: la puerta de entrada del sistema, visible haya
-            o no sesión iniciada. Los 4 apartados del Header que todavía
-            no tienen pantalla propia van a una página en blanco por
-            ahora. */}
+            o no sesión iniciada. Los apartados "Noticias" y "Aulas" ya no
+            existen en el Header. Exámenes ya tiene sus pantallas; solo
+            Notificaciones va a una página en blanco por ahora. */}
         <Route path="/inicio" element={<HomePage />} />
-        <Route path="/examenes" element={<PaginaEnConstruccion />} />
-        <Route path="/noticias" element={<PaginaEnConstruccion />} />
-        <Route path="/aulas" element={<PaginaEnConstruccion />} />
+        <Route path="/examenes" element={<Examenes />} />
+        <Route path="/examenes/pasados" element={<ExamenesPasados />} />
         <Route path="/notificaciones" element={<PaginaEnConstruccion />} />
 
         {/* Ruta de Administrador */}
