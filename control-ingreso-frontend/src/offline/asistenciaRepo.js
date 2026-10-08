@@ -9,6 +9,7 @@ export const asistenciaRepo = {
   /**
    * Registra el ingreso en UNA sola transacción atómica.
    * Valida estrictamente examenId (entero > 0) y campos obligatorios.
+   * Guarda verificacionVisual (boolean) y qrToken (string | null).
    */
   async registrarMarca({
     examenId,
@@ -16,7 +17,9 @@ export const asistenciaRepo = {
     metodo,
     operadorId,
     rol,
-    clockOffsetMs = 0
+    clockOffsetMs = 0,
+    verificacionVisual = false,
+    qrToken = null
   }) {
     const exId = Number(examenId);
     const sis = normalizarCodigo(codigoSis);
@@ -64,7 +67,7 @@ export const asistenciaRepo = {
         marcadoPor: operadorId
       });
 
-      // 5. Encolar asistencia pendiente
+      // 5. Encolar asistencia pendiente con verificacionVisual y qrToken
       const nuevaAsistencia = {
         clientUuid,
         examenId: exId,
@@ -75,6 +78,8 @@ export const asistenciaRepo = {
         deviceId,
         clockOffsetMs,
         timestampLocal,
+        verificacionVisual: Boolean(verificacionVisual),
+        qrToken: qrToken ? String(qrToken).trim() : null,
         syncStatus: ESTADO_SYNC.PENDIENTE,
         intentos: 0,
         nextRetryAt: 0,
@@ -123,7 +128,6 @@ export const asistenciaRepo = {
 
   /**
    * Actualiza el estado de sincronización.
-   * Al pasar a 'sincronizado' o 'duplicado', fija sincronizadoEn: Date.now().
    */
   async marcarEstado(clientUuid, syncStatus, metadata = {}) {
     const actualizacion = {
@@ -140,7 +144,6 @@ export const asistenciaRepo = {
 
   /**
    * Purga registros sincronizados o duplicados con más de 72 horas.
-   * NUNCA toca registros pendientes.
    */
   async purgarSincronizados(maxHoras = 72) {
     const ahoraMs = Date.now();
@@ -167,8 +170,7 @@ export const asistenciaRepo = {
   },
 
   /**
-   * Al arrancar la app, revierte a 'pendiente' los que quedaron en 'syncing'
-   * restableciendo nextRetryAt: 0 para reintento inmediato.
+   * Al arrancar la app, revierte a 'pendiente' los que quedaron en 'syncing'.
    */
   async revertirSyncingHuerfanos() {
     return await db.asistencias_pendientes
