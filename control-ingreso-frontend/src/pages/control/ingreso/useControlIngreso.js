@@ -40,7 +40,7 @@ export default function useControlIngreso(idExamenInicial = null) {
     if (id == null) return;
     const ex = listExamenes.find((e) => e.id === id) || {};
     try {
-      const [contador, ultimos] = await Promise.all([obtenerContador(id, ex), obtenerUltimosIngresos(id, 5)]);
+      const [contador, ultimos] = await Promise.all([obtenerContador(id, ex), obtenerUltimosIngresos(id, 5, ex)]);
       if (refIdExamen.current !== id) return;
       setObjContador(contador);
       setListUltimos(ultimos);

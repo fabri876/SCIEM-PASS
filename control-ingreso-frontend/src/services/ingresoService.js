@@ -54,6 +54,7 @@ export async function obtenerExamenesAsignados() {
     idambiente: e.idambiente,
     materia: e.nombreAsignatura,
     sigla: e.siglaAsignatura,
+    grupo: e.grupo,
     tipo: e.nombreExamen,
     aula: e.nombreAmbiente,
     edificio: e.ubicacionAmbiente,
@@ -94,7 +95,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
       idasignatura: idasignatura,
       idexamen: idExamen,
       idambiente: idambiente,
-      metodoIngreso: strMetodo === "QR" ? "QR" : "MANUAL",
+      metodoIngreso: strMetodo === "QR" ? "ESCANEO" : "MANUAL",
     }),
   });
 
@@ -106,10 +107,13 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
   }
 
   const objData = await resp.json().catch(() => null);
+  console.log("Raw response from backend (validarIngreso):", resp.status, objData);
 
   let strResultado = objData?.estado || "NO_ENCONTRADO";
   if (strResultado === "INHABILITADO") strResultado = "NO_HABILITADO";
   if (strResultado === "DUPLICADO") strResultado = "YA_REGISTRADO";
+  // QR_INVALIDO: el token no existe, está anulado o expirado — se trata como no encontrado visualmente
+  if (strResultado === "QR_INVALIDO") strResultado = "QR_INVALIDO";
 
   const est = objData?.estudiante;
   const estudianteMapeado = est
@@ -165,11 +169,31 @@ export async function obtenerContador(idExamen, objExamen = {}) {
   return objExamen.contador || { ingresaron: 0, pendientes: 0, inhabilitados: 0, habilitados: 0 };
 }
 
-export async function obtenerUltimosIngresos(idExamen, numLimite = 5) {
+export async function obtenerUltimosIngresos(idExamen, numLimite = 5, objExamen = {}) {
   if (USAR_MOCK) return simular(mockUltimos(idExamen, numLimite));
+  const idasig = objExamen.idasignatura || objExamen.idAsignatura;
+  const idamb = objExamen.idambiente || objExamen.idAmbiente;
+  if (!idasig || !idamb) return [];
+
   try {
-    const res = await pedir(`/api/control/examenes/${idExamen}/ingresos?limite=${numLimite}`);
-    return res || [];
+    const res = await pedir(`/api/v1/control/ultimos-ingresos?idasignatura=${idasig}&idexamen=${idExamen}&idambiente=${idamb}&limite=${numLimite}`);
+    return (res || []).map((u) => {
+      const est = u.estudiante || {};
+      const partesNombre = (est.nombreCompleto || "").trim().split(" ");
+      const nombres = partesNombre[0] || "";
+      const apellidos = partesNombre.slice(1).join(" ") || "";
+      return {
+        hora: u.horaIngreso ? String(u.horaIngreso).substring(11, 19) : "",
+        metodo: u.metodoIngreso === "QR" ? "QR" : "Manual",
+        estudiante: {
+          nombres: nombres,
+          apellidos: apellidos,
+          ci: est.ci || "",
+          sis: est.codsisestudiante || "",
+          carrera: est.carrera || "Carrera no asignada",
+        },
+      };
+    });
   } catch {
     return [];
   }
@@ -245,6 +269,17 @@ function mockLista(idExamen, strBuscar) {
 
 function mockValidar(idExamen, strValor, strMetodo) {
   const ex = examenMock(idExamen);
+
+  // Si viene un token QR con el prefijo del sistema, se simula como válido para el primer estudiante pendiente
+  const PREFIJO_QR = "SCIEMPASS:1:";
+  if (strMetodo === "QR" && String(strValor).startsWith(PREFIJO_QR)) {
+    const listPend = nominaMock(idExamen).filter((s) => s.habilitado && !s.ingreso && ex && s.aulaAsignada === ex.aula);
+    if (!listPend.length) return { valor: strValor, resultado: "QR_INVALIDO", mensaje: "QR INVÁLIDO (simulación: sin pendientes)", estudiante: null, contador: null };
+    const s = listPend[0];
+    s.ingreso = { hora: horaServidorMock(), metodo: "QR" };
+    return { valor: strValor, resultado: "PERMITIDO", metodo: "QR", estudiante: datosEstudiante(s), horaIngreso: s.ingreso.hora, contador: mockContador(idExamen) };
+  }
+
   const strDigitos = String(strValor || "").replace(/\D/g, "");
   const coincide = (x) => x.ci === strDigitos || x.sis === strDigitos;
   const s = nominaMock(idExamen).find(coincide);
@@ -274,8 +309,12 @@ function mockValidar(idExamen, strValor, strMetodo) {
 }
 
 // Solo para la simulación del lector QR sin cámara (mock)
+// Devuelve un token con el prefijo SCIEMPASS:1: para simular un escaneo QR real
 export function obtenerSisPendienteMock(idExamen) {
   const ex = examenMock(idExamen);
   const listPend = nominaMock(idExamen).filter((s) => s.habilitado && !s.ingreso && ex && s.aulaAsignada === ex.aula);
-  return listPend.length ? listPend[Math.floor(Math.random() * listPend.length)].sis : null;
+  if (!listPend.length) return null;
+  // Se genera un token simulado con el prefijo del sistema para que el mock entienda que es QR
+  const strSis = listPend[Math.floor(Math.random() * listPend.length)].sis;
+  return `SCIEMPASS:1:MOCK-${strSis}-QR`;
 }
