@@ -8,6 +8,9 @@ import UsuarioFormFields from "../admin/components/UsuarioFormFields";
 import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
 import { obtenerMisExamenes, obtenerAsignaturasPorDocente } from "../../services/examenService";
+import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
+import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
+import { AlertTriangle } from "lucide-react";
 
 // Un docente no puede registrar a otro docente, solo Ayudante o Estudiante
 // (el backend ya lo valida igual en UsuarioService.validarPermisosRegistro).
@@ -21,6 +24,24 @@ export default function HomeDocente() {
     const [usuario, setUsuario] = useState(null);
     const [examenes, setExamenes] = useState([]);
     const [boolCargando, setBoolCargando] = useState(true);
+    const [strMenuActivo, setStrMenuActivo] = useState("inicio");
+    const [totalIncidenciasAbiertas, setTotalIncidenciasAbiertas] = useState(0);
+
+    useEffect(() => {
+        let cancel = false;
+        async function fnCargarContadorIncidencias() {
+            try {
+                const res = await obtenerTotalIncidenciasAbiertas();
+                if (!cancel && res && typeof res.total === "number") {
+                    setTotalIncidenciasAbiertas(res.total);
+                }
+            } catch (err) {
+                // Silencioso
+            }
+        }
+        fnCargarContadorIncidencias();
+        return () => { cancel = true; };
+    }, [strMenuActivo]);
 
     useEffect(() => {
         const user = obtenerUsuarioActual();
@@ -124,8 +145,8 @@ export default function HomeDocente() {
     const [boolModalRegistroAbierto, setBoolModalRegistroAbierto] = useState(false);
     const [strSeccionRegistro, setStrSeccionRegistro] = useState("individual");
 
-    const fnCargarMasiva = async (file) => {
-        return cargarUsuariosMasivo(file, "ESTUDIANTE");
+    const fnCargarMasiva = async (file, materia, tipoCarga, docente, grupo) => {
+        return cargarUsuariosMasivo(file, "ESTUDIANTE", grupo ? Number(grupo) : null);
     };
 
     const fnRegistrarIndividual = async (datos) => {
@@ -160,7 +181,14 @@ export default function HomeDocente() {
                     </div>
 
                     <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-                        <button className="w-full flex items-center gap-3 px-4 py-3 bg-[#1A365D] text-white rounded-xl font-bold text-xs shadow-xs">
+                        <button
+                            onClick={() => setStrMenuActivo("inicio")}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${
+                                strMenuActivo === "inicio"
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                        >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                             Inicio
                         </button>
@@ -168,13 +196,35 @@ export default function HomeDocente() {
                             <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
                             Registrar Examen
                         </button>
-                        <button className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
+                        <button onClick={() => setStrMenuActivo("inicio")} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
                             <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                             Mis Exámenes
                         </button>
-                        <button className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
+                        <button onClick={() => setStrMenuActivo("inicio")} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
                             <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                             Reportes y Asistencia
+                        </button>
+                        <button
+                            onClick={() => setStrMenuActivo("incidencias")}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${
+                                strMenuActivo === "incidencias"
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <AlertTriangle className={`w-4 h-4 ${strMenuActivo === "incidencias" ? "text-white" : "text-[#1A365D]"}`} />
+                                <span>Incidencias</span>
+                            </div>
+                            {totalIncidenciasAbiertas > 0 && (
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                    strMenuActivo === "incidencias"
+                                        ? "bg-white text-rose-600"
+                                        : "bg-rose-100 text-rose-700"
+                                }`}>
+                                    {totalIncidenciasAbiertas}
+                                </span>
+                            )}
                         </button>
                         <button onClick={() => { setStrSeccionRegistro("individual"); setBoolModalRegistroAbierto(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
                             <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
@@ -185,8 +235,10 @@ export default function HomeDocente() {
 
                 {/* CONTENIDO CENTRAL */}
                 <main className="flex-1 min-w-0 space-y-6">
-
-                    {/* BANNER DE BIENVENIDA CON EL AZUL OSCURO INSTITUCIONAL EXACTO DEL HOME ESTUDIANTE */}
+                    {strMenuActivo === "incidencias" ? (
+                        <SeccionIncidencias rol="DOCENTE" />
+                    ) : (
+                        <>
                     <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>
                         <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
                             ¡HOLA, {strNombre.toUpperCase()}!
@@ -342,6 +394,8 @@ export default function HomeDocente() {
 
 
                     </div>
+                    </>
+                    )}
                 </main>
             </div>
 
@@ -395,7 +449,7 @@ export default function HomeDocente() {
                             boolActivo={boolModalRegistroAbierto && strSeccionRegistro === "individual"}
                         />
                     ) : (
-                        <BulkUploadCard onProcesar={fnCargarMasiva} />
+                        <BulkUploadCard onProcesar={fnCargarMasiva} soloEstudiantes />
                     )}
                 </div>
             </VentanaEmergente>

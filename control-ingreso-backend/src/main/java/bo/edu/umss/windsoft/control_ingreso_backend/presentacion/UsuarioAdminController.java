@@ -76,8 +76,9 @@ public class UsuarioAdminController {
     public ResponseEntity<CambioEstadoRespuestaDto> cambiarEstado(@PathVariable Integer id,
                                                                     @Valid @RequestBody CambiarEstadoDto dto,
                                                                     HttpServletRequest request) {
-        boolean activo = usuarioService.cambiarEstado(id, dto.getNuevoEstado(), correoEjecutor(),
+        UsuarioRespuestaDto uDto = usuarioService.cambiarEstado(id, dto.esActivo(), correoEjecutor(),
                 ClientIpResolver.resolver(request));
+        boolean activo = uDto.isEstado();
         String estado = activo ? "ACTIVO" : "INACTIVO";
         return ResponseEntity.ok(new CambioEstadoRespuestaDto("Estado de usuario actualizado exitosamente", id, estado));
     }

@@ -9,30 +9,31 @@ import { obtenerToken, obtenerUsuarioActual, cerrarSesion } from "../../services
  *
  * Barra superior con el logo y la navegación principal. No es algo
  * exclusivo de la pantalla de Registro: se repite en Home, Login,
- * Dashboard, etc. Por eso vive en components/layout y no en
+ * Dashboard, Exámenes, etc. Por eso vive en components/layout y no en
  * components/registro.
  *
  * "arrNavItems" guarda los datos de cada link (texto + ícono + ruta)
- * para no repetir seis veces casi el mismo bloque de JSX. Cada ícono es
+ * para no repetir tres veces casi el mismo bloque de JSX. Cada ícono es
  * el mismo SVG del mockup original, solo que factorizado en un array.
+ *
+ * CAMBIO: se eliminaron "Noticias" y "Aulas" porque esas secciones ya no
+ * van en el sistema. Como la nav se arma con arrNavItems.map(), al sacar
+ * esos dos ítems del array los que quedan (Inicio, Exámenes,
+ * Notificaciones) se juntan solos, sin huecos, tanto en desktop como en
+ * el menú mobile.
  *
  * El ítem activo (la rayita de abajo) ya NO se pasa a mano: se calcula
  * comparando la URL actual (useLocation) contra "strRuta" de cada ítem.
- * Las páginas de Exámenes/Noticias/Aulas/Notificaciones todavía no
- * existen — por ahora esas rutas muestran una página en blanco (ver
- * PaginaEnConstruccion.jsx), pero el link y la rayita activa ya
- * funcionan.
+ * Un ítem también queda activo si la URL es una sub-ruta suya; por eso
+ * "Exámenes" sigue marcado en /examenes/pasados.
  *
  * El extremo derecho muestra "Iniciar sesión" si NO hay sesión iniciada
  * (se fija con obtenerToken()/obtenerUsuarioActual() de authService, igual
  * que ya lo hacen los guards de rutas en App.jsx), o el menú de cuenta
  * (UserAccountMenu: avatar/nombre, "Cambiar contraseña", "Cerrar sesión")
- * si SÍ la hay. Antes cada panel (admin/docente/ayudante/estudiante)
- * renderizaba su propia copia de UserAccountMenu al lado de este Header;
- * ahora vive acá para que salga automáticamente en cualquier pantalla que
- * use este componente, sin duplicarlo panel por panel.
+ * si SÍ la hay.
  *
- * RESPONSIVE (nuevo):
+ * RESPONSIVE:
  * A partir del breakpoint "md" de Tailwind se ve el diseño original
  * (logo + nav horizontal + sesión, todo en una fila). Por debajo de "md"
  * (celular / pantallas angostas) la nav horizontal y el bloque de sesión
@@ -60,27 +61,6 @@ const arrNavItems = [
       <>
         <rect x="4" y="5" width="16" height="15" rx="2" />
         <path d="M8 3v4M16 3v4M4 10h16" />
-      </>
-    ),
-  },
-  {
-    strTexto: "Noticias",
-    strRuta: "/noticias",
-    svgIcono: (
-      <>
-        <rect x="3" y="5" width="14" height="16" rx="1" />
-        <path d="M7 9h6M7 13h6M7 17h4" />
-        <path d="M17 8h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7" />
-      </>
-    ),
-  },
-  {
-    strTexto: "Aulas",
-    strRuta: "/aulas",
-    svgIcono: (
-      <>
-        <rect x="4" y="4" width="16" height="17" rx="1" />
-        <path d="M9 21v-5h6v5M9 8h1M14 8h1M9 12h1M14 12h1" />
       </>
     ),
   },
@@ -138,6 +118,10 @@ export default function Header() {
   const fnAlternarMenu = () => setBoolMenuAbierto((boolPrev) => !boolPrev);
   const fnCerrarMenu = () => setBoolMenuAbierto(false);
 
+  // Activo si la URL es exactamente la ruta del ítem o una sub-ruta suya
+  const fnEsActivo = (strRuta) =>
+    location.pathname === strRuta || location.pathname.startsWith(`${strRuta}/`);
+
   return (
     <header className="relative flex items-center h-[70px] md:h-[98px] px-5 md:px-[55px] bg-white/72 border-b border-[#E2E8F0]/75">
       <Logo />
@@ -151,7 +135,7 @@ export default function Header() {
           <NavItem
             key={item.strTexto}
             {...item}
-            boolActivo={location.pathname === item.strRuta}
+            boolActivo={fnEsActivo(item.strRuta)}
           />
         ))}
       </nav>
@@ -202,7 +186,7 @@ export default function Header() {
             <NavItem
               key={item.strTexto}
               {...item}
-              boolActivo={location.pathname === item.strRuta}
+              boolActivo={fnEsActivo(item.strRuta)}
               boolVersionMobile
               fnAlHacerClick={fnCerrarMenu}
             />

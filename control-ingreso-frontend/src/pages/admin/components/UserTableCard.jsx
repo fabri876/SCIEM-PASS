@@ -20,11 +20,21 @@ function colorAvatar(idUsuario) {
   return COLORES_AVATAR[idx];
 }
 
+const PESTANAS = [
+  { id: "ESTUDIANTE", nombre: "Estudiantes" },
+  { id: "DOCENTE", nombre: "Docentes" },
+  { id: "OPERADOR", nombre: "Ayudantes" },
+  { id: "ADMINISTRADOR", nombre: "Administradores" },
+  { id: "TODOS", nombre: "Todos" },
+];
+
 /**
  * Tabla de administración de usuarios (HU16).
  */
 export default function UserTableCard({ usuarios, boolCargando, strError, onCrear, onEditar, onCambiarRol, onCambiarEstado }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [rolSeleccionado, setRolSeleccionado] = useState("ESTUDIANTE");
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState("TODOS");
   const [modalUsuario, setModalUsuario] = useState(null);
   const [usuarioParaCambiarEstado, setUsuarioParaCambiarEstado] = useState(null);
   const [boolProcesando, setBoolProcesando] = useState(false);
@@ -32,11 +42,14 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
   const listaSegura = Array.isArray(usuarios) ? usuarios : [];
 
   const filteredUsers = listaSegura.filter((u) => {
+    if (rolSeleccionado !== "TODOS" && u?.rol !== rolSeleccionado) return false;
+    if (estadoSeleccionado === "ACTIVO" && !u?.estado) return false;
+    if (estadoSeleccionado === "INACTIVO" && u?.estado) return false;
     const search = searchTerm.toLowerCase();
     const nombreCompleto = `${u?.nombre || ""} ${u?.apellido || ""}`.toLowerCase();
     return (
       nombreCompleto.includes(search) ||
-      (u?.ci || "").includes(search) ||
+      String(u?.ci || "").includes(search) ||
       (u?.correo?.toLowerCase() || "").includes(search)
     );
   });
@@ -71,7 +84,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-sub font-extrabold text-primary-navy tracking-tight">
+            <h2 className="text-card-title font-extrabold text-primary-navy tracking-tight">
               Administración de Usuarios y Roles
             </h2>
             <p className="text-secondary text-text-body font-medium">
@@ -88,12 +101,29 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
           </button>
         </div>
 
+        <div className="flex gap-1 overflow-x-auto border-b border-border mb-4" aria-label="Filtrar usuarios por rol">
+          {PESTANAS.map(tab => <button key={tab.id} type="button" aria-pressed={rolSeleccionado === tab.id}
+            onClick={() => setRolSeleccionado(tab.id)}
+            className={`shrink-0 px-3 py-3 text-secondary font-bold border-b-2 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-primary-blue ${rolSeleccionado === tab.id ? "border-primary-blue text-primary-blue bg-primary-blue/5" : "border-transparent text-text-body hover:bg-bg-app hover:text-primary-navy"}`}>
+            {tab.nombre} <span className="ml-1 text-badge rounded-full bg-bg-app px-1.5 py-0.5">{tab.id === "TODOS" ? listaSegura.length : listaSegura.filter(u => u?.rol === tab.id).length}</span>
+          </button>)}
+        </div>
+
+        <div className="flex flex-wrap gap-1 rounded-xl bg-bg-app p-1 mb-4 w-fit" aria-label="Filtrar por estado de la cuenta">
+          {[{id: "TODOS", nombre: "Todos los estados"}, {id: "ACTIVO", nombre: "Activos"}, {id: "INACTIVO", nombre: "Inactivos"}].map(estado =>
+            <button key={estado.id} type="button" aria-pressed={estadoSeleccionado === estado.id} onClick={() => setEstadoSeleccionado(estado.id)}
+              className={`px-3 py-2 rounded-lg text-secondary font-bold transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-primary-blue ${estadoSeleccionado === estado.id ? "bg-bg-card text-primary-navy shadow-sm" : "text-text-body hover:text-primary-navy"}`}>
+              {estado.nombre}
+            </button>)}
+        </div>
+
         {/* Buscador */}
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-body/60" />
             <input
               type="text"
+              aria-label="Buscar usuarios por nombre, CI o correo"
               placeholder="Buscar por nombre, CI o correo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -109,9 +139,9 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
         )}
 
         {/* Tabla */}
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="max-h-[520px] overflow-auto rounded-xl border border-border" tabIndex={0} aria-label="Lista de usuarios" role="region">
           <table className="w-full text-left border-collapse">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="bg-bg-app text-badge font-bold text-text-body/70 uppercase tracking-wider border-b border-border">
                 <th className="py-3 px-4">Usuario</th>
                 <th className="py-3 px-4">CI</th>
@@ -149,7 +179,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
                       <td className="py-3 px-4 text-text-body/80">{user.correo}</td>
                       <td className="py-3 px-4">
                         <span className="bg-bg-app border border-border text-primary-navy font-semibold px-3 py-1.5 rounded-xl text-secondary">
-                          {user.rol || "PENDIENTE"}
+                          {PESTANAS.find(tab => tab.id === user.rol)?.nombre || user.rol || "PENDIENTE"}
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -184,7 +214,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
               ) : (
                 <tr>
                   <td colSpan="6" className="py-8 text-center text-secondary text-text-body/60">
-                    No se encontraron usuarios que coincidan con la búsqueda.
+                    No hay usuarios que coincidan con el rol, estado y búsqueda seleccionados.
                   </td>
                 </tr>
               )}
@@ -194,7 +224,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
       </div>
 
       <div className="flex items-center justify-between gap-3 pt-4 mt-2 border-t border-border text-secondary text-text-body/70 font-medium">
-        <span>Mostrando {filteredUsers.length} de {listaSegura.length} usuarios</span>
+        <span aria-live="polite">{filteredUsers.length} usuario(s) en esta selección · {listaSegura.length} en total</span>
       </div>
 
       <UsuarioFormModal

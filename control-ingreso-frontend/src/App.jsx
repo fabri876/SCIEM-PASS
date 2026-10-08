@@ -9,6 +9,10 @@ import RegistroExamenPage from "./pages/RegistroExamenPage";
 import HomePage from "./pages/HomePage";
 import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
+// Páginas de Exámenes (próximos y pasados)
+import Examenes from "./pages/examenesHome/Examenes";
+import ExamenesPasados from "./pages/examenesHome/ExamenesPasados";
+
 // Páginas de Administrador
 import AdminDashboard from "./pages/admin/AdminDashboard";
 
@@ -21,6 +25,9 @@ import HomeEstudiante from "./pages/estudiante/HomeEstudiante";
 
 // Páginas de Personal de Control (Operador)
 import HomeControl from "./pages/control/HomeControl";
+import ConectadoOperador from "./pages/control/conectado/ConectadoOperador";
+import OffLineOperador from "./pages/control/offline/OffLineOperador";
+import ForzarSincronizacionOperador from "./pages/control/forzar/ForzarSincronizacionOperador";
 
 /**
  * Componente Guard para Rutas Públicas (Login / Registro).
@@ -119,13 +126,12 @@ function App() {
         <Route path="/registro-examen" element={<RegistroExamenPage />} />
 
         {/* Home público: la puerta de entrada del sistema, visible haya
-            o no sesión iniciada. Los 4 apartados del Header que todavía
-            no tienen pantalla propia van a una página en blanco por
-            ahora. */}
+            o no sesión iniciada. Los apartados "Noticias" y "Aulas" ya no
+            existen en el Header. Exámenes ya tiene sus pantallas; solo
+            Notificaciones va a una página en blanco por ahora. */}
         <Route path="/inicio" element={<HomePage />} />
-        <Route path="/examenes" element={<PaginaEnConstruccion />} />
-        <Route path="/noticias" element={<PaginaEnConstruccion />} />
-        <Route path="/aulas" element={<PaginaEnConstruccion />} />
+        <Route path="/examenes" element={<Examenes />} />
+        <Route path="/examenes/pasados" element={<ExamenesPasados />} />
         <Route path="/notificaciones" element={<PaginaEnConstruccion />} />
 
         {/* Ruta de Administrador */}
@@ -176,7 +182,12 @@ function App() {
               <HomeControl />
             </RutaProtegida>
           }
-        />
+        >
+          <Route index element={<Navigate to="conectado" replace />} />
+          <Route path="conectado" element={<ConectadoOperador />} />
+          <Route path="offline" element={<OffLineOperador />} />
+          <Route path="forzar" element={<ForzarSincronizacionOperador />} />
+        </Route>
         <Route path="/home/control" element={<Navigate to="/control" replace />} />
 
         {/* Redirección por defecto: ahora entra directo al Home */}

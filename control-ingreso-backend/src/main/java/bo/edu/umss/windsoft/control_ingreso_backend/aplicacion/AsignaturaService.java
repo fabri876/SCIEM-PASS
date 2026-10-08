@@ -66,6 +66,13 @@ public class AsignaturaService {
         return mapear(asignaturas, idAsig -> docentesMap.getOrDefault(idAsig, "Docente Asignado"));
     }
 
+    public List<AsignaturaResponseDto> listarTodas() {
+        return obtenerTodas();
+    }
+    public List<Asignatura> listarCatalogo() {
+        return asignaturaRepository.findAll();
+    }
+
     private String resolverNombrePropio(Integer idUsuario) {
         return usuarioRepository.findById(idUsuario)
                 .map(u -> ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " "

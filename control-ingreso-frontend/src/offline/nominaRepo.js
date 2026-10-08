@@ -1,8 +1,95 @@
 import { db } from './db.js';
 import { normalizarCi, normalizarCodigo, normalizarQr } from './normalize.js';
 import { ESTADO_SYNC, ERROR_ASISTENCIA } from './constantes.js';
+import { fotoRepo } from './fotoRepo.js';
+
+export const CAMPOS_SERVIDOR = {
+  codigoSis: ['codigoSis', 'codSisEstudiante'],
+  ci: ['ci', 'ciEstudiante'],
+  nombre: ['nombre', 'nombres', 'nombreEstudiante'],
+  apellidoPaterno: ['apellidoPaterno'],
+  apellidos: ['apellidos', 'apellidoEstudiante'],
+  carrera: ['carrera'],
+  qr: ['qr', 'qrToken', 'tokenQr'],
+  qrDesde: ['qrDesde', 'validoDesde', 'fechaInicioQr'],
+  qrHasta: ['qrHasta', 'validoHasta', 'fechaFinQr'],
+  qrEstado: ['qrEstado', 'estadoQr'],
+  aulaAsignada: ['aulaAsignada', 'aula'],
+  normaParticular: ['normaParticular', 'normas', 'observacionParticular']
+};
+
+function extraerPrimerValor(objeto, listaClaves) {
+  for (const c of listaClaves) {
+    if (objeto[c] !== undefined && objeto[c] !== null) {
+      return objeto[c];
+    }
+  }
+  return null;
+}
+
+/**
+ * Parsea una fecha ISO a epoch en milisegundos.
+ * Si viene sin zona horaria, asume America/La_Paz (-04:00).
+ * Si el resultado no es un número finito válido, devuelve null.
+ */
+export function parsearIsoEpoch(valor) {
+  if (valor === undefined || valor === null || valor === '') return null;
+  if (typeof valor === 'number') {
+    return Number.isFinite(valor) ? valor : null;
+  }
+  const str = String(valor).trim();
+  if (!str) return null;
+
+  let time;
+  if (!str.endsWith('Z') && !/[+-]\d{2}(?::?\d{2})?$/.test(str)) {
+    time = new Date(`${str}-04:00`).getTime();
+  } else {
+    time = new Date(str).getTime();
+  }
+  return Number.isFinite(time) ? time : null;
+}
 
 export const nominaRepo = {
+  /**
+   * Retorna el número de estudiantes en la nómina local para un examen.
+   */
+  async contar(examenId) {
+    const exId = Number(examenId);
+    if (!Number.isInteger(exId) || exId <= 0) return 0;
+    return await db.nominas.where('examenId').equals(exId).count();
+  },
+
+  /**
+   * Devuelve métricas de control para la UI: habilitados, ingresaron, pendientes, inhabilitados.
+   */
+  async contador(examenId) {
+    const exId = Number(examenId);
+    if (!Number.isInteger(exId) || exId <= 0) {
+      return { habilitados: 0, ingresaron: 0, pendientes: 0, inhabilitados: 0 };
+    }
+
+    const registros = await db.nominas.where('examenId').equals(exId).toArray();
+    let habilitados = 0;
+    let ingresaron = 0;
+    let pendientes = 0;
+    let inhabilitados = 0;
+
+    for (const r of registros) {
+      if (r.habilitado) {
+        habilitados++;
+        if (r.marcadoLocal === 1) {
+          ingresaron++;
+        } else {
+          pendientes++;
+        }
+      } else {
+        inhabilitados++;
+      }
+    }
+
+    return { habilitados, ingresaron, pendientes, inhabilitados };
+  },
+
   /**
    * Búsqueda por Código SIS usando el índice compuesto primario.
    */
@@ -25,24 +112,19 @@ export const nominaRepo = {
   },
 
   /**
-   * Búsqueda por QR usando el índice compuesto [examenId+qr].
+   * Búsqueda por token QR usando el índice compuesto [examenId+qr].
    */
   async buscarPorQr(examenId, qr) {
-    const qrNorm = normalizarQr(qr);
-    if (!examenId || !qrNorm) return null;
+    const tokenNorm = normalizarQr(qr);
+    if (!examenId || !tokenNorm) return null;
     return await db.nominas
       .where('[examenId+qr]')
-      .equals([Number(examenId), qrNorm])
+      .equals([Number(examenId), tokenNorm])
       .first();
   },
 
   /**
    * Guarda o actualiza un lote de nómina del servidor preservando marcas locales.
-   * - Omite y contabiliza registros sin código SIS.
-   * - Evalúa rigurosamente el estado de habilitación (HABILITADO / INHABILITADO); cualquier otro valor
-   *   se cuenta como 'sin estado' y se fija motivoBloqueo = 'Estado de habilitación no verificado'.
-   * - Refleja marca remota si viene marcadoEn aunque marcadoPor sea nulo.
-   * - Retorna { guardados, sinEstado, sinSis }.
    */
   async guardarLote(examenId, estudiantesServidor) {
     const exId = Number(examenId);
@@ -56,12 +138,12 @@ export const nominaRepo = {
       return { guardados: 0, sinEstado: 0, sinSis: 0 };
     }
 
-    // 1. Omitir y contar registros sin código SIS
     let sinSis = 0;
     const pares = [];
 
     for (const remoto of estudiantesServidor) {
-      const sis = normalizarCodigo(remoto.codigoSis || remoto.codSisEstudiante);
+      const sisBruto = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.codigoSis);
+      const sis = normalizarCodigo(sisBruto);
       if (!sis) {
         sinSis++;
         continue;
@@ -74,7 +156,6 @@ export const nominaRepo = {
     }
 
     return await db.transaction('rw', db.nominas, async () => {
-      // 2. Lectura selectiva con bulkGet
       const claves = pares.map(p => p.clave);
       const existentes = await db.nominas.bulkGet(claves);
       const mapaExistentes = new Map();
@@ -84,7 +165,6 @@ export const nominaRepo = {
 
       let sinEstado = 0;
 
-      // 3. Mapeo y validación de habilitación
       const aGuardar = pares.map(({ sis, remoto }) => {
         const previo = mapaExistentes.get(sis);
 
@@ -114,7 +194,6 @@ export const nominaRepo = {
           sinEstado++;
         }
 
-        // Marcas: prioridad local > prioridad remota (marcadoEn suficiente)
         let marcadoLocal = 0;
         let marcadoEn = null;
         let marcadoPor = null;
@@ -129,8 +208,22 @@ export const nominaRepo = {
           marcadoPor = remoto.marcadoPor || null;
         }
 
-        const nombreCompleto = remoto.nombre ||
-          [remoto.nombreEstudiante, remoto.apellidoEstudiante].filter(Boolean).join(' ');
+        const nombreDirecto = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.nombre);
+        const apellidosDirecto = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.apellidos) || '';
+        const nombreCompleto = [nombreDirecto, apellidosDirecto].filter(Boolean).join(' ');
+
+        let apePaterno = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.apellidoPaterno);
+        if (!apePaterno && apellidosDirecto) {
+          apePaterno = apellidosDirecto.trim().split(/\s+/)[0];
+        }
+
+        const ciBruto = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.ci);
+        const qrBruto = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.qr);
+        const qrDesdeBruto = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.qrDesde);
+        const qrHastaBruto = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.qrHasta);
+        const qrEstadoBruto = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.qrEstado);
+        const aulaRaw = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.aulaAsignada);
+        const aulaAsignada = aulaRaw !== null && aulaRaw !== undefined ? String(aulaRaw).trim() : null;
 
         const motivoBloqueoFinal = sinEstadoVerificable
           ? 'Estado de habilitación no verificado'
@@ -139,8 +232,14 @@ export const nominaRepo = {
         return {
           examenId: exId,
           codigoSis: sis,
-          ci: normalizarCi(remoto.ci || remoto.ciEstudiante),
-          qr: normalizarQr(remoto.qr || sis),
+          ci: normalizarCi(ciBruto),
+          qr: qrBruto ? normalizarQr(qrBruto) : undefined,
+          qrDesde: parsearIsoEpoch(qrDesdeBruto),
+          qrHasta: parsearIsoEpoch(qrHastaBruto),
+          qrEstado: qrEstadoBruto ? String(qrEstadoBruto).trim().toUpperCase() : 'ACTIVO',
+          aulaAsignada,
+          normaParticular: extraerPrimerValor(remoto, CAMPOS_SERVIDOR.normaParticular) || null,
+          apellidoPaterno: apePaterno || '',
           nombre: nombreCompleto,
           carrera: remoto.carrera || '',
           habilitado,
@@ -151,7 +250,6 @@ export const nominaRepo = {
         };
       });
 
-      // Si más del 50% carece de estado verificable, abortar lote
       if (sinEstado > pares.length / 2) {
         const error = new Error(`El lote recibido contiene ${sinEstado} de ${pares.length} estudiantes sin estado de habilitación verificable. Operación cancelada.`);
         error.codigo = ERROR_ASISTENCIA.LOTE_ESTADO_DESCONOCIDO;
@@ -170,8 +268,7 @@ export const nominaRepo = {
   },
 
   /**
-   * Elimina la nómina de un examen.
-   * Ejecuta el conteo de pendientes y el borrado dentro de UNA sola transacción 'rw'.
+   * Elimina la nómina de un examen y limpia fotos huérfanas asociadas sin abortar ante fallo de fotos.
    */
   async limpiarNominaExamen(examenId) {
     const exId = Number(examenId);
@@ -181,7 +278,7 @@ export const nominaRepo = {
       throw error;
     }
 
-    return await db.transaction('rw', [db.nominas, db.asistencias_pendientes], async () => {
+    const borrados = await db.transaction('rw', [db.nominas, db.asistencias_pendientes], async () => {
       const pendientes = await db.asistencias_pendientes
         .where('examenId')
         .equals(exId)
@@ -195,8 +292,15 @@ export const nominaRepo = {
         throw error;
       }
 
-      const borrados = await db.nominas.where('examenId').equals(exId).delete();
-      return borrados;
+      return await db.nominas.where('examenId').equals(exId).delete();
     });
+
+    try {
+      await fotoRepo.limpiarFotosSinNomina();
+    } catch (errFoto) {
+      console.warn('[nominaRepo.limpiarNominaExamen] Error al limpiar fotos huérfanas:', errFoto);
+    }
+
+    return borrados;
   }
 };

@@ -12,6 +12,9 @@ db.version(1).stores({
   // Nóminas: PK natural compuesta. Sin índices sueltos innecesarios
   nominas: '[examenId+codigoSis], examenId, [examenId+ci], [examenId+qr]',
 
+  // Fotos de estudiantes (almacenamiento local optimizado)
+  fotos: 'codigoSis',
+
   // Asistencias: PK clientUuid. Índice compuesto para backoff de reintentos
   asistencias_pendientes: 'clientUuid, [syncStatus+nextRetryAt], [examenId+codigoSis], examenId, syncStatus',
 

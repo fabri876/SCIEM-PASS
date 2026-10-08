@@ -52,15 +52,16 @@ export async function registrarUsuarioIndividual(objDatosUsuario) {
   });
 }
 
-export async function cargarUsuariosMasivo(file, strRol = "ESTUDIANTE") {
+export async function cargarUsuariosMasivo(file, strRol = "ESTUDIANTE", idGrupo = null, vistaPrevia = false) {
   const strToken = obtenerToken();
   const formData = new FormData();
   formData.append("archivo", file);
+  if (idGrupo) formData.append("idGrupo", String(idGrupo));
   if (strRol) {
     formData.append("rol", strRol);
   }
 
-  const response = await fetch(`${strApiBaseUrl}/api/usuarios/carga-masiva`, {
+  const response = await fetch(`${strApiBaseUrl}/api/usuarios/carga-masiva${vistaPrevia ? "/vista-previa" : ""}`, {
     method: "POST",
     headers: {
       ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
@@ -84,6 +85,10 @@ export async function cargarUsuariosMasivo(file, strRol = "ESTUDIANTE") {
   }
 
   return response.json();
+}
+
+export function previsualizarUsuariosMasivo(file, rol, idGrupo) {
+  return cargarUsuariosMasivo(file, rol, idGrupo, true);
 }
 
 // El backend infiere el usuario desde el token (no hace falta mandar correo).

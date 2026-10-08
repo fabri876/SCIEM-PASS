@@ -1,18 +1,38 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Calendar, UserCheck, History, Shield, LogOut } from "lucide-react";
+import { Users, Calendar, UserCheck, History, Shield, LogOut, AlertTriangle, BookOpen } from "lucide-react";
 import { cerrarSesion } from "../../../services/authService";
+import { obtenerTotalIncidenciasAbiertas } from "../../../services/incidenciaService";
 
-const menuItems = [
+const baseMenuItems = [
     { id: "Gestión de Usuarios", label: "Gestión de Usuarios", icon: Users },
+    { id: "Gestión de Asignaturas y Grupos", label: "Gestión de Asignaturas y Grupos", icon: BookOpen },
     { id: "Roles y Permisos", label: "Roles y Permisos", icon: Shield },
     { id: "Registro de Exámenes", label: "Registro de Exámenes", icon: Calendar },
     { id: "Habilitación de Estudiantes", label: "Habilitación de Estudiantes", icon: UserCheck },
+    { id: "Incidencias", label: "Incidencias", icon: AlertTriangle, esIncidencia: true },
     { id: "Historial de Auditoría", label: "Historial de Auditoría", icon: History },
 ];
 
 export default function AdminSidebar({ activeMenu, setActiveMenu }) {
     const navigate = useNavigate();
+    const [totalAbiertas, setTotalAbiertas] = useState(0);
+
+    useEffect(() => {
+        let cancel = false;
+        async function fnCargarContador() {
+            try {
+                const res = await obtenerTotalIncidenciasAbiertas();
+                if (!cancel && res && typeof res.total === "number") {
+                    setTotalAbiertas(res.total);
+                }
+            } catch (err) {
+                // Silencioso si aún no hay conexión
+            }
+        }
+        fnCargarContador();
+        return () => { cancel = true; };
+    }, [activeMenu]);
 
     const fnCerrarSesion = () => {
         cerrarSesion();
@@ -28,21 +48,31 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
                     </span>
                 </div>
 
-                {menuItems.map((item) => {
+                {baseMenuItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeMenu === item.id;
+                    const badgeValor = item.esIncidencia ? (totalAbiertas > 0 ? totalAbiertas : null) : item.badge;
 
                     return (
                         <button
                             key={item.id}
                             onClick={() => setActiveMenu && setActiveMenu(item.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-secondary font-bold transition-all cursor-pointer ${isActive
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-secondary font-bold transition-all cursor-pointer ${isActive
                                 ? "bg-gradient-to-r from-primary-blue to-primary-navy text-bg-card shadow-md border border-bg-card/20"
                                 : "text-bg-card/80 hover:text-bg-card hover:bg-bg-card/10 font-semibold"
                                 }`}
                         >
-                            <Icon className={`w-4 h-4 ${isActive ? "text-bg-card" : "text-bg-card/60"}`} />
-                            <span>{item.label}</span>
+                            <div className="flex items-center gap-3">
+                                <Icon className={`w-4 h-4 ${isActive ? "text-bg-card" : "text-bg-card/60"}`} />
+                                <span>{item.label}</span>
+                            </div>
+                            {badgeValor !== null && badgeValor !== undefined && (
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                    isActive ? "bg-white text-rose-600" : "bg-rose-500 text-white"
+                                }`}>
+                                    {badgeValor}
+                                </span>
+                            )}
                         </button>
                     );
                 })}

@@ -1,70 +1,62 @@
 import React, { useState, useEffect } from "react";
-import { Upload, Database, Info, ArrowRight, FileWarning, X, LayoutGrid, BookOpen, CheckCircle, Loader2, GraduationCap, Users, Download } from "lucide-react";
-import { obtenerTodasAsignaturas } from "../../../services/asignaturaService";
+import { Upload, Database, Info, ArrowRight, FileWarning, X, CheckCircle, Loader2, GraduationCap, Users, Download, LayoutGrid } from "lucide-react";
+import { previsualizarUsuariosMasivo } from "../../../services/usuarioService";
+import { createPortal } from "react-dom";
+import VentanaEmergente from "../../../components/common/VentanaEmergente";
+import SeleccionGrupoLote from "../../../components/common/SeleccionGrupoLote";
 
 const FORMATO_COLUMNAS = [
-    { col: "A", nombre: "CODSISS", ejemplo: "202309099" },
+    { col: "A", nombre: "CODSIS", ejemplo: "202309099" },
     { col: "B", nombre: "CORREO", ejemplo: "202309099@est.umss.edu" },
     { col: "C", nombre: "CI", ejemplo: "7338351" },
     { col: "D", nombre: "APELLIDOS", ejemplo: "Balderrama Puyal" },
     { col: "E", nombre: "NOMBRES", ejemplo: "Ivan Raul" },
     { col: "F", nombre: "TELEFONO", ejemplo: "70756498" },
-];
-
-// Datos mockeados: el backend los reemplazará con los datos reales de la BD.
-const DOCENTES_MOCK = [
-    { idDocente: 1, nombreDocente: "Dr. Carlos Mendoza Rojas" },
-    { idDocente: 2, nombreDocente: "Lic. María Fernández Quispe" },
-    { idDocente: 3, nombreDocente: "Ing. Jorge Villarroel Soliz" },
-    { idDocente: 4, nombreDocente: "MSc. Ana Cabrera Montaño" },
-];
-
-const GRUPOS_MOCK = [
-    { idGrupo: 1, nombreGrupo: "Grupo 1" },
-    { idGrupo: 2, nombreGrupo: "Grupo 2" },
-    { idGrupo: 3, nombreGrupo: "Grupo 3" },
-    { idGrupo: 4, nombreGrupo: "Grupo 4" },
+    { col: "G", nombre: "ID_ASIGNATURA", ejemplo: "10; 20 (IDs de ejemplo)" },
+    { col: "H", nombre: "GRUPO", ejemplo: "2; 3" },
 ];
 
 const EXTENSIONES_VALIDAS = [".xlsx", ".pdf"];
 const TAMANO_MAXIMO_MB = 10;
 const TAMANO_MAXIMO_BYTES = TAMANO_MAXIMO_MB * 1024 * 1024;
 
-// Plantilla de Excel embebida en Base64 para que el usuario la descargue como guía de formato.
-const PLANTILLA_XLSX_BASE64 = "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";
-const PLANTILLA_NOMBRE_ARCHIVO = "plantilla_carga.xlsx";
-const PLANTILLA_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
 function obtenerExtension(nombreArchivo) {
     const idx = nombreArchivo.lastIndexOf(".");
     return idx === -1 ? "" : nombreArchivo.slice(idx).toLowerCase();
 }
 
-export default function BulkUploadCard({ onProcesar }) {
+export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) {
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [error, setError] = useState("");
     const [resultado, setResultado] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [segundosGuardando, setSegundosGuardando] = useState(0);
     const [mostrarFormato, setMostrarFormato] = useState(false);
-    const [materia, setMateria] = useState("");
-    const [docente, setDocente] = useState("");
-    const [grupo, setGrupo] = useState("");
+    const [vistaPrevia, setVistaPrevia] = useState(null);
+    const [grupoLote, setGrupoLote] = useState(null);
+
     const [tipoCarga, setTipoCarga] = useState("estudiantes"); // "estudiantes" | "docentes"
-    const [arrAsignaturas, setArrAsignaturas] = useState([]);
 
     const esCargaDocentes = tipoCarga === "docentes";
-
-    // BUG-003 (QA): el desplegable mostraba materias inventadas (MATERIAS_MOCK)
-    // en vez de las asignaturas reales de la BD.
     useEffect(() => {
-        obtenerTodasAsignaturas()
-            .then(setArrAsignaturas)
-            .catch(() => setArrAsignaturas([]));
-    }, []);
+        if (!isSaving) return;
+        const reloj = setInterval(() => setSegundosGuardando(s => s + 1), 1000);
+        return () => clearInterval(reloj);
+    }, [isSaving]);
+    useEffect(() => {
+        if (!vistaPrevia) return;
+        const anterior = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        const cerrar = e => { if (e.key === "Escape") setVistaPrevia(null); };
+        document.addEventListener("keydown", cerrar);
+        return () => { document.body.style.overflow = anterior; document.removeEventListener("keydown", cerrar); };
+    }, [vistaPrevia, isSubmitting]);
 
     const validarYAsignar = (archivo) => {
-        if (!archivo) return;
+        if (!archivo || isSubmitting) return;
+        setVistaPrevia(null);
         const ext = obtenerExtension(archivo.name);
         if (!EXTENSIONES_VALIDAS.includes(ext)) {
             setFile(null);
@@ -81,6 +73,7 @@ export default function BulkUploadCard({ onProcesar }) {
         setError("");
         setResultado(null);
         setFile(archivo);
+        if (esCargaDocentes || grupoLote) handleRevisarArchivo(archivo);
     };
 
     const handleDragOver = (e) => {
@@ -109,27 +102,41 @@ export default function BulkUploadCard({ onProcesar }) {
 
     const handleCambiarTipoCarga = (tipo) => {
         setTipoCarga(tipo);
-        if (tipo === "docentes") {
-            // El combobox de docente solo aplica para carga de estudiantes.
-            setDocente("");
-        }
+        setResultado(null);
+        setVistaPrevia(null);
+        setFile(null); setGrupoLote(null); setError("");
+    };
+
+    const handleRevisarArchivo = async (archivo = file) => {
+        if (!archivo || isSubmitting) return;
+        if (!esCargaDocentes && !grupoLote) { setError("Seleccione la asignatura y el grupo del lote."); return; }
+        setIsSubmitting(true); setError(""); setResultado(null);
+        try {
+            const preview = await previsualizarUsuariosMasivo(archivo, esCargaDocentes ? "DOCENTE" : "ESTUDIANTE", esCargaDocentes ? null : grupoLote.idGrupo);
+            setVistaPrevia(preview);
+        } catch (err) { setError(err.message || "No se pudo leer el archivo seleccionado."); }
+        finally { setIsSubmitting(false); }
     };
 
     const handleProcesarSubmit = async () => {
-        if (!file) return;
+        if (!file || isSubmitting) return;
+        if (!esCargaDocentes && !grupoLote) { setError("Seleccione la asignatura y el grupo del lote."); return; }
+        setIsSaving(true); setSegundosGuardando(0);
         setIsSubmitting(true);
         setError("");
         setResultado(null);
 
         try {
             if (onProcesar) {
-                const res = await onProcesar(file, materia, tipoCarga, docente, grupo);
+                const res = await onProcesar(file, grupoLote?.idAsignatura || null, tipoCarga, null, esCargaDocentes ? null : grupoLote.idGrupo);
                 setResultado(res);
                 setFile(null);
+                setVistaPrevia(null);
             }
         } catch (err) {
             setError(err.message || "Ocurrió un error al procesar la carga masiva.");
         } finally {
+            setIsSaving(false);
             setIsSubmitting(false);
         }
     };
@@ -165,7 +172,7 @@ export default function BulkUploadCard({ onProcesar }) {
                 </p>
 
                 {/* Selector de tipo de carga */}
-                <div className="mb-4">
+                {!soloEstudiantes && <div className="mb-4">
                     <label className="block text-badge font-bold text-primary-navy mb-1.5">
                         ¿Qué vas a cargar?
                     </label>
@@ -173,6 +180,7 @@ export default function BulkUploadCard({ onProcesar }) {
                         <button
                             type="button"
                             onClick={() => handleCambiarTipoCarga("estudiantes")}
+                            disabled={isSubmitting}
                             className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-badge font-bold transition-colors ${!esCargaDocentes
                                 ? "bg-primary-blue text-bg-card shadow-sm"
                                 : "text-text-body/60 hover:text-primary-navy"
@@ -184,6 +192,7 @@ export default function BulkUploadCard({ onProcesar }) {
                         <button
                             type="button"
                             onClick={() => handleCambiarTipoCarga("docentes")}
+                            disabled={isSubmitting}
                             className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-badge font-bold transition-colors ${esCargaDocentes
                                 ? "bg-primary-blue text-bg-card shadow-sm"
                                 : "text-text-body/60 hover:text-primary-navy"
@@ -193,7 +202,12 @@ export default function BulkUploadCard({ onProcesar }) {
                             Docentes
                         </button>
                     </div>
-                </div>
+                </div>}
+
+                {!esCargaDocentes && <div className="mb-4 space-y-2">
+                    <p className="text-secondary">Todos los estudiantes del archivo se inscriben en la asignatura y el grupo seleccionados.</p>
+                    <SeleccionGrupoLote value={grupoLote} onChange={g => { setGrupoLote(g); setVistaPrevia(null); setError(""); }} disabled={isSubmitting} />
+                </div>}
 
                 {/* Area Drop Zone */}
                 <div
@@ -205,6 +219,8 @@ export default function BulkUploadCard({ onProcesar }) {
                 >
                     <input
                         type="file"
+                        aria-label="Seleccionar archivo de usuarios"
+                        disabled={isSubmitting}
                         accept=".xlsx, .pdf"
                         onChange={handleFileChange}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -236,6 +252,11 @@ export default function BulkUploadCard({ onProcesar }) {
                         <Info className="w-3.5 h-3.5 text-text-body/60" />
                     </p>
                 </div>
+
+                {file && <div className="mt-3 rounded-xl bg-primary-blue/5 border border-primary-blue/20 p-3 text-secondary" role="status">
+                    <p className="font-bold text-primary-navy break-all">Archivo seleccionado: {file.name}</p>
+                    <p>{(file.size / 1024 / 1024).toFixed(2)} MB · Carga de {esCargaDocentes ? "docentes" : "estudiantes"}</p>
+                </div>}
 
                 {/* Resultado del procesamiento: totales + detalle de CADA fila
                     fallida (BUG-010 QA: antes solo se leía detallesErrores[0]
@@ -287,118 +308,63 @@ export default function BulkUploadCard({ onProcesar }) {
             </div>
 
             <div className="mt-6 space-y-3">
-                {/* Combobox de docente (solo para carga de estudiantes, datos mockeados) */}
-                {!esCargaDocentes && (
-                    <div>
-                        <label className="block text-badge font-bold mb-1.5 text-primary-navy">
-                            Docentes (Opcional)
-                        </label>
-                        <div className="relative">
-                            <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-primary-blue" />
-                            <select
-                                value={docente}
-                                onChange={(e) => setDocente(e.target.value)}
-                                className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-border bg-bg-app text-secondary font-semibold focus:outline-none focus:ring-2 focus:ring-primary-blue/40 text-primary-navy cursor-pointer"
-                            >
-                                <option value="">Selecciona un docente</option>
-                                {DOCENTES_MOCK.map((d) => (
-                                    <option key={d.idDocente} value={d.idDocente}>
-                                        {d.nombreDocente}
-                                    </option>
-                                ))}
-                            </select>
-                        <svg
-                            className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-body/60"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                        </div>
-                    </div>
-                )}
 
-                {/* Combobox de asignatura (aplica para estudiantes y docentes) */}
-                <div>
-                    <label className="block text-badge font-bold mb-1.5 text-primary-navy">
-                        Asignatura (Opcional)
-                    </label>
-                    <div className="relative">
-                        <BookOpen className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-primary-blue" />
-                        <select
-                            value={materia}
-                            onChange={(e) => setMateria(e.target.value)}
-                            className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-border bg-bg-app text-secondary font-semibold focus:outline-none focus:ring-2 focus:ring-primary-blue/40 text-primary-navy cursor-pointer"
-                        >
-                            <option value="">Selecciona una asignatura</option>
-                            {arrAsignaturas.map((a) => (
-                                <option key={a.idAsignatura} value={a.idAsignatura}>
-                                    {a.nombreAsignatura}
-                                </option>
-                            ))}
-                        </select>
-                        <svg
-                            className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-body/60"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </div>
-                </div>
-
-                {/* Combobox de grupos (aplica para estudiantes y docentes, datos mockeados) */}
-                <div>
-                    <label className="block text-badge font-bold mb-1.5 text-primary-navy">
-                        Grupos (Opcional)
-                    </label>
-                    <div className="relative">
-                        <LayoutGrid className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-primary-blue" />
-                        <select
-                            value={grupo}
-                            onChange={(e) => setGrupo(e.target.value)}
-                            className="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-border bg-bg-app text-secondary font-semibold focus:outline-none focus:ring-2 focus:ring-primary-blue/40 text-primary-navy cursor-pointer"
-                        >
-                            <option value="">Selecciona un grupo</option>
-                            {GRUPOS_MOCK.map((g) => (
-                                <option key={g.idGrupo} value={g.idGrupo}>
-                                    {g.nombreGrupo}
-                                </option>
-                            ))}
-                        </select>
-                        <svg
-                            className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-body/60"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </div>
-                </div>
-
-                {/* Botón Inferior */}
+                {esCargaDocentes ? <div className="rounded-xl bg-primary-blue/5 border border-primary-blue/20 p-4 text-secondary space-y-2">
+                    <p className="font-bold text-primary-navy">Materias y grupos de cada {esCargaDocentes ? "docente" : "estudiante"}</p>
+                    <p>Incluya ID_ASIGNATURA y GRUPO en cada fila del archivo. También puede usar CODIGO_ASIGNATURA o ASIGNATURA en lugar de ID_ASIGNATURA.</p>
+                    <p>Para varias materias, separe ambas listas con punto y coma en el mismo orden. Registre primero el catálogo desde el horario PDF.</p>
+                    <p>La plantilla contiene dos personas ficticias y los IDs 10 y 20 como ejemplo. Reemplace esos datos e IDs por los de su registro antes de cargarla.</p>
+                </div> : <p className="rounded-xl bg-primary-blue/5 border border-primary-blue/20 p-4 text-secondary">El Excel de estudiantes contiene seis columnas, desde CODSIS hasta TELEFONO. La materia y el grupo se eligen arriba y se aplican a todo el lote.</p>}
                 <button
-                    onClick={handleProcesarSubmit}
-                    disabled={!file || isSubmitting}
-                    className="w-full py-3 px-5 bg-gradient-to-r from-blue-600 to-slate-900 hover:from-blue-700 hover:to-slate-950 text-white font-bold text-secondary rounded-xl transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:to-slate-900"
+                    onClick={() => handleRevisarArchivo()}
+                    disabled={!file || isSubmitting || (!esCargaDocentes && !grupoLote)}
+                    className="w-full py-3 px-5 bg-primary-blue hover:bg-primary-navy text-white font-bold text-secondary rounded-xl transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isSubmitting ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Procesando archivo...</span>
+                            <span>{isSaving ? `Registrando usuarios… ${segundosGuardando} s` : "Leyendo archivo..."}</span>
                         </>
                     ) : (
                         <>
                             <Database className="w-4 h-4" />
-                            <span>Procesar y Guardar Datos</span>
+                            <span>Revisar registros antes de guardar</span>
                             <ArrowRight className="w-4 h-4 ml-1" />
                         </>
                     )}
                 </button>
+                {isSaving && <p role="status" className="text-secondary text-primary-navy">El guardado continúa aunque cierre la vista previa. El resultado se mostrará aquí al terminar. Tiempo transcurrido: {segundosGuardando} s.</p>}
             </div>
+
+            {vistaPrevia && createPortal(<VentanaEmergente boolAbierto strMaxWidth="max-w-6xl" onCerrar={() => setVistaPrevia(null)}>
+                <div className="p-5 sm:p-7 space-y-4" role="dialog" aria-modal="true" aria-labelledby="titulo-carga-usuarios">
+                    <div className="flex items-start justify-between gap-3">
+                        <div><h2 id="titulo-carga-usuarios" className="text-card-title font-extrabold text-primary-navy">Vista previa de {esCargaDocentes ? "docentes" : "estudiantes"}</h2>
+                            <p className="text-secondary break-all">{vistaPrevia.archivo} · {vistaPrevia.filas.length} registros encontrados</p></div>
+                        <button autoFocus type="button" aria-label="Cerrar vista previa" onClick={() => setVistaPrevia(null)} className="p-2 rounded-xl hover:bg-bg-app text-primary-navy"><X size={20} /></button>
+                    </div>
+                    <p className="text-secondary">{isSubmitting ? `Guardando ${vistaPrevia.filas.length} registros… ${segundosGuardando} s. Puede cerrar esta vista; el guardado continuará y verá el resultado en el panel.` : "Todavía no se ha registrado ningún usuario. Revise los datos y confirme para guardar; el sistema validará cada fila al realizar la carga."}</p>
+                    {error && <p role="alert" className="text-accent-red font-bold">{error}</p>}
+                    <div className="overflow-auto max-h-[55vh] border border-border rounded-xl" tabIndex={0} role="region" aria-label="Registros del archivo">
+                        <table className="w-full text-left text-secondary">
+                            <thead className="sticky top-0 bg-bg-app text-primary-navy"><tr>{["Fila", "Nombre completo", "CI", "SIS", "Correo", "Teléfono", "Rol", "Asignatura", "Grupo"].map(t => <th key={t} className="p-3 whitespace-nowrap">{t}</th>)}</tr></thead>
+                            <tbody>{vistaPrevia.filas.map(f => <tr key={f.fila} className="border-t border-border">
+                                <td className="p-3">{f.fila}</td><td className="p-3 font-semibold text-primary-navy">{f.nombre} {f.apellido}</td>
+                                <td className="p-3">{f.ci || "Sin CI"}</td><td className="p-3">{f.codigoSis ?? "Sin SIS"}</td><td className="p-3">{f.correo || "Sin correo"}</td>
+                                <td className="p-3">{f.telefono ?? "—"}</td><td className="p-3">{f.rol === "DOCENTE" ? "Docente" : f.rol === "ESTUDIANTE" ? "Estudiante" : f.rol}</td>
+                                <td className="p-3">{f.asignatura || grupoLote?.nombreAsignatura || "Sin asignación"}</td>
+                                <td className="p-3">{f.grupo || grupoLote?.nombreGrupo || "Sin asignación"}</td>
+                            </tr>)}</tbody>
+                        </table>
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-3">
+                        <button type="button" onClick={() => setVistaPrevia(null)} className="px-4 py-2.5 rounded-xl border border-border text-primary-navy font-bold">{isSubmitting ? "Cerrar vista (el guardado continúa)" : "Volver sin guardar"}</button>
+                        <button type="button" disabled={isSubmitting} onClick={handleProcesarSubmit} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-blue hover:bg-primary-navy text-white font-bold disabled:opacity-50">
+                            {isSubmitting && <Loader2 size={16} className="animate-spin" />}Confirmar y registrar
+                        </button>
+                    </div>
+                </div>
+            </VentanaEmergente>, document.body)}
 
             {/* Modal: Guía de formato de subida */}
             {mostrarFormato && (
@@ -445,7 +411,7 @@ export default function BulkUploadCard({ onProcesar }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {FORMATO_COLUMNAS.map((c, i) => (
+                                    {(esCargaDocentes ? FORMATO_COLUMNAS : FORMATO_COLUMNAS.slice(0, 6)).map((c, i) => (
                                         <tr key={c.col} className={i % 2 === 1 ? "bg-bg-app/50" : ""}>
                                             <td className="px-3 py-2 text-badge font-bold text-primary-blue">
                                                 {c.col}
@@ -463,19 +429,19 @@ export default function BulkUploadCard({ onProcesar }) {
                         </div>
 
                         <ul className="mt-4 space-y-1.5 text-badge text-text-body/70 leading-relaxed list-disc pl-4">
-                            <li>La primera fila debe contener los encabezados tal como se muestran arriba.</li>
+                            <li>{esCargaDocentes ? "Para la materia, elija solo uno: ID_ASIGNATURA, CODIGO_ASIGNATURA o ASIGNATURA." : "Elija la asignatura y el grupo en los selectores antes de confirmar la carga."}</li>
                             <li>No deje columnas vacías ni cambie el orden de las columnas.</li>
                             <li>En archivos PDF, la información debe presentarse como una tabla con las mismas columnas.</li>
                         </ul>
 
                         {/* Descarga de plantilla Excel */}
                         <a
-                            href={`data:${PLANTILLA_XLSX_MIME};base64,${PLANTILLA_XLSX_BASE64}`}
-                            download={PLANTILLA_NOMBRE_ARCHIVO}
+                            href={`${import.meta.env.BASE_URL}plantillas/plantilla-${tipoCarga}.xlsx`}
+                            download={`plantilla-${tipoCarga}.xlsx`}
                             className="mt-4 w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl border border-primary-blue/30 text-primary-blue font-bold text-badge hover:bg-primary-blue/5 transition-colors"
                         >
                             <Download className="w-4 h-4" />
-                            Descargar plantilla de ejemplo (.XLSX)
+                            Descargar plantilla de {esCargaDocentes ? "docentes" : "estudiantes"} (.XLSX)
                         </a>
 
                         <button

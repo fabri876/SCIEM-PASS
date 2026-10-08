@@ -28,6 +28,13 @@ public interface HabilitacionRepository extends JpaRepository<Habilitacion, Inte
     long countByIdAsignaturaAndEstadohabilitacionFalse(Integer idAsignatura);
     long countByIdAsignatura(Integer idAsignatura);
 
+    long countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(Integer idAsignatura, Integer idExamen);
+    long countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(Integer idAsignatura, Integer idExamen);
+    long countByIdAsignaturaAndIdExamen(Integer idAsignatura, Integer idExamen);
+
+    Optional<Habilitacion> findByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(Integer idAsignatura, Integer idExamen, Integer codsisestudiante);
+    Optional<Habilitacion> findByIdAsignaturaAndIdExamenAndIdUsuario(Integer idAsignatura, Integer idExamen, Integer idUsuario);
+
     @Query("SELECT h.idAsignatura, h.estadohabilitacion, COUNT(h) FROM Habilitacion h WHERE h.idAsignatura IS NOT NULL GROUP BY h.idAsignatura, h.estadohabilitacion")
     List<Object[]> countHabilitacionesGroupedByAsignatura();
 }
