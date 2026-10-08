@@ -57,6 +57,18 @@ public class AyudanteExamenController {
         return ResponseEntity.ok(detalle);
     }
 
+    @GetMapping("/control/ultimos-ingresos")
+    @PreAuthorize("hasRole('OPERADOR')")
+    public ResponseEntity<List<bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UltimoIngresoDTO>> obtenerUltimosIngresos(
+            @org.springframework.web.bind.annotation.RequestParam Integer idasignatura,
+            @org.springframework.web.bind.annotation.RequestParam Integer idexamen,
+            @org.springframework.web.bind.annotation.RequestParam Integer idambiente,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int limite) {
+        List<bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UltimoIngresoDTO> ultimos =
+                controlIngresoAyudanteService.obtenerUltimosIngresos(idasignatura, idexamen, idambiente, limite);
+        return ResponseEntity.ok(ultimos);
+    }
+
     @PostMapping("/control/ingresos")
     @PreAuthorize("hasRole('OPERADOR')")
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(@Valid @RequestBody VerificarIngresoRequestDTO dto) {
