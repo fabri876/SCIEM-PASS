@@ -26,9 +26,6 @@ import java.util.Set;
 @Service
 public class UsuarioService {
 
-    // El admin registra DOCENTE, OPERADOR y ESTUDIANTE. ADMINISTRADOR queda
-    // afuera a propósito: solo puede existir un administrador en el sistema,
-    // así que no se puede crear ni promover a nadie más a ese rol desde acá.
     private static final Set<String> ROLES_CREABLES_POR_ADMIN = Set.of(
             TipoUsuarioResolver.DOCENTE, TipoUsuarioResolver.OPERADOR, TipoUsuarioResolver.ESTUDIANTE);
 
@@ -37,6 +34,7 @@ public class UsuarioService {
     private final DocenteRepository docenteRepository;
     private final AyudanteRepository ayudanteRepository;
     private final EstudianteRepository estudianteRepository;
+    private final GrupoService grupoService;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoriaService;
     private final UsuarioRespuestaMapper usuarioRespuestaMapper;
@@ -44,14 +42,15 @@ public class UsuarioService {
 
     public UsuarioService(UsuarioRepository usuarioRepository, AdminRepository adminRepository,
                            DocenteRepository docenteRepository, AyudanteRepository ayudanteRepository,
-                           EstudianteRepository estudianteRepository, PasswordEncoder passwordEncoder,
-                           AuditoriaService auditoriaService, UsuarioRespuestaMapper usuarioRespuestaMapper,
-                           TipoUsuarioResolver tipoUsuarioResolver) {
+                           EstudianteRepository estudianteRepository, GrupoService grupoService,
+                           PasswordEncoder passwordEncoder, AuditoriaService auditoriaService,
+                           UsuarioRespuestaMapper usuarioRespuestaMapper, TipoUsuarioResolver tipoUsuarioResolver) {
         this.usuarioRepository = usuarioRepository;
         this.adminRepository = adminRepository;
         this.docenteRepository = docenteRepository;
         this.ayudanteRepository = ayudanteRepository;
         this.estudianteRepository = estudianteRepository;
+        this.grupoService = grupoService;
         this.passwordEncoder = passwordEncoder;
         this.auditoriaService = auditoriaService;
         this.usuarioRespuestaMapper = usuarioRespuestaMapper;
@@ -97,6 +96,13 @@ public class UsuarioService {
         String ciNormalizado = CiNormalizador.normalizar(dto.getCi());
         validarUnicidad(ciNormalizado, dto.getCorreo());
         validarCodigoDisponible(rolNormalizado, dto.getCodigoSis());
+        java.util.Set<Integer> grupos = new java.util.LinkedHashSet<>();
+        if (dto.getIdGrupo() != null) grupos.add(dto.getIdGrupo());
+        if (dto.getIdGrupos() != null) grupos.addAll(dto.getIdGrupos());
+        if (grupos.size() > 100) throw new SolicitudInvalidaException("Se admiten hasta 100 grupos por registro.");
+        if ((TipoUsuarioResolver.DOCENTE.equals(rolNormalizado) || TipoUsuarioResolver.ESTUDIANTE.equals(rolNormalizado)) && grupos.isEmpty())
+            throw new SolicitudInvalidaException("Debe asignar al menos una asignatura y grupo al registrar docentes o estudiantes.");
+        grupoService.validarAccesoRegistro(new java.util.ArrayList<>(grupos), rolNormalizado);
 
         // Si no se proporciona contraseña, se usa automáticamente el CI (normalizado) como contraseña inicial
         String rawPassword = (dto.getContrasena() == null || dto.getContrasena().trim().isEmpty())
@@ -109,6 +115,17 @@ public class UsuarioService {
 
         crearFilaTablaHija(rolNormalizado, usuario.getIdusuario(), dto.getCodigoSis());
 
+        for (Integer idGrupo : grupos) {
+            int codSis = dto.getCodigoSis() != null ? dto.getCodigoSis() : usuario.getIdusuario();
+            if (TipoUsuarioResolver.DOCENTE.equals(rolNormalizado)) {
+                grupoService.asignarDocenteAGrupo(usuario.getIdusuario(), codSis, idGrupo);
+            } else if (TipoUsuarioResolver.ESTUDIANTE.equals(rolNormalizado)) {
+                grupoService.inscribirEstudianteAGrupo(usuario.getIdusuario(), codSis, idGrupo);
+            } else if (TipoUsuarioResolver.OPERADOR.equals(rolNormalizado)) {
+                grupoService.asignarAyudanteAGrupo(usuario.getIdusuario(), idGrupo);
+            }
+        }
+
         auditoriaService.registrar("CREACION_USUARIO", executorCorreo, dto.getCorreo(),
                 "Registro de cuenta con rol " + rolNormalizado + " realizada por " + executorCorreo + ".", ip);
 
@@ -120,11 +137,9 @@ public class UsuarioService {
             throw new org.springframework.security.access.AccessDeniedException("Acceso denegado: Usuario no autenticado.");
         }
         if (TipoUsuarioResolver.ADMINISTRADOR.equals(rolEjecutor)) {
-            // El administrador puede registrar cualquier rol
             return;
         }
         if (TipoUsuarioResolver.DOCENTE.equals(rolEjecutor)) {
-            // El docente solo puede registrar Ayudantes (OPERADOR) o Estudiantes
             if (!TipoUsuarioResolver.OPERADOR.equals(rolARegistrar) && !TipoUsuarioResolver.ESTUDIANTE.equals(rolARegistrar)) {
                 throw new org.springframework.security.access.AccessDeniedException(
                         "Permiso insuficiente: Un docente solo puede registrar usuarios con rol Ayudante o Estudiante.");
@@ -139,136 +154,121 @@ public class UsuarioService {
     public UsuarioRespuestaDto cambiarRol(Integer id, String nuevoRol, Integer codigoSis,
                                            String executorCorreo, String ip) {
         Usuario usuario = buscarOLanzar(id);
-        String nuevoRolNormalizado = validarRolCreable(nuevoRol);
-        validarCodigoDisponible(nuevoRolNormalizado, codigoSis);
+        String rolOriginal = tipoUsuarioResolver.resolver(id);
+        String rolNuevoNormalizado = validarRolCreable(nuevoRol);
 
-        String rolActual = tipoUsuarioResolver.resolver(id);
-        if (nuevoRolNormalizado.equals(rolActual)) {
-            throw new SolicitudInvalidaException("El usuario ya tiene el rol " + nuevoRolNormalizado + ".");
+        if (rolOriginal.equals(rolNuevoNormalizado)) {
+            return usuarioRespuestaMapper.mapear(usuario);
         }
 
-        eliminarFilaTablaHija(rolActual, id);
-        crearFilaTablaHija(nuevoRolNormalizado, id, codigoSis);
+        validarCodigoDisponible(rolNuevoNormalizado, codigoSis);
 
-        auditoriaService.registrar("CAMBIO_ROL", executorCorreo, usuario.getCorreousuario(),
-                "Rol cambiado de " + rolActual + " a " + nuevoRolNormalizado + ".", ip);
+        // Eliminar fila de rol previa
+        switch (rolOriginal) {
+            case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.deleteById(id);
+            case TipoUsuarioResolver.DOCENTE -> docenteRepository.deleteById(id);
+            case TipoUsuarioResolver.OPERADOR -> ayudanteRepository.deleteById(id);
+            case TipoUsuarioResolver.ESTUDIANTE -> estudianteRepository.deleteById(id);
+        }
+
+        // Crear nueva fila en tabla hija
+        crearFilaTablaHija(rolNuevoNormalizado, id, codigoSis);
+
+        auditoriaService.registrar("CAMBIO_ROL_USUARIO", executorCorreo, usuario.getCorreousuario(),
+                "Cambio de rol de " + rolOriginal + " a " + rolNuevoNormalizado + " para ID " + id + ".", ip);
 
         return usuarioRespuestaMapper.mapear(usuario);
     }
 
-    private void crearFilaTablaHija(String rol, Integer idUsuario, Integer codigoSis) {
-        switch (rol) {
-            case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.save(new Admin(idUsuario));
-            case TipoUsuarioResolver.DOCENTE -> docenteRepository.save(new Docente(idUsuario, codigoSis));
-            case TipoUsuarioResolver.OPERADOR -> ayudanteRepository.save(new Ayudante(idUsuario));
-            case TipoUsuarioResolver.ESTUDIANTE -> estudianteRepository.save(new Estudiante(idUsuario, codigoSis));
-            default -> throw new SolicitudInvalidaException("Rol no soportado: " + rol);
-        }
-    }
-
-    private void eliminarFilaTablaHija(String rol, Integer idUsuario) {
-        switch (rol) {
-            case TipoUsuarioResolver.ADMINISTRADOR ->
-                    adminRepository.findByIdusuario(idUsuario).ifPresent(adminRepository::delete);
-            case TipoUsuarioResolver.DOCENTE ->
-                    docenteRepository.findByIdusuario(idUsuario).ifPresent(docenteRepository::delete);
-            case TipoUsuarioResolver.OPERADOR ->
-                    ayudanteRepository.findByIdusuario(idUsuario).ifPresent(ayudanteRepository::delete);
-            case TipoUsuarioResolver.ESTUDIANTE ->
-                    estudianteRepository.findByIdusuario(idUsuario).ifPresent(estudianteRepository::delete);
-            default -> throw new SolicitudInvalidaException("Rol no soportado: " + rol);
-        }
-    }
-
-    // Estudiante y Docente tienen cada uno su propio código (codsisestudiante /
-    // codsisdocente) en la tabla hija, no relacionados entre sí.
-    private void validarCodigoDisponible(String rol, Integer codigoSis) {
-        if (rol.equals(TipoUsuarioResolver.ESTUDIANTE)) {
-            if (codigoSis == null) {
-                throw new SolicitudInvalidaException("El código SIS es obligatorio para el rol ESTUDIANTE.");
-            }
-            if (estudianteRepository.findByCodsisestudiante(codigoSis).isPresent()) {
-                throw new RecursoDuplicadoException("Ya existe un estudiante registrado con el código SIS " + codigoSis + ".");
-            }
-        } else if (rol.equals(TipoUsuarioResolver.DOCENTE)) {
-            if (codigoSis == null) {
-                throw new SolicitudInvalidaException("El código SIS es obligatorio para el rol DOCENTE.");
-            }
-            if (docenteRepository.findByCodsisdocente(codigoSis).isPresent()) {
-                throw new RecursoDuplicadoException("Ya existe un docente registrado con el código SIS " + codigoSis + ".");
-            }
-        }
-    }
-
     @Transactional
-    public UsuarioRespuestaDto actualizar(Integer id, ActualizarUsuarioDto dto, String executorCorreo, String ip) {
+    public UsuarioRespuestaDto actualizar(Integer id, ActualizarUsuarioDto dto,
+                                           String executorCorreo, String ip) {
         Usuario usuario = buscarOLanzar(id);
 
-        if (!usuario.getCorreousuario().equalsIgnoreCase(dto.getCorreo())
-                && usuarioRepository.existsByCorreousuario(dto.getCorreo())) {
-            throw new RecursoDuplicadoException("Ya existe un usuario registrado con el correo " + dto.getCorreo() + ".");
+        if (!usuario.getCorreousuario().equalsIgnoreCase(dto.getCorreo().trim())) {
+            if (usuarioRepository.existsByCorreousuario(dto.getCorreo().trim())) {
+                throw new RecursoDuplicadoException("El correo '" + dto.getCorreo() + "' ya está registrado por otro usuario.");
+            }
         }
 
-        usuario.setNombreusuario(dto.getNombre());
-        usuario.setApellidousuario(dto.getApellido());
+        usuario.setNombreusuario(dto.getNombre().trim());
+        usuario.setApellidousuario(dto.getApellido().trim());
+        usuario.setCorreousuario(dto.getCorreo().trim());
         usuario.setTelefonousuario(dto.getTelefono());
-        usuario.setCorreousuario(dto.getCorreo());
+
         usuario = usuarioRepository.save(usuario);
 
-        auditoriaService.registrar("ACTUALIZACION_USUARIO", executorCorreo, usuario.getCorreousuario(),
-                "El administrador actualizó los datos básicos del usuario.", ip);
+        auditoriaService.registrar("EDICION_USUARIO", executorCorreo, usuario.getCorreousuario(),
+                "Actualización de datos personales para ID " + id + ".", ip);
 
         return usuarioRespuestaMapper.mapear(usuario);
     }
 
     @Transactional
-    public boolean cambiarEstado(Integer id, String nuevoEstado, String executorCorreo, String ip) {
+    public UsuarioRespuestaDto cambiarEstado(Integer id, boolean activo, String executorCorreo, String ip) {
         Usuario usuario = buscarOLanzar(id);
-        boolean estadoNuevo = parsearEstado(nuevoEstado);
-        boolean estadoAnterior = Boolean.TRUE.equals(usuario.getEstadousuario());
+        usuario.setEstadousuario(activo);
+        usuario = usuarioRepository.save(usuario);
 
-        usuario.setEstadousuario(estadoNuevo);
-        usuarioRepository.save(usuario);
+        String accion = activo ? "ACTIVACION_USUARIO" : "DESACTIVACION_USUARIO";
+        auditoriaService.registrar(accion, executorCorreo, usuario.getCorreousuario(),
+                "Estado de cuenta cambiado a " + (activo ? "ACTIVO" : "INACTIVO") + " para ID " + id + ".", ip);
 
-        String tipoOperacion = estadoNuevo ? "ACTIVACION_USUARIO" : "DESACTIVACION_USUARIO";
-        auditoriaService.registrar(tipoOperacion, executorCorreo, usuario.getCorreousuario(),
-                "El administrador cambió el estado del usuario de " + (estadoAnterior ? "ACTIVO" : "INACTIVO")
-                        + " a " + (estadoNuevo ? "ACTIVO" : "INACTIVO") + ".", ip);
-
-        return estadoNuevo;
+        return usuarioRespuestaMapper.mapear(usuario);
     }
 
     private Usuario buscarOLanzar(Integer id) {
         return usuarioRepository.findById(id)
-                .orElseThrow(() -> new RecursoNoEncontradoException("No existe un usuario con id " + id + "."));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con id: " + id));
+    }
+
+    private String validarRolCreable(String rol) {
+        if (rol == null || rol.isBlank()) {
+            throw new SolicitudInvalidaException("El rol es obligatorio.");
+        }
+        String upper = rol.trim().toUpperCase();
+        if (!ROLES_CREABLES_POR_ADMIN.contains(upper)) {
+            throw new SolicitudInvalidaException(
+                    "Rol '" + rol + "' no válido. Solo se puede asignar: DOCENTE, OPERADOR o ESTUDIANTE.");
+        }
+        return upper;
     }
 
     private void validarUnicidad(String ci, String correo) {
         if (usuarioRepository.existsByCiusuario(ci)) {
-            throw new RecursoDuplicadoException("Ya existe un usuario registrado con el CI " + ci + ".");
+            throw new RecursoDuplicadoException("Ya existe un usuario con el CI '" + ci + "'.");
         }
-        if (usuarioRepository.existsByCorreousuario(correo)) {
-            throw new RecursoDuplicadoException("Ya existe un usuario registrado con el correo " + correo + ".");
+        if (usuarioRepository.existsByCorreousuario(correo.trim().toLowerCase())) {
+            throw new RecursoDuplicadoException("Ya existe un usuario con el correo '" + correo + "'.");
         }
     }
 
-    private String validarRolCreable(String rol) {
-        String rolNormalizado = rol == null ? "" : rol.trim().toUpperCase();
-        if (!ROLES_CREABLES_POR_ADMIN.contains(rolNormalizado)) {
-            throw new SolicitudInvalidaException(
-                    "El rol debe ser DOCENTE, OPERADOR o ESTUDIANTE (solo puede existir un ADMINISTRADOR).");
+    private void validarCodigoDisponible(String rol, Integer codigoSis) {
+        if (TipoUsuarioResolver.ESTUDIANTE.equals(rol)) {
+            if (codigoSis == null) {
+                throw new SolicitudInvalidaException("El Código SIS es obligatorio para el rol ESTUDIANTE.");
+            }
+            if (estudianteRepository.findByCodsisestudiante(codigoSis).isPresent()) {
+                throw new RecursoDuplicadoException("El Código SIS " + codigoSis + " ya pertenece a otro estudiante.");
+            }
+        } else if (TipoUsuarioResolver.DOCENTE.equals(rol)) {
+            if (codigoSis == null) {
+                throw new SolicitudInvalidaException("El Código SIS es obligatorio para el rol DOCENTE.");
+            }
+            if (docenteRepository.findByCodsisdocente(codigoSis).isPresent()) {
+                throw new RecursoDuplicadoException("El Código SIS " + codigoSis + " ya pertenece a otro docente.");
+            }
         }
-        return rolNormalizado;
     }
 
-    private boolean parsearEstado(String nuevoEstado) {
-        String valor = nuevoEstado == null ? "" : nuevoEstado.trim().toUpperCase();
-        if (valor.equals("ACTIVO")) {
-            return true;
+    private void crearFilaTablaHija(String rol, Integer idUsuario, Integer codigoSis) {
+        int codSisFinal = codigoSis != null ? codigoSis : idUsuario;
+        switch (rol) {
+            case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.save(new Admin(idUsuario));
+            case TipoUsuarioResolver.DOCENTE -> docenteRepository.save(new Docente(idUsuario, codSisFinal));
+            case TipoUsuarioResolver.OPERADOR -> ayudanteRepository.save(new Ayudante(idUsuario));
+            case TipoUsuarioResolver.ESTUDIANTE -> estudianteRepository.save(new Estudiante(idUsuario, codSisFinal));
+            default -> throw new SolicitudInvalidaException("Rol no soportado: " + rol);
         }
-        if (valor.equals("INACTIVO")) {
-            return false;
-        }
-        throw new SolicitudInvalidaException("El estado debe ser 'ACTIVO' o 'INACTIVO'.");
     }
 }

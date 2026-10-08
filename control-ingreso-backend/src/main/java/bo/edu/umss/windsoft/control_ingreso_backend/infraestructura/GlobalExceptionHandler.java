@@ -25,6 +25,12 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     // --- Excepciones del flujo de auto-registro genérico (RegistroUsuarioService) ---
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> handleIntegridad(org.springframework.dao.DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("mensaje",
+                "No se pudo guardar: existe un registro duplicado o una relación inválida. Actualice los datos y vuelva a intentar."));
+    }
+
     // Nota: bo.edu.umss...infraestructura.RecursoDuplicadoException es una clase distinta
     // de bo.edu.umss...dominio.exception.RecursoDuplicadoException (mismo nombre simple,
     // paquete distinto), por eso se referencia con el nombre completo aquí abajo.
