@@ -45,7 +45,12 @@ export default function TarjetaExamen({ examen, objContador }) {
             <GraduationCap className="w-[22px] h-[22px]" />
           </span>
           <div className="min-w-0">
-            <b className="block text-base font-bold text-[#08264A]">{examen.tipo} · {examen.materia}</b>
+            {/* TODO FRONTEND: Si el ayudante está gestionando más de 1 grupo, al seleccionar "Registrar Ingreso" debería aparecer un modal para que elija a qué grupo específico está controlando el ingreso.
+            por el momento esta mostrando el primer grupo de la BD[0]*/}
+            <b className="block text-base font-bold text-[#08264A]">
+              {examen.tipo} · {examen.materia}
+              {examen.grupo && ` · Grupo ${String(examen.grupo).split(",")[0]}`}
+            </b>
             <span className="text-[13px] text-[#64748B]">
               Aula {examen.aula}{examen.edificio ? ` · ${examen.edificio}` : ""} · {examen.horaInicio} – {examen.horaFin}
             </span>

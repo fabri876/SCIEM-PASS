@@ -86,6 +86,18 @@ function configurar(r, strRol) {
           </Nota>
         ) : null,
       };
+    case "QR_INVALIDO":
+      return {
+        strTono: "bad", Icono: Ban, strTitulo: "QR INVÁLIDO", strSub: "INGRESO DENEGADO · EL CÓDIGO QR NO ES VÁLIDO",
+        strQuien: "Credencial rechazada",
+        strDetalle: r.mensaje || "El QR no existe, fue anulado o ya expiró. Pide al estudiante que consulte su credencial.",
+        notas: (
+          <Nota strTipo="rojo">
+            Posibles causas: QR expirado, estudiante inhabilitado después de generarlo, o QR de otro examen.
+            Indica al estudiante que contacte a su docente.
+          </Nota>
+        ),
+      };
     default: // NO_ENCONTRADO
       return {
         strTono: "bad", Icono: SearchX, strTitulo: "ESTUDIANTE NO ENCONTRADO", strSub: "INGRESO DENEGADO · EL DATO NO EXISTE EN EL SISTEMA",
