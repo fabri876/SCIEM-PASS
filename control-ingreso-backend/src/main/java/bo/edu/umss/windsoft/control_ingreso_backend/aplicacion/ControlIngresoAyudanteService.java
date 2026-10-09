@@ -19,7 +19,9 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AulaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.GrupoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HabilitacionRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CredencialRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.TipoExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
@@ -28,6 +30,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.EstudianteR
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.JornadaActivaDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.PrimerIngresoDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ResultadoIngresoDTO;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UltimoIngresoDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.VerificarIngresoRequestDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +66,11 @@ public class ControlIngresoAyudanteService {
     private final IngresoRepository ingresoRepository;
     private final UsuarioRepository usuarioRepository;
     private final EstudianteRepository estudianteRepository;
+    private final GrupoRepository grupoRepository;
+    private final CredencialRepository credencialRepository;
+
+    // Prefijo de seguridad para identificar escaneos QR del sistema
+    private static final String PREFIJO_QR = "SCIEMPASS:1:";
 
     public ControlIngresoAyudanteService(AyudanteExamenRepository ayudanteExamenRepository,
                                          AsignaturaRepository asignaturaRepository,
@@ -73,7 +81,9 @@ public class ControlIngresoAyudanteService {
                                          HabilitacionRepository habilitacionRepository,
                                          IngresoRepository ingresoRepository,
                                          UsuarioRepository usuarioRepository,
-                                         EstudianteRepository estudianteRepository) {
+                                         EstudianteRepository estudianteRepository,
+                                         GrupoRepository grupoRepository,
+                                         CredencialRepository credencialRepository) {
         this.ayudanteExamenRepository = ayudanteExamenRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.examenRepository = examenRepository;
@@ -84,6 +94,8 @@ public class ControlIngresoAyudanteService {
         this.ingresoRepository = ingresoRepository;
         this.usuarioRepository = usuarioRepository;
         this.estudianteRepository = estudianteRepository;
+        this.grupoRepository = grupoRepository;
+        this.credencialRepository = credencialRepository;
     }
 
     public List<DelegadoExamenDTO> obtenerDelegadosActivos(Integer idUsuario) {
@@ -171,15 +183,91 @@ public class ControlIngresoAyudanteService {
         return mapearAJornadaActivaDTO(asignacion);
     }
 
+    public List<UltimoIngresoDTO> obtenerUltimosIngresos(Integer idAsignatura, Integer idExamen, Integer idAmbiente, int limite) {
+        List<Ingreso> lista = ingresoRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByIdIngresoDesc(idAsignatura, idExamen, idAmbiente);
+
+        return lista.stream()
+                .limit(limite > 0 ? limite : 5)
+                .map(ing -> {
+                    Usuario user = usuarioRepository.findById(ing.getIdUsuarioEstudiante()).orElse(null);
+                    Estudiante est = estudianteRepository.findByCodsisestudiante(ing.getCodsisEstudiante()).orElse(null);
+
+                    String ci = user != null ? user.getCiusuario() : "";
+                    String nombreCompleto = user != null ? (user.getNombreusuario() + " " + user.getApellidousuario()).trim() : "Estudiante registrado";
+                    Integer codsis = est != null ? est.getCodsisestudiante() : ing.getCodsisEstudiante();
+
+                    EstudianteResumenDTO estDto = new EstudianteResumenDTO(
+                            ing.getIdUsuarioEstudiante(),
+                            codsis,
+                            ci,
+                            nombreCompleto,
+                            "Carrera no asignada",
+                            null
+                    );
+
+                    String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
+
+                    return new UltimoIngresoDTO(
+                            ing.getIdIngreso(),
+                            ing.getHoraIngreso(),
+                            metodo,
+                            estDto
+                    );
+                })
+                .toList();
+    }
+
     @Transactional
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador) {
         String query = dto.identificador() != null ? dto.identificador().trim() : "";
 
-        // 1. Búsqueda del Estudiante por C.I. o Código SIS
+        // 1. Detección de Ingreso por QR (formato: SCIEMPASS:1:TOKEN)
         Estudiante estudiante = null;
         Usuario usuario = null;
 
-        if (query.matches("^\\d+$")) {
+        if (query.startsWith(PREFIJO_QR)) {
+            // --- Flujo QR ---
+            String token = query.substring(PREFIJO_QR.length()).trim();
+            var credOpt = credencialRepository.findByTokenAndEstado(token, "ACTIVO");
+
+            if (credOpt.isEmpty()) {
+                // Token no existe, está anulado o ya expiró
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
+                        "QR_INVALIDO",
+                        "QR INVÁLIDO - El código QR no es válido, está anulado o ha expirado.",
+                        null, null, null, null
+                ));
+            }
+
+            var credencial = credOpt.get();
+
+            // Verificar ventana de tiempo
+            java.time.LocalDateTime ahora = java.time.LocalDateTime.now(ZONA_HORARIA);
+            if (ahora.isBefore(credencial.getValidoDesde()) || ahora.isAfter(credencial.getValidoHasta())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
+                        "QR_INVALIDO",
+                        "QR EXPIRADO - El código QR está fuera de su ventana de validez.",
+                        null, null, null, null
+                ));
+            }
+
+            // Verificar que el QR corresponde al examen que se está controlando
+            if (credencial.getIdExamen() != null && !credencial.getIdExamen().equals(dto.idexamen())) {
+                return ResponseEntity.status(HttpStatus.OK).body(new ResultadoIngresoDTO(
+                        "NO_INSCRITO",
+                        "QR DE OTRO EXAMEN - Este QR no corresponde al examen que se está controlando.",
+                        null, null, null, null
+                ));
+            }
+
+            // Token válido: resolver el estudiante por idUsuario de la credencial
+            usuario = usuarioRepository.findById(credencial.getIdUsuario()).orElse(null);
+            if (usuario != null) {
+                estudiante = estudianteRepository.findByIdusuario(usuario.getIdusuario()).orElse(null);
+            }
+
+        } else if (query.matches("^\\d+$")) {
+            // --- Flujo Manual por Código SIS ---
             try {
                 Integer codsis = Integer.parseInt(query);
                 Optional<Estudiante> estOpt = estudianteRepository.findByCodsisestudiante(codsis);
@@ -325,6 +413,10 @@ public class ControlIngresoAyudanteService {
         int ingresaron = (int) ingresoRepository.countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNull(idAsig, idEx, idAmb);
         int faltantes = Math.max(0, totalHab - ingresaron);
 
+        String grupo = grupoRepository.findByIdAsignatura(idAsig).stream()
+                .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo)
+                .collect(java.util.stream.Collectors.joining(", "));
+
         return new DelegadoExamenDTO(
                 ae.getId().getIdayudante(),
                 idAsig,
@@ -338,7 +430,7 @@ public class ControlIngresoAyudanteService {
                 fechaEx,
                 horaIni,
                 horaFin,
-                null,
+                grupo.isEmpty() ? null : grupo,
                 ae.getEstadoAsignacion(),
                 estadoMateria,
                 ingresaron,
@@ -377,6 +469,10 @@ public class ControlIngresoAyudanteService {
         int ingresaron = (int) ingresoRepository.countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNull(idAsig, idEx, idAmb);
         int faltantes = Math.max(0, totalHab - ingresaron);
 
+        String grupo = grupoRepository.findByIdAsignatura(idAsig).stream()
+                .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo)
+                .collect(java.util.stream.Collectors.joining(", "));
+
         return new JornadaActivaDTO(
                 idAsig,
                 nombreAsig,
@@ -389,7 +485,7 @@ public class ControlIngresoAyudanteService {
                 fechaEx,
                 horaIni,
                 horaFin,
-                null,
+                grupo.isEmpty() ? null : grupo,
                 estadoMateria,
                 cantidadOperadores,
                 ingresaron,

@@ -30,6 +30,7 @@ CREATE TABLE public.asignatura (
   idinscripcion integer,
   nombreasignatura character varying,
   siglaasignatura character varying,
+  codigooficial character varying,
   CONSTRAINT asignatura_pkey PRIMARY KEY (idasignatura)
 );
 CREATE TABLE public.ayudante (
@@ -338,30 +339,39 @@ CREATE TABLE public.ayudante_examen (
 );
 CREATE TABLE public.grupo (
   idgrupo integer GENERATED ALWAYS AS IDENTITY NOT NULL,
-  estadogrupo boolean NOT NULL,
+  estadogrupo boolean NOT NULL DEFAULT true,
   horarios character varying,
   idasignatura integer NOT NULL,
   nombregrupo character varying NOT NULL,
-  CONSTRAINT grupo_pkey PRIMARY KEY (idgrupo)
+  CONSTRAINT grupo_pkey PRIMARY KEY (idgrupo),
+  CONSTRAINT fk_grupo_asignatura FOREIGN KEY (idasignatura) REFERENCES public.asignatura(idasignatura)
 );
 CREATE TABLE public.docentegrupo (
   iddocentegrupo integer GENERATED ALWAYS AS IDENTITY NOT NULL,
   codsisdocente integer NOT NULL,
   idgrupo integer NOT NULL,
   idusuario integer NOT NULL,
-  CONSTRAINT docentegrupo_pkey PRIMARY KEY (iddocentegrupo)
+  CONSTRAINT docentegrupo_pkey PRIMARY KEY (iddocentegrupo),
+  CONSTRAINT fk_docentegrupo_docente FOREIGN KEY (idusuario) REFERENCES public.docente(idusuario),
+  CONSTRAINT fk_docentegrupo_docente FOREIGN KEY (codsisdocente) REFERENCES public.docente(codsisdocente),
+  CONSTRAINT fk_docentegrupo_grupo FOREIGN KEY (idgrupo) REFERENCES public.grupo(idgrupo)
 );
 CREATE TABLE public.estudiantegrupo (
   idestudiantegrupo integer GENERATED ALWAYS AS IDENTITY NOT NULL,
   codsisestudiante integer NOT NULL,
-  fechainscripcion timestamp without time zone,
+  fechainscripcion timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
   idgrupo integer NOT NULL,
   idusuario integer NOT NULL,
-  CONSTRAINT estudiantegrupo_pkey PRIMARY KEY (idestudiantegrupo)
+  CONSTRAINT estudiantegrupo_pkey PRIMARY KEY (idestudiantegrupo),
+  CONSTRAINT fk_estudiantegrupo_estudiante FOREIGN KEY (idusuario) REFERENCES public.estudiante(idusuario),
+  CONSTRAINT fk_estudiantegrupo_estudiante FOREIGN KEY (codsisestudiante) REFERENCES public.estudiante(codsisestudiante),
+  CONSTRAINT fk_estudiantegrupo_grupo FOREIGN KEY (idgrupo) REFERENCES public.grupo(idgrupo)
 );
 CREATE TABLE public.ayudantegrupo (
   idayudantegrupo integer GENERATED ALWAYS AS IDENTITY NOT NULL,
   idgrupo integer NOT NULL,
   idusuario integer NOT NULL,
-  CONSTRAINT ayudantegrupo_pkey PRIMARY KEY (idayudantegrupo)
+  CONSTRAINT ayudantegrupo_pkey PRIMARY KEY (idayudantegrupo),
+  CONSTRAINT fk_ayudantegrupo_usuario FOREIGN KEY (idusuario) REFERENCES public.usuario(idusuario),
+  CONSTRAINT fk_ayudantegrupo_grupo FOREIGN KEY (idgrupo) REFERENCES public.grupo(idgrupo)
 );

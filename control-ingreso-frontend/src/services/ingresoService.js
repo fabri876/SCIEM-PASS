@@ -1,13 +1,14 @@
 // Servicio de control de ingreso
-// ÚNICO archivo que habla con el backend. Mientras los endpoints no estén listos,
-// USAR_MOCK = true devuelve datos simulados con la misma forma del contrato.
-// Cuando el backend esté listo: en .env poner VITE_INGRESO_MOCK=false
+// ÚNICO archivo que habla con el backend.
+// NOTA INTEGRACIÓN BACKEND: Se ha establecido USAR_MOCK = false por defecto ya que los endpoints 
+// del backend (Spring Boot + PostgreSQL) están implementados y funcionando en producción/desarrollo.
 
 import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken, cerrarSesion } from "./authService";
 import { EXAMENES_MOCK, crearNominasMock, formatearHora } from "./datosMockIngreso";
 
-export const USAR_MOCK = import.meta.env.VITE_INGRESO_MOCK !== "false";
+// Cambiado a false: Conexión directa a la base de datos a través de la API REST backend
+export const USAR_MOCK = false;
 
 // Mismo manejo que el resto de services: token, sesión vencida (401) y mensaje del backend
 async function pedir(strRuta, objOpciones = {}) {
@@ -45,7 +46,29 @@ async function pedir(strRuta, objOpciones = {}) {
    ============================================================ */
 export async function obtenerExamenesAsignados() {
   if (USAR_MOCK) return simular(EXAMENES_MOCK.map((e) => ({ ...e, contador: mockContador(e.id) })));
-  return pedir("/api/control/examenes-asignados");
+  const datos = await pedir("/api/v1/examenes/delegados");
+  return (datos || []).map((e) => ({
+    id: e.idexamen,
+    idasignatura: e.idasignatura,
+    idexamen: e.idexamen,
+    idambiente: e.idambiente,
+    materia: e.nombreAsignatura,
+    sigla: e.siglaAsignatura,
+    grupo: e.grupo,
+    tipo: e.nombreExamen,
+    aula: e.nombreAmbiente,
+    edificio: e.ubicacionAmbiente,
+    fecha: e.fechaExamen,
+    horaInicio: e.horaInicio ? String(e.horaInicio).substring(0, 5) : "",
+    horaFin: e.horaFin ? String(e.horaFin).substring(0, 5) : "",
+    estado: e.estadoMateria || "PROXIMO",
+    contador: {
+      ingresaron: e.ingresaron || 0,
+      pendientes: e.faltantes || 0,
+      inhabilitados: e.inhabilitados || 0,
+      habilitados: e.totalHabilitados || 0,
+    },
+  }));
 }
 
 /* ============================================================
@@ -54,30 +77,126 @@ export async function obtenerExamenesAsignados() {
    metodo: "QR" | "MANUAL" | "LISTA"
    resultado: PERMITIDO | YA_REGISTRADO | NO_HABILITADO | OTRA_AULA | NO_INSCRITO | NO_ENCONTRADO
    ============================================================ */
-export async function validarIngreso(idExamen, strValor, strMetodo) {
+export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = {}) {
   if (USAR_MOCK) return simular(mockValidar(idExamen, strValor, strMetodo), 250);
-  return pedir(`/api/control/examenes/${idExamen}/ingresos`, {
+
+  const idasignatura = objExamen.idasignatura || objExamen.idAsignatura;
+  const idambiente = objExamen.idambiente || objExamen.idAmbiente;
+
+  const strToken = obtenerToken();
+  const resp = await fetch(`${strApiBaseUrl}/api/v1/control/ingresos`, {
     method: "POST",
-    body: JSON.stringify({ valor: strValor, metodo: strMetodo }),
+    headers: {
+      "Content-Type": "application/json",
+      ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
+    },
+    body: JSON.stringify({
+      identificador: String(strValor).trim(),
+      idasignatura: idasignatura,
+      idexamen: idExamen,
+      idambiente: idambiente,
+      metodoIngreso: strMetodo === "QR" ? "ESCANEO" : "MANUAL",
+    }),
   });
+
+  if (resp.status === 401) {
+    cerrarSesion();
+    sessionStorage.setItem("mensajeSesion", "Tu sesión expiró, vuelve a iniciar sesión");
+    window.location.href = "/login";
+    throw new Error("Tu sesión expiró, vuelve a iniciar sesión");
+  }
+
+  const objData = await resp.json().catch(() => null);
+  console.log("Raw response from backend (validarIngreso):", resp.status, objData);
+
+  let strResultado = objData?.estado || "NO_ENCONTRADO";
+  if (strResultado === "INHABILITADO") strResultado = "NO_HABILITADO";
+  if (strResultado === "DUPLICADO") strResultado = "YA_REGISTRADO";
+  // QR_INVALIDO: el token no existe, está anulado o expirado — se trata como no encontrado visualmente
+  if (strResultado === "QR_INVALIDO") strResultado = "QR_INVALIDO";
+
+  const est = objData?.estudiante;
+  const estudianteMapeado = est
+    ? {
+        idusuario: est.idusuario,
+        ci: est.ci,
+        sis: est.codsisestudiante || est.sis,
+        nombres: est.nombreCompleto || est.nombres || "",
+        apellidos: "",
+        carrera: est.carrera || "Carrera no asignada",
+        fotoUrl: est.fotoUrl,
+        aulaAsignada: objExamen.aula,
+      }
+    : null;
+
+  return {
+    resultado: strResultado,
+    valor: strValor,
+    mensaje: objData?.mensaje,
+    estudiante: estudianteMapeado,
+    horaIngreso: objData?.horaIngreso ? String(objData.horaIngreso).substring(11, 19) : null,
+    ingresoPrevio: objData?.primerIngreso
+      ? {
+          hora: objData.primerIngreso.horaIngreso ? String(objData.primerIngreso.horaIngreso).substring(11, 19) : "",
+          aula: objData.primerIngreso.nombreAmbiente,
+        }
+      : null,
+    motivos: objData?.motivoInhabilitacion ? [objData.motivoInhabilitacion] : [],
+  };
 }
 
 /* ============================================================
    3. Contador del examen
    GET /api/control/examenes/{id}/contador
    ============================================================ */
-export async function obtenerContador(idExamen) {
+export async function obtenerContador(idExamen, objExamen = {}) {
   if (USAR_MOCK) return simular(mockContador(idExamen));
-  return pedir(`/api/control/examenes/${idExamen}/contador`);
+  const idasig = objExamen.idasignatura || objExamen.idAsignatura;
+  const idamb = objExamen.idambiente || objExamen.idAmbiente;
+  if (idasig && idamb) {
+    try {
+      const d = await pedir(`/api/v1/control/examen-seleccionado?idasignatura=${idasig}&idexamen=${idExamen}&idambiente=${idamb}`);
+      return {
+        ingresaron: d.ingresaron || 0,
+        pendientes: d.faltantes || 0,
+        inhabilitados: d.inhabilitados || 0,
+        habilitados: d.totalHabilitados || 0,
+      };
+    } catch {
+      // Fallback a objeto contador existente
+    }
+  }
+  return objExamen.contador || { ingresaron: 0, pendientes: 0, inhabilitados: 0, habilitados: 0 };
 }
 
-/* ============================================================
-   4. Últimos ingresos
-   GET /api/control/examenes/{id}/ingresos?limite=5
-   ============================================================ */
-export async function obtenerUltimosIngresos(idExamen, numLimite = 5) {
+export async function obtenerUltimosIngresos(idExamen, numLimite = 5, objExamen = {}) {
   if (USAR_MOCK) return simular(mockUltimos(idExamen, numLimite));
-  return pedir(`/api/control/examenes/${idExamen}/ingresos?limite=${numLimite}`);
+  const idasig = objExamen.idasignatura || objExamen.idAsignatura;
+  const idamb = objExamen.idambiente || objExamen.idAmbiente;
+  if (!idasig || !idamb) return [];
+
+  try {
+    const res = await pedir(`/api/v1/control/ultimos-ingresos?idasignatura=${idasig}&idexamen=${idExamen}&idambiente=${idamb}&limite=${numLimite}`);
+    return (res || []).map((u) => {
+      const est = u.estudiante || {};
+      const partesNombre = (est.nombreCompleto || "").trim().split(" ");
+      const nombres = partesNombre[0] || "";
+      const apellidos = partesNombre.slice(1).join(" ") || "";
+      return {
+        hora: u.horaIngreso ? String(u.horaIngreso).substring(11, 19) : "",
+        metodo: u.metodoIngreso === "QR" ? "QR" : "Manual",
+        estudiante: {
+          nombres: nombres,
+          apellidos: apellidos,
+          ci: est.ci || "",
+          sis: est.codsisestudiante || "",
+          carrera: est.carrera || "Carrera no asignada",
+        },
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 /* ============================================================
@@ -150,6 +269,17 @@ function mockLista(idExamen, strBuscar) {
 
 function mockValidar(idExamen, strValor, strMetodo) {
   const ex = examenMock(idExamen);
+
+  // Si viene un token QR con el prefijo del sistema, se simula como válido para el primer estudiante pendiente
+  const PREFIJO_QR = "SCIEMPASS:1:";
+  if (strMetodo === "QR" && String(strValor).startsWith(PREFIJO_QR)) {
+    const listPend = nominaMock(idExamen).filter((s) => s.habilitado && !s.ingreso && ex && s.aulaAsignada === ex.aula);
+    if (!listPend.length) return { valor: strValor, resultado: "QR_INVALIDO", mensaje: "QR INVÁLIDO (simulación: sin pendientes)", estudiante: null, contador: null };
+    const s = listPend[0];
+    s.ingreso = { hora: horaServidorMock(), metodo: "QR" };
+    return { valor: strValor, resultado: "PERMITIDO", metodo: "QR", estudiante: datosEstudiante(s), horaIngreso: s.ingreso.hora, contador: mockContador(idExamen) };
+  }
+
   const strDigitos = String(strValor || "").replace(/\D/g, "");
   const coincide = (x) => x.ci === strDigitos || x.sis === strDigitos;
   const s = nominaMock(idExamen).find(coincide);
@@ -179,8 +309,12 @@ function mockValidar(idExamen, strValor, strMetodo) {
 }
 
 // Solo para la simulación del lector QR sin cámara (mock)
+// Devuelve un token con el prefijo SCIEMPASS:1: para simular un escaneo QR real
 export function obtenerSisPendienteMock(idExamen) {
   const ex = examenMock(idExamen);
   const listPend = nominaMock(idExamen).filter((s) => s.habilitado && !s.ingreso && ex && s.aulaAsignada === ex.aula);
-  return listPend.length ? listPend[Math.floor(Math.random() * listPend.length)].sis : null;
+  if (!listPend.length) return null;
+  // Se genera un token simulado con el prefijo del sistema para que el mock entienda que es QR
+  const strSis = listPend[Math.floor(Math.random() * listPend.length)].sis;
+  return `SCIEMPASS:1:MOCK-${strSis}-QR`;
 }
