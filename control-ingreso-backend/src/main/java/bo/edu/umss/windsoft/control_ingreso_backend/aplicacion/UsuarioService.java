@@ -35,6 +35,7 @@ public class UsuarioService {
     private final AyudanteRepository ayudanteRepository;
     private final EstudianteRepository estudianteRepository;
     private final GrupoService grupoService;
+    private final bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EliminacionUsuarioRepository eliminacionUsuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoriaService;
     private final UsuarioRespuestaMapper usuarioRespuestaMapper;
@@ -43,6 +44,7 @@ public class UsuarioService {
     public UsuarioService(UsuarioRepository usuarioRepository, AdminRepository adminRepository,
                            DocenteRepository docenteRepository, AyudanteRepository ayudanteRepository,
                            EstudianteRepository estudianteRepository, GrupoService grupoService,
+                           bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EliminacionUsuarioRepository eliminacionUsuarioRepository,
                            PasswordEncoder passwordEncoder, AuditoriaService auditoriaService,
                            UsuarioRespuestaMapper usuarioRespuestaMapper, TipoUsuarioResolver tipoUsuarioResolver) {
         this.usuarioRepository = usuarioRepository;
@@ -51,6 +53,7 @@ public class UsuarioService {
         this.ayudanteRepository = ayudanteRepository;
         this.estudianteRepository = estudianteRepository;
         this.grupoService = grupoService;
+        this.eliminacionUsuarioRepository = eliminacionUsuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditoriaService = auditoriaService;
         this.usuarioRespuestaMapper = usuarioRespuestaMapper;
@@ -100,8 +103,8 @@ public class UsuarioService {
         if (dto.getIdGrupo() != null) grupos.add(dto.getIdGrupo());
         if (dto.getIdGrupos() != null) grupos.addAll(dto.getIdGrupos());
         if (grupos.size() > 100) throw new SolicitudInvalidaException("Se admiten hasta 100 grupos por registro.");
-        if ((TipoUsuarioResolver.DOCENTE.equals(rolNormalizado) || TipoUsuarioResolver.ESTUDIANTE.equals(rolNormalizado)) && grupos.isEmpty())
-            throw new SolicitudInvalidaException("Debe asignar al menos una asignatura y grupo al registrar docentes o estudiantes.");
+        if ((TipoUsuarioResolver.DOCENTE.equals(rolNormalizado) || TipoUsuarioResolver.ESTUDIANTE.equals(rolNormalizado) || TipoUsuarioResolver.OPERADOR.equals(rolNormalizado)) && grupos.isEmpty())
+            throw new SolicitudInvalidaException("Debe asignar al menos una asignatura y grupo al registrar docentes, estudiantes o ayudantes.");
         grupoService.validarAccesoRegistro(new java.util.ArrayList<>(grupos), rolNormalizado);
 
         // Si no se proporciona contraseña, se usa automáticamente el CI (normalizado) como contraseña inicial
@@ -191,6 +194,8 @@ public class UsuarioService {
             }
         }
 
+        if (dto.getIdGrupos() != null)
+            grupoService.reemplazarGruposUsuario(id, tipoUsuarioResolver.resolver(id), dto.getIdGrupos());
         usuario.setNombreusuario(dto.getNombre().trim());
         usuario.setApellidousuario(dto.getApellido().trim());
         usuario.setCorreousuario(dto.getCorreo().trim());
@@ -215,6 +220,30 @@ public class UsuarioService {
                 "Estado de cuenta cambiado a " + (activo ? "ACTIVO" : "INACTIVO") + " para ID " + id + ".", ip);
 
         return usuarioRespuestaMapper.mapear(usuario);
+    }
+
+    @Transactional
+    public void eliminar(Integer id, String executorCorreo, String ip) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities().stream()
+                .noneMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority())))
+            throw new org.springframework.security.access.AccessDeniedException("Solo el administrador puede eliminar usuarios.");
+        Usuario usuario = buscarOLanzar(id);
+        if (TipoUsuarioResolver.ADMINISTRADOR.equals(tipoUsuarioResolver.resolver(id)))
+            throw new SolicitudInvalidaException("No se permite eliminar cuentas de administrador.");
+        Usuario ejecutor = usuarioRepository.findByCorreousuario(executorCorreo)
+                .orElseThrow(() -> new SolicitudInvalidaException("Administrador no encontrado."));
+        if (id.equals(ejecutor.getIdusuario())) throw new SolicitudInvalidaException("No puede eliminar su propia cuenta.");
+        eliminacionUsuarioRepository.bloquear(id);
+        if (eliminacionUsuarioRepository.tieneHistorial(id))
+            throw new SolicitudInvalidaException("Este usuario tiene examenes, ingresos u otros registros vinculados. Desactive la cuenta para conservar el historial.");
+        try {
+            eliminacionUsuarioRepository.eliminar(id, ejecutor.getIdusuario(),
+                    "[ELIMINACION_USUARIO] ejecutor=" + executorCorreo + " | afectado=" + usuario.getCorreousuario()
+                    + " | ID=" + id + " | ip=" + ip);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new SolicitudInvalidaException("El usuario tiene otros registros vinculados y no puede eliminarse. Desactive la cuenta.");
+        }
     }
 
     private Usuario buscarOLanzar(Integer id) {

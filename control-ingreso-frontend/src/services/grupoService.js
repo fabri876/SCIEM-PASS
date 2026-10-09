@@ -184,3 +184,7 @@ export async function asignarAyudanteAGrupo({ idUsuario, idGrupo }) {
   }
   return response.json();
 }
+
+export function quitarVinculacion({ idUsuario, rol, idGrupo }) {
+  return academico(`/api/grupos/vinculaciones/${encodeURIComponent(rol)}/${idUsuario}/${idGrupo}`, { method: "DELETE" });
+}

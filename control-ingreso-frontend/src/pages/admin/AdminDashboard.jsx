@@ -18,6 +18,7 @@ import {
     actualizarUsuario,
     cambiarRolUsuario,
     cambiarEstadoUsuario,
+    eliminarUsuario,
     listarAuditoria,
     listarRoles,
     cargarUsuariosMasivo
@@ -126,6 +127,13 @@ export default function AdminDashboard({ onNavigateToLogin }) {
     const fnEditarUsuario = async (idUsuario, datos) => {
         await actualizarUsuario(idUsuario, datos);
         await fnCargarUsuarios();
+        setRevisionAcademica(v => v + 1);
+    };
+
+    const fnEliminarUsuario = async idUsuario => {
+        await eliminarUsuario(idUsuario);
+        await fnCargarUsuarios();
+        setRevisionAcademica(v => v + 1);
     };
 
     const fnCambiarRolUsuario = async (idUsuario, nuevoRol, codigoSis) => {
@@ -217,6 +225,7 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                                         onEditar={fnEditarUsuario}
                                         onCambiarRol={fnCambiarRolUsuario}
                                         onCambiarEstado={fnCambiarEstadoUsuario}
+                                        onEliminar={fnEliminarUsuario}
                                     />
                                 </div>
 
@@ -226,7 +235,7 @@ export default function AdminDashboard({ onNavigateToLogin }) {
 
                     {activeMenu === "Gestión de Asignaturas y Grupos" && <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
                         <div className="xl:col-span-5"><GestionGruposAsignaturaCard docentes={usuarios.filter(u => u.rol === "DOCENTE")} onCatalogChange={() => setRevisionAcademica(v => v + 1)} /></div>
-                        <div className="xl:col-span-7 min-w-0"><CatalogoAcademicoTable revision={revisionAcademica} docentes={usuarios.filter(u => u.rol === "DOCENTE")} /></div>
+                        <div className="xl:col-span-7 min-w-0"><CatalogoAcademicoTable usuarios={usuarios} revision={revisionAcademica} docentes={usuarios.filter(u => u.rol === "DOCENTE")} /></div>
                     </div>}
 
                     {/* =================================================

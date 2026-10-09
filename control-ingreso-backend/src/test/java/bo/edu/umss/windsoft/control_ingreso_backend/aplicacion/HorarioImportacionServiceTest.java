@@ -51,6 +51,7 @@ class HorarioImportacionServiceTest {
         var resultado = servicio.confirmarAutomaticamente(archivo);
         assertEquals(0, resultado.asignaturasCreadas()); assertEquals(0, resultado.gruposCreados());
         assertEquals(1, a.getIdAsignatura()); assertEquals("2010020", a.getCodigoOficial());
+        assertEquals(1, resultado.asignaturasExistentes()); assertEquals(1, resultado.gruposExistentes());
     }
     @Test void conflictoDeCodigoRechazaCatalogo() {
         when(lector.leer(any())).thenReturn(List.of(fila("PERSONA", "DOCENTE")));

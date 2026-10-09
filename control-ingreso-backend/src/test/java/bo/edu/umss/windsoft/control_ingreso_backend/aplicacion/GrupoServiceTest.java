@@ -54,13 +54,32 @@ class GrupoServiceTest {
         verify(docenteGrupos, never()).save(any());
     }
     @Test void inscripcionUsaElSisDelEstudiante() {
-        grupo(); when(estudiantes.findByIdusuario(4)).thenReturn(Optional.of(new Estudiante(4, 202309099)));
+        grupo(); when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 202309099)));
         servicio.inscribirEstudianteAGrupo(4, null, 7);
         verify(estudianteGrupos).save(argThat(g -> g.getCodSisEstudiante().equals(202309099)));
     }
     @Test void noAsignaUnUsuarioSinRolAyudante() {
         grupo(); assertThrows(ValidacionNegocioException.class, () -> servicio.asignarAyudanteAGrupo(4, 7));
         verify(ayudanteGrupos, never()).save(any());
+    }
+    @Test void estudianteNoPuedeInscribirseEnOtroGrupoDeLaMismaMateria() {
+        grupo(); when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 202309099)));
+        when(estudianteGrupos.existeOtroGrupoEnAsignatura(4, 2008054, 7)).thenReturn(true);
+        assertThrows(ValidacionNegocioException.class, () -> servicio.inscribirEstudianteAGrupo(4, null, 7));
+        verify(estudianteGrupos, never()).save(any());
+    }
+    @Test void estudiantePuedeRepetirElMismoGrupoSinDuplicarInscripcion() {
+        grupo(); when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 202309099)));
+        when(estudianteGrupos.existsByIdUsuarioAndIdGrupo(4, 7)).thenReturn(true);
+        servicio.inscribirEstudianteAGrupo(4, null, 7);
+        verify(estudianteGrupos, never()).save(any());
+    }
+    @Test void seleccionEstudianteRechazaDosGruposDeUnaAsignaturaPeroAceptaMateriasDistintas() {
+        grupo(); Grupo otro = new Grupo(2008054, "3", null); otro.setIdGrupo(8);
+        when(grupos.findById(8)).thenReturn(Optional.of(otro));
+        assertThrows(ValidacionNegocioException.class, () -> servicio.validarUnGrupoPorAsignatura(List.of(7, 8)));
+        otro.setIdAsignatura(2008019);
+        assertDoesNotThrow(() -> servicio.validarUnGrupoPorAsignatura(List.of(7, 8)));
     }
     @Test void unEstudianteNoPuedeModificarVinculaciones() {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("est", null,
@@ -76,5 +95,77 @@ class GrupoServiceTest {
         assertThrows(AccessDeniedException.class, () -> servicio.validarAccesoRegistro(List.of(7), "ESTUDIANTE"));
         when(docenteGrupos.existsByIdUsuarioAndIdGrupo(5, 7)).thenReturn(true);
         assertDoesNotThrow(() -> servicio.validarAccesoRegistro(List.of(7), "ESTUDIANTE"));
+    }
+
+    private void admin() {
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(1, null,
+                List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))));
+    }
+    @Test void quitarAsignacionExigeAdministrador() {
+        assertThrows(AccessDeniedException.class, () -> servicio.desvincularUsuario(5, "DOCENTE", 7));
+        verifyNoInteractions(docenteGrupos, estudianteGrupos, ayudanteGrupos);
+    }
+    @Test void quitarUltimoGrupoDocenteLimpiaMateria() {
+        admin(); grupo(); when(docentes.findByIdusuario(5)).thenReturn(Optional.of(new Docente(5, 98765)));
+        when(docenteGrupos.findGruposByAsignaturaAndDocente(2008054, 5)).thenReturn(List.of());
+        when(docenteAsignaturas.existsById(any())).thenReturn(true);
+        servicio.desvincularUsuario(5, "DOCENTE", 7);
+        verify(docenteGrupos).deleteByIdUsuarioAndIdGrupo(5, 7);
+        verify(docenteAsignaturas).deleteById(any());
+        verify(usuarios, never()).deleteById(any());
+    }
+    @Test void conservaMateriaSiDocenteTieneOtroGrupo() {
+        admin(); grupo(); when(docentes.findByIdusuario(5)).thenReturn(Optional.of(new Docente(5, 98765)));
+        when(docenteGrupos.findGruposByAsignaturaAndDocente(2008054, 5)).thenReturn(List.of(new Grupo(2008054, "3", null)));
+        servicio.desvincularUsuario(5, "DOCENTE", 7);
+        verify(docenteAsignaturas, never()).deleteById(any());
+    }
+    @Test void quitarEstudianteBloqueaInscripcionYConservaUsuario() {
+        admin(); grupo(); when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 123)));
+        servicio.desvincularUsuario(4, "ESTUDIANTE", 7);
+        verify(estudianteGrupos).deleteByIdUsuarioAndIdGrupo(4, 7);
+        verify(usuarios, never()).deleteById(any());
+    }
+    @Test void quitarAyudanteConservaCuenta() {
+        admin(); grupo(); when(ayudantes.existsByIdusuario(4)).thenReturn(true);
+        servicio.desvincularUsuario(4, "OPERADOR", 7);
+        verify(ayudanteGrupos).deleteByIdUsuarioAndIdGrupo(4, 7);
+        verify(usuarios, never()).deleteById(any());
+    }
+
+    @Test void cambiarGrupoEstudianteBorraAnteriorAntesDeInsertarNuevo() {
+        admin(); grupo(); Grupo nuevo = new Grupo(2008054, "3", null); nuevo.setIdGrupo(8);
+        when(grupos.findById(8)).thenReturn(Optional.of(nuevo));
+        when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 123)));
+        when(estudianteGrupos.findByIdUsuario(4)).thenReturn(List.of(new EstudianteGrupo(4, 123, 7)));
+        servicio.reemplazarGruposUsuario(4, "ESTUDIANTE", List.of(8));
+        InOrder orden = inOrder(estudianteGrupos);
+        orden.verify(estudianteGrupos).deleteByIdUsuarioAndIdGrupo(4, 7);
+        orden.verify(estudianteGrupos).flush();
+        orden.verify(estudianteGrupos).existsByIdUsuarioAndIdGrupo(4, 8);
+        orden.verify(estudianteGrupos).save(argThat(g -> g.getIdGrupo().equals(8)));
+    }
+    @Test void editarNoPermiteDosGruposDeLaMismaMateria() {
+        admin(); grupo(); Grupo otro = new Grupo(2008054, "3", null); otro.setIdGrupo(8);
+        when(grupos.findById(8)).thenReturn(Optional.of(otro));
+        assertThrows(ValidacionNegocioException.class, () -> servicio.reemplazarGruposUsuario(4, "ESTUDIANTE", List.of(7, 8)));
+        verify(estudianteGrupos, never()).deleteByIdUsuarioAndIdGrupo(any(), any());
+        verify(estudianteGrupos, never()).save(any());
+    }
+    @Test void quitarTodosLosGruposEstudianteEsUnaCorreccionExplicita() {
+        admin(); grupo(); when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 123)));
+        when(estudianteGrupos.findByIdUsuario(4)).thenReturn(List.of(new EstudianteGrupo(4, 123, 7)));
+        servicio.reemplazarGruposUsuario(4, "ESTUDIANTE", List.of());
+        verify(estudianteGrupos).deleteByIdUsuarioAndIdGrupo(4, 7);
+        verify(estudianteGrupos, never()).save(any());
+    }
+    @Test void quitarGrupoDocenteNoBorraRelacionNecesariaParaExamenes() {
+        admin(); grupo(); when(docentes.findByIdusuario(5)).thenReturn(Optional.of(new Docente(5, 98765)));
+        when(docenteGrupos.findGruposByAsignaturaAndDocente(2008054, 5)).thenReturn(List.of());
+        when(docenteAsignaturas.existsById(any())).thenReturn(true);
+        when(docenteAsignaturas.tieneRegistrosVinculados(5, 2008054)).thenReturn(true);
+        servicio.desvincularUsuario(5, "DOCENTE", 7);
+        verify(docenteGrupos).deleteByIdUsuarioAndIdGrupo(5, 7);
+        verify(docenteAsignaturas, never()).deleteById(any());
     }
 }

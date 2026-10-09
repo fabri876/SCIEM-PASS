@@ -4,5 +4,5 @@ public final class HorarioImportacionDto {
     private HorarioImportacionDto() {}
     public record Fila(Integer codigoAsignatura, String nombreAsignatura, String nombreGrupo, Integer idAsignaturaDestino) {}
     public record VistaPrevia(List<Fila> filas) {}
-    public record Resultado(int asignaturasCreadas, int gruposCreados) {}
+    public record Resultado(int asignaturasCreadas, int gruposCreados, int asignaturasExistentes, int gruposExistentes) {}
 }

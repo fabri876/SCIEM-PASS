@@ -128,6 +128,11 @@ public class CargaMasivaService {
 
         int exitosos = 0;
         int fallidos = 0;
+        int existentes = 0;
+        List<String> avisos = new ArrayList<>();
+        Map<String, Optional<Usuario>> docentesPorCi = new HashMap<>();
+        Map<Integer, Optional<Docente>> docentesPorSis = new HashMap<>();
+        Set<String> asignacionesProcesadas = new HashSet<>();
         // Cachés locales a esta carga: nunca compartir resultados entre solicitudes.
         Map<String, Optional<Asignatura>> materiasConsultadas = new HashMap<>();
         Map<String, Optional<Grupo>> gruposConsultados = new HashMap<>();
@@ -183,37 +188,58 @@ public class CargaMasivaService {
                 }
             }
 
-            // Validar duplicados en la base de datos y dentro del mismo archivo
-            if (!ci.isBlank()) {
-                if (cisExistentes.contains(ci)) {
-                    erroresFila.add("Ya existe un usuario en la BD con el CI '" + ci + "'.");
-                } else if (!cisEnArchivo.add(ci)) {
-                    erroresFila.add("El CI '" + ci + "' está duplicado en el mismo archivo.");
+            // Un docente existente solo se reutiliza si los tres identificadores coinciden.
+            Usuario docenteExistente = null;
+            if (TipoUsuarioResolver.DOCENTE.equals(rolFila) && !ci.isBlank() && codSis != null
+                    && (cisExistentes.contains(ci) || sisDocentes.contains(codSis) || correosExistentes.contains(correo)
+                        || docentesPorCi.containsKey(ci) || docentesPorSis.containsKey(codSis))) {
+                var persona = docentesPorCi.computeIfAbsent(ci, usuarioRepository::findByCiusuario);
+                var docente = docentesPorSis.computeIfAbsent(codSis, docenteRepository::findByCodsisdocente);
+                if (persona.isPresent() && docente.isPresent()
+                        && persona.get().getIdusuario().equals(docente.get().getIdusuario())
+                        && correo.equalsIgnoreCase(persona.get().getCorreousuario())) {
+                    docenteExistente = persona.get();
+                    if (!Boolean.TRUE.equals(docenteExistente.getEstadousuario()))
+                        erroresFila.add("El docente existente está inactivo. Revise su estado antes de asignarle grupos.");
+                } else if (persona.isPresent() || docente.isPresent() || correosExistentes.contains(correo)) {
+                    erroresFila.add("Los datos corresponden a un registro existente, pero CI, correo y Código SIS no coinciden con el mismo docente. Revise la fila.");
                 }
             }
 
-            if (!correo.isBlank() && correo.contains("@")) {
-                if (correosExistentes.contains(correo)) {
-                    erroresFila.add("Ya existe un usuario en la BD con el correo '" + correo + "'.");
-                } else if (!correosEnArchivo.add(correo)) {
-                    erroresFila.add("El correo '" + correo + "' está duplicado en el mismo archivo.");
+            // Los otros roles conservan su validación de duplicados.
+            if (docenteExistente == null) {
+                if (!ci.isBlank()) {
+                    if (cisExistentes.contains(ci)) {
+                        erroresFila.add("Ya existe un usuario en la BD con el CI '" + ci + "'.");
+                    } else if (!cisEnArchivo.add(ci)) {
+                        erroresFila.add("El CI '" + ci + "' está duplicado en el mismo archivo.");
+                    }
                 }
-            }
 
-            if (codSis != null) {
-                if (TipoUsuarioResolver.ESTUDIANTE.equals(rolFila)) {
-                    if (sisEstudiantes.contains(codSis)) {
-                        erroresFila.add("Ya existe un estudiante en la BD con el Código SIS " + codSis + ".");
-                    } else if (!codSisEnArchivo.add(codSis)) {
-                        erroresFila.add("El Código SIS " + codSis + " está duplicado en el mismo archivo.");
-                    }
-                } else if (TipoUsuarioResolver.DOCENTE.equals(rolFila)) {
-                    if (sisDocentes.contains(codSis)) {
-                        erroresFila.add("Ya existe un docente en la BD con el Código SIS " + codSis + ".");
-                    } else if (!codSisEnArchivo.add(codSis)) {
-                        erroresFila.add("El Código SIS " + codSis + " está duplicado en el mismo archivo.");
+                if (!correo.isBlank() && correo.contains("@")) {
+                    if (correosExistentes.contains(correo)) {
+                        erroresFila.add("Ya existe un usuario en la BD con el correo '" + correo + "'.");
+                    } else if (!correosEnArchivo.add(correo)) {
+                        erroresFila.add("El correo '" + correo + "' está duplicado en el mismo archivo.");
                     }
                 }
+
+                if (codSis != null) {
+                    if (TipoUsuarioResolver.ESTUDIANTE.equals(rolFila)) {
+                        if (sisEstudiantes.contains(codSis)) {
+                            erroresFila.add("Ya existe un estudiante en la BD con el Código SIS " + codSis + ".");
+                        } else if (!codSisEnArchivo.add(codSis)) {
+                            erroresFila.add("El Código SIS " + codSis + " está duplicado en el mismo archivo.");
+                        }
+                    } else if (TipoUsuarioResolver.DOCENTE.equals(rolFila)) {
+                        if (sisDocentes.contains(codSis)) {
+                            erroresFila.add("Ya existe un docente en la BD con el Código SIS " + codSis + ".");
+                        } else if (!codSisEnArchivo.add(codSis)) {
+                            erroresFila.add("El Código SIS " + codSis + " está duplicado en el mismo archivo.");
+                        }
+                    }
+                }
+
             }
 
             // Determinar o resolver ID de grupo si viene especificado
@@ -254,11 +280,13 @@ public class CargaMasivaService {
                 }
             }
 
-            if ((TipoUsuarioResolver.DOCENTE.equals(rolFila) || TipoUsuarioResolver.ESTUDIANTE.equals(rolFila)) && gruposResueltos.isEmpty()) {
-                erroresFila.add("Debe indicar asignatura y grupo para registrar docentes o estudiantes.");
+            if ((TipoUsuarioResolver.DOCENTE.equals(rolFila) || TipoUsuarioResolver.ESTUDIANTE.equals(rolFila) || TipoUsuarioResolver.OPERADOR.equals(rolFila)) && gruposResueltos.isEmpty()) {
+                erroresFila.add("Debe indicar asignatura y grupo para registrar docentes, estudiantes o ayudantes.");
             }
             if (!gruposResueltos.isEmpty()) {
                 try {
+                    if (TipoUsuarioResolver.ESTUDIANTE.equals(rolFila) && gruposResueltos.size() > 1)
+                        grupoService.validarUnGrupoPorAsignatura(new ArrayList<>(gruposResueltos));
                     List<Integer> pendientes = new ArrayList<>();
                     for (Integer idGrupo : gruposResueltos) {
                         if (!permisosValidados.contains(rolFila + ":" + idGrupo)) pendientes.add(idGrupo);
@@ -276,6 +304,20 @@ public class CargaMasivaService {
             if (!erroresFila.isEmpty()) {
                 fallidos++;
                 errores.add(new CargaMasivaErrorFilaDto(fila.numeroFila, ci, correo, erroresFila));
+            } else if (docenteExistente != null) {
+                int nuevas = 0;
+                for (Integer idGrupo : gruposResueltos) {
+                    String claveAsignacion = docenteExistente.getIdusuario() + ":" + idGrupo;
+                    if (asignacionesProcesadas.add(claveAsignacion)) {
+                        boolean yaAsignado = grupoService.docenteTieneGrupo(docenteExistente.getIdusuario(), idGrupo);
+                        grupoService.asignarDocenteAGrupo(docenteExistente.getIdusuario(), codSis, idGrupo);
+                        if (!yaAsignado) nuevas++;
+                    }
+                }
+                existentes++;
+                avisos.add("Fila " + fila.numeroFila + ": " + docenteExistente.getNombreusuario() + " "
+                        + docenteExistente.getApellidousuario() + " ya existe. "
+                        + (nuevas == 0 ? "Sus grupos ya estaban asignados; no se duplicaron." : "Se añadieron " + nuevas + " grupo(s); se conservaron sus asignaciones anteriores."));
             } else {
                 // Registrar usuario con contraseña inicial = CI
                 String contrasenaHasheada = passwordEncoder.encode(ci);
@@ -283,10 +325,20 @@ public class CargaMasivaService {
                 nuevo = usuarioRepository.save(nuevo);
 
                 crearFilaTablaHija(rolFila, nuevo.getIdusuario(), codSis, null);
+                if (TipoUsuarioResolver.DOCENTE.equals(rolFila)) {
+                    docentesPorCi.put(ci, Optional.of(nuevo));
+                    Docente docenteCreado = new Docente();
+                    docenteCreado.setIdusuario(nuevo.getIdusuario());
+                    docenteCreado.setCodsisdocente(codSis);
+                    docentesPorSis.put(codSis, Optional.of(docenteCreado));
+                }
                 int sisFinal = codSis != null ? codSis : nuevo.getIdusuario();
                 for (Integer idGrupo : gruposResueltos) {
                     switch (rolFila) {
-                        case TipoUsuarioResolver.DOCENTE -> grupoService.asignarDocenteAGrupo(nuevo.getIdusuario(), sisFinal, idGrupo);
+                        case TipoUsuarioResolver.DOCENTE -> {
+                            grupoService.asignarDocenteAGrupo(nuevo.getIdusuario(), sisFinal, idGrupo);
+                            asignacionesProcesadas.add(nuevo.getIdusuario() + ":" + idGrupo);
+                        }
                         case TipoUsuarioResolver.ESTUDIANTE -> grupoService.inscribirEstudianteAGrupo(nuevo.getIdusuario(), sisFinal, idGrupo);
                         case TipoUsuarioResolver.OPERADOR -> grupoService.asignarAyudanteAGrupo(nuevo.getIdusuario(), idGrupo);
                         default -> throw new SolicitudInvalidaException("Ese rol no admite grupos académicos.");
@@ -297,10 +349,13 @@ public class CargaMasivaService {
         }
 
         auditoriaService.registrar("CARGA_MASIVA_USUARIOS", executorCorreo, executorCorreo,
-                "Carga masiva procesada: " + exitosos + " exitosos, " + fallidos + " fallidos de " + filas.size() + " filas.", ip);
+                "Carga masiva procesada: " + exitosos + " nuevos, " + existentes + " existentes, " + fallidos + " fallidos de " + filas.size() + " filas.", ip);
 
-        String resumenMensaje = exitosos + " usuario(s) registrados exitosamente" + (fallidos > 0 ? ", " + fallidos + " con errores." : ".");
-        return new CargaMasivaRespuestaDto(resumenMensaje, filas.size(), exitosos, fallidos, errores);
+        String resumenMensaje = exitosos + " usuario(s) nuevos, " + existentes + " fila(s) de docentes existentes y " + fallidos + " fila(s) con errores.";
+        var respuesta = new CargaMasivaRespuestaDto(resumenMensaje, filas.size(), exitosos, fallidos, errores);
+        respuesta.setExistentes(existentes);
+        respuesta.setAvisos(avisos);
+        return respuesta;
     }
 
     private Optional<Asignatura> buscarAsignaturaCarga(String valor) {
