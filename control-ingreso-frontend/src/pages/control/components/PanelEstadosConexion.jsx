@@ -3,17 +3,17 @@ import { useOperador } from "../operadorContexto";
 import { infoLote, textoPendientes } from "../datosMockOperador";
 
 const TARJETAS = [
-  { net: "online", etiqueta: "Conectado, todo enviado", icono: Wifi, definido: 0, punto: "bg-emerald-500", nota: "" },
-  { net: "syncing", etiqueta: "Recuperó la conexión, enviando", icono: RefreshCw, definido: 12, punto: "bg-sky-500", nota: "" },
-  { net: "slow", etiqueta: "Señal débil", icono: WifiLow, definido: 5, punto: "bg-amber-500", nota: "Trabajando con datos locales. Se enviará en segundo plano." },
-  { net: "offline", etiqueta: "Sin red · MODO OFFLINE", icono: WifiZero, definido: 17, punto: "bg-rose-500", nota: "" },
+  { net: "online", etiqueta: "Conectado, todo enviado", icono: Wifi, definido: 0, punto: "bg-[#267BC2]", nota: "" },
+  { net: "syncing", etiqueta: "Recuperó la conexión, enviando", icono: RefreshCw, definido: 12, punto: "bg-[#4A97D3]", nota: "" },
+  { net: "slow", etiqueta: "Señal débil", icono: WifiLow, definido: 5, punto: "bg-[#7A8BA0]", nota: "Trabajando con datos locales. Se enviará en segundo plano." },
+  { net: "offline", etiqueta: "Sin red · MODO OFFLINE", icono: WifiZero, definido: 17, punto: "bg-[#B91C1C]", nota: "" },
 ];
 
 const COLOR_NOTA = {
   online: "text-slate-500",
-  syncing: "text-sky-700",
-  slow: "text-amber-600",
-  offline: "text-rose-600",
+  syncing: "text-[#1860A3]",
+  slow: "text-[#475569]",
+  offline: "text-[#B91C1C]",
 };
 
 export default function PanelEstadosConexion({ onNet }) {
@@ -21,7 +21,7 @@ export default function PanelEstadosConexion({ onNet }) {
 
   return (
     <div>
-      <h2 className="text-sm font-black text-[#0B2545] mb-3">Estados de conexión</h2>
+      <h2 className="text-sm font-black text-[#003770] mb-3">Estados de conexión</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         {TARJETAS.map((t) => {
           const Icono = t.icono;
@@ -42,7 +42,7 @@ export default function PanelEstadosConexion({ onNet }) {
               aria-pressed={activa}
               className={
                 "text-left rounded-2xl border p-4 transition-colors cursor-pointer " +
-                (activa ? "border-[#0B2545] bg-[#0B2545]/5 ring-2 ring-[#0B2545]/15" : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50")
+                (activa ? "border-[#003770] bg-[#003770]/5 ring-2 ring-[#003770]/15" : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50")
               }
             >
               <p className="text-[11px] font-black text-slate-500 uppercase tracking-wide">{t.etiqueta}</p>

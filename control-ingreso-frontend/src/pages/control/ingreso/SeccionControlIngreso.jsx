@@ -1,5 +1,5 @@
 // Bloque completo del control de ingreso.
-// Sin examen elegido → "Mis exámenes de hoy". Con examen elegido → verificación.
+// Sin examen elegido → "Mis exámenes". Con examen elegido → verificación.
 import "./controlIngreso.css";
 import { ArrowLeft, Info } from "lucide-react";
 import ListaExamenesHoy from "./componentes/ListaExamenesHoy";
@@ -8,7 +8,7 @@ import EstacionVerificacion from "./componentes/EstacionVerificacion";
 import TarjetaResultado from "./componentes/TarjetaResultado";
 import TablaUltimosIngresos from "./componentes/TablaUltimosIngresos";
 
-export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true }) {
+export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true, objModoSinConexion = {} }) {
   const {
     listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado,
     boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista,
@@ -17,12 +17,27 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
   if (idExamen == null) {
     return (
       <div className="text-[#08264A]">
-        <ListaExamenesHoy listExamenes={listExamenes} boolCargando={boolCargandoExamenes} onElegir={fnElegirExamen} />
+        {strError && (
+          <div role="alert" className="mb-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
+        )}
+        <ListaExamenesHoy
+          listExamenes={listExamenes}
+          boolCargando={boolCargandoExamenes}
+          onElegir={fnElegirExamen}
+          fnObtenerNomina={objModoSinConexion.fnObtenerNomina}
+          fnDescargarNomina={objModoSinConexion.fnDescargarNomina}
+          boolSinRed={objModoSinConexion.boolSinRed}
+        />
       </div>
     );
   }
 
   const boolFinalizado = examenActual?.estado === "FINALIZADO";
+  const boolOperador = strRol === "operador";
+  // Las filas por apellido solo aplican al operador: el docente puede registrar a cualquiera
+  const fnValidarRol = boolOperador
+    ? fnValidar
+    : (strValor, strMetodo, objOpciones = {}) => fnValidar(strValor, strMetodo, { ...objOpciones, ignorarFila: true });
 
   return (
     <div className="flex flex-col gap-7 max-md:gap-[22px] text-[#08264A]">
@@ -33,10 +48,10 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
             onClick={fnVolverALista}
             className="self-start inline-flex items-center gap-1.5 text-[13px] font-medium text-[#1860A3] hover:underline cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4" /> Mis exámenes de hoy
+            <ArrowLeft className="w-4 h-4" /> Mis exámenes
           </button>
         )}
-        <TarjetaExamen examen={examenActual} objContador={objContador} />
+        <TarjetaExamen examen={examenActual} objContador={objContador} boolMostrarFila={boolOperador} />
       </div>
 
       <section aria-labelledby="ci-t-verificacion">
@@ -48,7 +63,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
           </div>
         ) : (
           <>
-            <EstacionVerificacion onValidar={fnValidar} boolValidando={boolValidando} idExamen={idExamen} />
+            <EstacionVerificacion onValidar={fnValidarRol} boolValidando={boolValidando} idExamen={idExamen} />
             {strError && (
               <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
             )}
@@ -57,7 +72,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         )}
       </section>
 
-      <TablaUltimosIngresos listUltimos={listUltimos} strUltimoRegistrado={strUltimoRegistrado} />
+      <TablaUltimosIngresos listUltimos={listUltimos} strUltimoRegistrado={strUltimoRegistrado} strRol={strRol} />
     </div>
   );
 }

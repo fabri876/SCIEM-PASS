@@ -15,7 +15,7 @@ export default function EncabezadoControl({ strTitulo, strDetalle = "Control de 
           onClick={onVolver}
           className="inline-flex items-center gap-1.5 mb-2.5 text-[13px] font-medium text-[#1860A3] hover:underline cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" /> Mis exámenes de hoy
+          <ArrowLeft className="w-4 h-4" /> Mis exámenes
         </button>
       )}
       <div className="flex flex-wrap items-end justify-between gap-3.5">
