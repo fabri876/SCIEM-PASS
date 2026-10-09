@@ -5,6 +5,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignatura;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignaturaId;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List; 
 
@@ -17,4 +19,6 @@ public interface DocenteAsignaturaRepository extends JpaRepository<DocenteAsigna
     // idusuario solo ya identifica al docente sin ambigüedad.
     List<DocenteAsignatura> findByIdIdusuario(Integer idusuario);
     List<DocenteAsignatura> findByIdIdasignatura(Integer idasignatura);
+    @Query(value = "SELECT EXISTS(SELECT 1 FROM examen WHERE idusuario = :idUsuario AND idasignatura = :idAsignatura) OR EXISTS(SELECT 1 FROM horarioregular WHERE idusuario = :idUsuario AND idasignatura = :idAsignatura)", nativeQuery = true)
+    boolean tieneRegistrosVinculados(@Param("idUsuario") Integer idUsuario, @Param("idAsignatura") Integer idAsignatura);
 }

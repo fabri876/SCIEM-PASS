@@ -59,7 +59,7 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
   const importar = () => ejecutar(async () => {
     const resultado = await confirmarHorario(archivo);
     quitarArchivo();
-    setMensaje(`Horario guardado: ${resultado.asignaturasCreadas} asignaturas y ${resultado.gruposCreados} grupos nuevos. Las asignaciones de docentes se hacen al registrar las personas.`);
+    setMensaje(`Horario procesado: ${resultado.asignaturasCreadas} asignaturas y ${resultado.gruposCreados} grupos nuevos. Ya existían ${resultado.asignaturasExistentes} asignaturas y ${resultado.gruposExistentes} grupos: se conservaron sin duplicarlos.`);
     actualizarCatalogo();
   });
   return <section id="gestion-academica" className="scroll-mt-28 bg-bg-card p-6 border border-border rounded-2xl shadow-sm space-y-6 text-body text-text-body">

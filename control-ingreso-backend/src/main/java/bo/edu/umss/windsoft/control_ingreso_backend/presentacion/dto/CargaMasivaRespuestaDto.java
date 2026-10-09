@@ -9,6 +9,12 @@ public class CargaMasivaRespuestaDto {
     private int exitosos;
     private int fallidos;
     private List<CargaMasivaErrorFilaDto> detallesErrores;
+    private List<String> avisos = List.of();
+    private int existentes;
+    public List<String> getAvisos() { return avisos; }
+    public void setAvisos(List<String> avisos) { this.avisos = avisos; }
+    public int getExistentes() { return existentes; }
+    public void setExistentes(int existentes) { this.existentes = existentes; }
 
     public CargaMasivaRespuestaDto() {
     }

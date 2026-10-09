@@ -16,6 +16,10 @@ public class ActualizarUsuarioDto {
     private String correo;
 
     private Integer telefono;
+    // null conserva las asignaciones; [] permite quitarlas explicitamente.
+    private java.util.List<Integer> idGrupos;
+    public java.util.List<Integer> getIdGrupos() { return idGrupos; }
+    public void setIdGrupos(java.util.List<Integer> idGrupos) { this.idGrupos = idGrupos; }
 
     public String getNombre() {
         return nombre;

@@ -17,9 +17,6 @@ public class Grupo {
     @Column(name = "nombregrupo", nullable = false)
     private String nombreGrupo;
 
-    @Column(name = "horarios")
-    private String horarios;
-
     @Column(name = "estadogrupo", nullable = false)
     private Boolean estadoGrupo = true;
 
@@ -28,7 +25,6 @@ public class Grupo {
     public Grupo(Integer idAsignatura, String nombreGrupo, String horarios) {
         this.idAsignatura = idAsignatura;
         this.nombreGrupo = nombreGrupo;
-        this.horarios = horarios;
         this.estadoGrupo = true;
     }
 
@@ -40,9 +36,6 @@ public class Grupo {
 
     public String getNombreGrupo() { return nombreGrupo; }
     public void setNombreGrupo(String nombreGrupo) { this.nombreGrupo = nombreGrupo; }
-
-    public String getHorarios() { return horarios; }
-    public void setHorarios(String horarios) { this.horarios = horarios; }
 
     public Boolean getEstadoGrupo() { return estadoGrupo; }
     public void setEstadoGrupo(Boolean estadoGrupo) { this.estadoGrupo = estadoGrupo; }

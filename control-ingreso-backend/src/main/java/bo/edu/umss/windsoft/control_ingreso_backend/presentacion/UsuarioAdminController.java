@@ -83,6 +83,12 @@ public class UsuarioAdminController {
         return ResponseEntity.ok(new CambioEstadoRespuestaDto("Estado de usuario actualizado exitosamente", id, estado));
     }
 
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Integer id, HttpServletRequest request) {
+        usuarioService.eliminar(id, correoEjecutor(), ClientIpResolver.resolver(request));
+        return ResponseEntity.noContent().build();
+    }
+
     private String correoEjecutor() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }

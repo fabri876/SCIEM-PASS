@@ -21,6 +21,12 @@ public class EstudianteGrupo {
     @Column(name = "idgrupo", nullable = false)
     private Integer idGrupo;
 
+    // PostgreSQL deriva esta columna del grupo y exige UNIQUE (idusuario, idasignatura).
+    @Column(name = "idasignatura", nullable = false, insertable = false, updatable = false)
+    private Integer idAsignatura;
+
+    public Integer getIdAsignatura() { return idAsignatura; }
+
     @Column(name = "fechainscripcion")
     private LocalDateTime fechaInscripcion;
 
