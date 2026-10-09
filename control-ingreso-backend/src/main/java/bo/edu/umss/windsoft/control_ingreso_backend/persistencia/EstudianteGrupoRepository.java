@@ -14,6 +14,8 @@ public interface EstudianteGrupoRepository extends JpaRepository<EstudianteGrupo
     List<EstudianteGrupo> findByIdUsuario(Integer idUsuario);
     List<EstudianteGrupo> findByIdGrupo(Integer idGrupo);
     boolean existsByIdUsuarioAndIdGrupo(Integer idUsuario, Integer idGrupo);
+    @Query("SELECT COUNT(eg) > 0 FROM EstudianteGrupo eg JOIN Grupo g ON eg.idGrupo = g.idGrupo WHERE eg.idUsuario = :idUsuario AND g.idAsignatura = :idAsignatura AND g.idGrupo <> :idGrupo")
+    boolean existeOtroGrupoEnAsignatura(@Param("idUsuario") Integer idUsuario, @Param("idAsignatura") Integer idAsignatura, @Param("idGrupo") Integer idGrupo);
     void deleteByIdUsuarioAndIdGrupo(Integer idUsuario, Integer idGrupo);
 
     @Query("SELECT g FROM Grupo g JOIN EstudianteGrupo eg ON g.idGrupo = eg.idGrupo WHERE eg.idUsuario = :idUsuario")

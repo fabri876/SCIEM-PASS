@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Search, Plus, Pencil, Ban, CheckCircle2 } from "lucide-react";
+import { Search, Plus, Pencil, Ban, CheckCircle2, Trash2 } from "lucide-react";
 import VentanaEmergente from "../../../components/common/VentanaEmergente";
 import UsuarioFormModal from "./UsuarioFormModal";
 
@@ -31,12 +31,14 @@ const PESTANAS = [
 /**
  * Tabla de administración de usuarios (HU16).
  */
-export default function UserTableCard({ usuarios, boolCargando, strError, onCrear, onEditar, onCambiarRol, onCambiarEstado }) {
+export default function UserTableCard({ usuarios, boolCargando, strError, onCrear, onEditar, onCambiarRol, onCambiarEstado, onEliminar }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [rolSeleccionado, setRolSeleccionado] = useState("ESTUDIANTE");
   const [estadoSeleccionado, setEstadoSeleccionado] = useState("TODOS");
   const [modalUsuario, setModalUsuario] = useState(null);
   const [usuarioParaCambiarEstado, setUsuarioParaCambiarEstado] = useState(null);
+  const [usuarioParaEliminar, setUsuarioParaEliminar] = useState(null);
+  const [errorAccion, setErrorAccion] = useState("");
   const [boolProcesando, setBoolProcesando] = useState(false);
 
   const listaSegura = Array.isArray(usuarios) ? usuarios : [];
@@ -68,11 +70,24 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
   };
 
   const fnConfirmarCambioEstado = async () => {
-    setBoolProcesando(true);
+    setBoolProcesando(true); setErrorAccion("");
     try {
       const nuevoEstado = usuarioParaCambiarEstado.estado ? "INACTIVO" : "ACTIVO";
       await onCambiarEstado(usuarioParaCambiarEstado.idUsuario, nuevoEstado);
       setUsuarioParaCambiarEstado(null);
+    } catch (e) { setErrorAccion(e.message); } finally {
+      setBoolProcesando(false);
+    }
+  };
+
+  const fnEliminar = async () => {
+    setBoolProcesando(true);
+    setErrorAccion("");
+    try {
+      await onEliminar(usuarioParaEliminar.idUsuario);
+      setUsuarioParaEliminar(null);
+    } catch (e) {
+      setErrorAccion(e.message);
     } finally {
       setBoolProcesando(false);
     }
@@ -200,12 +215,13 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => setUsuarioParaCambiarEstado(user)}
+                            onClick={() => { setErrorAccion(""); setUsuarioParaCambiarEstado(user); }}
                             title={user.estado ? "Desactivar" : "Activar"}
                             className={user.estado ? "p-1 text-accent-red hover:bg-red-50 rounded-md transition-colors" : "p-1 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"}
                           >
                             {user.estado ? <Ban className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                           </button>
+                          {onEliminar && user.rol !== "ADMINISTRADOR" && <button type="button" title="Eliminar usuario" aria-label={`Eliminar a ${nombreCompleto}`} onClick={() => { setErrorAccion(""); setUsuarioParaEliminar(user); }} className="p-1 text-accent-red hover:bg-red-50 rounded-md"><Trash2 className="w-4 h-4" /></button>}
                         </div>
                       </td>
                     </tr>
@@ -235,6 +251,15 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
         onGuardar={fnGuardarUsuario}
       />
 
+      <VentanaEmergente boolAbierto={!!usuarioParaEliminar} onCerrar={() => { if (!boolProcesando) setUsuarioParaEliminar(null); }}>
+        <div className="p-6 space-y-4">
+          <h2 className="text-h3 font-extrabold text-primary-navy">¿Eliminar este usuario?</h2>
+          <p>{usuarioParaEliminar?.nombre} {usuarioParaEliminar?.apellido} · {usuarioParaEliminar?.correo}</p>
+          <p>Se eliminarán la cuenta y todas sus asignaciones a materias y grupos. Esta acción no se puede deshacer. Si tiene registros de exámenes, se impedirá la eliminación; puede desactivarlo.</p>
+          {errorAccion && <p role="alert" className="text-accent-red">{errorAccion}</p>}
+          <div className="flex justify-end gap-3"><button type="button" disabled={boolProcesando} onClick={() => setUsuarioParaEliminar(null)} className="px-4 py-2 rounded-xl border border-border">Cancelar</button><button type="button" disabled={boolProcesando} onClick={fnEliminar} className="px-4 py-2 rounded-xl bg-accent-red text-white font-bold">{boolProcesando ? "Eliminando…" : "Eliminar definitivamente"}</button></div>
+        </div>
+      </VentanaEmergente>
       <VentanaEmergente boolAbierto={!!usuarioParaCambiarEstado} onCerrar={() => setUsuarioParaCambiarEstado(null)}>
         <div className="p-6">
           <h2 className="text-h3 font-extrabold text-primary-navy mb-2">
@@ -243,6 +268,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
           <p className="text-secondary text-text-body/80 mb-5">
             {usuarioParaCambiarEstado?.nombre} {usuarioParaCambiarEstado?.apellido} ({usuarioParaCambiarEstado?.correo})
           </p>
+          {errorAccion && <p role="alert" className="text-accent-red mb-3">{errorAccion}</p>}
           <div className="flex justify-end gap-3">
             <button
               onClick={() => setUsuarioParaCambiarEstado(null)}

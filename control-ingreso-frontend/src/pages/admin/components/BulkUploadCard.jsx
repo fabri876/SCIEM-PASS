@@ -279,12 +279,14 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
 
                         <div className="flex items-center gap-4 mt-2 pl-6 text-badge font-bold">
                             <span className="text-text-body/70">Total: {resultado.totalProcesados ?? 0}</span>
-                            <span className="text-emerald-700">Exitosos: {resultado.exitosos ?? 0}</span>
+                            <span className="text-emerald-700">Nuevos: {resultado.exitosos ?? 0}</span>
+                            {(resultado.existentes || 0) > 0 && <span className="text-primary-navy">Filas de docentes existentes: {resultado.existentes}</span>}
                             <span className={boolHuboFallos ? "text-accent-red" : "text-text-body/70"}>
                                 Fallidos: {resultado.fallidos ?? 0}
                             </span>
                         </div>
 
+                        {resultado.avisos?.length > 0 && <ul className="mt-2 space-y-1 max-h-48 overflow-auto text-secondary">{resultado.avisos.map((aviso, i) => <li key={i}>{aviso}</li>)}</ul>}
                         {boolHuboFallos && resultado.detallesErrores?.length > 0 && (
                             <ul className="mt-2 pl-6 space-y-1 max-h-40 overflow-y-auto">
                                 {resultado.detallesErrores.map((err, idx) => (

@@ -113,6 +113,13 @@ public class GrupoController {
         return ResponseEntity.ok(Map.of("mensaje", "Vinculaciones guardadas sin duplicados."));
     }
 
+    @DeleteMapping("/vinculaciones/{rol}/{idUsuario}/{idGrupo}")
+    public ResponseEntity<Map<String, String>> desvincular(@PathVariable String rol,
+            @PathVariable Integer idUsuario, @PathVariable Integer idGrupo) {
+        grupoService.desvincularUsuario(idUsuario, rol, idGrupo);
+        return ResponseEntity.ok(Map.of("mensaje", "Asignación quitada. La cuenta se conserva."));
+    }
+
     @GetMapping("/vinculaciones")
     public ResponseEntity<List<GrupoService.Vinculacion>> vinculaciones() {
         return ResponseEntity.ok(grupoService.listarVinculaciones());
