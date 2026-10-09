@@ -481,6 +481,9 @@ export async function sincronizarPendientes({
           }
         }
       }
+
+      // Notificar a la interfaz que hubo un error para que no se quede mostrando "enviando"
+      //   notificar({ estado: 'error', pendientesRestantes: await asistenciaRepo.contarPendientes() });
       throw errInesperado;
     }
 

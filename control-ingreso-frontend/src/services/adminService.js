@@ -100,3 +100,7 @@ export async function listarAuditoria() {
 // tiene acceso a /api/admin/**) — se re-exporta acá para no romper los
 // imports existentes de AdminDashboard.jsx.
 export { cargarUsuariosMasivo } from "./usuarioService";
+
+export function eliminarUsuario(idUsuario) {
+  return fetchAutenticado(`/api/admin/usuarios/${idUsuario}`, { method: "DELETE" });
+}

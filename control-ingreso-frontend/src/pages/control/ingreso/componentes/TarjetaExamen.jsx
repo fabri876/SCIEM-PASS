@@ -1,5 +1,7 @@
-// Examen asignado: nombre, aula, horario, chips y barra de ingresos
-import { GraduationCap } from "lucide-react";
+// Examen asignado: nombre, aula, horario, chips, barra de ingresos y fila del operador
+import { useState } from "react";
+import { GraduationCap, ChevronDown, ChevronUp } from "lucide-react";
+import PildoraFila from "./PildoraFila";
 
 const ESTILO_CHIP = {
   azul: "bg-[#F0F6FC] text-[#1860A3]",
@@ -22,7 +24,36 @@ function Chip({ strTono, numValor, strEtiqueta }) {
   );
 }
 
-export default function TarjetaExamen({ examen, objContador }) {
+// Lista de todas las filas del examen (se despliega con "Ver todas las filas")
+function ListaFilas({ listFilas }) {
+  return (
+    <ul className="ci-aparecer m-0 mt-3 p-0 list-none border border-[#CBD5E1] rounded-lg overflow-hidden">
+      {listFilas.map((f) => (
+        <li
+          key={f.desde + f.hasta}
+          className={
+            "grid grid-cols-[110px_minmax(0,1fr)_auto] gap-3 items-center px-3.5 py-2.5 text-[13px] border-t border-[#CBD5E1] first:border-t-0 " +
+            "max-md:grid-cols-[84px_minmax(0,1fr)] max-md:gap-y-0.5 " +
+            (f.esMia ? "bg-[#F0F6FC]" : "bg-white")
+          }
+        >
+          <span className="font-semibold text-[#08264A] whitespace-nowrap">{f.desde} – {f.hasta}</span>
+          <span className="min-w-0 truncate text-[#475569]">
+            {f.operador}{f.esMia && <b className="ml-1 font-semibold text-[#1860A3]">(tú)</b>}
+          </span>
+          <span className="text-xs text-[#64748B] whitespace-nowrap max-md:col-start-2">
+            <b className="font-bold text-[#08264A]">{f.ingresaron ?? 0}</b> / {f.total ?? 0} ingresaron
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// boolMostrarFila: solo el operador ve su fila por apellido
+export default function TarjetaExamen({ examen, objContador, boolMostrarFila = false }) {
+  const [boolVerFilas, setBoolVerFilas] = useState(false);
+
   if (!examen) {
     return (
       <section className="bg-white border border-[#CBD5E1] rounded-xl px-[22px] py-5 text-sm text-[#64748B]">
@@ -36,6 +67,9 @@ export default function TarjetaExamen({ examen, objContador }) {
   const numPend = objContador?.pendientes ?? 0;
   const numInh = objContador?.inhabilitados ?? 0;
   const numPct = numHab ? Math.min(100, (numIng / numHab) * 100) : 0;
+  // El contador trae las filas actualizadas; si no, las de la lista de exámenes
+  const objFila = objContador?.fila || examen.fila || null;
+  const listFilas = objContador?.filas?.length ? objContador.filas : examen.filas || [];
 
   return (
     <section aria-label="Examen asignado" className="bg-white border border-[#CBD5E1] rounded-xl px-[22px] py-5 max-md:p-4">
@@ -45,7 +79,12 @@ export default function TarjetaExamen({ examen, objContador }) {
             <GraduationCap className="w-[22px] h-[22px]" />
           </span>
           <div className="min-w-0">
-            <b className="block text-base font-bold text-[#08264A]">{examen.tipo} · {examen.materia}</b>
+            {/* TODO FRONTEND: Si el ayudante está gestionando más de 1 grupo, al seleccionar "Registrar Ingreso" debería aparecer un modal para que elija a qué grupo específico está controlando el ingreso.
+            por el momento esta mostrando el primer grupo de la BD[0]*/}
+            <b className="block text-base font-bold text-[#08264A]">
+              {examen.tipo} · {examen.materia}
+              {examen.grupo && ` · Grupo ${String(examen.grupo).split(",")[0]}`}
+            </b>
             <span className="text-[13px] text-[#64748B]">
               Aula {examen.aula}{examen.edificio ? ` · ${examen.edificio}` : ""} · {examen.horaInicio} – {examen.horaFin}
             </span>
@@ -68,6 +107,32 @@ export default function TarjetaExamen({ examen, objContador }) {
           {numIng} / {numHab} habilitados
         </b>
       </div>
+
+      {/* Solo cuando el examen está repartido por apellidos; si no, no se muestra nada */}
+      {boolMostrarFila && objFila && (
+        <div className="mt-3 pt-3 border-t border-[#F1F5F9] flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 min-w-0">
+            <PildoraFila objFila={objFila} />
+            <span className="text-[#475569]">
+              <b className="font-bold text-[#08264A]">{objFila.ingresaron ?? 0}</b> de {objFila.total ?? 0} de tu fila ya ingresaron
+            </span>
+          </div>
+          {listFilas.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setBoolVerFilas((v) => !v)}
+              aria-expanded={boolVerFilas}
+              className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#1860A3] hover:underline cursor-pointer"
+            >
+              {boolVerFilas
+                ? <>Ocultar filas <ChevronUp className="w-4 h-4" /></>
+                : <>Ver todas las filas ({listFilas.length}) <ChevronDown className="w-4 h-4" /></>}
+            </button>
+          )}
+        </div>
+      )}
+
+      {boolMostrarFila && objFila && boolVerFilas && listFilas.length > 1 && <ListaFilas listFilas={listFilas} />}
     </section>
   );
 }

@@ -18,9 +18,11 @@ import java.util.Collections;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository usuarios;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository usuarios) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.usuarios = usuarios;
     }
 
     @Override
@@ -33,7 +35,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String correo = jwtTokenProvider.obtenerCorreo(token);
             String rol = jwtTokenProvider.obtenerRol(token);
 
-            if (rol != null) {
+            var usuario = usuarios.findById(jwtTokenProvider.obtenerIdUsuario(token));
+            if (rol != null && usuario.isPresent() && Boolean.TRUE.equals(usuario.get().getEstadousuario())
+                    && correo.equalsIgnoreCase(usuario.get().getCorreousuario())) {
                 String authorityName = rol.startsWith("ROLE_") ? rol : "ROLE_" + rol;
                 SimpleGrantedAuthority authority = new SimpleGrantedAuthority(authorityName);
 

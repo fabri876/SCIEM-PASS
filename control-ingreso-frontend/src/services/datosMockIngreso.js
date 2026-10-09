@@ -10,6 +10,17 @@ export const EXAMENES_MOCK = [
   { id: 3, materia: "Álgebra Lineal", tipo: "Segundo Parcial", aula: "622", edificio: "Edificio Académico 2", fecha: "2026-10-05", horaInicio: "06:45", horaFin: "07:45", estado: "FINALIZADO" },
 ];
 
+// Reparto de estudiantes por la primera letra del apellido (lo asigna el docente).
+// Si un examen no tiene filas, hay un único operador y atiende todos los apellidos.
+// esMia = la fila del operador que tiene la sesión.
+export const FILAS_MOCK = {
+  1: [
+    { desde: "A", hasta: "F", operador: "Tú", esMia: true },
+    { desde: "G", hasta: "M", operador: "Neil Nina Zarate", esMia: false },
+    { desde: "N", hasta: "Z", operador: "Diego Montaño Quispe", esMia: false },
+  ],
+};
+
 const NOMBRES = ["Ana", "Bruno", "Camila", "David", "Elena", "Fabián", "Gabriela", "Hugo", "Isabel", "Joel", "Karen", "Luis", "Mariana", "Nicolás", "Olga", "Pablo", "Rocío", "Sergio", "Tatiana", "Víctor", "Ximena", "Yesenia", "Álvaro", "Diana"];
 const APELLIDOS = ["Rojas", "Mamani", "Quispe", "Vargas", "Flores", "Gutiérrez", "Choque", "Arce", "Torrico", "Salazar", "Camacho", "Paz", "Montaño", "Rocha", "Cruz", "Villca", "Antezana", "Claros"];
 const CARRERAS = ["Ingeniería de Sistemas", "Ingeniería Informática", "Ingeniería Industrial", "Ingeniería Civil", "Ingeniería Electrónica"];
@@ -48,6 +59,7 @@ export function crearNominasMock() {
     { nombres: "Carlos", apellidos: "Mendoza Paz", ci: "1234567", sis: "202308374", carrera: "Ingeniería Industrial", aulaAsignada: "691", habilitado: true, ingreso: { hora: "08:05:00", metodo: "QR" } },
     { nombres: "Jhonny", apellidos: "Quispe Mamani", ci: "9988776", sis: "202102233", carrera: "Ingeniería de Sistemas", aulaAsignada: "691", habilitado: false, motivos: ["Asistencia insuficiente (62 %, mínimo 80 %)", "Prerrequisito no aprobado: Álgebra I"], ingreso: null },
     { nombres: "Marco", apellidos: "Antezana Vela", ci: "6677889", sis: "202207761", carrera: "Ingeniería Electrónica", aulaAsignada: "692", habilitado: true, ingreso: null },
+    { nombres: "Ricardo", apellidos: "Torrico Salazar", ci: "7766554", sis: "202305512", carrera: "Ingeniería Civil", aulaAsignada: "691", habilitado: true, ingreso: null },
   );
 
   // Examen 2 · Física II (próximo): nadie ingresó todavía
@@ -68,6 +80,7 @@ export function crearNominasMock() {
   202308374  → ya registrado (08:05:00)
   9988776    → inhabilitado
   6677889    → aula incorrecta (692)
+  7766554    → no pertenece a tu fila (apellido T: le toca a la fila N – Z)
   5544332    → inscrita en otro examen (Física II)
   1111111    → no encontrado
   Recargar la página (F5) reinicia los datos de prueba.

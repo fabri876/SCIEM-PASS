@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import FormField from "../../../components/common/FormField";
+import { obtenerVinculaciones, obtenerCatalogoGrupos } from "../../../services/grupoService";
 import SeleccionGrupos from "../../../components/common/SeleccionGrupos";
 import usePasswordVisibility from "../../../hooks/usePasswordVisibility";
 
@@ -47,6 +48,8 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strError, setStrError] = useState("");
   const [objErrores, setObjErrores] = useState({});
+  const [cargandoGrupos, setCargandoGrupos] = useState(false);
+  const [errorGrupos, setErrorGrupos] = useState("");
   const [gruposAcademicos, setGruposAcademicos] = useState([]);
 
   const { boolShowPassword, fnToggleShowPassword, strInputType } = usePasswordVisibility();
@@ -69,9 +72,9 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
         ci: usuarioInicial.ci || "",
         correo: usuarioInicial.correo || "",
         contrasena: "",
-        telefono: usuarioInicial.telefono || "",
+        telefono: String(usuarioInicial.telefono ?? ""),
         rol: usuarioInicial.rol || rolesDisponibles[0]?.valor,
-        codigoSis: usuarioInicial.codigoSis ?? "",
+        codigoSis: String(usuarioInicial.codigoSis ?? ""),
         idGrupo: null,
       });
       setStrRolOriginal(usuarioInicial.rol || null);
@@ -81,7 +84,21 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
     }
   }, [boolActivo, boolEsEdicion, usuarioInicial, rolesDisponibles]);
 
+  useEffect(() => {
+    if (!boolActivo || !boolEsEdicion || !usuarioInicial || usuarioInicial.rol === "ADMINISTRADOR" || objFormData.rol !== usuarioInicial.rol) { setCargandoGrupos(false); setErrorGrupos(""); return; }
+    let activo = true;
+    setCargandoGrupos(true); setErrorGrupos("");
+    Promise.all([obtenerVinculaciones(), obtenerCatalogoGrupos()]).then(([relaciones, catalogo]) => {
+      if (!activo) return;
+      const ids = new Set(relaciones.filter(v => v.idUsuario === usuarioInicial.idUsuario && v.rol === usuarioInicial.rol).map(v => v.idGrupo));
+      setGruposAcademicos(catalogo.filter(g => ids.has(g.idGrupo)));
+    }).catch(e => { if (activo) setErrorGrupos(e.message); })
+      .finally(() => { if (activo) setCargandoGrupos(false); });
+    return () => { activo = false; };
+  }, [boolActivo, boolEsEdicion, usuarioInicial, objFormData.rol]);
+
   const fnActualizarCampo = (strCampo) => (e) => {
+    if (strCampo === "rol") setGruposAcademicos([]);
     setObjFormData((prev) => ({ ...prev, [strCampo]: e.target.value }));
     setObjErrores((prev) => {
       if (!prev[strCampo]) return prev;
@@ -149,8 +166,9 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
     e.preventDefault();
     setStrError("");
 
+    if (boolEsEdicion && (cargandoGrupos || errorGrupos)) { setStrError(errorGrupos || "Espere a que carguen las asignaciones."); return; }
     const errores = fnValidarFormulario();
-    if (!boolEsEdicion && ["DOCENTE", "ESTUDIANTE"].includes(objFormData.rol) && !gruposAcademicos.length)
+    if (!boolEsEdicion && ["DOCENTE", "ESTUDIANTE", "OPERADOR"].includes(objFormData.rol) && !gruposAcademicos.length)
       errores.grupos = "Seleccione una asignatura y al menos un grupo.";
     if (Object.keys(errores).length > 0) {
       setObjErrores(errores);
@@ -173,6 +191,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           apellido: strApellido,
           correo: objFormData.correo,
           telefono: intTelefono,
+          idGrupos: !boolRolCambio && objFormData.rol !== "ADMINISTRADOR" ? gruposAcademicos.map(g => g.idGrupo) : undefined,
           rolCambio: boolRolCambio
             ? { nuevoRol: objFormData.rol, codigoSis: boolPideCodigoSis ? intCodigoSis : null }
             : null,
@@ -209,7 +228,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
       </h2>
       <p className="text-secondary text-text-body/70 mb-5">
         {boolEsEdicion
-          ? "Actualiza los datos básicos y, si hace falta, el rol de la cuenta."
+          ? "Actualiza sus datos y corrige las materias y grupos asignados."
           : "Se crea con estado ACTIVO de inmediato."}
       </p>
 
@@ -219,7 +238,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
         </p>
       )}
 
-      <form onSubmit={fnManejarEnvio} className="grid grid-cols-2 gap-4">
+      <form onSubmit={fnManejarEnvio} autoComplete="off" className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
           <label className="block text-[15px] font-extrabold text-[#163F79] mb-[7px]">
             Nombres
@@ -285,6 +304,9 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
         <div className={boolEsEdicion ? "col-span-2" : ""}>
           <FormField
             label="Correo electrónico"
+            id="registro-persona-correo"
+            name="registro-persona-correo"
+            autoComplete="off"
             type="email"
             placeholder="ejemplo@est.umss.edu"
             value={objFormData.correo}
@@ -325,6 +347,9 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           <div>
             <FormField
               label="Carnet de Identidad"
+              id="registro-persona-documento"
+              name="registro-persona-documento"
+              autoComplete="off"
               placeholder="12345678"
               value={objFormData.ci}
               onChange={fnActualizarCampo("ci")}
@@ -352,6 +377,9 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           <div className={boolPideCodigoSis ? "col-span-2" : ""}>
           <FormField
             label="Contraseña"
+            id="registro-persona-clave-nueva"
+            name="registro-persona-clave-nueva"
+            autoComplete="new-password"
             type={strInputType}
             placeholder="********"
             value={objFormData.contrasena}
@@ -440,10 +468,12 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
         </div>
 
         {/* Selección opcional en cascada de Asignatura y Grupo */}
-        {!boolEsEdicion && objFormData.rol !== "ADMINISTRADOR" && (
+        {objFormData.rol !== "ADMINISTRADOR" && (!boolEsEdicion || objFormData.rol === strRolOriginal) && (
           <div className="col-span-2 mt-2">
-            <p className="text-secondary mb-3">Los docentes y estudiantes deben registrarse con sus materias y grupos.</p>
-            <SeleccionGrupos key={objFormData.rol} value={gruposAcademicos} onChange={setGruposAcademicos} disabled={boolIsSubmitting} required={["DOCENTE", "ESTUDIANTE"].includes(objFormData.rol)} />
+            <p className="text-secondary mb-3">{boolEsEdicion ? "Quite el grupo incorrecto y seleccione el correcto, o agregue otras materias. Los cambios se aplican al guardar. Si quita todos, la cuenta quedará sin grupos." : "Los docentes, estudiantes y ayudantes deben registrarse con sus materias y grupos."}</p>
+            {cargandoGrupos && <p role="status">Cargando asignaciones actuales…</p>}
+            {errorGrupos && <p role="alert" className="text-accent-red">{errorGrupos} Cierre y vuelva a abrir para reintentar.</p>}
+            <SeleccionGrupos key={objFormData.rol} value={gruposAcademicos} onChange={setGruposAcademicos} disabled={boolIsSubmitting || cargandoGrupos || Boolean(errorGrupos)} required={!boolEsEdicion && ["DOCENTE", "ESTUDIANTE", "OPERADOR"].includes(objFormData.rol)} unGrupoPorAsignatura={objFormData.rol === "ESTUDIANTE"} />
             {objErrores.grupos && <p role="alert" className="text-accent-red text-secondary mt-2">{objErrores.grupos}</p>}
           </div>
         )}
@@ -458,7 +488,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           </button>
           <button
             type="submit"
-            disabled={boolIsSubmitting}
+            disabled={boolIsSubmitting || cargandoGrupos || Boolean(errorGrupos)}
             className="px-5 py-2.5 rounded-xl text-secondary font-bold text-bg-card bg-gradient-to-r from-primary-blue to-primary-navy shadow-xs hover:opacity-95 transition-all disabled:opacity-60 active:scale-[0.99]"
           >
             {boolIsSubmitting ? "Guardando…" : "Guardar"}

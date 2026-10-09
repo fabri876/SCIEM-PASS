@@ -61,8 +61,8 @@ class RegistroAcademicoSupabaseTest {
         assertTrue(docenteAsignaturas.existsById(new DocenteAsignaturaId(registrado.getIdUsuario(), sis, idMateria)));
         assertEquals(1, docenteAsignaturas.findByIdIdusuario(registrado.getIdUsuario()).size());
         Estudiante estudiante = estudiantes.findAll().getFirst();
-        grupos.vincularUsuario(estudiante.getIdusuario(), "ESTUDIANTE", List.of(g1.getIdGrupo(), g2.getIdGrupo()));
-        assertTrue(estudianteGrupos.existsByIdUsuarioAndIdGrupo(estudiante.getIdusuario(), g2.getIdGrupo()));
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ValidacionNegocioException.class,
+                () -> grupos.validarUnGrupoPorAsignatura(List.of(g1.getIdGrupo(), g2.getIdGrupo())));
         grupoRepository.flush();
     }
 

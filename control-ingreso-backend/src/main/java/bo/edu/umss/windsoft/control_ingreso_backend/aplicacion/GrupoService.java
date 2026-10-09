@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.HashSet;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -139,15 +141,23 @@ public class GrupoService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public boolean docenteTieneGrupo(Integer idUsuario, Integer idGrupo) {
+        return docenteGrupoRepository.existsByIdUsuarioAndIdGrupo(idUsuario, idGrupo);
+    }
+
     @Transactional
     public void inscribirEstudianteAGrupo(Integer idUsuarioEstudiante, Integer codSisEstudiante, Integer idGrupo) {
         Grupo grupo = grupoRepository.findById(idGrupo)
                 .orElseThrow(() -> new ValidacionNegocioException("El grupo con ID " + idGrupo + " no existe."));
 
-        Estudiante estudiante = estudianteRepository.findByIdusuario(idUsuarioEstudiante)
+        Estudiante estudiante = estudianteRepository.bloquearParaInscripcion(idUsuarioEstudiante)
                 .orElseThrow(() -> new ValidacionNegocioException("El usuario seleccionado no es estudiante."));
         if (codSisEstudiante != null && !codSisEstudiante.equals(estudiante.getCodsisestudiante())) {
             throw new ValidacionNegocioException("El código SIS no corresponde al estudiante seleccionado.");
+        }
+        if (estudianteGrupoRepository.existeOtroGrupoEnAsignatura(idUsuarioEstudiante, grupo.getIdAsignatura(), idGrupo)) {
+            throw new ValidacionNegocioException("El estudiante ya pertenece a otro grupo de esta asignatura.");
         }
         if (!estudianteGrupoRepository.existsByIdUsuarioAndIdGrupo(idUsuarioEstudiante, idGrupo)) {
             estudianteGrupoRepository.save(new EstudianteGrupo(idUsuarioEstudiante, estudiante.getCodsisestudiante(), idGrupo));
@@ -195,7 +205,7 @@ public class GrupoService {
             resultado.add(new AyudanteGrupoDetalleDto(
                     g.getIdGrupo(),
                     g.getNombreGrupo(),
-                    g.getHorarios(),
+                    null,
                     g.getIdAsignatura(),
                     nombreAsig,
                     siglaAsig,
@@ -212,13 +222,26 @@ public class GrupoService {
                 a != null ? a.getNombreAsignatura() : "",
                 a != null ? a.getSiglaAsignatura() : "",
                 g.getNombreGrupo(),
-                g.getHorarios(),
+                null,
                 g.getEstadoGrupo()
         );
     }
 
+    public void validarUnGrupoPorAsignatura(List<Integer> idsGrupos) {
+        Set<Integer> materias = new HashSet<>();
+        for (Integer idGrupo : new java.util.LinkedHashSet<>(idsGrupos)) {
+            if (idGrupo == null) throw new ValidacionNegocioException("Seleccione un grupo válido.");
+            Grupo grupo = grupoRepository.findById(idGrupo)
+                    .orElseThrow(() -> new ValidacionNegocioException("El grupo seleccionado no existe."));
+            if (!materias.add(grupo.getIdAsignatura()))
+                throw new ValidacionNegocioException("Un estudiante solo puede pertenecer a un grupo por asignatura.");
+        }
+    }
+
     public void validarAccesoRegistro(List<Integer> idsGrupos, String rolDestino) {
         if (idsGrupos == null || idsGrupos.isEmpty()) return;
+        if (TipoUsuarioResolver.ESTUDIANTE.equals(rolDestino) && new java.util.HashSet<>(idsGrupos).size() > 1)
+            validarUnGrupoPorAsignatura(idsGrupos);
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) throw new AccessDeniedException("Debe iniciar sesión.");
         boolean admin = auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
@@ -256,6 +279,72 @@ public class GrupoService {
                 default -> throw new ValidacionNegocioException("Rol no válido para vinculación académica.");
             }
         }
+    }
+
+    /** Quita únicamente la relación académica; conserva la cuenta y los registros de exámenes. */
+    @Transactional
+    public void desvincularUsuario(Integer idUsuario, String rol, Integer idGrupo) {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities().stream()
+                .noneMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority())))
+            throw new AccessDeniedException("Solo el administrador puede quitar asignaciones.");
+        if (idUsuario == null || idGrupo == null || rol == null)
+            throw new ValidacionNegocioException("Seleccione una asignación válida.");
+        Grupo grupo = grupoRepository.findById(idGrupo)
+                .orElseThrow(() -> new ValidacionNegocioException("El grupo no existe."));
+        switch (rol) {
+            case TipoUsuarioResolver.DOCENTE -> {
+                Docente docente = docenteRepository.findByIdusuario(idUsuario)
+                        .orElseThrow(() -> new ValidacionNegocioException("El usuario no es docente."));
+                docenteGrupoRepository.deleteByIdUsuarioAndIdGrupo(idUsuario, idGrupo);
+                docenteGrupoRepository.flush();
+                if (docenteGrupoRepository.findGruposByAsignaturaAndDocente(grupo.getIdAsignatura(), idUsuario).isEmpty()) {
+                    var id = new DocenteAsignaturaId(idUsuario, docente.getCodsisdocente(), grupo.getIdAsignatura());
+                    if (docenteAsignaturaRepository.existsById(id)
+                            && !docenteAsignaturaRepository.tieneRegistrosVinculados(idUsuario, grupo.getIdAsignatura()))
+                        docenteAsignaturaRepository.deleteById(id);
+                }
+            }
+            case TipoUsuarioResolver.ESTUDIANTE -> {
+                estudianteRepository.bloquearParaInscripcion(idUsuario)
+                        .orElseThrow(() -> new ValidacionNegocioException("El usuario no es estudiante."));
+                estudianteGrupoRepository.deleteByIdUsuarioAndIdGrupo(idUsuario, idGrupo);
+            }
+            case TipoUsuarioResolver.OPERADOR -> {
+                if (!ayudanteRepository.existsByIdusuario(idUsuario))
+                    throw new ValidacionNegocioException("El usuario no es ayudante.");
+                ayudanteGrupoRepository.deleteByIdUsuarioAndIdGrupo(idUsuario, idGrupo);
+            }
+            default -> throw new ValidacionNegocioException("Rol no válido para asignación académica.");
+        }
+    }
+
+    @Transactional
+    public void reemplazarGruposUsuario(Integer idUsuario, String rol, List<Integer> idsGrupos) {
+        if (idsGrupos == null || idsGrupos.size() > 100 || idsGrupos.stream().anyMatch(java.util.Objects::isNull))
+            throw new ValidacionNegocioException("Seleccione hasta 100 grupos validos.");
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities().stream()
+                .noneMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority())))
+            throw new AccessDeniedException("Solo el administrador puede editar asignaciones.");
+        List<Integer> nuevos = new ArrayList<>(new java.util.LinkedHashSet<>(idsGrupos));
+        if (TipoUsuarioResolver.ESTUDIANTE.equals(rol)) validarUnGrupoPorAsignatura(nuevos);
+        List<Integer> anteriores = switch (rol) {
+            case TipoUsuarioResolver.DOCENTE -> docenteGrupoRepository.findByIdUsuario(idUsuario).stream().map(DocenteGrupo::getIdGrupo).toList();
+            case TipoUsuarioResolver.ESTUDIANTE -> {
+                estudianteRepository.bloquearParaInscripcion(idUsuario)
+                        .orElseThrow(() -> new ValidacionNegocioException("El usuario no es estudiante."));
+                yield estudianteGrupoRepository.findByIdUsuario(idUsuario).stream().map(EstudianteGrupo::getIdGrupo).toList();
+            }
+            case TipoUsuarioResolver.OPERADOR -> ayudanteGrupoRepository.findByIdUsuario(idUsuario).stream().map(AyudanteGrupo::getIdGrupo).toList();
+            default -> throw new ValidacionNegocioException("Este rol no tiene asignaciones academicas.");
+        };
+        List<Integer> agregados = nuevos.stream().filter(idGrupo -> !anteriores.contains(idGrupo)).toList();
+        validarAccesoRegistro(agregados, rol);
+        for (Integer idGrupo : anteriores) if (!nuevos.contains(idGrupo)) desvincularUsuario(idUsuario, rol, idGrupo);
+        // Hacer efectivas las bajas antes de insertar el nuevo grupo de la misma materia.
+        estudianteGrupoRepository.flush();
+        if (!agregados.isEmpty()) vincularUsuario(idUsuario, rol, agregados);
     }
 
     public record Vinculacion(Integer idUsuario, String rol, Integer idGrupo, Integer idAsignatura, String nombreGrupo) {}

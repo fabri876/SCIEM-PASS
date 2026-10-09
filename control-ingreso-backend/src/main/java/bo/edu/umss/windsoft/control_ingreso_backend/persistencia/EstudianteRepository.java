@@ -16,6 +16,9 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
     boolean existsByIdusuario(Integer idusuario);
 
     Optional<Estudiante> findByIdusuario(Integer idusuario);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT e FROM Estudiante e WHERE e.idusuario = :idUsuario")
+    Optional<Estudiante> bloquearParaInscripcion(@org.springframework.data.repository.query.Param("idUsuario") Integer idUsuario);
 
     List<Estudiante> findByIdusuarioIn(List<Integer> idsUsuario);
 
