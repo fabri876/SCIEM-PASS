@@ -9,8 +9,9 @@ import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
 import { obtenerMisExamenes, obtenerAsignaturasPorDocente } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
+import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
 import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ScanLine } from "lucide-react";
 
 // Un docente no puede registrar a otro docente, solo Ayudante o Estudiante
 // (el backend ya lo valida igual en UsuarioService.validarPermisosRegistro).
@@ -72,12 +73,21 @@ export default function HomeDocente() {
                 const dataExamenes = await obtenerMisExamenes();
                 if (!cancel && Array.isArray(dataExamenes) && dataExamenes.length > 0) {
                     const mapeados = dataExamenes.map((ex) => {
+                        const primerAmb = ex.ambientes && ex.ambientes.length > 0 ? ex.ambientes[0] : null;
+                        const horaInicio = (ex.horaInicio || primerAmb?.horaInicio || "").toString().substring(0, 5);
+                        const horaFin = (ex.horaFin || primerAmb?.horaFin || "").toString().substring(0, 5);
+                        const aulaNombre = primerAmb?.nombreAmbiente || primerAmb?.nombreAula || "";
+                        const bloque = primerAmb?.ubicacionAmbiente || primerAmb?.bloque || "";
                         const strAula = ex.ambientes && ex.ambientes.length > 0
-                            ? ex.ambientes.map(a => `${a.nombreAula || 'Aula'} · ${a.bloque || ''}`.trim()).join(' + ')
-                            : 'Aula por definir';
-                        const strHorario = ex.horaInicio && ex.horaFin
-                            ? `${ex.horaInicio.substring(0, 5)} – ${ex.horaFin.substring(0, 5)}`
-                            : (ex.duracionExamen ? `${ex.duracionExamen}` : 'Horario programado');
+                            ? ex.ambientes.map((a) => {
+                                const nombre = a.nombreAmbiente || a.nombreAula || "Aula";
+                                const ubi = a.ubicacionAmbiente || a.bloque || "";
+                                return `${nombre}${ubi ? ` · ${ubi}` : ""}`;
+                            }).join(" + ")
+                            : "Aula por definir";
+                        const strHorario = horaInicio && horaFin
+                            ? `${horaInicio} – ${horaFin}`
+                            : (ex.duracionExamen ? `${ex.duracionExamen}` : "Horario programado");
 
                         const total = ex.totalInscritos || ex.totalEstudiantes || 0;
                         const ing = ex.ingresados || 0;
@@ -87,14 +97,21 @@ export default function HomeDocente() {
                         return {
                             idExamen: ex.idExamen,
                             idAsignatura: ex.idAsignatura,
-                            nombreExamen: ex.nombreAsignatura || ex.nombreTipoExamen || 'Examen Programado',
-                            siglaAsignatura: ex.siglaAsignatura || '',
+                            nombreExamen: ex.nombreAsignatura || ex.nombreTipoExamen || "Examen Programado",
+                            siglaAsignatura: ex.siglaAsignatura || "",
                             aula: strAula,
+                            aulaNombre: aulaNombre || "Aula por definir",
+                            bloque,
                             horario: strHorario,
+                            fechaExamen: ex.fechaExamen,
+                            horaInicio,
+                            horaFin,
+                            tipoExamen: ex.nombreTipoExamen || "",
                             ingresados: ing,
                             noLlegan: faltan,
                             inhabilitados: inhab,
                             totalInscritos: total,
+                            esExamenReal: true,
                         };
                     });
                     setExamenes(mapeados);
@@ -126,6 +143,7 @@ export default function HomeDocente() {
                                 noLlegan: Math.max(0, total - hab - inhab),
                                 inhabilitados: inhab,
                                 totalInscritos: total,
+                                esExamenReal: false,
                             };
                         });
                         setExamenes(mapeadosAsig);
@@ -205,6 +223,17 @@ export default function HomeDocente() {
                             <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                             Mis Exámenes
                         </button>
+                        <button
+                            onClick={() => setStrMenuActivo("control-ingresos")}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${
+                                strMenuActivo === "control-ingresos"
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                        >
+                            <ScanLine className={`w-4 h-4 ${strMenuActivo === "control-ingresos" ? "text-white" : "text-[#1A365D]"}`} />
+                            Control de ingresos
+                        </button>
                         <button onClick={() => setStrMenuActivo("inicio")} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
                             <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                             Reportes y Asistencia
@@ -242,6 +271,8 @@ export default function HomeDocente() {
                 <main className="flex-1 min-w-0 space-y-6">
                     {strMenuActivo === "incidencias" ? (
                         <SeccionIncidencias rol="DOCENTE" />
+                    ) : strMenuActivo === "control-ingresos" ? (
+                        <SeccionControlIngresosDocente examenes={examenes} boolCargando={boolCargando} />
                     ) : (
                         <>
                     <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>

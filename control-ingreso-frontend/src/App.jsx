@@ -19,6 +19,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 // Páginas de Docente
 import HomeDocente from "./pages/docente/HomeDocente";
 import GestionHabilitaciones from "./pages/docente/GestionHabilitaciones";
+import ControlIngresoDocente from "./pages/control/ingreso/ControlIngresoDocente";
 
 // Páginas de Estudiante
 import HomeEstudiante from "./pages/estudiante/HomeEstudiante";
@@ -159,6 +160,14 @@ function App() {
           element={
             <RutaProtegida listRolesPermitidos={["DOCENTE"]}>
               <GestionHabilitaciones />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/home/docente/examenes/:idExamen/control-ingreso"
+          element={
+            <RutaProtegida listRolesPermitidos={["DOCENTE"]}>
+              <ControlIngresoDocente />
             </RutaProtegida>
           }
         />
