@@ -72,7 +72,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/incidencias")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
                         .requestMatchers(HttpMethod.GET, "/api/incidencias/catalogos",
-                                "/api/incidencias/ambientes", "/api/incidencias/estudiante")
+                                "/api/incidencias/ambientes", "/api/incidencias/aulas-asignadas",
+                                "/api/incidencias/estudiante")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
                         .requestMatchers("/api/incidencias/**", "/api/ingresos-excepcionales/**")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR")

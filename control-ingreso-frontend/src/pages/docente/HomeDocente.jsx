@@ -40,7 +40,12 @@ export default function HomeDocente() {
             }
         }
         fnCargarContadorIncidencias();
-        return () => { cancel = true; };
+        // Se actualiza cuando la sección Incidencias registra, revisa o cierra algo.
+        window.addEventListener("incidencias:actualizadas", fnCargarContadorIncidencias);
+        return () => {
+            cancel = true;
+            window.removeEventListener("incidencias:actualizadas", fnCargarContadorIncidencias);
+        };
     }, [strMenuActivo]);
 
     useEffect(() => {

@@ -3,6 +3,8 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Asignatura;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Aula;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamen;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignatura;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignaturaId;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
@@ -10,6 +12,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HoraOficial;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MetodoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
@@ -18,6 +21,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoE
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AsignaturaRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AulaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteAsignaturaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
@@ -76,6 +80,7 @@ class IngresoExcepcionalServiceTest {
     @Mock private AsignaturaRepository asignaturaRepository;
     @Mock private ExamenRepository examenRepository;
     @Mock private DocenteAsignaturaRepository docenteAsignaturaRepository;
+    @Mock private AyudanteExamenRepository ayudanteExamenRepository;
     @Mock private EstudianteRepository estudianteRepository;
     @Mock private HabilitacionRepository habilitacionRepository;
     @Mock private EvidenciaService evidenciaService;
@@ -86,7 +91,8 @@ class IngresoExcepcionalServiceTest {
 
     @BeforeEach
     void setUp() {
-        ContextoUsuarioService contexto = new ContextoUsuarioService(docenteAsignaturaRepository, auditoriaService);
+        ContextoUsuarioService contexto = new ContextoUsuarioService(docenteAsignaturaRepository, examenRepository,
+                ayudanteExamenRepository, auditoriaService);
         AmbienteExamenService ambientes = new AmbienteExamenService(ambienteRepository, aulaRepository,
                 asignaturaRepository, examenRepository, ingresoRepository, contexto);
         EstudianteExamenService estudiantes = new EstudianteExamenService(estudianteRepository, usuarioRepository,
@@ -116,7 +122,9 @@ class IngresoExcepcionalServiceTest {
         examen = new Examen();
         examen.setIdExamen(ID_EXAMEN);
         examen.setFechaExamen(HoraOficial.hoy());
+        examen.setIdUsuario(ID_DOCENTE); // la docente es la responsable (asignada) del examen
         when(examenRepository.findAllById(any())).thenReturn(List.of(examen));
+        when(examenRepository.findById(ID_EXAMEN)).thenReturn(Optional.of(examen));
 
         when(docenteAsignaturaRepository.findByIdIdusuario(ID_DOCENTE)).thenReturn(List.of(
                 new DocenteAsignatura(new DocenteAsignaturaId(ID_DOCENTE, 1001, ID_ASIGNATURA))));
@@ -144,7 +152,7 @@ class IngresoExcepcionalServiceTest {
     }
 
     @Test
-    @DisplayName("Docente de la materia autoriza: se guarda EXCEPCIONAL, con su usuario como autorizante, y se audita")
+    @DisplayName("Docente asignada al examen autoriza: se guarda EXCEPCIONAL, MANUAL, con su usuario como autorizante, y se audita")
     void autorizar_ok() {
         IngresoExcepcionalDto dto = service.autorizar(ID_AMBIENTE, CODSIS, "NO_FIGURA_EN_LISTA", OBSERVACION, null, "10.0.0.1");
 
@@ -153,6 +161,7 @@ class IngresoExcepcionalServiceTest {
         assertEquals(TipoIngreso.EXCEPCIONAL, guardado.getValue().getTipoIngreso());
         assertEquals(MotivoExcepcion.NO_FIGURA_EN_LISTA, guardado.getValue().getMotivoExcepcion());
         assertEquals(ID_DOCENTE, guardado.getValue().getIdUsuarioRegistra());
+        assertEquals(MetodoIngreso.MANUAL, guardado.getValue().getMetodoIngreso());
         assertNotNull(guardado.getValue().getHoraIngreso());
 
         assertEquals("Ana Rocha Villarroel", dto.autorizadoPor());
@@ -165,6 +174,7 @@ class IngresoExcepcionalServiceTest {
     @Test
     @DisplayName("Docente de otra materia: 403 'No es docente de esta materia' y ACCESO_DENEGADO en auditoría")
     void autorizar_docenteDeOtraMateria() {
+        examen.setIdUsuario(999);
         when(docenteAsignaturaRepository.findByIdIdusuario(ID_DOCENTE)).thenReturn(List.of());
 
         AccesoDenegadoException ex = assertThrows(AccesoDenegadoException.class,
@@ -172,6 +182,18 @@ class IngresoExcepcionalServiceTest {
 
         assertEquals("No es docente de esta materia.", ex.getMessage());
         verify(auditoriaService).registrar(eq("ACCESO_DENEGADO"), anyString(), anyString(), anyString(), eq("ip"));
+        verify(ingresoRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("Docente de la materia que no es el asignado al examen: 403 'No es el docente asignado a este examen'")
+    void autorizar_docenteNoAsignadoAlExamen() {
+        examen.setIdUsuario(999); // otro docente de la misma materia es el responsable
+
+        AccesoDenegadoException ex = assertThrows(AccesoDenegadoException.class,
+                () -> service.autorizar(ID_AMBIENTE, CODSIS, "SIN_CARNET_QR", OBSERVACION, null, "ip"));
+
+        assertEquals("No es el docente asignado a este examen.", ex.getMessage());
         verify(ingresoRepository, never()).saveAndFlush(any());
     }
 
@@ -261,6 +283,9 @@ class IngresoExcepcionalServiceTest {
     @DisplayName("Consulta del operador: puede registrar incidencia pero nunca autorizar")
     void consultar_operador() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
+        AyudanteExamenId asignacion = new AyudanteExamenId(70, ID_ASIGNATURA, ID_EXAMEN, ID_AMBIENTE);
+        when(ayudanteExamenRepository.findById(any()))
+                .thenReturn(Optional.of(new AyudanteExamen(asignacion, "ACTIVO")));
 
         ConsultaEstudianteDto dto = service.consultar(ID_AMBIENTE, String.valueOf(CODSIS), true, "ip");
 

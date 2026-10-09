@@ -15,6 +15,9 @@ public interface ExamenRepository extends JpaRepository<Examen, Integer> {
 
     List<Examen> findByIdUsuarioAndCodsisDocente(Integer idUsuario, Integer codsisDocente);
 
+    /** HU06: exámenes de los que el docente es responsable. */
+    List<Examen> findByIdUsuario(Integer idUsuario);
+
     /** Tipos de examen ya registrados por un docente en una asignatura. */
     @Query("SELECT DISTINCT e.idTipoExamen FROM Examen e " +
            "WHERE e.idAsignatura = :idAsignatura AND e.codsisDocente = :codsisDocente")

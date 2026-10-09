@@ -566,7 +566,13 @@ public class ExamenService {
         if (request.getFechaExamen() == null) {
             throw new IllegalArgumentException("La fecha del examen es obligatoria.");
         }
-        if (request.getFechaExamen().isBefore(LocalDateTime.now())) {
+        // El frontend manda la fecha a medianoche ("fecha" + "T00:00:00"), así que
+        // compararla tal cual con la hora actual rechazaba cualquier examen del mismo
+        // día. Se compara el inicio real del examen (fecha + hora de inicio) con la
+        // hora oficial de Bolivia (el servidor de deploy puede estar en UTC).
+        LocalDateTime inicioExamen = request.getFechaExamen().toLocalDate()
+                .atTime(request.getHoraInicio() != null ? request.getHoraInicio() : LocalTime.MIDNIGHT);
+        if (inicioExamen.isBefore(HoraOficial.ahora())) {
             throw new IllegalArgumentException(
                     "La fecha del examen no puede ser anterior a la fecha actual.");
         }
