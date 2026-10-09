@@ -83,9 +83,9 @@ public class RegistroUsuarioService {
         if (rolesNormalizados.isEmpty()) {
             throw new ValidacionNegocioException("Debe seleccionar al menos un rol válido.");
         }
-        if ((rolesNormalizados.contains("docente") || rolesNormalizados.contains("estudiante"))
+        if ((rolesNormalizados.contains("docente") || rolesNormalizados.contains("estudiante") || rolesNormalizados.contains("ayudante"))
                 && dto.getIdGrupo() == null && (dto.getIdGrupos() == null || dto.getIdGrupos().isEmpty())) {
-            throw new ValidacionNegocioException("Debe asignar una asignatura y grupo al registrar docentes o estudiantes.");
+            throw new ValidacionNegocioException("Debe asignar una asignatura y grupo al registrar docentes, estudiantes o ayudantes.");
         }
 
         // 3. Normalizar nombres y apellidos

@@ -36,18 +36,25 @@ public class HorarioImportacionService {
     public Resultado confirmarAutomaticamente(MultipartFile archivo) {
         var filas = leerCatalogo(archivo);
         List<Asignatura> catalogo = new ArrayList<>(asignaturas.findAll());
+        Set<Integer> idsPrevios = new HashSet<>();
+        catalogo.forEach(a -> idsPrevios.add(a.getIdAsignatura()));
         Map<String, Grupo> existentes = new HashMap<>();
         // Una lectura del catálogo de grupos evita consultas repetidas por cada fila del PDF.
         for (var g : grupos.findAll()) existentes.put(clave(g.getIdAsignatura(), g.getNombreGrupo()), g);
         int nuevasAsignaturas = 0, nuevosGrupos = 0;
+        Set<Integer> materiasPrevias = new HashSet<>();
+        int gruposPrevios = 0;
         for (var fila : filas) {
             Asignatura materia = resolverMateria(fila, catalogo);
             if (materia == null) {
                 materia = new Asignatura(); materia.setIdAsignatura(fila.codigoAsignatura());
                 materia.setNombreAsignatura(fila.nombreAsignatura()); materia.setCodigoOficial(String.valueOf(fila.codigoAsignatura()));
                 materia = asignaturas.save(materia); catalogo.add(materia); nuevasAsignaturas++;
-            } else if (materia.getCodigoOficial() == null) {
-                materia.setCodigoOficial(String.valueOf(fila.codigoAsignatura())); asignaturas.save(materia);
+            } else {
+                if (idsPrevios.contains(materia.getIdAsignatura())) materiasPrevias.add(materia.getIdAsignatura());
+                if (materia.getCodigoOficial() == null) {
+                    materia.setCodigoOficial(String.valueOf(fila.codigoAsignatura())); asignaturas.save(materia);
+                }
             }
             String clave = clave(materia.getIdAsignatura(), fila.nombreGrupo());
             Grupo grupo = existentes.get(clave);
@@ -56,9 +63,11 @@ public class HorarioImportacionService {
                 existentes.put(clave, grupo); nuevosGrupos++;
             } else if (!Boolean.TRUE.equals(grupo.getEstadoGrupo())) {
                 throw new SolicitudInvalidaException("El grupo " + fila.nombreGrupo() + " está inactivo. Revíselo antes de importar.");
+            } else {
+                gruposPrevios++;
             }
         }
-        return new Resultado(nuevasAsignaturas, nuevosGrupos);
+        return new Resultado(nuevasAsignaturas, nuevosGrupos, materiasPrevias.size(), gruposPrevios);
     }
 
     private String clave(Integer materia, String grupo) { return materia + ":" + grupo.trim().toUpperCase(Locale.ROOT); }

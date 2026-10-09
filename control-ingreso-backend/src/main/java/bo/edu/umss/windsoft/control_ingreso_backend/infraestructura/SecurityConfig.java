@@ -52,7 +52,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/ping"
+                                "/api/ping",
+                                "/api/v1/health"
                         ).permitAll()
                         // TC-217 (QA): estas rutas estaban 100% públicas (sin JWT). Ahora
                         // exigen sesión — cualquier rol logueado puede usarlas, ya que

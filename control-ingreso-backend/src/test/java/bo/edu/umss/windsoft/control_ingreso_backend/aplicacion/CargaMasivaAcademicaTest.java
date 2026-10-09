@@ -105,6 +105,62 @@ class CargaMasivaAcademicaTest {
         when(usuarios.findByCorreousuario("admin@example.test")).thenReturn(Optional.of(u));
         when(roles.resolver(1)).thenReturn("ADMINISTRADOR");
     }
+    private void docenteExistente() {
+        when(usuarios.buscarCisExistentes(anyList())).thenReturn(List.of("1234567"));
+        Usuario persona = new Usuario("1234567", "Nombre", "Apellido", null, "persona@example.test", "hash-original", true);
+        persona.setIdusuario(5);
+        when(usuarios.findByCiusuario("1234567")).thenReturn(Optional.of(persona));
+        when(docentes.findByCodsisdocente(98765)).thenReturn(Optional.of(new Docente(5, 98765)));
+    }
+    @Test void docenteExistenteRecibeSoloNuevasAsignacionesSinCrearCuenta() throws Exception {
+        ejecutor(); docenteExistente();
+        var resultado = servicio.procesarCargaMasiva(archivo(false), "DOCENTE", "admin@example.test", "127.0.0.1", 7);
+        assertEquals(0, resultado.getExitosos()); assertEquals(0, resultado.getFallidos());
+        assertEquals(1, resultado.getExistentes());
+        assertTrue(resultado.getAvisos().getFirst().contains("Se añadieron 1"));
+        verify(grupoService).asignarDocenteAGrupo(5, 98765, 7);
+        verify(usuarios, never()).save(any()); verifyNoInteractions(passwords);
+    }
+    @Test void reimportarDocenteConGrupoExistenteInformaSinDuplicarlo() throws Exception {
+        ejecutor(); docenteExistente(); when(grupoService.docenteTieneGrupo(5, 7)).thenReturn(true);
+        var resultado = servicio.procesarCargaMasiva(archivo(false), "DOCENTE", "admin@example.test", "127.0.0.1", 7);
+        assertEquals(1, resultado.getExistentes()); assertEquals(0, resultado.getFallidos());
+        assertTrue(resultado.getAvisos().getFirst().contains("ya estaban asignados"));
+        verify(usuarios, never()).save(any()); verifyNoInteractions(passwords);
+    }
+    @Test void identificadoresDeDistintosDocentesNoSeVinculan() throws Exception {
+        ejecutor();
+        when(usuarios.buscarCisExistentes(anyList())).thenReturn(List.of("1234567"));
+        Usuario persona = new Usuario(); persona.setIdusuario(5);
+        when(usuarios.findByCiusuario("1234567")).thenReturn(Optional.of(persona));
+        when(docentes.findByCodsisdocente(98765)).thenReturn(Optional.of(new Docente(6, 98765)));
+        var resultado = servicio.procesarCargaMasiva(archivo(false), "DOCENTE", "admin@example.test", "127.0.0.1", 7);
+        assertEquals(1, resultado.getFallidos()); assertEquals(0, resultado.getExistentes());
+        verify(grupoService, never()).asignarDocenteAGrupo(any(), any(), any());
+        verify(usuarios, never()).save(any());
+    }
+    @Test void mismoDocenteEnDosFilasSeCreaUnaVezYRecibeAmbosGrupos() throws Exception {
+        ejecutor(); when(passwords.encode(any())).thenReturn("hash");
+        when(usuarios.save(any())).thenAnswer(i -> { Usuario u = i.getArgument(0); u.setIdusuario(5); return u; });
+        Asignatura materia = new Asignatura(); materia.setIdAsignatura(10);
+        when(asignaturas.findById(10)).thenReturn(Optional.of(materia));
+        Grupo g1 = new Grupo(); g1.setIdGrupo(7); Grupo g2 = new Grupo(); g2.setIdGrupo(8);
+        when(grupos.findByIdAsignaturaAndNombreGrupoIgnoreCase(10, "2")).thenReturn(Optional.of(g1));
+        when(grupos.findByIdAsignaturaAndNombreGrupoIgnoreCase(10, "3")).thenReturn(Optional.of(g2));
+        var original = archivo("10", "2", "ID_ASIGNATURA");
+        java.io.ByteArrayOutputStream salida = new java.io.ByteArrayOutputStream();
+        try (var libro = org.apache.poi.ss.usermodel.WorkbookFactory.create(original.getInputStream())) {
+            var hoja = libro.getSheetAt(0); var primera = hoja.getRow(1); var segunda = hoja.createRow(2);
+            for (int i = 0; i < primera.getLastCellNum(); i++) segunda.createCell(i).setCellValue(primera.getCell(i).getStringCellValue());
+            segunda.getCell(6).setCellValue("3"); libro.write(salida);
+        }
+        var lote = new MockMultipartFile("archivo", "docentes.xlsx", "application/octet-stream", salida.toByteArray());
+        var resultado = servicio.procesarCargaMasiva(lote, "DOCENTE", "admin@example.test", "127.0.0.1", null);
+        assertEquals(1, resultado.getExitosos()); assertEquals(1, resultado.getExistentes()); assertEquals(0, resultado.getFallidos());
+        verify(usuarios, times(1)).save(any()); verify(passwords, times(1)).encode(any());
+        verify(grupoService).asignarDocenteAGrupo(5, 98765, 7);
+        verify(grupoService).asignarDocenteAGrupo(5, 98765, 8);
+    }
     @Test void loteSinGrupoRechazaLasFilasAntesDeCrearPersonas() throws Exception {
         ejecutor();
         var resultado = servicio.procesarCargaMasiva(archivo(false), "DOCENTE", "admin@example.test", "127.0.0.1", null);

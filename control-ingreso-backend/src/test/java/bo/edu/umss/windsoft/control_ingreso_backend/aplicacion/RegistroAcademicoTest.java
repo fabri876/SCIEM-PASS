@@ -21,6 +21,7 @@ class RegistroAcademicoTest {
     @Mock EstudianteRepository estudiantes;
     @Mock AyudanteRepository ayudantes;
     @Mock GrupoService grupos;
+    @Mock EliminacionUsuarioRepository eliminaciones;
     @Mock PasswordEncoder passwords;
     @Mock AuditoriaService auditoria;
     @Mock UsuarioRespuestaMapper mapper;
@@ -31,8 +32,8 @@ class RegistroAcademicoTest {
         dto.setCi("1234567"); dto.setCorreo("persona@example.test"); dto.setCodigoSis(98765);
         dto.setIdGrupo(7); dto.setIdGrupos(List.of(7, 8)); return dto;
     }
-    @Test void noSeRegistranDocentesNiEstudiantesSinGrupo() {
-        for (String rol : List.of("DOCENTE", "ESTUDIANTE")) {
+    @Test void noSeRegistranRolesAcademicosSinGrupo() {
+        for (String rol : List.of("DOCENTE", "ESTUDIANTE", "OPERADOR")) {
             var dto = solicitud(rol); dto.setIdGrupo(null); dto.setIdGrupos(List.of());
             assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
                     () -> servicio.crear(dto, "admin@example.test", "127.0.0.1"));
@@ -66,5 +67,50 @@ class RegistroAcademicoTest {
         doThrow(new AccessDeniedException("Grupo ajeno")).when(grupos).validarAccesoRegistro(any(), any());
         assertThrows(AccessDeniedException.class, () -> servicio.crear(solicitud("ESTUDIANTE"), "doc@example.test", "127.0.0.1"));
         verify(usuarios, never()).save(any()); verify(estudiantes, never()).save(any());
+    }
+
+    @org.junit.jupiter.api.AfterEach void limpiarContexto() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
+    private void administrador() {
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin@example.test", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))));
+    }
+    private Usuario persona(int id, String correo) {
+        Usuario u = new Usuario("1234567", "Persona", "Prueba", 71234567, correo, "hash", true); u.setIdusuario(id); return u;
+    }
+    @Test void eliminarRequiereAdministrador() {
+        assertThrows(AccessDeniedException.class, () -> servicio.eliminar(4, "admin@example.test", "local"));
+        verifyNoInteractions(eliminaciones);
+    }
+    @Test void noEliminaAdministrador() {
+        administrador(); when(usuarios.findById(4)).thenReturn(Optional.of(persona(4, "admin@example.test")));
+        when(roles.resolver(4)).thenReturn("ADMINISTRADOR");
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
+                () -> servicio.eliminar(4, "admin@example.test", "local"));
+        verifyNoInteractions(eliminaciones);
+    }
+    @Test void conservarUsuarioConHistorial() {
+        administrador(); when(usuarios.findById(4)).thenReturn(Optional.of(persona(4, "estudiante@example.test")));
+        when(roles.resolver(4)).thenReturn("ESTUDIANTE");
+        when(usuarios.findByCorreousuario("admin@example.test")).thenReturn(Optional.of(persona(1, "admin@example.test")));
+        when(eliminaciones.tieneHistorial(4)).thenReturn(true);
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
+                () -> servicio.eliminar(4, "admin@example.test", "local"));
+        verify(eliminaciones, never()).eliminar(any(), any(), any());
+    }
+    @Test void eliminaCuentaSinHistorialEnUnaOperacion() {
+        administrador(); when(usuarios.findById(4)).thenReturn(Optional.of(persona(4, "estudiante@example.test")));
+        when(roles.resolver(4)).thenReturn("ESTUDIANTE");
+        when(usuarios.findByCorreousuario("admin@example.test")).thenReturn(Optional.of(persona(1, "admin@example.test")));
+        servicio.eliminar(4, "admin@example.test", "local");
+        verify(eliminaciones).eliminar(eq(4), eq(1), contains("ELIMINACION_USUARIO"));
+    }
+    @Test void edicionGuardaAsignacionesConLosDatosBasicos() {
+        Usuario u = persona(4, "estudiante@example.test"); when(usuarios.findById(4)).thenReturn(Optional.of(u));
+        when(roles.resolver(4)).thenReturn("ESTUDIANTE"); when(usuarios.save(u)).thenReturn(u);
+        var dto = new bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ActualizarUsuarioDto();
+        dto.setNombre("Nombre"); dto.setApellido("Apellido"); dto.setCorreo(u.getCorreousuario()); dto.setIdGrupos(List.of(8));
+        servicio.actualizar(4, dto, "admin@example.test", "local");
+        verify(grupos).reemplazarGruposUsuario(4, "ESTUDIANTE", List.of(8));
     }
 }

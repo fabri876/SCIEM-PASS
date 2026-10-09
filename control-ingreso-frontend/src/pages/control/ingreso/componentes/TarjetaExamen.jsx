@@ -79,9 +79,14 @@ export default function TarjetaExamen({ examen, objContador, boolMostrarFila = f
             <GraduationCap className="w-[22px] h-[22px]" />
           </span>
           <div className="min-w-0">
-            <b className="block text-base font-bold text-[#08264A]">{examen.tipo} · {examen.materia}</b>
+            {/* TODO FRONTEND: Si el ayudante está gestionando más de 1 grupo, al seleccionar "Registrar Ingreso" debería aparecer un modal para que elija a qué grupo específico está controlando el ingreso.
+            por el momento esta mostrando el primer grupo de la BD[0]*/}
+            <b className="block text-base font-bold text-[#08264A]">
+              {examen.tipo} · {examen.materia}
+              {examen.grupo && ` · Grupo ${String(examen.grupo).split(",")[0]}`}
+            </b>
             <span className="text-[13px] text-[#64748B]">
-              Aula {examen.aula}{examen.grupo ? ` · Grupo ${examen.grupo}` : ""}{examen.edificio ? ` · ${examen.edificio}` : ""} · {examen.horaInicio} – {examen.horaFin}
+              Aula {examen.aula}{examen.edificio ? ` · ${examen.edificio}` : ""} · {examen.horaInicio} – {examen.horaFin}
             </span>
           </div>
         </div>
@@ -103,18 +108,15 @@ export default function TarjetaExamen({ examen, objContador, boolMostrarFila = f
         </b>
       </div>
 
-      {boolMostrarFila && (
+      {/* Solo cuando el examen está repartido por apellidos; si no, no se muestra nada */}
+      {boolMostrarFila && objFila && (
         <div className="mt-3 pt-3 border-t border-[#F1F5F9] flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs">
-          {objFila ? (
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 min-w-0">
-              <PildoraFila objFila={objFila} />
-              <span className="text-[#475569]">
-                <b className="font-bold text-[#08264A]">{objFila.ingresaron ?? 0}</b> de {objFila.total ?? 0} de tu fila ya ingresaron
-              </span>
-            </div>
-          ) : (
-            <span className="text-[#64748B]">Único operador · atiendes todos los apellidos</span>
-          )}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 min-w-0">
+            <PildoraFila objFila={objFila} />
+            <span className="text-[#475569]">
+              <b className="font-bold text-[#08264A]">{objFila.ingresaron ?? 0}</b> de {objFila.total ?? 0} de tu fila ya ingresaron
+            </span>
+          </div>
           {listFilas.length > 1 && (
             <button
               type="button"
@@ -128,10 +130,9 @@ export default function TarjetaExamen({ examen, objContador, boolMostrarFila = f
             </button>
           )}
         </div>
-
       )}
 
-      {boolMostrarFila && boolVerFilas && listFilas.length > 1 && <ListaFilas listFilas={listFilas} />}
+      {boolMostrarFila && objFila && boolVerFilas && listFilas.length > 1 && <ListaFilas listFilas={listFilas} />}
     </section>
   );
 }

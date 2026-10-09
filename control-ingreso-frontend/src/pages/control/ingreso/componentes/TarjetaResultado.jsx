@@ -112,9 +112,15 @@ function configurar(r, strRol) {
       };
     case "QR_INVALIDO":
       return {
-        strTono: "bad", Icono: X, strTitulo: "QR NO VÁLIDO O VENCIDO", strSub: "INGRESO DENEGADO · EL CÓDIGO NO SIRVE PARA ESTE EXAMEN",
-        strQuien: "Código no válido",
-        strDetalle: r.mensaje || "El QR no existe, ya venció o no corresponde a este examen. Pide al estudiante su C.I. o Código SIS.",
+        strTono: "bad", Icono: Ban, strTitulo: "QR INVÁLIDO", strSub: "INGRESO DENEGADO · EL CÓDIGO QR NO ES VÁLIDO",
+        strQuien: "Credencial rechazada",
+        strDetalle: r.mensaje || "El QR no existe, fue anulado o ya expiró. Pide al estudiante que consulte su credencial.",
+        notas: (
+          <Nota strTipo="rojo">
+            Posibles causas: QR expirado, estudiante inhabilitado después de generarlo, o QR de otro examen.
+            Indica al estudiante que contacte a su docente.
+          </Nota>
+        ),
       };
     case "NO_ENCONTRADO":
       return {

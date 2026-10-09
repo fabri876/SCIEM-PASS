@@ -89,13 +89,13 @@ function nombreRegistrador(obj) {
 function mapearFilas(e) {
   const listFilas = Array.isArray(e.filas)
     ? e.filas.map((f) => ({
-      desde: f.letraDesde || f.desde,
-      hasta: f.letraHasta || f.hasta,
-      operador: f.nombreOperador || f.operador || "",
-      ingresaron: f.ingresaron || 0,
-      total: f.total || f.totalHabilitados || 0,
-      esMia: Boolean(f.esMia),
-    }))
+        desde: f.letraDesde || f.desde,
+        hasta: f.letraHasta || f.hasta,
+        operador: f.nombreOperador || f.operador || "",
+        ingresaron: f.ingresaron || 0,
+        total: f.total || f.totalHabilitados || 0,
+        esMia: Boolean(f.esMia),
+      }))
     : [];
   let fila = listFilas.find((f) => f.esMia) || null;
   if (!fila && e.letraDesde && e.letraHasta) {
@@ -148,7 +148,7 @@ export async function obtenerExamenesAsignados() {
 /* ============================================================
    2. Validar y registrar ingreso
    POST /api/v1/control/ingresos
-   body { identificador, idasignatura, idexamen, idambiente, metodoIngreso: QR | MANUAL }
+   body { identificador, idasignatura, idexamen, idambiente, metodoIngreso: ESCANEO | MANUAL }
    resultado (front): PERMITIDO | YA_REGISTRADO | NO_HABILITADO | OTRA_AULA | FUERA_DE_FILA | NO_INSCRITO | NO_ENCONTRADO | QR_INVALIDO
    FUERA_DE_FILA: el estudiante está habilitado pero su apellido le toca a otro operador.
    Es solo un aviso: con { ignorarFila: true } se registra igual.
@@ -186,7 +186,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
       idasignatura: objExamen.idasignatura,
       idexamen: objExamen.idexamen ?? idExamen,
       idambiente: objExamen.idambiente,
-      metodoIngreso: strMetodo === "QR" ? "QR" : "MANUAL",
+      metodoIngreso: strMetodo === "QR" ? "ESCANEO" : "MANUAL", // el backend usa ESCANEO | MANUAL
       ...(objOpciones.ignorarFila ? { ignorarFila: true } : {}),
     }),
   });
@@ -194,6 +194,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
   if (resp.status === 401) fnSesionVencida();
 
   const objData = await resp.json().catch(() => null);
+  console.log("Raw response from backend (validarIngreso):", resp.status, objData);
 
   // Un error del servidor (sin estado de validación) no es "estudiante no encontrado":
   // se muestra como error para que el operador lo sepa
@@ -208,16 +209,16 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
   const strSis = est ? est.codsisestudiante || est.sis : null;
   const estudianteMapeado = est
     ? {
-      idusuario: est.idusuario,
-      ci: est.ci,
-      sis: strSis,
-      nombres: est.nombreCompleto || est.nombres || "",
-      apellidos: est.nombreCompleto ? "" : est.apellidos || "",
-      carrera: est.carrera || "Carrera no asignada",
-      fotoUrl: est.fotoUrl,
-      aulaAsignada: est.nombreAmbiente || objExamen.aula,
-      normaParticular: est.normaParticular || null,
-    }
+        idusuario: est.idusuario,
+        ci: est.ci,
+        sis: strSis,
+        nombres: est.nombreCompleto || est.nombres || "",
+        apellidos: est.nombreCompleto ? "" : est.apellidos || "",
+        carrera: est.carrera || "Carrera no asignada",
+        fotoUrl: est.fotoUrl,
+        aulaAsignada: est.nombreAmbiente || objExamen.aula,
+        normaParticular: est.normaParticular || null,
+      }
     : null;
 
   let strMetodoTexto = "C.I.";
@@ -239,19 +240,19 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
     registradoPor: strRegistrador,
     ingresoPrevio: objData.primerIngreso
       ? {
-        hora: soloHora(objData.primerIngreso.horaIngreso) || "",
-        fecha: soloFecha(objData.primerIngreso.horaIngreso),
-        aula: objData.primerIngreso.nombreAmbiente,
-        registradoPor: nombreRegistrador(objData.primerIngreso),
-      }
+          hora: soloHora(objData.primerIngreso.horaIngreso) || "",
+          fecha: soloFecha(objData.primerIngreso.horaIngreso),
+          aula: objData.primerIngreso.nombreAmbiente,
+          registradoPor: nombreRegistrador(objData.primerIngreso),
+        }
       : null,
     motivos: objData.motivoInhabilitacion ? [objData.motivoInhabilitacion] : objData.motivos || [],
     filaCorrecta: objData.filaCorrecta
       ? {
-        desde: objData.filaCorrecta.letraDesde || objData.filaCorrecta.desde,
-        hasta: objData.filaCorrecta.letraHasta || objData.filaCorrecta.hasta,
-        operador: objData.filaCorrecta.nombreOperador || objData.filaCorrecta.operador || "",
-      }
+          desde: objData.filaCorrecta.letraDesde || objData.filaCorrecta.desde,
+          hasta: objData.filaCorrecta.letraHasta || objData.filaCorrecta.hasta,
+          operador: objData.filaCorrecta.nombreOperador || objData.filaCorrecta.operador || "",
+        }
       : null,
   };
 }
@@ -283,29 +284,36 @@ export async function obtenerContador(idExamen, objExamen = {}) {
 }
 
 /* ============================================================
-   4. Mis últimos ingresos (solo los que registró el operador de la sesión)
-   Endpoint pendiente en el backend. Si no responde, devuelve null
-   y la pantalla muestra los ingresos registrados en esta sesión.
+   4. Últimos ingresos del examen
+   GET /api/v1/control/ultimos-ingresos?idasignatura=&idexamen=&idambiente=&limite=
+   [{ idIngreso, horaIngreso, metodoIngreso: ESCANEO | MANUAL, estudiante: { nombreCompleto, ci, codsisestudiante, carrera } }]
+   Con boolSoloMios se pide soloMios=true (el operador ve solo los que registró).
+   Si falla, devuelve null y la pantalla muestra los ingresos registrados en esta sesión.
    ============================================================ */
 export async function obtenerUltimosIngresos(idExamen, numLimite = 5, objExamen = {}, boolSoloMios = false) {
   if (USAR_MOCK) return simular(mockUltimos(idExamen, numLimite, boolSoloMios));
   const { idasignatura, idambiente } = objExamen;
   const idexamen = objExamen.idexamen ?? idExamen;
+  if (!idasignatura || !idambiente) return null;
   try {
-    const res = await pedir(`/api/v1/control/ingresos?idasignatura=${idasignatura}&idexamen=${idexamen}&idambiente=${idambiente}&limite=${numLimite}${boolSoloMios ? "&soloMios=true" : ""}`);
+    const res = await pedir(`/api/v1/control/ultimos-ingresos?idasignatura=${idasignatura}&idexamen=${idexamen}&idambiente=${idambiente}&limite=${numLimite}${boolSoloMios ? "&soloMios=true" : ""}`);
     if (!Array.isArray(res)) return null;
-    return res.map((r) => ({
-      hora: soloHora(r.horaIngreso || r.hora),
-      metodo: r.metodoIngreso === "QR" || r.metodo === "QR" ? "QR" : r.metodo || "Manual",
-      registradoPor: nombreRegistrador(r),
-      estudiante: {
-        nombres: r.estudiante?.nombreCompleto || r.nombreCompleto || r.estudiante?.nombres || "",
-        apellidos: "",
-        ci: r.estudiante?.ci || r.ci || "",
-        sis: r.estudiante?.codsisestudiante || r.codsisestudiante || "",
-        carrera: r.estudiante?.carrera || r.carrera || "",
-      },
-    }));
+    return res.map((r) => {
+      const est = r.estudiante || {};
+      const strMetodo = String(r.metodoIngreso || r.metodo || "").toUpperCase();
+      return {
+        hora: soloHora(r.horaIngreso || r.hora),
+        metodo: strMetodo === "ESCANEO" || strMetodo === "QR" ? "QR" : "Manual",
+        registradoPor: nombreRegistrador(r),
+        estudiante: {
+          nombres: est.nombreCompleto || est.nombres || r.nombreCompleto || "",
+          apellidos: est.nombreCompleto ? "" : est.apellidos || "",
+          ci: est.ci || r.ci || "",
+          sis: est.codsisestudiante || r.codsisestudiante || "",
+          carrera: est.carrera || r.carrera || "",
+        },
+      };
+    });
   } catch {
     return null;
   }
@@ -405,6 +413,19 @@ function mockLista(idExamen, strBuscar) {
 
 function mockValidar(idExamen, strValor, strMetodo, objOpciones = {}) {
   const ex = examenMock(idExamen);
+
+  // Si viene un token QR con el prefijo del sistema, se simula como válido para el primer estudiante pendiente
+  const PREFIJO_QR = "SCIEMPASS:1:";
+  if (strMetodo === "QR" && String(strValor).startsWith(PREFIJO_QR)) {
+    const listPend = nominaMock(idExamen).filter((s) => s.habilitado && !s.ingreso && ex && s.aulaAsignada === ex.aula);
+    if (!listPend.length) return { valor: strValor, resultado: "QR_INVALIDO", mensaje: "QR INVÁLIDO (simulación: sin pendientes)", estudiante: null, contador: null };
+    const s = listPend[0];
+    s.ingreso = { hora: horaServidorMock(), metodo: "QR", registradoPor: nombreUsuarioActual() || "Operador de turno" };
+    return {
+      valor: strValor, resultado: "PERMITIDO", metodo: "QR", fechaIngreso: fechaServidorMock(), estudiante: datosEstudiante(s),
+      horaIngreso: s.ingreso.hora, registradoPor: s.ingreso.registradoPor, contador: mockContador(idExamen),
+    };
+  }
   const strDigitos = String(strValor || "").replace(/\D/g, "");
   const coincide = (x) => x.ci === strDigitos || x.sis === strDigitos;
   const s = nominaMock(idExamen).find(coincide);
@@ -445,8 +466,12 @@ function mockValidar(idExamen, strValor, strMetodo, objOpciones = {}) {
 }
 
 // Solo para la simulación del lector QR sin cámara (mock)
+// Devuelve un token con el prefijo SCIEMPASS:1: para simular un escaneo QR real
 export function obtenerSisPendienteMock(idExamen) {
   const ex = examenMock(idExamen);
   const listPend = nominaMock(idExamen).filter((s) => s.habilitado && !s.ingreso && ex && s.aulaAsignada === ex.aula);
-  return listPend.length ? listPend[Math.floor(Math.random() * listPend.length)].sis : null;
+  if (!listPend.length) return null;
+  // Se genera un token simulado con el prefijo del sistema para que el mock entienda que es QR
+  const strSis = listPend[Math.floor(Math.random() * listPend.length)].sis;
+  return `SCIEMPASS:1:MOCK-${strSis}-QR`;
 }
