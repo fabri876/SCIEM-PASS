@@ -113,8 +113,10 @@ public class IncidenciaService {
         }
 
         Ambiente ambiente = ambienteExamenService.obtener(idAmbiente);
-        contextoUsuarioService.verificarAccesoMateria(usuario, ambiente.getIdAsignatura(), true,
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, true,
                 "Registrar incidencia", ip);
+        // Se puede registrar el día del examen o después, pero no antes.
+        ambienteExamenService.verificarExamenYaIniciado(ambienteExamenService.describir(ambiente));
 
         TipoIncidencia tipo = leerEnum(TipoIncidencia.class, tipoTexto, "El tipo de incidencia");
         SeveridadIncidencia severidad = leerEnum(SeveridadIncidencia.class, severidadTexto, "La severidad");
@@ -260,7 +262,7 @@ public class IncidenciaService {
         UsuarioActual usuario = contextoUsuarioService.actual();
         Incidencia incidencia = obtener(idIncidencia);
         Ambiente ambiente = ambienteExamenService.obtener(incidencia.getIdAmbiente());
-        contextoUsuarioService.verificarAccesoMateria(usuario, ambiente.getIdAsignatura(), false,
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Ver incidencia " + incidencia.getCodigo(), ip);
         return armarDetalle(incidencia, ambiente);
     }
@@ -289,7 +291,7 @@ public class IncidenciaService {
         UsuarioActual usuario = contextoUsuarioService.actual();
         Incidencia incidencia = obtener(idIncidencia);
         Ambiente ambiente = ambienteExamenService.obtener(incidencia.getIdAmbiente());
-        contextoUsuarioService.verificarAccesoMateria(usuario, ambiente.getIdAsignatura(), false,
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Marcar en revisión " + incidencia.getCodigo(), ip);
 
         if (incidencia.getEstado() == EstadoIncidencia.CERRADA) {
@@ -314,7 +316,7 @@ public class IncidenciaService {
         UsuarioActual usuario = contextoUsuarioService.actual();
         Incidencia incidencia = obtener(idIncidencia);
         Ambiente ambiente = ambienteExamenService.obtener(incidencia.getIdAmbiente());
-        contextoUsuarioService.verificarAccesoMateria(usuario, ambiente.getIdAsignatura(), false,
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Cerrar " + incidencia.getCodigo(), ip);
 
         if (incidencia.getEstado() == EstadoIncidencia.CERRADA) {

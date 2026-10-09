@@ -31,7 +31,12 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
             }
         }
         fnCargarContador();
-        return () => { cancel = true; };
+        // Se actualiza cuando la sección Incidencias registra, revisa o cierra algo.
+        window.addEventListener("incidencias:actualizadas", fnCargarContador);
+        return () => {
+            cancel = true;
+            window.removeEventListener("incidencias:actualizadas", fnCargarContador);
+        };
     }, [activeMenu]);
 
     const fnCerrarSesion = () => {

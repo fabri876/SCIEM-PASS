@@ -1,74 +1,55 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  AlertTriangle,
   UserCheck,
   Plus,
   BookOpen,
   Search,
   FileText,
-  Clock,
-  CheckCircle2,
   ExternalLink,
-  ShieldCheck,
-  Building,
   RefreshCw,
-  X
 } from "lucide-react";
-import { obtenerUsuarioActual } from "../../services/authService";
 import {
-  obtenerMisExamenes,
-  obtenerExamenes
-} from "../../services/examenService";
-import {
-  obtenerCatalogosIncidencia,
+  obtenerAulasAsignadas,
   obtenerAmbientesDelDia,
   listarIncidencias,
   obtenerDetalleIncidencia,
   marcarEnRevisionIncidencia,
   cerrarIncidencia,
-  listarIngresosExcepcionales
+  listarIngresosExcepcionales,
+  notificarCambioIncidencias,
 } from "../../services/incidenciaService";
 import ModalIncidencia from "./ModalIncidencia";
 import ModalIngresoExcepcional from "./ModalIngresoExcepcional";
+import { formatearHora, formatearFecha } from "./utilidadesIncidencias";
 
-/** Extrae HH:mm de un LocalDateTime ISO como "2026-10-04T08:19:30" */
-function formatearHora(isoString) {
-  if (!isoString) return "--:--";
-  try {
-    const partes = isoString.split("T");
-    if (partes.length > 1) {
-      return partes[1].substring(0, 5);
-    }
-    return new Date(isoString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return isoString;
-  }
-}
+const TODOS = "TODOS";
 
+/**
+ * Sección "Incidencias" (HU06) para DOCENTE y ADMINISTRADOR.
+ *
+ * - Exámenes y aulas: solo los ASIGNADOS al usuario (el docente, los exámenes
+ *   de los que es responsable), de cualquier fecha hasta hoy: las incidencias
+ *   se pueden registrar después del examen.
+ * - Ingreso excepcional: solo aulas de HOY con el ingreso abierto.
+ */
 export default function SeccionIncidencias({ rol = "DOCENTE" }) {
-  const usuarioSesion = obtenerUsuarioActual();
-
-  // Tab activo: 'incidencias' | 'excepcionales'
   const [tabActivo, setTabActivo] = useState("incidencias");
 
+  // Aulas asignadas (todas las fechas hasta hoy) y aulas de hoy (ingreso excepcional)
+  const [aulasAsignadas, setAulasAsignadas] = useState([]);
+  const [aulasHoy, setAulasHoy] = useState([]);
+  const [boolCargandoAulas, setBoolCargandoAulas] = useState(true);
+  const [strErrorCarga, setStrErrorCarga] = useState("");
+
   // Filtros
-  const [examenes, setExamenes] = useState([]);
-  const [examenSeleccionado, setExamenSeleccionado] = useState(null);
-  const [aulas, setAulas] = useState([]);
-  const [filtroAula, setFiltroAula] = useState("TODAS");
-  const [filtroEstado, setFiltroEstado] = useState("TODOS");
-  const [filtroTipo, setFiltroTipo] = useState("TODOS");
+  const [strIdExamen, setStrIdExamen] = useState(TODOS);
+  const [filtroAula, setFiltroAula] = useState(TODOS);
+  const [filtroEstado, setFiltroEstado] = useState(TODOS);
+  const [filtroTipo] = useState(TODOS);
   const [strBusquedaExcepcionales, setStrBusquedaExcepcionales] = useState("");
 
-  // Catálogos
-  const [catalogos, setCatalogos] = useState(null);
-
-  // Datos reales
-  const [totalesIncidencias, setTotalesIncidencias] = useState({
-    abiertas: 0,
-    enRevision: 0,
-    cerradas: 0,
-  });
+  // Datos
+  const [totalesIncidencias, setTotalesIncidencias] = useState({ abiertas: 0, enRevision: 0, cerradas: 0 });
   const [incidencias, setIncidencias] = useState([]);
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState(null);
   const [boolCargandoDetalle, setBoolCargandoDetalle] = useState(false);
@@ -79,136 +60,63 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const [boolModalIncidencia, setBoolModalIncidencia] = useState(false);
   const [boolModalExcepcional, setBoolModalExcepcional] = useState(false);
   const [estudianteParaIncidencia, setEstudianteParaIncidencia] = useState(null);
+  const [aulaParaIncidencia, setAulaParaIncidencia] = useState(null);
 
   // Resolución
   const [strResolucionInput, setStrResolucionInput] = useState("");
   const [boolGuardandoResolucion, setBoolGuardandoResolucion] = useState(false);
   const [strMensajeFeedback, setStrMensajeFeedback] = useState("");
 
-  // 1. Cargar catálogos y aulas del día
+  // La incidencia seleccionada se guarda en un ref para que elegir una fila no
+  // vuelva a disparar la recarga de toda la lista.
+  const idSeleccionadaRef = useRef(null);
   useEffect(() => {
-    async function fnInicializar() {
-      try {
-        const cat = await obtenerCatalogosIncidencia();
-        setCatalogos(cat);
-      } catch (err) {
-        console.warn("No se pudieron cargar catálogos desde el backend:", err);
-      }
+    idSeleccionadaRef.current = incidenciaSeleccionada?.idIncidencia ?? null;
+  }, [incidenciaSeleccionada]);
 
-      try {
-        // Consultar aulas de los exámenes del día que el usuario puede operar
-        const ambientesDelDia = await obtenerAmbientesDelDia();
-        if (Array.isArray(ambientesDelDia) && ambientesDelDia.length > 0) {
-          setAulas(ambientesDelDia);
-
-          // Extraer exámenes únicos a partir de los ambientes
-          const mapaExamenes = new Map();
-          ambientesDelDia.forEach((amb) => {
-            if (amb.idExamen && !mapaExamenes.has(amb.idExamen)) {
-              mapaExamenes.set(amb.idExamen, {
-                idExamen: amb.idExamen,
-                idAsignatura: amb.idAsignatura,
-                nombreExamen: `${amb.asignatura} · Examen`,
-                asignatura: amb.asignatura,
-              });
-            }
-          });
-
-          const listaExamenes = Array.from(mapaExamenes.values());
-          if (listaExamenes.length > 0) {
-            setExamenes(listaExamenes);
-            setExamenSeleccionado(listaExamenes[0]);
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn("No se pudieron obtener ambientes del día:", err);
-      }
-
-      // Fallback a la lista de exámenes del docente o admin
-      try {
-        const lista = rol === "DOCENTE" ? await obtenerMisExamenes() : await obtenerExamenes();
-        if (Array.isArray(lista) && lista.length > 0) {
-          const mapeados = lista.map((ex) => ({
-            idExamen: ex.idExamen || ex.id,
-            idAsignatura: ex.idAsignatura,
-            nombreExamen: ex.nombreAsignatura || ex.nombreTipoExamen || ex.nombre || "Examen",
-            asignatura: ex.nombreAsignatura || ex.nombre || "",
-          }));
-          setExamenes(mapeados);
-          setExamenSeleccionado(mapeados[0]);
-        }
-      } catch (errEx) {
-        console.warn("No se pudieron cargar exámenes del servicio regular:", errEx);
-      }
-    }
-
-    fnInicializar();
-  }, [rol]);
-
-  // 2. Cargar incidencias e ingresos excepcionales según los filtros seleccionados
-  const fnRecargarDatos = useCallback(async () => {
-    setBoolCargando(true);
-    setStrMensajeFeedback("");
-
-    const idExamenTarget = examenSeleccionado?.idExamen || null;
-    const idAmbienteTarget = filtroAula !== "TODAS" ? filtroAula : null;
-    const tipoTarget = filtroTipo !== "TODOS" ? filtroTipo : null;
-    const estadoTarget = filtroEstado !== "TODOS" ? filtroEstado : null;
-
+  // 1. Aulas asignadas y aulas de hoy
+  const fnCargarAulas = useCallback(async () => {
+    setBoolCargandoAulas(true);
     try {
-      // 1. Incidencias
-      const resIncidencias = await listarIncidencias({
-        idExamen: idExamenTarget,
-        idAmbiente: idAmbienteTarget,
-        tipo: tipoTarget,
-        estado: estadoTarget,
-      });
-
-      if (resIncidencias) {
-        setTotalesIncidencias(
-          resIncidencias.totales || { abiertas: 0, enRevision: 0, cerradas: 0 }
-        );
-        const lista = resIncidencias.incidencias || [];
-        setIncidencias(lista);
-
-        // Si la lista tiene elementos y no hay seleccionado, seleccionar el primero
-        if (lista.length > 0) {
-          const actualSigueExistiendo = lista.find(
-            (i) => i.idIncidencia === incidenciaSeleccionada?.idIncidencia
-          );
-          if (actualSigueExistiendo) {
-            fnCargarDetalle(actualSigueExistiendo.idIncidencia);
-          } else {
-            fnCargarDetalle(lista[0].idIncidencia);
-          }
-        } else {
-          setIncidenciaSeleccionada(null);
-        }
-      }
-
-      // 2. Ingresos Excepcionales
-      const resExcepcionales = await listarIngresosExcepcionales({
-        idExamen: idExamenTarget,
-        idAmbiente: idAmbienteTarget,
-      });
-
-      if (Array.isArray(resExcepcionales)) {
-        setIngresosExcepcionales(resExcepcionales);
-      }
+      const [asignadas, hoy] = await Promise.all([obtenerAulasAsignadas(), obtenerAmbientesDelDia()]);
+      setAulasAsignadas(Array.isArray(asignadas) ? asignadas : []);
+      setAulasHoy(Array.isArray(hoy) ? hoy : []);
     } catch (err) {
-      console.error("Error al cargar incidencias o excepcionales del backend:", err);
+      setStrErrorCarga(err.message || "No se pudieron cargar tus exámenes asignados.");
     } finally {
-      setBoolCargando(false);
+      setBoolCargandoAulas(false);
     }
-  }, [examenSeleccionado, filtroAula, filtroTipo, filtroEstado, incidenciaSeleccionada?.idIncidencia]);
+  }, []);
 
   useEffect(() => {
-    fnRecargarDatos();
-  }, [fnRecargarDatos]);
+    fnCargarAulas();
+  }, [fnCargarAulas]);
 
-  // Cargar detalle completo de una incidencia
-  const fnCargarDetalle = async (idIncidencia) => {
+  // Exámenes únicos a partir de las aulas asignadas (más recientes primero)
+  const examenes = [];
+  const idsVistos = new Set();
+  aulasAsignadas.forEach((aula) => {
+    if (!idsVistos.has(aula.idExamen)) {
+      idsVistos.add(aula.idExamen);
+      examenes.push({
+        idExamen: aula.idExamen,
+        etiqueta: `${aula.asignatura} · ${formatearFecha(aula.fechaExamen)}`,
+      });
+    }
+  });
+
+  const aulasDelExamen = aulasAsignadas.filter(
+    (a) => strIdExamen === TODOS || String(a.idExamen) === strIdExamen
+  );
+  const aulasHoyAbiertas = aulasHoy.filter(
+    (a) => !a.ingresoCerrado && (strIdExamen === TODOS || String(a.idExamen) === strIdExamen)
+  );
+  const aulaFiltrada = filtroAula !== TODOS
+    ? aulasAsignadas.find((a) => String(a.idAmbiente) === String(filtroAula))
+    : null;
+
+  // 2. Detalle de una incidencia
+  const fnCargarDetalle = useCallback(async (idIncidencia) => {
     if (!idIncidencia) return;
     setBoolCargandoDetalle(true);
     try {
@@ -217,181 +125,191 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       setStrResolucionInput(detalle.resolucion || "");
       setStrMensajeFeedback("");
     } catch (err) {
-      console.error("Error al cargar detalle de incidencia:", err);
+      setStrMensajeFeedback(err.message || "No se pudo cargar el detalle.");
     } finally {
       setBoolCargandoDetalle(false);
     }
+  }, []);
+
+  // 3. Incidencias e ingresos excepcionales según los filtros
+  const fnRecargarDatos = useCallback(async () => {
+    setBoolCargando(true);
+    setStrErrorCarga("");
+
+    const filtros = {
+      idExamen: strIdExamen !== TODOS ? strIdExamen : null,
+      idAmbiente: filtroAula !== TODOS ? filtroAula : null,
+    };
+
+    try {
+      const [resIncidencias, resExcepcionales] = await Promise.all([
+        listarIncidencias({
+          ...filtros,
+          tipo: filtroTipo !== TODOS ? filtroTipo : null,
+          estado: filtroEstado !== TODOS ? filtroEstado : null,
+        }),
+        listarIngresosExcepcionales(filtros),
+      ]);
+
+      setTotalesIncidencias(resIncidencias?.totales || { abiertas: 0, enRevision: 0, cerradas: 0 });
+      const lista = resIncidencias?.incidencias || [];
+      setIncidencias(lista);
+      setIngresosExcepcionales(Array.isArray(resExcepcionales) ? resExcepcionales : []);
+
+      if (lista.length === 0) {
+        setIncidenciaSeleccionada(null);
+      } else {
+        const sigue = lista.find((i) => i.idIncidencia === idSeleccionadaRef.current);
+        fnCargarDetalle((sigue || lista[0]).idIncidencia);
+      }
+    } catch (err) {
+      setStrErrorCarga(err.message || "No se pudieron cargar las incidencias.");
+    } finally {
+      setBoolCargando(false);
+    }
+  }, [strIdExamen, filtroAula, filtroTipo, filtroEstado, fnCargarDetalle]);
+
+  useEffect(() => {
+    fnRecargarDatos();
+  }, [fnRecargarDatos]);
+
+  // Después de registrar algo: recargar lista, aforos y el contador del menú
+  const fnTrasRegistrar = () => {
+    fnRecargarDatos();
+    fnCargarAulas();
   };
 
-  // Marcar en revisión (PATCH /api/incidencias/{id}/revision)
   const fnMarcarEnRevision = async () => {
     if (!incidenciaSeleccionada) return;
     setBoolGuardandoResolucion(true);
     setStrMensajeFeedback("");
-
     try {
       const res = await marcarEnRevisionIncidencia(incidenciaSeleccionada.idIncidencia);
       setIncidenciaSeleccionada(res);
       setStrMensajeFeedback("Incidencia marcada en revisión.");
+      notificarCambioIncidencias();
       fnRecargarDatos();
     } catch (err) {
-      console.error("Error al marcar en revisión:", err);
       setStrMensajeFeedback(err.message || "No se pudo cambiar el estado a revisión.");
     } finally {
       setBoolGuardandoResolucion(false);
     }
   };
 
-  // Cerrar incidencia con resolución obligatoria (PATCH /api/incidencias/{id}/cierre)
   const fnCerrarIncidencia = async () => {
     if (!incidenciaSeleccionada) return;
     if (!strResolucionInput.trim()) {
       setStrMensajeFeedback("La resolución es obligatoria para cerrar la incidencia.");
       return;
     }
-
     setBoolGuardandoResolucion(true);
     setStrMensajeFeedback("");
-
     try {
-      const res = await cerrarIncidencia(
-        incidenciaSeleccionada.idIncidencia,
-        strResolucionInput.trim()
-      );
+      const res = await cerrarIncidencia(incidenciaSeleccionada.idIncidencia, strResolucionInput.trim());
       setIncidenciaSeleccionada(res);
-      setStrMensajeFeedback("Incidencia cerrada y archivada exitosamente.");
+      setStrMensajeFeedback("Incidencia cerrada exitosamente.");
+      notificarCambioIncidencias();
       fnRecargarDatos();
     } catch (err) {
-      console.error("Error al cerrar incidencia:", err);
       setStrMensajeFeedback(err.message || "No se pudo cerrar la incidencia.");
     } finally {
       setBoolGuardandoResolucion(false);
     }
   };
 
-  // Aulas filtradas por examen seleccionado
-  const aulasDelExamen = aulas.filter(
-    (a) => !examenSeleccionado || a.idExamen === examenSeleccionado.idExamen
-  );
-
-  // Filtrado de excepcionales por búsqueda
   const excepcionalesFiltrados = ingresosExcepcionales.filter((item) => {
-    if (strBusquedaExcepcionales.trim()) {
-      const q = strBusquedaExcepcionales.toLowerCase();
-      const coincide =
-        item.estudiante?.toLowerCase().includes(q) ||
-        String(item.codSis).includes(q) ||
-        item.motivoEtiqueta?.toLowerCase().includes(q) ||
-        item.motivo?.toLowerCase().includes(q);
-      if (!coincide) return false;
-    }
-    return true;
+    if (!strBusquedaExcepcionales.trim()) return true;
+    const q = strBusquedaExcepcionales.toLowerCase();
+    return (
+      item.estudiante?.toLowerCase().includes(q) ||
+      String(item.codSis).includes(q) ||
+      item.motivoEtiqueta?.toLowerCase().includes(q)
+    );
   });
+
+  const fnAbrirIncidencia = () => {
+    setEstudianteParaIncidencia(null);
+    setAulaParaIncidencia(aulaFiltrada || aulasDelExamen[0] || null);
+    setBoolModalIncidencia(true);
+  };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
-      
-      {/* =================================================================== */}
-      {/* BARRA SUPERIOR DE ACCIONES Y CONTROLES (Mockup 06-D) */}
-      {/* =================================================================== */}
+
+      {/* BARRA SUPERIOR: pestañas, filtros y acciones */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
-        
-        {/* Tabs principales con conteos */}
-        <div className="flex items-center gap-1 bg-[#F1F5F9] p-1 rounded-2xl w-fit">
+
+        <div className="flex items-center gap-1 bg-[#F1F5F9] p-1 rounded-2xl w-fit max-w-full overflow-x-auto">
           <button
             onClick={() => setTabActivo("incidencias")}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-2 ${
-              tabActivo === "incidencias"
-                ? "bg-white text-[#003770] shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
+            className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+              tabActivo === "incidencias" ? "bg-white text-[#003770] shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <span>Incidencias</span>
-            <span
-              className={`text-[11px] px-2 py-0.5 rounded-full font-black ${
-                tabActivo === "incidencias"
-                  ? "bg-rose-100 text-rose-700"
-                  : "bg-slate-200 text-slate-600"
-              }`}
-            >
+            <span className={`text-[11px] px-2 py-0.5 rounded-full font-black ${tabActivo === "incidencias" ? "bg-rose-100 text-rose-700" : "bg-slate-200 text-slate-600"}`}>
               {incidencias.length}
             </span>
           </button>
-
           <button
             onClick={() => setTabActivo("excepcionales")}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-2 ${
-              tabActivo === "excepcionales"
-                ? "bg-white text-[#003770] shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
+            className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+              tabActivo === "excepcionales" ? "bg-white text-[#003770] shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <span>Ingresos excepcionales</span>
-            <span
-              className={`text-[11px] px-2 py-0.5 rounded-full font-black ${
-                tabActivo === "excepcionales"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-slate-200 text-slate-600"
-              }`}
-            >
+            <span className={`text-[11px] px-2 py-0.5 rounded-full font-black ${tabActivo === "excepcionales" ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"}`}>
               {ingresosExcepcionales.length}
             </span>
           </button>
         </div>
 
-        {/* Filtros de Examen y Aula */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Badge de alcance por rol */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-[#1A365D] text-xs font-extrabold">
             <BookOpen className="w-3.5 h-3.5 text-[#2563EB]" />
-            <span>{rol === "DOCENTE" ? "Solo mis materias" : "Todos los exámenes"}</span>
+            <span>{rol === "DOCENTE" ? "Mis exámenes asignados" : "Todos los exámenes"}</span>
           </div>
 
-          {/* Selector de Examen */}
-          {examenes.length > 0 && (
-            <div className="relative">
-              <select
-                value={examenSeleccionado?.idExamen || ""}
-                onChange={(e) => {
-                  const found = examenes.find(
-                    (ex) => String(ex.idExamen) === e.target.value
-                  );
-                  if (found) {
-                    setExamenSeleccionado(found);
-                    setFiltroAula("TODAS");
-                  }
-                }}
-                className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer"
-              >
-                {examenes.map((ex) => (
-                  <option key={ex.idExamen} value={ex.idExamen}>
-                    {ex.nombreExamen}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <select
+            value={strIdExamen}
+            onChange={(e) => {
+              setStrIdExamen(e.target.value);
+              setFiltroAula(TODOS);
+            }}
+            className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-full"
+          >
+            <option value={TODOS}>Examen: Todos</option>
+            {examenes.map((ex) => (
+              <option key={ex.idExamen} value={String(ex.idExamen)}>{ex.etiqueta}</option>
+            ))}
+          </select>
 
-          {/* Selector de Aula */}
-          <div className="relative">
-            <select
-              value={filtroAula}
-              onChange={(e) => setFiltroAula(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer"
-            >
-              <option value="TODAS">Aula: Todas</option>
-              {aulasDelExamen.map((aula, idx) => (
-                <option key={aula.idAmbiente || idx} value={aula.idAmbiente}>
-                  {aula.aula || aula.nombre || `Aula ${idx + 1}`}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={filtroAula}
+            onChange={(e) => setFiltroAula(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-full"
+          >
+            <option value={TODOS}>Aula: Todas</option>
+            {aulasDelExamen.map((aula) => (
+              <option key={aula.idAmbiente} value={String(aula.idAmbiente)}>
+                {strIdExamen === TODOS ? `${aula.aula} · ${aula.asignatura}` : aula.aula}
+              </option>
+            ))}
+          </select>
 
-          {/* Botones de acción principales */}
           <button
-            onClick={() => setBoolModalIncidencia(true)}
-            className="bg-[#1A365D] hover:bg-[#132743] text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+            onClick={fnTrasRegistrar}
+            className="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 p-2 rounded-xl transition cursor-pointer"
+            title="Actualizar"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${boolCargando ? "animate-spin" : ""}`} />
+          </button>
+
+          <button
+            onClick={fnAbrirIncidencia}
+            disabled={boolCargandoAulas || aulasAsignadas.length === 0}
+            title={aulasAsignadas.length === 0 ? "Primero debe estar asignado un examen" : "Registrar incidencia"}
+            className="bg-[#1A365D] hover:bg-[#132743] disabled:opacity-45 disabled:cursor-not-allowed text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Incidencia</span>
@@ -399,14 +317,26 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
           <button
             onClick={() => setBoolModalExcepcional(true)}
-            className="bg-white hover:bg-slate-50 text-[#003770] border border-slate-300 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+            disabled={boolCargandoAulas}
+            title={aulasHoyAbiertas.length === 0 ? "Solo durante el examen (aulas de hoy con el ingreso abierto)" : "Ingreso excepcional"}
+            className="bg-white hover:bg-slate-50 disabled:opacity-45 text-[#003770] border border-slate-300 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
           >
             <UserCheck className="w-3.5 h-3.5 text-[#2563EB]" />
             <span>Excepcional</span>
           </button>
         </div>
-
       </div>
+
+      {strErrorCarga && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-2xl text-xs font-bold">
+          ✕ {strErrorCarga}
+        </div>
+      )}
+      {!boolCargandoAulas && !strErrorCarga && aulasAsignadas.length === 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-2xl text-xs font-bold">
+          No tienes exámenes asignados que ya se hayan tomado. Las incidencias se registran sobre un examen asignado.
+        </div>
+      )}
 
       {/* =================================================================== */}
       {/* VISTA TAB: INCIDENCIAS (Mockup 06-D) */}
@@ -616,20 +546,10 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                         {incidenciaSeleccionada.severidadEtiqueta || incidenciaSeleccionada.severidad}
                       </span>
                     </div>
-                    <div>
+                    <div className="col-span-2">
                       <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block">Aula</span>
                       <span className="font-black text-slate-800">
                         {incidenciaSeleccionada.aula} · {incidenciaSeleccionada.asignatura}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block">Retirado</span>
-                      <span className="font-black text-slate-800">
-                        {incidenciaSeleccionada.estudianteRetirado ? (
-                          <span className="text-rose-600">Sí · expulsión registrada</span>
-                        ) : (
-                          "No"
-                        )}
                       </span>
                     </div>
                     {incidenciaSeleccionada.estudiante && (
@@ -891,7 +811,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       )}
 
       {/* =================================================================== */}
-      {/* MODALES REUTILIZABLES */}
+      {/* MODALES */}
       {/* =================================================================== */}
       <ModalIncidencia
         boolAbierto={boolModalIncidencia}
@@ -899,34 +819,27 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           setBoolModalIncidencia(false);
           setEstudianteParaIncidencia(null);
         }}
-        examenSeleccionado={examenSeleccionado}
-        aulasDisponibles={aulasDelExamen}
-        aulaPreseleccionada={
-          filtroAula !== "TODAS"
-            ? aulasDelExamen.find((a) => String(a.idAmbiente) === String(filtroAula))
-            : aulasDelExamen[0]
-        }
+        aulasDisponibles={aulasDelExamen.length > 0 ? aulasDelExamen : aulasAsignadas}
+        aulaPreseleccionada={aulaParaIncidencia}
         estudianteInicial={estudianteParaIncidencia}
-        onExito={fnRecargarDatos}
+        onExito={fnTrasRegistrar}
       />
 
       <ModalIngresoExcepcional
         boolAbierto={boolModalExcepcional}
         onCerrar={() => setBoolModalExcepcional(false)}
-        examenSeleccionado={examenSeleccionado}
-        aulasDisponibles={aulasDelExamen}
+        aulasDisponibles={aulasHoyAbiertas}
         aulaPreseleccionada={
-          filtroAula !== "TODAS"
-            ? aulasDelExamen.find((a) => String(a.idAmbiente) === String(filtroAula))
-            : aulasDelExamen[0]
+          aulaFiltrada && aulasHoyAbiertas.find((a) => a.idAmbiente === aulaFiltrada.idAmbiente)
         }
-        onExito={fnRecargarDatos}
+        onExito={fnTrasRegistrar}
         onAbrirIncidenciaConEstudiante={(estudiante, aula) => {
+          // El aula del ingreso excepcional es de hoy, así que también está entre las asignadas.
           setEstudianteParaIncidencia(estudiante);
+          setAulaParaIncidencia(aulasAsignadas.find((a) => a.idAmbiente === aula?.idAmbiente) || aula || null);
           setBoolModalIncidencia(true);
         }}
       />
-
     </div>
   );
 }

@@ -75,6 +75,23 @@ export async function obtenerAmbientesDelDia(strFecha) {
 }
 
 /**
+ * Aulas de TODOS los exámenes asignados al usuario que ya se tomaron o se toman
+ * hoy (más recientes primero). Las incidencias se pueden registrar después del
+ * examen, así que esta es la lista para la sección Incidencias.
+ * GET /api/incidencias/aulas-asignadas
+ * Roles: ADMINISTRADOR, DOCENTE (exámenes de los que es responsable),
+ *        OPERADOR (aulas asignadas en la HU05)
+ */
+export async function obtenerAulasAsignadas() {
+  return fetchAutenticado("/api/incidencias/aulas-asignadas");
+}
+
+/** Avisa al menú lateral (contador de abiertas) que algo cambió. */
+export function notificarCambioIncidencias() {
+  window.dispatchEvent(new Event("incidencias:actualizadas"));
+}
+
+/**
  * Consulta a un estudiante involucrado en una incidencia.
  * GET /api/incidencias/estudiante?idAmbiente=&q=
  * Roles: ADMINISTRADOR, DOCENTE, OPERADOR

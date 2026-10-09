@@ -6,15 +6,13 @@ import {
   X,
   Search,
   Building,
-  Image as ImageIcon,
-  UserX,
-  ShieldAlert
 } from "lucide-react";
-import { obtenerUsuarioActual } from "../../services/authService";
 import {
   consultarEstudianteIncidencia,
-  registrarIncidencia
+  registrarIncidencia,
+  notificarCambioIncidencias,
 } from "../../services/incidenciaService";
+import { formatearFecha, formatearHora, validarImagen, etiquetaAula } from "./utilidadesIncidencias";
 
 const CATALOGO_TIPOS = [
   { codigo: "SUPLANTACION", etiqueta: "Suplantación" },
@@ -31,125 +29,129 @@ const CATALOGO_SEVERIDADES = [
   { codigo: "ALTA", etiqueta: "Alta", color: "bg-rose-600 text-white" },
 ];
 
+const DESCRIPCION_MIN = 15;
+const DESCRIPCION_MAX = 500;
+
+function nuevaClaveSolicitud() {
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
+        (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16)
+      );
+}
+
+/**
+ * Registrar incidencia (HU06).
+ *
+ * - aulasDisponibles: aulas de examen ASIGNADAS al usuario (GET /api/incidencias/aulas-asignadas).
+ *   Se puede registrar el día del examen o después.
+ * - estudianteInicial: viene de "Registrar incidencia" en el ingreso excepcional
+ *   ({ nombreCompleto, ci, codSis, estado, horaIngresoPrevio }).
+ */
 export default function ModalIncidencia({
   boolAbierto,
   onCerrar,
-  examenSeleccionado,
   aulasDisponibles = [],
   aulaPreseleccionada = null,
   estudianteInicial = null,
   onExito,
 }) {
-  const usuarioSesion = obtenerUsuarioActual();
-
-  // Clave de solicitud idempotente (UUID v4)
+  // Clave de solicitud: una por apertura del formulario, para que un doble
+  // clic no registre la incidencia dos veces.
   const [claveSolicitud, setClaveSolicitud] = useState("");
 
-  // Campos del formulario
-  const [tipoSeleccionado, setTipoSeleccionado] = useState("OBJETO_PROHIBIDO");
-  const [severidadSeleccionada, setSeveridadSeleccionada] = useState("MEDIA");
+  const [tipoSeleccionado, setTipoSeleccionado] = useState(null);
+  const [severidadSeleccionada, setSeveridadSeleccionada] = useState(null);
   const [strDescripcion, setStrDescripcion] = useState("");
   const [archivoFoto, setArchivoFoto] = useState(null);
   const [strFotoPreview, setStrFotoPreview] = useState(null);
-  const [boolRetirarEstudiante, setBoolRetirarEstudiante] = useState(false);
 
-  // Aula seleccionada
   const [aulaSeleccionada, setAulaSeleccionada] = useState(null);
 
-  // Estudiante involucrado (opcional)
   const [strBusquedaEstudiante, setStrBusquedaEstudiante] = useState("");
   const [estudianteInvolucrado, setEstudianteInvolucrado] = useState(null);
   const [boolBuscandoEstudiante, setBoolBuscandoEstudiante] = useState(false);
   const [strErrorBusquedaEstudiante, setStrErrorBusquedaEstudiante] = useState("");
 
-  // Estados de proceso
   const [boolGuardando, setBoolGuardando] = useState(false);
   const [strError, setStrError] = useState("");
   const [strExito, setStrExito] = useState("");
-
-  // Hora actual del sistema
   const [strHoraActual, setStrHoraActual] = useState("");
 
+  // Se reinicia SOLO al abrir. Antes dependía también de las listas que manda
+  // la sección (que se recrean en cada render) y el formulario se borraba solo
+  // mientras el usuario escribía, cambiando además la clave de solicitud.
   useEffect(() => {
-    if (boolAbierto) {
-      // Generar clave única para esta apertura
-      setClaveSolicitud(
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : "req-" + Date.now() + "-" + Math.random().toString(36).substring(2, 9)
-      );
+    if (!boolAbierto) return;
 
-      const ahora = new Date();
-      setStrHoraActual(
-        ahora.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      );
+    setClaveSolicitud(nuevaClaveSolicitud());
+    setStrHoraActual(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+    setTipoSeleccionado(null);
+    setSeveridadSeleccionada(null);
+    setStrDescripcion("");
+    setArchivoFoto(null);
+    setStrFotoPreview(null);
+    setStrError("");
+    setStrExito("");
+    setStrErrorBusquedaEstudiante("");
+    setBoolGuardando(false);
 
-      setTipoSeleccionado("OBJETO_PROHIBIDO");
-      setSeveridadSeleccionada("MEDIA");
-      setStrDescripcion("");
-      setArchivoFoto(null);
-      setStrFotoPreview(null);
-      setBoolRetirarEstudiante(false);
-      setStrError("");
-      setStrExito("");
-      setStrErrorBusquedaEstudiante("");
+    setAulaSeleccionada(aulaPreseleccionada || aulasDisponibles[0] || null);
 
-      const aula = aulaPreseleccionada || (aulasDisponibles.length > 0 ? aulasDisponibles[0] : null);
-      setAulaSeleccionada(aula);
-
-      if (estudianteInicial) {
-        setEstudianteInvolucrado(estudianteInicial);
-        setStrBusquedaEstudiante(
-          estudianteInicial.ci || String(estudianteInicial.codSis || "")
-        );
-        if (estudianteInicial.yaIngreso) {
-          setBoolRetirarEstudiante(false);
-        }
-      } else {
-        setEstudianteInvolucrado(null);
-        setStrBusquedaEstudiante("");
-      }
+    if (estudianteInicial) {
+      setEstudianteInvolucrado(estudianteInicial);
+      setStrBusquedaEstudiante(estudianteInicial.ci || String(estudianteInicial.codSis || ""));
+    } else {
+      setEstudianteInvolucrado(null);
+      setStrBusquedaEstudiante("");
     }
-  }, [boolAbierto, aulaPreseleccionada, aulasDisponibles, estudianteInicial]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boolAbierto]);
 
   if (!boolAbierto) return null;
 
-  const idAmbienteActual =
-    aulaSeleccionada?.idAmbiente ||
-    aulaSeleccionada?.id ||
-    aulasDisponibles[0]?.idAmbiente ||
-    1;
+  const idAmbienteActual = aulaSeleccionada?.idAmbiente ?? null;
+  const descripcionValida = strDescripcion.trim().length >= DESCRIPCION_MIN;
+  const faltantes = [
+    !idAmbienteActual && "el aula del examen",
+    !tipoSeleccionado && "el tipo",
+    !severidadSeleccionada && "la severidad",
+    !descripcionValida && `una descripción de al menos ${DESCRIPCION_MIN} caracteres`,
+  ].filter(Boolean);
+  const puedeRegistrar = faltantes.length === 0 && !boolGuardando && !strExito;
 
-  // Consulta real al backend de estudiante en el aula
+  const fnCambiarAula = (strIdAmbiente) => {
+    const encontrada = aulasDisponibles.find((a) => String(a.idAmbiente) === strIdAmbiente);
+    setAulaSeleccionada(encontrada || null);
+    // El estado del estudiante (si ingresó o no) depende del examen: se vuelve a buscar.
+    setEstudianteInvolucrado(null);
+    setStrErrorBusquedaEstudiante("");
+  };
+
   const fnBuscarEstudianteInvolucrado = async (e) => {
     if (e) e.preventDefault();
     const query = strBusquedaEstudiante.trim();
-    if (!query) return;
+    if (!query || !idAmbienteActual) return;
 
     setBoolBuscandoEstudiante(true);
     setStrErrorBusquedaEstudiante("");
+    setEstudianteInvolucrado(null);
 
     try {
       const data = await consultarEstudianteIncidencia(idAmbienteActual, query);
       if (data && data.estado !== "NO_ENCONTRADO") {
         setEstudianteInvolucrado({
-          nombre: data.nombreCompleto,
           nombreCompleto: data.nombreCompleto,
           ci: data.ci,
           codSis: data.codSis,
           estado: data.estado,
-          horaIngreso: data.horaIngresoPrevio
-            ? new Date(data.horaIngresoPrevio).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-            : "07:41",
-          puedeRetirar: data.puedeRetirar,
+          horaIngresoPrevio: data.horaIngresoPrevio,
         });
       } else {
-        setEstudianteInvolucrado(null);
-        setStrErrorBusquedaEstudiante(data?.mensaje || "Estudiante no encontrado en el sistema.");
+        setStrErrorBusquedaEstudiante("Estudiante no encontrado");
       }
     } catch (err) {
-      console.error("Error al consultar estudiante para incidencia:", err);
-      setStrErrorBusquedaEstudiante(err.message || "Error al buscar estudiante.");
+      setStrErrorBusquedaEstudiante(err.message || "No se pudo buscar al estudiante.");
     } finally {
       setBoolBuscandoEstudiante(false);
     }
@@ -157,16 +159,16 @@ export default function ModalIncidencia({
 
   const fnSeleccionarArchivo = (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setStrError("La foto de evidencia no puede superar los 5 MB.");
-        return;
-      }
-      setArchivoFoto(file);
-      const url = URL.createObjectURL(file);
-      setStrFotoPreview(url);
-      setStrError("");
+    e.target.value = "";
+    if (!file) return;
+    const strErrorArchivo = validarImagen(file);
+    if (strErrorArchivo) {
+      setStrError(strErrorArchivo);
+      return;
     }
+    setArchivoFoto(file);
+    setStrFotoPreview(URL.createObjectURL(file));
+    setStrError("");
   };
 
   const fnLimpiarFoto = () => {
@@ -177,12 +179,10 @@ export default function ModalIncidencia({
     }
   };
 
-  // Registro real en el backend de Marcela
   const fnRegistrar = async (e) => {
     if (e) e.preventDefault();
-
-    if (strDescripcion.trim().length < 15) {
-      setStrError("La descripción es obligatoria y debe tener al menos 15 caracteres.");
+    if (!puedeRegistrar) {
+      if (faltantes.length) setStrError(`Falta ${faltantes.join(", ")}.`);
       return;
     }
 
@@ -190,68 +190,88 @@ export default function ModalIncidencia({
     setStrError("");
 
     try {
-      await registrarIncidencia({
+      const respuesta = await registrarIncidencia({
         claveSolicitud,
         idAmbiente: idAmbienteActual,
         tipo: tipoSeleccionado,
         severidad: severidadSeleccionada,
         descripcion: strDescripcion.trim(),
         codSisEstudiante: estudianteInvolucrado?.codSis || null,
-        retirarEstudiante: boolRetirarEstudiante,
         evidencia: archivoFoto,
       });
 
-      setStrExito("¡Incidencia registrada y auditada correctamente!");
+      setStrExito(`Incidencia ${respuesta?.codigo || ""} registrada.`.replace("  ", " "));
+      notificarCambioIncidencias();
       setTimeout(() => {
-        if (onExito) onExito();
+        if (onExito) onExito(respuesta);
         onCerrar();
-      }, 1000);
+      }, 900);
     } catch (err) {
-      console.error("Error al registrar incidencia:", err);
       setStrError(err.message || "Ocurrió un error al registrar la incidencia.");
-    } finally {
       setBoolGuardando(false);
     }
   };
 
-  const nombreAulaActual = aulaSeleccionada?.aula || aulaSeleccionada?.nombre || "Aula 601";
-  const nombreExamenActual =
-    examenSeleccionado?.nombreExamen ||
-    examenSeleccionado?.asignatura ||
-    "Cálculo I";
-
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* Cabecera del modal */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[95vh] overflow-y-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+
+        {/* Cabecera */}
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 shrink-0 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
               <AlertTriangle className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-base font-black text-[#003770]">
-                Registrar Incidencia
-              </h3>
-              <p className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5 mt-0.5">
-                <Building className="w-3 h-3 text-slate-400" />
-                <span>{nombreAulaActual} · {nombreExamenActual} · {strHoraActual} (automático)</span>
+            <div className="min-w-0">
+              <h3 className="text-base font-black text-[#003770]">Registrar Incidencia</h3>
+              <p className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <Building className="w-3 h-3 text-slate-400 shrink-0" />
+                <span>
+                  {aulaSeleccionada
+                    ? `${aulaSeleccionada.aula} · ${aulaSeleccionada.asignatura} · ${formatearFecha(aulaSeleccionada.fechaExamen)}`
+                    : "Sin aula seleccionada"}
+                  {` · ${strHoraActual} (automático)`}
+                </span>
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onCerrar}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer shrink-0"
+            title="Cerrar"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Formulario */}
         <form onSubmit={fnRegistrar} className="p-5 space-y-4">
-          
-          {/* Tipo de incidencia en Chips (Mockup 06-C) */}
+
+          {/* Aula del examen (solo las asignadas) */}
+          <div>
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1.5">
+              Examen y aula <span className="text-rose-600">*</span>
+            </label>
+            {aulasDisponibles.length === 0 ? (
+              <p className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs font-bold">
+                No tienes exámenes asignados que ya se hayan tomado. Primero debe estar asignado el examen.
+              </p>
+            ) : (
+              <select
+                value={idAmbienteActual ?? ""}
+                onChange={(e) => fnCambiarAula(e.target.value)}
+                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] transition"
+              >
+                {aulasDisponibles.map((aula) => (
+                  <option key={aula.idAmbiente} value={aula.idAmbiente}>
+                    {etiquetaAula(aula)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Tipo */}
           <div>
             <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1.5">
               Tipo <span className="text-rose-600">*</span>
@@ -277,7 +297,7 @@ export default function ModalIncidencia({
             </div>
           </div>
 
-          {/* Severidad (Segmented Control) */}
+          {/* Severidad */}
           <div>
             <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1.5">
               Severidad <span className="text-rose-600">*</span>
@@ -291,9 +311,7 @@ export default function ModalIncidencia({
                     type="button"
                     onClick={() => setSeveridadSeleccionada(sev.codigo)}
                     className={`py-2 text-xs font-extrabold rounded-lg transition text-center cursor-pointer ${
-                      isSelected
-                        ? sev.color + " shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
+                      isSelected ? sev.color + " shadow-xs" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     {sev.etiqueta}
@@ -303,55 +321,58 @@ export default function ModalIncidencia({
             </div>
           </div>
 
-          {/* Estudiante Involucrado (Opcional) */}
+          {/* Estudiante involucrado (opcional) */}
           <div>
             <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">
               Estudiante involucrado <span className="text-slate-400 font-normal">(opcional)</span>
             </label>
             <div className="flex gap-2">
-              <div className="relative flex-1">
+              <div className="relative flex-1 min-w-0">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={strBusquedaEstudiante}
                   onChange={(e) => setStrBusquedaEstudiante(e.target.value)}
-                  placeholder="Buscar por CI o SIS (ej: 1234567)"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") fnBuscarEstudianteInvolucrado(e);
+                  }}
+                  placeholder="C.I. o Código SIS"
                   className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB]"
                 />
               </div>
               <button
                 type="button"
                 onClick={fnBuscarEstudianteInvolucrado}
-                disabled={boolBuscandoEstudiante || !strBusquedaEstudiante.trim()}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs cursor-pointer transition disabled:opacity-50"
+                disabled={boolBuscandoEstudiante || !strBusquedaEstudiante.trim() || !idAmbienteActual}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs cursor-pointer transition disabled:opacity-50 shrink-0"
               >
-                {boolBuscandoEstudiante ? "Buscando..." : "Asignar"}
+                {boolBuscandoEstudiante ? "Buscando..." : "Buscar"}
               </button>
             </div>
 
             {strErrorBusquedaEstudiante && (
-              <p className="text-[11px] text-rose-600 font-bold mt-1">
-                {strErrorBusquedaEstudiante}
-              </p>
+              <p className="text-[11px] text-rose-600 font-bold mt-1">{strErrorBusquedaEstudiante}</p>
             )}
 
-            {/* Estudiante asignado con check verde */}
             {estudianteInvolucrado && (
-              <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span className="text-xs font-bold text-emerald-900">
-                    {estudianteInvolucrado.nombreCompleto || estudianteInvolucrado.nombre}
-                    {estudianteInvolucrado.horaIngreso && ` · ingresó ${estudianteInvolucrado.horaIngreso}`}
+                    {estudianteInvolucrado.nombreCompleto}
+                    {estudianteInvolucrado.estado === "RETIRADO"
+                      ? " · ya fue retirado"
+                      : estudianteInvolucrado.horaIngresoPrevio
+                      ? ` · ingresó ${formatearHora(estudianteInvolucrado.horaIngresoPrevio)}`
+                      : " · no ingresó a este examen"}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
                     setEstudianteInvolucrado(null);
-                    setBoolRetirarEstudiante(false);
                   }}
-                  className="text-emerald-700 hover:text-emerald-900 p-0.5"
+                  className="text-emerald-700 hover:text-emerald-900 p-0.5 shrink-0"
                   title="Quitar estudiante"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -360,125 +381,58 @@ export default function ModalIncidencia({
             )}
           </div>
 
-          {/* Descripción obligatoria (15 a 500 caracteres) */}
+          {/* Descripción */}
           <div>
-            <div className="flex justify-between items-center mb-1">
+            <div className="flex justify-between items-center mb-1 gap-2">
               <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                 Descripción <span className="text-rose-600">*</span>
               </label>
-              <span
-                className={`text-[10px] font-mono font-bold ${
-                  strDescripcion.length < 15 ? "text-rose-600" : "text-slate-400"
-                }`}
-              >
-                {strDescripcion.length}/500 {strDescripcion.length < 15 && "(mín. 15 car.)"}
+              <span className={`text-[10px] font-mono font-bold ${descripcionValida ? "text-slate-400" : "text-rose-600"}`}>
+                {strDescripcion.length}/{DESCRIPCION_MAX} {!descripcionValida && `(mín. ${DESCRIPCION_MIN})`}
               </span>
             </div>
             <textarea
               value={strDescripcion}
               onChange={(e) => setStrDescripcion(e.target.value)}
-              maxLength={500}
-              placeholder="Celular encendido debajo de la hoja de respuestas. Se retiró el equipo y se dejó continuar..."
+              maxLength={DESCRIPCION_MAX}
+              placeholder="Describe qué ocurrió..."
               rows={3}
               className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB] transition"
             />
           </div>
 
-          {/* Adjuntar foto de evidencia */}
+          {/* Foto de evidencia */}
           <div>
             <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">
-              Adjuntar foto de evidencia <span className="text-slate-400 font-normal">(JPG o PNG, hasta 5 MB)</span>
+              Foto de evidencia <span className="text-slate-400 font-normal">(opcional · JPG o PNG, hasta 5 MB)</span>
             </label>
             {strFotoPreview ? (
               <div className="relative border border-slate-200 rounded-xl p-2 bg-slate-50 flex items-center gap-3">
-                <img
-                  src={strFotoPreview}
-                  alt="Evidencia"
-                  className="w-14 h-14 object-cover rounded-lg border border-slate-200"
-                />
+                <img src={strFotoPreview} alt="Evidencia" className="w-14 h-14 object-cover rounded-lg border border-slate-200" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-800 truncate">
-                    {archivoFoto?.name}
-                  </p>
-                  <p className="text-[11px] text-slate-400 font-semibold">
-                    {(archivoFoto?.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
+                  <p className="text-xs font-bold text-slate-800 truncate">{archivoFoto?.name}</p>
+                  <p className="text-[11px] text-slate-400 font-semibold">{(archivoFoto?.size / 1024 / 1024).toFixed(2)} MB</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={fnLimpiarFoto}
-                  className="text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition"
-                >
+                <button type="button" onClick={fnLimpiarFoto} className="text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition" title="Quitar foto">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ) : (
               <label className="border border-dashed border-slate-300 hover:border-[#2563EB] rounded-xl p-3 bg-white flex items-center justify-between gap-3 transition cursor-pointer">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 shrink-0 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">
                     <Upload className="w-4 h-4" />
                   </div>
-                  <div>
-                    <span className="text-xs font-bold text-slate-700 block">
-                      Adjuntar foto de evidencia
-                    </span>
-                    <span className="text-[10px] text-slate-400 block font-medium">
-                      JPG o PNG, hasta 5 MB
-                    </span>
-                  </div>
+                  <span className="text-xs font-bold text-slate-700">Adjuntar foto de evidencia</span>
                 </div>
-                <span className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] px-3 py-1.5 rounded-lg transition">
-                  Examinar
-                </span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  className="hidden"
-                  onChange={fnSeleccionarArchivo}
-                />
+                <span className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] px-3 py-1.5 rounded-lg transition shrink-0">Examinar</span>
+                <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={fnSeleccionarArchivo} />
               </label>
             )}
           </div>
 
-          {/* Toggle para Retirar al estudiante del examen (CA-08) */}
-          <div
-            className={`p-3 rounded-2xl border transition flex items-center justify-between gap-3 ${
-              estudianteInvolucrado
-                ? boolRetirarEstudiante
-                  ? "bg-rose-50 border-rose-300"
-                  : "bg-slate-50 border-slate-200"
-                : "bg-slate-50 border-slate-200 opacity-60"
-            }`}
-          >
-            <div>
-              <span className="text-xs font-extrabold text-slate-800 block">
-                Retirar al estudiante del examen
-              </span>
-              <span className="text-[10.5px] text-slate-500 block font-semibold">
-                Registra expulsión y lo descuenta de presentes
-              </span>
-            </div>
-            <button
-              type="button"
-              disabled={!estudianteInvolucrado}
-              onClick={() => setBoolRetirarEstudiante(!boolRetirarEstudiante)}
-              className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out shrink-0 ${
-                boolRetirarEstudiante ? "bg-rose-600" : "bg-slate-300"
-              }`}
-            >
-              <div
-                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
-                  boolRetirarEstudiante ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Mensajes de error o éxito del backend */}
           {strError && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-2.5 rounded-xl text-xs font-bold">
-              ✕ {strError}
-            </div>
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-2.5 rounded-xl text-xs font-bold">✕ {strError}</div>
           )}
           {strExito && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
@@ -486,8 +440,10 @@ export default function ModalIncidencia({
               <span>{strExito}</span>
             </div>
           )}
+          {!strError && !strExito && faltantes.length > 0 && (
+            <p className="text-[11px] text-slate-500 font-bold">Para registrar falta {faltantes.join(", ")}.</p>
+          )}
 
-          {/* Botones de acción */}
           <div className="flex gap-2 pt-2">
             <button
               type="button"
@@ -499,8 +455,8 @@ export default function ModalIncidencia({
             </button>
             <button
               type="submit"
-              disabled={boolGuardando || strDescripcion.trim().length < 15}
-              className="flex-1.5 bg-[#1A365D] hover:bg-[#132743] disabled:opacity-45 text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
+              disabled={!puedeRegistrar}
+              className="flex-[1.5] bg-[#1A365D] hover:bg-[#132743] disabled:opacity-45 disabled:cursor-not-allowed text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
             >
               {boolGuardando ? (
                 <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
@@ -511,7 +467,6 @@ export default function ModalIncidencia({
             </button>
           </div>
         </form>
-
       </div>
     </div>
   );

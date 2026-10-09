@@ -31,11 +31,11 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Integer> {
     List<Ingreso> findByTipoIngresoOrderByHoraIngresoDesc(TipoIngreso tipoIngreso);
 
     /**
-     * Capacidad del aula para ese examen: la del ambiente si se definió,
-     * si no la capacidad general del aula. (La entidad Ambiente no mapea
-     * capacidadambiente, por eso se lee con SQL nativo.)
+     * Capacidad del aula donde se toma el examen (aula.capacidadaula).
+     * OJO: la BD real NO tiene ambiente.capacidadambiente aunque figure en
+     * docs/consult-bd-new.md (verificado el 09/10/2026); usarla rompía el aforo.
      */
-    @Query(value = "SELECT COALESCE(am.capacidadambiente, au.capacidadaula) " +
+    @Query(value = "SELECT au.capacidadaula " +
                    "FROM ambiente am JOIN aula au ON au.idaula = am.idaula " +
                    "WHERE am.idambiente = :idAmbiente", nativeQuery = true)
     Integer obtenerCapacidadAmbiente(@Param("idAmbiente") Integer idAmbiente);

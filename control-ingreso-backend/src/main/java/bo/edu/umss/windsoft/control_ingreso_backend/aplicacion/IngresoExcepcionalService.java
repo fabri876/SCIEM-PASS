@@ -10,6 +10,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.EvidenciaService.
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HoraOficial;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MetodoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
@@ -86,7 +87,7 @@ public class IngresoExcepcionalService {
     public ConsultaEstudianteDto consultar(Integer idAmbiente, String codSisOCi, boolean permiteOperador, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         Ambiente ambiente = ambienteExamenService.obtener(idAmbiente);
-        contextoUsuarioService.verificarAccesoMateria(usuario, ambiente.getIdAsignatura(), permiteOperador,
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, permiteOperador,
                 "Consultar estudiante", ip);
 
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
@@ -155,7 +156,7 @@ public class IngresoExcepcionalService {
                                            MultipartFile respaldo, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         Ambiente ambiente = ambienteExamenService.obtener(idAmbiente);
-        contextoUsuarioService.verificarAccesoMateria(usuario, ambiente.getIdAsignatura(), false,
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Autorizar ingreso excepcional", ip);
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
 
@@ -223,6 +224,8 @@ public class IngresoExcepcionalService {
             ingreso.setHoraIngreso(HoraOficial.ahora());
             ingreso.setFechaIngreso(HoraOficial.hoy());
             ingreso.setTipoIngreso(TipoIngreso.EXCEPCIONAL);
+            // Lo registra a mano el docente/admin, no un escaneo (columna de la HU05).
+            ingreso.setMetodoIngreso(MetodoIngreso.MANUAL);
             ingreso.setMotivoExcepcion(motivo);
             ingreso.setObservacionIngreso(observacionLimpia);
             ingreso.setEvidenciaUrl(evidencia == null ? null : evidencia.url());
