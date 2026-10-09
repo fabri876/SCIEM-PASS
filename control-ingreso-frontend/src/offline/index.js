@@ -20,3 +20,31 @@ export {
   enviarLoteHttp,
   URL_BATCH_SYNC
 } from './syncQueueService.js';
+export {
+  URL_HEALTH,
+  UMBRAL_DESFASE_MS,
+  TIMEOUT_PING_MS,
+  INTERVALO_ONLINE_MS,
+  INTERVALO_OFFLINE_MS,
+  REINTENTO_RAPIDO_MS,
+  DEFECTO_UMBRAL_DEGRADADO_MS,
+  pingHttpPorDefecto,
+  probarConexionReal,
+  iniciarConectividad,
+  detenerConectividad,
+  verificarAhora,
+  obtenerEstadoConexion,
+  obtenerClockOffsetMs,
+  suscribirConectividad,
+  establecerModoOfflineForzado
+} from './connectivityService.js';
+export {
+  iniciarSincronizacionAutomatica,
+  detenerSincronizacionAutomatica,
+  sincronizarAhora,
+  reanudarSync,
+  obtenerEstadoScheduler,
+  suscribirScheduler
+} from './syncScheduler.js';
+export { useConectividad } from './useConectividad.js';
+export { useEstadoSync } from './useEstadoSync.js';
