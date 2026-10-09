@@ -111,17 +111,17 @@ async function dispararSincronizacion(motivo) {
 
     notificarCambioScheduler();
   } catch (err) {
-    console.warn(`[syncScheduler] Error en sincronización (${motivo}):`, err);
+    console.warn(`[syncScheduler] Error en sincronizacion (${motivo}):`, err);
   } finally {
     syncEnCurso = false;
   }
 }
 
 /**
- * Botón manual "Sincronizar ahora".
- * - Si forzado está activo: prueba la red real con probarConexionReal().
- * - Si no está forzado: verifica con verificarAhora().
- * - Si no hay conexión: retorna sin invocar a sincronizarPendientes.
+ * Boton manual "Sincronizar ahora".
+ * - Si forzado esta activo: prueba la red real con probarConexionReal().
+ * - Si no esta forzado: verifica con verificarAhora().
+ * - Si no hay conexion: retorna sin invocar a sincronizarPendientes.
  * - Si res.omitido es true: devuelve con motivo: 'envio_en_curso' sin actualizar ultimaSync ni ultimoResultado.
  */
 export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
@@ -196,16 +196,29 @@ function programarCicloPeriodico() {
     temporizadorIntervalo = null;
   }
 
+  // Captura la generacion al momento de programar
+  const genAlProgramar = generacion;
+
   temporizadorIntervalo = setTimeout(async () => {
+    // Comprobar que sigue siendo vigente antes de actuar
+    if (!activo || generacion !== genAlProgramar) return;
+
     const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
     const conn = obtenerEstadoConexion();
 
     if (visible && (conn.estado === 'online' || conn.estado === 'degraded') && !pausadoPorAuth) {
       const pendientes = await asistenciaRepo.pendientes(1);
+
+      // Comprobar de nuevo tras el await
+      if (!activo || generacion !== genAlProgramar) return;
+
       if (pendientes.length > 0) {
         await dispararSincronizacion('intervalo_periodico');
       }
     }
+
+    // Comprobar antes de reprogramar
+    if (!activo || generacion !== genAlProgramar) return;
 
     programarCicloPeriodico();
   }, configActual.intervaloMs);
@@ -218,8 +231,7 @@ function handleVisibilityChange() {
 }
 
 /**
- * Inicia la sincronización automática protegido con contador de generación.
- * Maneja llamadas concurrentes y cancelaciones inmediatas (Strict Mode de React).
+ * Inicia la sincronizacion automatica protegido con contador de generacion.
  * Acepta ping e intervaloPingMs opcionales para connectivityService.
  */
 export async function iniciarSincronizacionAutomatica({
@@ -231,7 +243,7 @@ export async function iniciarSincronizacionAutomatica({
   ping,
   intervaloPingMs
 } = {}) {
-  // Bucle de sincronización de arranques en curso
+  // Bucle de sincronizacion de arranques en curso
   while (arranqueEnCursoPromise) {
     if (generacionArranque === generacion) {
       return await arranqueEnCursoPromise;
@@ -243,7 +255,6 @@ export async function iniciarSincronizacionAutomatica({
     }
   }
 
-  // Si activo ya es true tras resolver el bucle, devolver función de detención
   if (activo) {
     return detenerSincronizacionAutomatica;
   }
@@ -269,7 +280,7 @@ export async function iniciarSincronizacionAutomatica({
 
     const esValido = () => generacion === genActual;
 
-    // 1. Revertir huérfanos
+    // 1. Revertir huerfanos
     try {
       await iniciarSync();
     } catch (err) {
@@ -302,7 +313,7 @@ export async function iniciarSincronizacionAutomatica({
       return detenerSincronizacionAutomatica;
     }
 
-    // 4. Iniciar conectividad pasando ping e intervaloPingMs
+    // 4. Iniciar conectividad
     try {
       await iniciarConectividad({ ping: configActual.ping, intervaloMs: configActual.intervaloPingMs });
     } catch (err) {
@@ -326,7 +337,7 @@ export async function iniciarSincronizacionAutomatica({
       console.warn('[syncScheduler] Error al registrar hook creating:', err);
     }
 
-    // 6. Suscribir a conectividad con temporizadorJitterRecuperacion
+    // 6. Suscribir a conectividad con jitter de recuperacion
     let estadoPrevio = obtenerEstadoConexion().estado;
     desuscribirConectividad = suscribirConectividad((conn) => {
       const eraOfflineOVerificando = estadoPrevio === 'offline' || estadoPrevio === 'verificando';
@@ -356,17 +367,19 @@ export async function iniciarSincronizacionAutomatica({
       document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
-    // 9. Ciclo periódico
-    programarCicloPeriodico();
-
+    // Comprobar validez antes de activar: si fue cancelado, no dejar activo en true
     if (!esValido()) {
       detenerSincronizacionAutomatica();
       return detenerSincronizacionAutomatica;
     }
 
+    // 9. activo = true ANTES de programarCicloPeriodico para que el guard interno no lo corte
     activo = true;
 
-    // Intento inicial si hay red y pendientes
+    // 10. Ciclo periodico (activo ya es true)
+    programarCicloPeriodico();
+
+    // 11. Intento inicial si hay red y pendientes
     const connInicial = obtenerEstadoConexion();
     if (connInicial.estado === 'online' || connInicial.estado === 'degraded') {
       asistenciaRepo.pendientes(1).then((pendientes) => {
@@ -392,7 +405,7 @@ export async function iniciarSincronizacionAutomatica({
 }
 
 /**
- * Detiene el scheduler. Incrementa la generación para abortar arranques pendientes.
+ * Detiene el scheduler. Incrementa la generacion para abortar arranques pendientes.
  * Reinicia pausadoPorAuth y syncEnCurso.
  * Limpia CADA recurso en su propio try/catch y llama a detenerConectividad() siempre.
  */
