@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "../common/Logo";
 import UserAccountMenu from "../common/UserAccountMenu";
+import NotificationsMenu from "./NotificationsMenu";
 import { obtenerToken, obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
 
 /**
@@ -13,14 +14,15 @@ import { obtenerToken, obtenerUsuarioActual, cerrarSesion } from "../../services
  * components/registro.
  *
  * "arrNavItems" guarda los datos de cada link (texto + ícono + ruta)
- * para no repetir tres veces casi el mismo bloque de JSX. Cada ícono es
- * el mismo SVG del mockup original, solo que factorizado en un array.
+ * para no repetir casi el mismo bloque de JSX. Cada ícono es el mismo
+ * SVG del mockup original, solo que factorizado en un array.
  *
- * CAMBIO: se eliminaron "Noticias" y "Aulas" porque esas secciones ya no
- * van en el sistema. Como la nav se arma con arrNavItems.map(), al sacar
- * esos dos ítems del array los que quedan (Inicio, Exámenes,
- * Notificaciones) se juntan solos, sin huecos, tanto en desktop como en
- * el menú mobile.
+ * CAMBIO (notificaciones): "Notificaciones" ya NO es un link a una ruta
+ * (antes redirigía a "página en construcción"). Ahora es un componente
+ * aparte, <NotificationsMenu />, que abre una ventanita desplegable con
+ * las notificaciones del sistema. Por eso salió de arrNavItems y se
+ * renderiza justo después del map, tanto en desktop como en el menú
+ * mobile (con la prop "boolVersionMobile").
  *
  * El ítem activo (la rayita de abajo) ya NO se pasa a mano: se calcula
  * comparando la URL actual (useLocation) contra "strRuta" de cada ítem.
@@ -38,9 +40,10 @@ import { obtenerToken, obtenerUsuarioActual, cerrarSesion } from "../../services
  * (logo + nav horizontal + sesión, todo en una fila). Por debajo de "md"
  * (celular / pantallas angostas) la nav horizontal y el bloque de sesión
  * se ocultan y aparece un botón de hamburguesa a la derecha del logo.
- * Al tocarlo se despliega un panel vertical (arrNavItems + sesión) debajo
- * del header, controlado con el estado local "boolMenuAbierto". El logo
- * siempre queda visible a la izquierda, tanto en desktop como en mobile.
+ * Al tocarlo se despliega un panel vertical (arrNavItems + notificaciones
+ * + sesión) debajo del header, controlado con el estado local
+ * "boolMenuAbierto". El logo siempre queda visible a la izquierda, tanto
+ * en desktop como en mobile.
  */
 const arrNavItems = [
   {
@@ -61,16 +64,6 @@ const arrNavItems = [
       <>
         <rect x="4" y="5" width="16" height="15" rx="2" />
         <path d="M8 3v4M16 3v4M4 10h16" />
-      </>
-    ),
-  },
-  {
-    strTexto: "Notificaciones",
-    strRuta: "/notificaciones",
-    svgIcono: (
-      <>
-        <path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Z" />
-        <path d="M10 20a2 2 0 0 0 4 0" />
       </>
     ),
   },
@@ -138,6 +131,9 @@ export default function Header() {
             boolActivo={fnEsActivo(item.strRuta)}
           />
         ))}
+
+        {/* Notificaciones: ventanita desplegable (ya no es una ruta) */}
+        <NotificationsMenu />
       </nav>
 
       {/* Bloque de sesión: solo visible desde "md" hacia arriba */}
@@ -180,7 +176,7 @@ export default function Header() {
       {boolMenuAbierto && (
         <div
           id="header-menu-mobile"
-          className="absolute top-full left-0 right-0 md:hidden bg-white border-b border-[#E2E8F0]/75 shadow-lg flex flex-col px-5 py-4 gap-1 z-50"
+          className="absolute top-full left-0 right-0 md:hidden bg-white border-b border-[#E2E8F0]/75 shadow-lg flex flex-col px-5 py-4 gap-1 z-50 max-h-[calc(100vh-70px)] overflow-y-auto"
         >
           {arrNavItems.map((item) => (
             <NavItem
@@ -191,6 +187,9 @@ export default function Header() {
               fnAlHacerClick={fnCerrarMenu}
             />
           ))}
+
+          {/* Notificaciones: en mobile la lista se expande en línea */}
+          <NotificationsMenu boolVersionMobile />
 
           <div className="mt-3 pt-3 border-t border-[#E2E8F0]">
             {boolAutenticado ? (
