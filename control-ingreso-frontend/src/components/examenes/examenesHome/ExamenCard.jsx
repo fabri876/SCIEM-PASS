@@ -121,13 +121,13 @@ export default function ExamenCard({
             <span className="inline-flex items-center gap-1.5">
               <IconoDocente />
               <span>
-                <b className="font-bold text-[#123F7B]">Docente:</b> {examen.strDocente}
+                <b className="font-bold text-[#123F7B]">Docente:</b> {examen.strDocente || "Por confirmar"}
               </span>
             </span>
             <span className="inline-flex items-center gap-1.5">
               <IconoAmbiente />
               <span>
-                <b className="font-bold text-[#123F7B]">Ambiente:</b> {examen.strAmbiente}
+                <b className="font-bold text-[#123F7B]">Ambiente:</b> {examen.strAmbiente || "Por confirmar"}
               </span>
             </span>
           </div>
@@ -142,7 +142,7 @@ export default function ExamenCard({
             HORARIO DE INGRESO
           </span>
           <span className="block mt-1.5 font-mono text-sm font-bold text-[#123F7B]">
-            {examen.strHoraInicio} - {examen.strHoraFin}
+            {examen.strHoraInicio && examen.strHoraFin ? `${examen.strHoraInicio} - ${examen.strHoraFin}` : "Horario por confirmar"}
           </span>
         </div>
 
