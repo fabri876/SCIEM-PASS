@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, CalendarDays, Clock, ScanLine, Users } from "lucide-react";
+import { BookOpen, CalendarDays, Clock, ScanLine, Users, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { obtenerAsignacionIngreso } from "../../../services/asignacionOperadoresService";
 
@@ -68,6 +68,15 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
   const listExamenes = (examenes || []).filter((ex) => ex.esExamenReal !== false);
   const numDisponibles = listExamenes.length;
 
+  const [objNomina, setObjNomina] = useState({});
+
+  const fnDescargar = (id) => {
+    setObjNomina((prev) => ({ ...prev, [id]: "descargando" }));
+    setTimeout(() => {
+      setObjNomina((prev) => ({ ...prev, [id]: "listo" }));
+    }, 1600);
+  };
+
   // Asignación de operadores de cada examen: { [idExamen]: { cargada, responsables } }
   const [objAsignaciones, setObjAsignaciones] = useState({});
   const strIdsExamenes = listExamenes.map((ex) => ex.idExamen).join(",");
@@ -135,6 +144,9 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
               const objAsig = objAsignaciones[examen.idExamen];
               const boolBloqueada = estado === "EN_CURSO" || estado === "FINALIZADO";
               const boolHayAsignacion = Boolean(objAsig?.hay);
+              const strEstadoNomi = objNomina[examen.idExamen] || "ninguna";
+              const boolDescargando = strEstadoNomi === "descargando";
+              const boolListo = strEstadoNomi === "listo";
 
               return (
                 <article
@@ -205,6 +217,15 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
                         }`}
                       >
                         Control de ingreso →
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fnDescargar(examen.idExamen)}
+                        disabled={boolDescargando || boolListo}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#267BC2] hover:bg-[#124B83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold px-4 py-2.5 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        <Download className="w-4 h-4" />
+                        {boolDescargando ? "Descargando…" : boolListo ? "Nómina descargada" : "Descargar nómina"}
                       </button>
                     </div>
                   </div>
