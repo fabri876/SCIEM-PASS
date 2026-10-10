@@ -279,9 +279,9 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     const porcentaje = (n) => (totalEstudiantes > 0 ? Math.round((n / totalEstudiantes) * 100) : 0);
 
     const metricas = [
-        { titulo: 'TOTAL ESTUDIANTES', valor: totalEstudiantes, icono: 'estudiantes', detalle: <span className="text-xs text-slate-500 font-medium">registrados</span>, claseNumero: 'text-[#1A365D]', claseIcono: 'bg-blue-50 text-[#2563EB]' },
-        { titulo: 'HABILITADOS', valor: totalHabilitados, icono: 'habilitado', detalle: <span className="text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">{porcentaje(totalHabilitados)}%</span>, claseNumero: 'text-emerald-600', claseIcono: 'bg-emerald-50 text-emerald-600' },
-        { titulo: 'INHABILITADOS', valor: totalInhabilitados, icono: 'inhabilitado', detalle: <span className="text-xs text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">{porcentaje(totalInhabilitados)}%</span>, claseNumero: 'text-rose-600', claseIcono: 'bg-rose-50 text-rose-600' },
+        { titulo: 'TOTAL ESTUDIANTES', valor: totalEstudiantes, icono: 'estudiantes', detalle: <span className="text-[13px] text-slate-500 font-medium">registrados</span>, claseNumero: 'text-[#003770]', claseIcono: 'bg-blue-50 text-[#003770]' },
+        { titulo: 'HABILITADOS', valor: totalHabilitados, icono: 'habilitado', detalle: <span className="text-[13px] text-[#003770] font-bold bg-[#EFF6FF] px-2 py-0.5 rounded-md">{porcentaje(totalHabilitados)}%</span>, claseNumero: 'text-[#003770]', claseIcono: 'bg-[#EFF6FF] text-[#003770]' },
+        { titulo: 'INHABILITADOS', valor: totalInhabilitados, icono: 'inhabilitado', detalle: <span className="text-[13px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">{porcentaje(totalInhabilitados)}%</span>, claseNumero: 'text-rose-600', claseIcono: 'bg-rose-50 text-rose-600' },
     ];
 
     const obtenerDuracionCalculada = (dur, hor) => {
@@ -355,7 +355,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         del admin: el docente no tiene seccion de materias, su
                         pantalla de listado es la de examenes. */}
                     <CabeceraModulo
-                        onVolver={() => navegar('/home/docente')}
+                        onVolver={() => navegar('/home/docente', { state: { menu: 'mis-examenes' } })}
                         textoVolver="Volver a Mis Exámenes"
                         onExportar={async () => {
                             try {
@@ -386,12 +386,12 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                     <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         {filasExamen.map((f) => (
                             <div key={f.etiqueta} className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3 first:pl-0 lg:border-l lg:border-slate-100 first:lg:border-l-0">
-                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center flex-shrink-0">
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#003770] flex items-center justify-center flex-shrink-0">
                                     <Icono nombre={f.icono} />
                                 </div>
                                 <div className="min-w-0">
-                                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">{f.etiqueta}</span>
-                                    <p className="text-xs font-extrabold text-[#1A365D] break-words line-clamp-2" title={f.valor}>{f.valor || '---'}</p>
+                                    <span className="text-[13px] font-black uppercase text-slate-400 tracking-wider block">{f.etiqueta}</span>
+                                    <p className="text-[13px] font-extrabold text-[#003770] break-words line-clamp-2" title={f.valor}>{f.valor || '---'}</p>
                                 </div>
                             </div>
                         ))}
@@ -408,7 +408,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                 value={busqueda}
                                 onChange={(e) => { setBusqueda(e.target.value); setPaginaActual(1); }}
                                 placeholder="Buscar por Nombre, Cédula (CI) o Código SIS..."
-                                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-[#1A365D] focus:outline-none focus:border-[#2563EB]"
+                                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-[13px] font-medium text-[#003770] focus:outline-none focus:border-[#003770]"
                             />
                         </div>
                         <div className="flex items-center gap-1 bg-[#F8FAFC] border border-slate-200 rounded-xl p-1 w-full sm:w-auto overflow-x-auto">
@@ -416,7 +416,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                 <button
                                     key={f.key}
                                     onClick={() => { setFiltroEstado(f.key); setPaginaActual(1); }}
-                                    className={`text-xs font-bold px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap transition cursor-pointer ${filtroEstado === f.key ? 'bg-[#1A365D] text-white shadow-xs' : 'text-slate-600 hover:bg-white'}`}
+                                    className={`text-[13px] font-bold px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap transition cursor-pointer ${filtroEstado === f.key ? 'bg-[#003770] text-white shadow-xs' : 'text-slate-600 hover:bg-white'}`}
                                 >
                                     {f.label}
                                 </button>
@@ -426,16 +426,16 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
 
                     <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
                         {cargando ? (
-                            <div className="p-12 text-center text-xs font-bold text-slate-500">Cargando estudiantes desde el servidor...</div>
+                            <div className="p-12 text-center text-[13px] font-bold text-slate-500">Cargando estudiantes desde el servidor...</div>
                         ) : estudiantesFiltrados.length === 0 ? (
-                            <div className="p-12 text-center text-xs font-bold text-slate-500">No se encontraron estudiantes registrados o con ese criterio de búsqueda.</div>
+                            <div className="p-12 text-center text-[13px] font-bold text-slate-500">No se encontraron estudiantes registrados o con ese criterio de búsqueda.</div>
                         ) : (
                             <>
                                 {/* Tabla: visible desde md hacia arriba */}
                                 <div className="hidden md:block overflow-x-auto">
-                                    <table className="w-full min-w-[760px] text-left text-xs">
+                                    <table className="w-full min-w-[760px] text-left text-[13px]">
                                         <thead>
-                                            <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider bg-[#F8FAFC]">
+                                            <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[13px] tracking-wider bg-[#F8FAFC]">
                                                 <th className="py-3.5 px-3 sm:px-6">N°</th>
                                                 <th className="py-3.5 px-3 sm:px-6">Estudiante</th>
 
@@ -487,27 +487,27 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         <div>
                             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-5">
                                 <div>
-                                    <span className="text-[10px] font-black uppercase text-[#2563EB] tracking-wider block">GESTIÓN INDIVIDUAL</span>
-                                    <h3 className="font-black text-sm text-[#1A365D]">Detalle de habilitación</h3>
+                                    <span className="text-[13px] font-black uppercase text-[#003770] tracking-wider block">GESTIÓN INDIVIDUAL</span>
+                                    <h3 className="font-black text-sm text-[#003770]">Detalle de habilitación</h3>
                                 </div>
-                                <button onClick={() => setEstudianteSeleccionado(null)} className="text-slate-400 hover:text-[#1A365D] font-bold p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">✕</button>
+                                <button onClick={() => setEstudianteSeleccionado(null)} className="text-slate-400 hover:text-[#003770] font-bold p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">✕</button>
                             </div>
 
                             <div className="bg-[#F8FAFC] border border-slate-200 p-3.5 rounded-2xl mb-5 flex items-start gap-3">
-                                <span className="w-9 h-9 rounded-xl bg-[#2563EB] text-white flex items-center justify-center font-black text-xs flex-shrink-0">
+                                <span className="w-9 h-9 rounded-xl bg-[#003770] text-white flex items-center justify-center font-black text-[13px] flex-shrink-0">
                                     {`${estudianteSeleccionado.nombreEstudiante?.[0] || ''}${estudianteSeleccionado.apellidoEstudiante?.[0] || ''}`.toUpperCase()}
                                 </span>
                                 <div className="min-w-0">
-                                    <h4 className="font-extrabold text-xs text-[#1A365D] truncate">{`${estudianteSeleccionado.nombreEstudiante} ${estudianteSeleccionado.apellidoEstudiante}`}</h4>
+                                    <h4 className="font-extrabold text-[13px] text-[#003770] truncate">{`${estudianteSeleccionado.nombreEstudiante} ${estudianteSeleccionado.apellidoEstudiante}`}</h4>
                                     {estudianteSeleccionado.carreraEstudiante && (
-                                        <p className="text-[11px] text-[#2563EB] font-semibold">{estudianteSeleccionado.carreraEstudiante}</p>
+                                        <p className="text-[13px] text-[#003770] font-semibold">{estudianteSeleccionado.carreraEstudiante}</p>
                                     )}
-                                    <p className="text-[10px] text-slate-500 font-medium mt-0.5">{estudianteSeleccionado.codSisEstudiante} &bull; {estudianteSeleccionado.ciEstudiante}</p>
+                                    <p className="text-[13px] text-slate-500 font-medium mt-0.5">{estudianteSeleccionado.codSisEstudiante} &bull; {estudianteSeleccionado.ciEstudiante}</p>
                                 </div>
                             </div>
 
                             <div className="mb-5">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">ESTADO DE HABILITACIÓN</label>
+                                <label className="block text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">ESTADO DE HABILITACIÓN</label>
                                 <SelectorEstado
                                     habilitado={estudianteSeleccionado.estadoHabilitacion}
                                     onHabilitar={() => { setEstudianteSeleccionado({ ...estudianteSeleccionado, estadoHabilitacion: true, nombreMotivo: '-' }); setMotivoSelectValue(''); setMotivoPersonalizado(''); }}
@@ -517,8 +517,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
 
                             {estudianteSeleccionado.estadoHabilitacion ? (
                                 <div className="mb-5 bg-blue-50/60 border border-blue-200/80 p-3.5 rounded-2xl">
-                                    <h4 className="text-xs font-extrabold text-[#1A365D] mb-0.5">Auditoría Institucional Automática</h4>
-                                    <p className="text-[11px] text-slate-500 font-medium leading-relaxed">Cualquier cambio de estado generará un registro con firma digital y marca temporal visible en el historial del estudiante.</p>
+                                    <h4 className="text-[13px] font-extrabold text-[#003770] mb-0.5">Auditoría Institucional Automática</h4>
+                                    <p className="text-[13px] text-slate-500 font-medium leading-relaxed">Cualquier cambio de estado generará un registro con firma digital y marca temporal visible en el historial del estudiante.</p>
                                 </div>
                             ) : (
                                 <SeccionMotivo
@@ -538,10 +538,10 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
 
                     {estudianteSeleccionado && (
                         <div className="pt-3 border-t border-slate-100 space-y-2.5">
-                            <button type="button" onClick={prepararGuardado} disabled={guardando} className="w-full bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-xs cursor-pointer flex items-center justify-center disabled:opacity-50">
+                            <button type="button" onClick={prepararGuardado} disabled={guardando} className="w-full bg-[#003770] hover:bg-blue-700 text-white font-bold text-[13px] py-2.5 rounded-xl transition shadow-xs cursor-pointer flex items-center justify-center disabled:opacity-50">
                                 {guardando ? 'Guardando...' : 'Guardar cambios'}
                             </button>
-                            <button type="button" onClick={() => setEstudianteSeleccionado(null)} disabled={guardando} className="w-full text-center text-xs font-bold text-slate-500 hover:text-[#1A365D] py-1 cursor-pointer transition disabled:opacity-50">
+                            <button type="button" onClick={() => setEstudianteSeleccionado(null)} disabled={guardando} className="w-full text-center text-[13px] font-bold text-slate-500 hover:text-[#003770] py-1 cursor-pointer transition disabled:opacity-50">
                                 Cerrar sin guardar
                             </button>
                         </div>
