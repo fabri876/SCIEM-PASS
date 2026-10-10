@@ -1,10 +1,10 @@
 import { TEXTOS_RED, textoPendientes } from "../datosMockOperador";
 
 const CLASES_PUNTO = {
-  online: "bg-emerald-500",
-  syncing: "bg-sky-500",
-  slow: "bg-amber-500",
-  offline: "bg-rose-500",
+  online: "bg-[#267BC2]",
+  syncing: "bg-[#4A97D3]",
+  slow: "bg-[#9AA8BA]",
+  offline: "bg-[#B91C1C]",
 };
 
 export default function PillsEstadoOperador({ estadoRed }) {
