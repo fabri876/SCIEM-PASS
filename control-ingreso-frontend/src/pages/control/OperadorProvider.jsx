@@ -5,6 +5,19 @@ import {
   obtenerExamen, textoPendientes,
 } from "./datosMockOperador";
 import { ContextoOperador } from "./operadorContexto";
+// Importaciones del motor offline real
+import {
+  validarIngreso,
+  registrarIngreso,
+  obtenerClockOffsetMs,
+  iniciarSincronizacionAutomatica,
+  detenerSincronizacionAutomatica,
+  reanudarSync,
+  establecerModoOfflineForzado,
+  suscribirConectividad,
+  useConectividad,
+  useEstadoSync,
+} from "../../offline";
 
 const RESULTADO_INICIAL = {
   kind: "ok", titulo: "Permitido", nombre: "Andrea Mamani Quispe",

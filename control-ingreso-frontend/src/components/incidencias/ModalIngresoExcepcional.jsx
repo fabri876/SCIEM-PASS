@@ -41,7 +41,8 @@ const ETIQUETA_ESTADO = {
 /**
  * Ingreso excepcional (HU06). Solo docente asignado al examen o administrador.
  *
- * - aulasDisponibles: aulas de HOY con el ingreso abierto (GET /api/incidencias/ambientes).
+ * - aulasDisponibles: aulas de HOY asignadas (GET /api/incidencias/ambientes). Si el ingreso ya
+ *   cerró, la búsqueda lo explica y el backend registra el intento en auditoría.
  *   El ingreso excepcional solo se autoriza durante el examen; el backend también lo valida.
  */
 export default function ModalIngresoExcepcional({
@@ -229,7 +230,7 @@ export default function ModalIngresoExcepcional({
             <div className="p-5 space-y-4">
               {aulasDisponibles.length === 0 ? (
                 <p className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs font-bold">
-                  El ingreso excepcional solo se autoriza durante el examen: hoy no tienes aulas con el ingreso abierto.
+                  El ingreso excepcional solo se autoriza el día del examen: hoy no tienes exámenes asignados.
                 </p>
               ) : (
                 <>
@@ -247,7 +248,7 @@ export default function ModalIngresoExcepcional({
                     >
                       {aulasDisponibles.map((aula) => (
                         <option key={aula.idAmbiente} value={aula.idAmbiente}>
-                          {etiquetaAula(aula)} · {textoAforo(aula.aforo)}
+                          {etiquetaAula(aula)} · {aula.ingresoCerrado ? "ingreso cerrado" : textoAforo(aula.aforo)}
                         </option>
                       ))}
                     </select>

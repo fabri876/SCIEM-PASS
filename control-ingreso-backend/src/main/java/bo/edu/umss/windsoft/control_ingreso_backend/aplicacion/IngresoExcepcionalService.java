@@ -93,13 +93,20 @@ public class IngresoExcepcionalService {
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
         EstadoIngresoAula estadoAula = ambienteExamenService.estadoIngreso(info);
         AforoDto aforo = ambienteExamenService.aforo(idAmbiente);
-        boolean hayCupo = aforo.capacidad() == null || aforo.ocupados() < aforo.capacidad();
-        boolean puedeAutorizar = !usuario.esOperador() && !estadoAula.cerrado() && hayCupo;
+        // Consulta desde el formulario de ingreso excepcional (no desde incidencias):
+        // si no se puede autorizar, el intento queda en auditoría (criterios de QA).
+        boolean flujoExcepcional = !permiteOperador;
+        String bloqueoAula = estadoAula.cerrado()
+                ? estadoAula.motivo()
+                : aforo.capacidad() != null && aforo.ocupados() >= aforo.capacidad()
+                ? "Aula llena (" + aforo.ocupados() + "/" + aforo.capacidad() + "). Solicite al Administrador reasignar el aula."
+                : null;
 
         Optional<EstudianteEncontrado> encontrado = estudianteExamenService.buscar(codSisOCi);
         if (encontrado.isEmpty()) {
-            return new ConsultaEstudianteDto("NO_ENCONTRADO", "Estudiante no encontrado.", null, null, null,
-                    null, null, false, true, false, aforo, estadoAula.cerrado());
+            return new ConsultaEstudianteDto("NO_ENCONTRADO",
+                    "Estudiante no encontrado: no está registrado en el sistema, por eso no se puede autorizar su ingreso.",
+                    null, null, null, null, null, false, true, false, aforo, estadoAula.cerrado());
         }
 
         EstudianteEncontrado est = encontrado.get();
@@ -110,38 +117,36 @@ public class IngresoExcepcionalService {
         if (ingresoPrevio.isPresent()) {
             Ingreso previo = ingresoPrevio.get();
             String aulaPrevia = nombreAula(previo.getIdAmbiente());
-            if (previo.estaRetirado()) {
-                return new ConsultaEstudianteDto("RETIRADO", "El estudiante fue retirado de este examen.",
-                        codSis, est.usuario().getCiusuario(), est.nombreCompleto(), previo.getHoraIngreso(),
-                        aulaPrevia, false, true, false, aforo, estadoAula.cerrado());
+            boolean retirado = previo.estaRetirado();
+            String mensaje = retirado
+                    ? "El estudiante fue retirado de este examen y no puede volver a ingresar."
+                    : mensajeDuplicado(previo, aulaPrevia);
+            if (flujoExcepcional) {
+                auditarIntentoRechazado(usuario, est, info, ambiente, mensaje, ip);
             }
-            return new ConsultaEstudianteDto("DUPLICADO", mensajeDuplicado(previo, aulaPrevia),
+            return new ConsultaEstudianteDto(retirado ? "RETIRADO" : "DUPLICADO", mensaje,
                     codSis, est.usuario().getCiusuario(), est.nombreCompleto(), previo.getHoraIngreso(),
-                    aulaPrevia, false, true, true, aforo, estadoAula.cerrado());
+                    aulaPrevia, false, true, !retirado, aforo, estadoAula.cerrado());
         }
 
         HabilitacionExamen habilitacion = estudianteExamenService.habilitacion(codSis, ambiente);
-        String estado;
-        String mensaje;
-        boolean autorizable = puedeAutorizar;
-        switch (habilitacion.estado()) {
-            case HABILITADO -> {
-                estado = "HABILITADO";
-                mensaje = "Está habilitado: debe registrar su ingreso por el control normal.";
-                autorizable = false;
-            }
-            case INHABILITADO -> {
-                estado = "INHABILITADO";
-                mensaje = "Inhabilitado para este examen"
-                        + (habilitacion.observacion() == null ? "." : ": " + habilitacion.observacion());
-            }
-            default -> {
-                estado = "NO_EN_LISTA";
-                mensaje = "No figura en la lista de habilitados de este examen.";
-            }
+        if (habilitacion.estado() == EstadoHabilitacion.HABILITADO) {
+            return new ConsultaEstudianteDto("HABILITADO",
+                    "Está habilitado: debe registrar su ingreso por el control normal.",
+                    codSis, est.usuario().getCiusuario(), est.nombreCompleto(), null, null,
+                    false, true, false, aforo, estadoAula.cerrado());
         }
-        if (autorizable && estadoAula.cerrado()) {
-            mensaje = mensaje + " " + estadoAula.motivo();
+
+        String estado = habilitacion.estado() == EstadoHabilitacion.INHABILITADO ? "INHABILITADO" : "NO_EN_LISTA";
+        String mensaje = habilitacion.estado() == EstadoHabilitacion.INHABILITADO
+                ? "Inhabilitado para este examen" + (habilitacion.observacion() == null ? "." : ": " + habilitacion.observacion())
+                : "No figura en la lista de habilitados de este examen.";
+        boolean autorizable = !usuario.esOperador() && bloqueoAula == null;
+        if (!usuario.esOperador() && bloqueoAula != null) {
+            mensaje = mensaje + " No se puede autorizar el ingreso excepcional: " + bloqueoAula;
+            if (flujoExcepcional) {
+                auditarIntentoRechazado(usuario, est, info, ambiente, bloqueoAula, ip);
+            }
         }
         return new ConsultaEstudianteDto(estado, mensaje, codSis, est.usuario().getCiusuario(), est.nombreCompleto(),
                 null, null, autorizable, true, false, aforo, estadoAula.cerrado());
@@ -279,6 +284,13 @@ public class IngresoExcepcionalService {
     // -------------------------------------------------------------------------
     // Auxiliares
     // -------------------------------------------------------------------------
+
+    /** Intento de ingreso excepcional que se rechaza ya al buscar al estudiante. */
+    private void auditarIntentoRechazado(UsuarioActual usuario, EstudianteEncontrado est, AmbienteInfo info,
+                                         Ambiente ambiente, String motivo, String ip) {
+        auditoriaService.registrar("INGRESO_EXCEPCIONAL_RECHAZADO", usuario.correo(), est.usuario().getCorreousuario(),
+                info.asignatura() + " · examen " + ambiente.getIdExamen() + " · " + info.aula() + " · " + motivo, ip);
+    }
 
     /** Audita el rechazo y devuelve la excepción para lanzarla. */
     private RuntimeException rechazar(UsuarioActual usuario, String correoEstudiante, String detalles, String ip,
