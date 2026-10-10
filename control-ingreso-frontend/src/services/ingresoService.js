@@ -2,6 +2,9 @@
 // ÚNICO archivo que habla con el backend.
 // Por defecto usa el backend real. Para una demo sin backend: VITE_INGRESO_MOCK=true en el .env
 
+
+import { validarIngreso as validarIngresoOffline } from "../offline/validationEngine.js";
+import { configRepo } from "../offline/configRepo.js";
 import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken, obtenerUsuarioActual, cerrarSesion } from "./authService";
 import { EXAMENES_MOCK, FILAS_MOCK, crearNominasMock, formatearHora } from "./datosMockIngreso";
@@ -171,6 +174,53 @@ const MAPA_ESTADOS = {
 };
 
 export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = {}, objOpciones = {}) {
+  const offlineForzado = await configRepo.obtenerConfig('modoOfflineForzado', false);
+  if (offlineForzado || (typeof navigator !== "undefined" && !navigator.onLine)) {
+    const u = obtenerUsuarioActual();
+    const resOffline = await validarIngresoOffline({
+      examenId: objExamen.idexamen ?? idExamen,
+      idasignatura: objExamen.idasignatura,
+      idambiente: objExamen.idambiente,
+      lectura: strValor,
+      metodo: strMetodo === 'QR' ? 'QR' : (strMetodo === 'LISTA' ? 'CODIGO' : 'CI'),
+      operadorId: u ? u.id : 1,
+      rol: u ? u.rol : 'OPERADOR',
+      rangoApellidos: objOpciones.ignorarFila ? null : objExamen.fila,
+      registrar: true
+    });
+    
+    // Mapeo del resultado offline al formato esperado por useControlIngreso.js
+    const estOffline = resOffline.estudiante;
+    const mapeado = {
+      resultado: resOffline.resultado === 'YA_MARCADO' ? 'YA_REGISTRADO' : (resOffline.resultado === 'SIN_NOMINA_LOCAL' ? 'NO_ENCONTRADO' : resOffline.resultado),
+      valor: strValor,
+      metodo: strMetodo,
+      mensaje: resOffline.motivo || 'Registrado offline',
+      estudiante: estOffline ? {
+        idusuario: 0,
+        ci: estOffline.ci,
+        sis: estOffline.codigoSis,
+        nombres: estOffline.nombre,
+        apellidos: estOffline.apellidoPaterno,
+        carrera: estOffline.carrera,
+        aulaAsignada: estOffline.aulaAsignada,
+        normaParticular: estOffline.normaParticular
+      } : null,
+      horaIngreso: resOffline.marcadoEn ? soloHora(resOffline.marcadoEn) : soloHora(new Date().toISOString()),
+      fechaIngreso: resOffline.marcadoEn ? soloFecha(resOffline.marcadoEn) : soloFecha(new Date().toISOString()),
+      registradoPor: resOffline.marcadoPor || (u ? u.nombre : 'Operador Local'),
+      ingresoPrevio: resOffline.resultado === 'YA_MARCADO' ? {
+         hora: soloHora(resOffline.marcadoEn || new Date().toISOString()),
+         fecha: soloFecha(resOffline.marcadoEn || new Date().toISOString()),
+         aula: estOffline?.aulaAsignada,
+         registradoPor: resOffline.marcadoPor
+      } : null,
+      motivos: resOffline.motivo ? [resOffline.motivo] : [],
+      filaCorrecta: null
+    };
+    return mapeado;
+  }
+
   if (USAR_MOCK) return simular(mockValidar(idExamen, strValor, strMetodo, objOpciones), 250);
 
   const strIdentificador = String(strValor).trim();

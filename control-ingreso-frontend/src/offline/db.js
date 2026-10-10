@@ -16,7 +16,7 @@ db.version(1).stores({
   fotos: 'codigoSis',
 
   // Asistencias: PK clientUuid. Índice compuesto para backoff de reintentos
-  asistencias_pendientes: 'clientUuid, [syncStatus+nextRetryAt], [examenId+codigoSis], examenId, syncStatus',
+  asistencias_pendientes: 'clientUuid, [syncStatus+nextRetryAt], [examenId+codigoSis], examenId, syncStatus, idasignatura, idambiente',
 
   // Logs de auditoría con batchId
   logs_sincronizacion: '++id, batchId, timestamp'
