@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     registrarExamen,
     obtenerAsignaturasPorDocente,
@@ -76,8 +76,11 @@ function IconoNormas() {
     );
 }
 
-export default function ExamenForm({ onCancelar }) {
+export default function ExamenForm({ onCancelar, onRegistrado }) {
     const objUsuario = obtenerUsuarioActual();
+    // Si el padre pasa onRegistrado, se llama poco después de guardar (deja ver el mensaje de éxito).
+    const refTemporizadorRegistrado = useRef(null);
+    useEffect(() => () => clearTimeout(refTemporizadorRegistrado.current), []);
 
     const intCodsisDocente = objUsuario?.codsisDocente ?? null;
 
@@ -471,6 +474,9 @@ export default function ExamenForm({ onCancelar }) {
             await registrarExamen(objBody);
             setStrTipoMensaje("exito");
             setStrMensaje("Examen registrado correctamente.");
+            if (onRegistrado) {
+                refTemporizadorRegistrado.current = setTimeout(onRegistrado, 1200);
+            }
         } catch (error) {
             setStrTipoMensaje("error");
             setStrMensaje(error.message || "Ocurrió un error al registrar el examen.");
@@ -482,18 +488,18 @@ export default function ExamenForm({ onCancelar }) {
     return (
         <form onSubmit={handleSubmit} className="bg-white rounded-lg overflow-hidden">
             <div className="flex items-center gap-3 p-6 pb-0">
-                <div className="w-10 h-10 rounded-lg bg-[#163F79] flex items-center justify-center text-white">
+                <div className="w-10 h-10 rounded-lg bg-[#003770] flex items-center justify-center text-white">
                     <IconoDocumento />
                 </div>
                 <div>
-                    <h2 className="text-[19px] font-bold text-[#163F79]">Registrar examen</h2>
-                    <p className="text-[12.5px] text-gray-500">
+                    <h2 className="text-[19px] font-bold text-[#003770]">Registrar examen</h2>
+                    <p className="text-[13px] text-gray-500">
                         Complete el formulario para programar la evaluación académica
                     </p>
                 </div>
             </div>
 
-            <div className="bg-[#EBF3FA] px-6 py-2.5 mt-4 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
+            <div className="bg-[#EFF6FF] px-6 py-2.5 mt-4 font-bold text-[13px] text-[#003770] flex items-center gap-2">
                 <IconoInfo />
                 Información del examen
             </div>
@@ -501,7 +507,7 @@ export default function ExamenForm({ onCancelar }) {
             <div className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-3.5">
                     <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
                             Asignatura <span className="text-red-600">*</span>
                         </label>
                         <select
@@ -509,7 +515,7 @@ export default function ExamenForm({ onCancelar }) {
                             value={objFormData.idAsignatura}
                             onChange={handleChangeAsignatura}
                             required
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] px-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                         >
                             <option value="" disabled>Seleccione una asignatura</option>
                             {arrAsignaturas.map((a) => (
@@ -520,7 +526,7 @@ export default function ExamenForm({ onCancelar }) {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
                             Tipo de Examen <span className="text-red-600">*</span>
                         </label>
                         <select
@@ -529,7 +535,7 @@ export default function ExamenForm({ onCancelar }) {
                             onChange={handleChange}
                             required
                             disabled={!objFormData.idAsignatura}
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15 disabled:opacity-50 disabled:bg-gray-50"
+                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] px-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15 disabled:opacity-50 disabled:bg-gray-50"
                         >
                             <option value="" disabled>Seleccione el tipo</option>
                             {arrTiposExamen.map((tipo) => {
@@ -567,14 +573,14 @@ export default function ExamenForm({ onCancelar }) {
                 </div>
 
                 {!objFormData.idAsignatura && (
-                    <p className="text-[11.5px] text-gray-500 -mt-2.5">
+                    <p className="text-[13px] text-gray-500 -mt-2.5">
                         Seleccione una asignatura para continuar.
                     </p>
                 )}
 
                 {boolRequiereDescripcion && (
                     <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
                             Especifique tipo de examen <span className="text-red-600">*</span>
                         </label>
                         <input
@@ -585,9 +591,9 @@ export default function ExamenForm({ onCancelar }) {
                             onChange={handleChange}
                             required
                             placeholder="Ej. Tercer parcial, Examen extraordinario, etc."
-                            className="h-[42px] w-full border border-[#2B6CB0] rounded-md text-[13.5px] px-3 bg-[#2B6CB0]/[0.06] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                            className="h-[42px] w-full border border-[#003770] rounded-md text-[14.5px] px-3 bg-[#003770]/[0.06] focus:ring-3 focus:ring-[#003770]/15"
                         />
-                        <p className="text-[10.5px] text-gray-500 text-right mt-1">
+                        <p className="text-[13px] text-gray-500 text-right mt-1">
                             {objFormData.detalleTipoExamen.length}/60
                         </p>
                     </div>
@@ -595,7 +601,7 @@ export default function ExamenForm({ onCancelar }) {
 
                 <fieldset disabled={!objFormData.idAsignatura} className="space-y-4 disabled:opacity-50">
                     <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
                             Horario <span className="text-red-600">*</span>
                         </label>
 
@@ -606,7 +612,7 @@ export default function ExamenForm({ onCancelar }) {
                                         type="radio"
                                         checked={strTipoHorario === "REGULAR"}
                                         onChange={() => setStrTipoHorario("REGULAR")}
-                                        className="accent-[#163F79]"
+                                        className="accent-[#003770]"
                                     />
                                     Horario regular
                                 </label>
@@ -615,7 +621,7 @@ export default function ExamenForm({ onCancelar }) {
                                         type="radio"
                                         checked={strTipoHorario === "EVENTUAL"}
                                         onChange={() => setStrTipoHorario("EVENTUAL")}
-                                        className="accent-[#163F79]"
+                                        className="accent-[#003770]"
                                     />
                                     Horario eventual
                                 </label>
@@ -627,7 +633,7 @@ export default function ExamenForm({ onCancelar }) {
                                 value={idHorarioRegularSeleccionado}
                                 onChange={(e) => setIdHorarioRegularSeleccionado(e.target.value)}
                                 required
-                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] px-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                             >
                                 <option value="" disabled>Seleccione un horario</option>
                                 {arrHorariosRegulares.map((h) => (
@@ -641,7 +647,7 @@ export default function ExamenForm({ onCancelar }) {
                         {strTipoHorario === "EVENTUAL" && (
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-[11.5px] text-gray-500 mb-1">Hora inicio</label>
+                                    <label className="block text-[13px] text-gray-500 mb-1">Hora inicio</label>
                                     <input
                                         type="time"
                                         name="horaInicio"
@@ -650,11 +656,11 @@ export default function ExamenForm({ onCancelar }) {
                                         required
                                         min={HORA_ACADEMICA_INICIO}
                                         max={HORA_ACADEMICA_FIN}
-                                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
+                                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] px-3"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[11.5px] text-gray-500 mb-1">Hora fin</label>
+                                    <label className="block text-[13px] text-gray-500 mb-1">Hora fin</label>
                                     <input
                                         type="time"
                                         name="horaFin"
@@ -663,24 +669,24 @@ export default function ExamenForm({ onCancelar }) {
                                         required
                                         min={HORA_ACADEMICA_INICIO}
                                         max={HORA_ACADEMICA_FIN}
-                                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
+                                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] px-3"
                                     />
                                 </div>
-                                <p className="text-[11px] text-gray-500 col-span-2">
+                                <p className="text-[13px] text-gray-500 col-span-2">
                                     Dentro del horario académico ({HORA_ACADEMICA_INICIO} - {HORA_ACADEMICA_FIN}).
                                 </p>
                             </div>
                         )}
 
                         {arrHorariosRegulares.length === 0 && objFormData.idAsignatura && (
-                            <p className="text-[11.5px] text-gray-500 mt-1.5">
+                            <p className="text-[13px] text-gray-500 mt-1.5">
                                 No tiene un horario regular para esta asignatura, complete un horario eventual.
                             </p>
                         )}
                     </div>
 
                     <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
                             Fecha del Examen <span className="text-red-600">*</span>
                         </label>
                         <input
@@ -690,20 +696,20 @@ export default function ExamenForm({ onCancelar }) {
                             onChange={handleChange}
                             required
                             min={new Date().toISOString().slice(0, 10)}
-                            className={`h-[42px] w-full border rounded-md text-[13.5px] px-3 focus:ring-3 ${boolFechaNoCoincide
+                            className={`h-[42px] w-full border rounded-md text-[14.5px] px-3 focus:ring-3 ${boolFechaNoCoincide
                                 ? "border-red-400 focus:border-red-500 focus:ring-red-400/15"
-                                : "border-[#C8D6E8] focus:border-[#2B6CB0] focus:ring-[#2B6CB0]/15"
+                                : "border-[#C8D6E8] focus:border-[#003770] focus:ring-[#003770]/15"
                                 }`}
                         />
                         {boolFechaNoCoincide && (
-                            <p className="text-[11px] text-red-600 mt-1">
+                            <p className="text-[13px] text-red-600 mt-1">
                                 La fecha no corresponde a {DIAS_SEMANA[objHorarioSeleccionado.diaSemana]}, el día de ese horario regular.
                             </p>
                         )}
                     </div>
 
                     <div className="relative">
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
                             Ambiente(s) {strTipoHorario === "EVENTUAL" && <span className="text-red-600">*</span>}
                         </label>
 
@@ -711,8 +717,8 @@ export default function ExamenForm({ onCancelar }) {
                             <div className="mb-2.5">
                                 <div className="flex flex-wrap items-center gap-1.5">
                                     <span
-                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold ${idAulaSeleccionadaRegular
-                                            ? "bg-[#EBF3FA] text-[#163F79] border border-[#D3E2F5]"
+                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-semibold ${idAulaSeleccionadaRegular
+                                            ? "bg-[#EFF6FF] text-[#003770] border border-[#BFDBFE]"
                                             : "bg-[#F4F6FA] text-[#5E6B8A] border border-[#E2E8F0]"
                                             }`}
                                     >
@@ -722,7 +728,7 @@ export default function ExamenForm({ onCancelar }) {
                                         <button
                                             type="button"
                                             onClick={() => setBoolCambiandoAulaRegular(true)}
-                                            className="text-[11.5px] text-[#2B6CB0] font-semibold"
+                                            className="text-[13px] text-[#003770] font-semibold"
                                         >
                                             Cambiar aula
                                         </button>
@@ -731,7 +737,7 @@ export default function ExamenForm({ onCancelar }) {
                                         <button
                                             type="button"
                                             onClick={handleRestablecerAulaPrincipal}
-                                            className="text-[11.5px] text-gray-500 font-semibold"
+                                            className="text-[13px] text-gray-500 font-semibold"
                                         >
                                             Usar la aula del horario
                                         </button>
@@ -749,7 +755,7 @@ export default function ExamenForm({ onCancelar }) {
                                             onFocus={() => setBoolSugerenciasAulaPrincipalVisibles(true)}
                                             onBlur={() => setTimeout(() => setBoolSugerenciasAulaPrincipalVisibles(false), 150)}
                                             autoFocus
-                                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] pl-9 pr-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                                         />
                                         {boolSugerenciasAulaPrincipalVisibles && (
                                             <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
@@ -758,7 +764,7 @@ export default function ExamenForm({ onCancelar }) {
                                                         <div
                                                             key={aula.idAula}
                                                             onMouseDown={() => handleElegirAulaPrincipal(aula)}
-                                                            className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
+                                                            className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EFF6FF]"
                                                         >
                                                             {aula.nombreAula}
                                                         </div>
@@ -773,7 +779,7 @@ export default function ExamenForm({ onCancelar }) {
                                         <button
                                             type="button"
                                             onClick={() => setBoolCambiandoAulaRegular(false)}
-                                            className="text-[11.5px] text-gray-500 font-semibold mt-1.5"
+                                            className="text-[13px] text-gray-500 font-semibold mt-1.5"
                                         >
                                             Cancelar
                                         </button>
@@ -791,7 +797,7 @@ export default function ExamenForm({ onCancelar }) {
                                 onChange={(e) => setStrBusquedaAula(e.target.value)}
                                 onFocus={() => setBoolSugerenciasAulaVisibles(true)}
                                 onBlur={() => setTimeout(() => setBoolSugerenciasAulaVisibles(false), 150)}
-                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] pl-9 pr-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                             />
                             {boolSugerenciasAulaVisibles && (
                                 <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
@@ -800,7 +806,7 @@ export default function ExamenForm({ onCancelar }) {
                                             <div
                                                 key={aula.idAula}
                                                 onMouseDown={() => handleAgregarAula(aula)}
-                                                className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
+                                                className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EFF6FF]"
                                             >
                                                 {aula.nombreAula}
                                             </div>
@@ -820,13 +826,13 @@ export default function ExamenForm({ onCancelar }) {
                                 return (
                                     <span
                                         key={idAula}
-                                        className="inline-flex items-center gap-1.5 bg-[#EBF3FA] text-[#163F79] border border-[#D3E2F5] px-2.5 py-1 rounded-full text-[12px] font-semibold"
+                                        className="inline-flex items-center gap-1.5 bg-[#EFF6FF] text-[#003770] border border-[#BFDBFE] px-2.5 py-1 rounded-full text-[13px] font-semibold"
                                     >
                                         {aula.nombreAula}
                                         <button
                                             type="button"
                                             onClick={() => handleQuitarAula(idAula)}
-                                            className="text-[#2B6CB0] font-bold leading-none"
+                                            className="text-[#003770] font-bold leading-none"
                                         >
                                             &times;
                                         </button>
@@ -838,14 +844,14 @@ export default function ExamenForm({ onCancelar }) {
                 </fieldset>
             </div>
 
-            <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
+            <div className="bg-[#EFF6FF] px-6 py-2.5 font-bold text-[13px] text-[#003770] flex items-center gap-2">
                 <IconoNormas />
                 Normas e indicaciones
             </div>
 
             <div className="p-6 space-y-4">
                 <div>
-                    <label className="block text-[12.5px] font-semibold text-[#163F79] mb-2">
+                    <label className="block text-[13px] font-semibold text-[#003770] mb-2">
                         Normas generales
                     </label>
                     <div className="flex flex-col gap-2">
@@ -855,7 +861,7 @@ export default function ExamenForm({ onCancelar }) {
                                     type="checkbox"
                                     checked={arrIdNormasSeleccionadas.includes(norma.idNormaGeneral)}
                                     onChange={() => handleToggleNormaGeneral(norma.idNormaGeneral)}
-                                    className="w-4 h-4 mt-0.5 accent-[#163F79]"
+                                    className="w-4 h-4 mt-0.5 accent-[#003770]"
                                 />
                                 {norma.descripcionNorma}
                             </label>
@@ -864,7 +870,7 @@ export default function ExamenForm({ onCancelar }) {
                 </div>
 
                 <div>
-                    <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                    <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
                         Normas particulares
                     </label>
                     <div className="flex gap-2 mb-2">
@@ -879,14 +885,14 @@ export default function ExamenForm({ onCancelar }) {
                                     : "Escriba una indicación y presione Agregar"
                             }
                             className={`h-[38px] flex-1 border rounded-md text-[13px] px-3 ${intIndexNormaEnEdicion !== null
-                                ? "border-[#2B6CB0] bg-[#2B6CB0]/[0.06]"
+                                ? "border-[#003770] bg-[#003770]/[0.06]"
                                 : "border-[#C8D6E8]"
                                 }`}
                         />
                         <button
                             type="button"
                             onClick={handleAgregarNormaEspecifica}
-                            className="h-[38px] px-4 rounded-md border border-[#163F79] text-[#163F79] text-[13px] font-semibold"
+                            className="h-[38px] px-4 rounded-md border border-[#003770] text-[#003770] text-[13px] font-semibold"
                         >
                             {intIndexNormaEnEdicion !== null ? "Guardar cambios" : "Agregar"}
                         </button>
@@ -904,8 +910,8 @@ export default function ExamenForm({ onCancelar }) {
                         {arrNormasEspecificas.map((norma, index) => (
                             <div
                                 key={index}
-                                className={`flex items-center justify-between border rounded-md px-3 py-1.5 text-[12.5px] text-gray-700 ${intIndexNormaEnEdicion === index
-                                    ? "bg-[#2B6CB0]/[0.06] border-[#2B6CB0]"
+                                className={`flex items-center justify-between border rounded-md px-3 py-1.5 text-[13px] text-gray-700 ${intIndexNormaEnEdicion === index
+                                    ? "bg-[#003770]/[0.06] border-[#003770]"
                                     : "bg-[#F4F7FB] border-[#E2E8F0]"
                                     }`}
                             >
@@ -914,7 +920,7 @@ export default function ExamenForm({ onCancelar }) {
                                     <button
                                         type="button"
                                         onClick={() => handleEditarNormaEspecifica(index)}
-                                        className="text-[#2B6CB0] font-semibold text-[13px]"
+                                        className="text-[#003770] font-semibold text-[13px]"
                                         title="Editar"
                                     >
                                         ✎
@@ -935,7 +941,7 @@ export default function ExamenForm({ onCancelar }) {
 
             {strMensaje && (
                 <p
-                    className={`px-6 text-[12.5px] font-semibold ${strTipoMensaje === "error" ? "text-red-600" : "text-[#1C8A4C]"
+                    className={`px-6 text-[13px] font-semibold ${strTipoMensaje === "error" ? "text-red-600" : "text-[#003770]"
                         }`}
                 >
                     {strMensaje}
@@ -943,21 +949,21 @@ export default function ExamenForm({ onCancelar }) {
             )}
 
             <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100">
-                <span className="text-[11.5px] text-gray-500">
+                <span className="text-[13px] text-gray-500">
                     Campos con (<span className="text-red-600">*</span>) son obligatorios
                 </span>
                 <div className="flex gap-2.5">
                     <button
                         type="button"
                         onClick={onCancelar}
-                        className="h-[42px] px-5 rounded-md border border-[#C8D6E8] text-[#163F79] font-semibold text-[13.5px]"
+                        className="h-[42px] px-5 rounded-md border border-[#C8D6E8] text-[#003770] font-semibold text-[14.5px]"
                     >
                         Cancelar
                     </button>
                     <button
                         type="submit"
                         disabled={boolEnviando}
-                        className="h-[42px] px-5 rounded-md bg-[#163F79] text-white font-semibold text-[13.5px] disabled:opacity-60"
+                        className="h-[42px] px-5 rounded-md bg-[#003770] text-white font-semibold text-[14.5px] disabled:opacity-60"
                     >
                         {boolEnviando ? "Registrando..." : "Registrar examen"}
                     </button>

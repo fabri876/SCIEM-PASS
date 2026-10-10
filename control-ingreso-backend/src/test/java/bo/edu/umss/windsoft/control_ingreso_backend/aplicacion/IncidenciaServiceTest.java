@@ -3,6 +3,8 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Asignatura;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Aula;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamen;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignatura;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignaturaId;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.EstadoIncidencia;
@@ -20,6 +22,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoE
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AsignaturaRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AulaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteAsignaturaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
@@ -81,16 +84,19 @@ class IncidenciaServiceTest {
     @Mock private AsignaturaRepository asignaturaRepository;
     @Mock private ExamenRepository examenRepository;
     @Mock private DocenteAsignaturaRepository docenteAsignaturaRepository;
+    @Mock private AyudanteExamenRepository ayudanteExamenRepository;
     @Mock private EstudianteRepository estudianteRepository;
     @Mock private HabilitacionRepository habilitacionRepository;
     @Mock private EvidenciaService evidenciaService;
     @Mock private AuditoriaService auditoriaService;
 
     private IncidenciaService service;
+    private Examen examen;
 
     @BeforeEach
     void setUp() {
-        ContextoUsuarioService contexto = new ContextoUsuarioService(docenteAsignaturaRepository, auditoriaService);
+        ContextoUsuarioService contexto = new ContextoUsuarioService(docenteAsignaturaRepository, examenRepository,
+                ayudanteExamenRepository, auditoriaService);
         AmbienteExamenService ambientes = new AmbienteExamenService(ambienteRepository, aulaRepository,
                 asignaturaRepository, examenRepository, ingresoRepository, contexto);
         EstudianteExamenService estudiantes = new EstudianteExamenService(estudianteRepository, usuarioRepository,
@@ -114,10 +120,12 @@ class IncidenciaServiceTest {
         asignatura.setIdAsignatura(ID_ASIGNATURA);
         asignatura.setNombreAsignatura("Cálculo I");
         when(asignaturaRepository.findAllById(any())).thenReturn(List.of(asignatura));
-        Examen examen = new Examen();
+        examen = new Examen();
         examen.setIdExamen(ID_EXAMEN);
         examen.setFechaExamen(HoraOficial.hoy());
+        examen.setIdUsuario(ID_DOCENTE); // la docente es la responsable (asignada) del examen
         when(examenRepository.findAllById(any())).thenReturn(List.of(examen));
+        when(examenRepository.findById(ID_EXAMEN)).thenReturn(Optional.of(examen));
 
         when(docenteAsignaturaRepository.findByIdIdusuario(ID_DOCENTE)).thenReturn(List.of(
                 new DocenteAsignatura(new DocenteAsignaturaId(ID_DOCENTE, 1001, ID_ASIGNATURA))));
@@ -184,12 +192,61 @@ class IncidenciaServiceTest {
     }
 
     @Test
-    @DisplayName("El operador puede registrar incidencias")
+    @DisplayName("El operador puede registrar incidencias en el aula de examen que tiene asignada")
     void registrar_operador() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
+        AyudanteExamenId asignacion = new AyudanteExamenId(70, ID_ASIGNATURA, ID_EXAMEN, ID_AMBIENTE);
+        when(ayudanteExamenRepository.findById(asignacion))
+                .thenReturn(Optional.of(new AyudanteExamen(asignacion, "ACTIVO")));
 
         assertNotNull(service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "FALLA_TECNICA", "BAJA",
                 "El lector QR dejó de funcionar.", null, false, null, "ip"));
+    }
+
+    @Test
+    @DisplayName("Operador sin esa aula asignada (o con la asignación inactiva): 403 y auditado")
+    void registrar_operadorSinAsignacion() {
+        autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
+        AyudanteExamenId asignacion = new AyudanteExamenId(70, ID_ASIGNATURA, ID_EXAMEN, ID_AMBIENTE);
+        when(ayudanteExamenRepository.findById(asignacion))
+                .thenReturn(Optional.of(new AyudanteExamen(asignacion, "INACTIVO")));
+
+        AccesoDenegadoException ex = assertThrows(AccesoDenegadoException.class,
+                () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "FALLA_TECNICA", "BAJA",
+                        "El lector QR dejó de funcionar.", null, false, null, "ip"));
+        assertEquals("No tiene asignada esta aula de examen.", ex.getMessage());
+        verify(auditoriaService).registrar(eq("ACCESO_DENEGADO"), anyString(), anyString(), anyString(), anyString());
+        verify(incidenciaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("Docente no asignado al examen: no puede registrar incidencias en él")
+    void registrar_docenteNoAsignado() {
+        examen.setIdUsuario(999);
+
+        assertThrows(AccesoDenegadoException.class, () -> service.registrar(UUID.randomUUID().toString(),
+                ID_AMBIENTE, "OTRO", "BAJA", DESCRIPCION, null, false, null, "ip"));
+        verify(incidenciaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("Se puede registrar después del examen (examen de hace 3 días)")
+    void registrar_despuesDelExamen() {
+        examen.setFechaExamen(HoraOficial.hoy().minusDays(3));
+
+        IncidenciaDetalleDto dto = service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OTRO", "BAJA",
+                DESCRIPCION, null, false, null, "ip");
+        assertEquals("ABIERTA", dto.estado());
+    }
+
+    @Test
+    @DisplayName("No se puede registrar una incidencia de un examen que todavía no se tomó")
+    void registrar_examenFuturo() {
+        examen.setFechaExamen(HoraOficial.hoy().plusDays(2));
+
+        assertThrows(ConflictoEstadoException.class, () -> service.registrar(UUID.randomUUID().toString(),
+                ID_AMBIENTE, "OTRO", "BAJA", DESCRIPCION, null, false, null, "ip"));
+        verify(incidenciaRepository, never()).saveAndFlush(any());
     }
 
     @Test

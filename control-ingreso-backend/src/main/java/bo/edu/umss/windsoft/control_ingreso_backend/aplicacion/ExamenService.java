@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 @Service
 public class ExamenService {
 
+    private final CambioExamenService cambiosExamen;
     private final ExamenRepository examenRepository;
     private final AmbienteRepository ambienteRepository;
     private final DocenteAsignaturaRepository docenteAsignaturaRepository;
@@ -53,8 +54,9 @@ public class ExamenService {
             DocenteRepository docenteRepository,
             AsignaturaRepository asignaturaRepository,
             UsuarioRepository usuarioRepository,
-            NormaGeneralRepository normaGeneralRepository) { // <-- NUEVO
+            NormaGeneralRepository normaGeneralRepository, CambioExamenService cambiosExamen) { // <-- NUEVO
 
+        this.cambiosExamen = cambiosExamen;
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
         this.docenteAsignaturaRepository = docenteAsignaturaRepository;
@@ -119,6 +121,7 @@ public class ExamenService {
             request.setCodsisDocente(docente.getCodsisdocente());
         }
 
+        var antes = cambiosExamen.estado(examenExistente.getFechaExamen(), ambienteRepository.findByIdExamen(idExamen));
         ambienteRepository.deleteAll(ambienteRepository.findByIdExamen(idExamen));
         examenNormaGeneralRepository.deleteAll(
                 examenNormaGeneralRepository.findByIdIdExamen(idExamen));
@@ -127,6 +130,8 @@ public class ExamenService {
                         examenExistente.getIdAsignatura(), idExamen));
 
         Examen actualizado = crearOActualizarExamen(examenExistente, request);
+        ambienteRepository.flush();
+        cambiosExamen.registrar(idExamen, antes, cambiosExamen.estado(actualizado.getFechaExamen(), ambienteRepository.findByIdExamen(idExamen)));
         return enriquecerExamen(actualizado);
     }
 
@@ -566,7 +571,13 @@ public class ExamenService {
         if (request.getFechaExamen() == null) {
             throw new IllegalArgumentException("La fecha del examen es obligatoria.");
         }
-        if (request.getFechaExamen().isBefore(LocalDateTime.now())) {
+        // El frontend manda la fecha a medianoche ("fecha" + "T00:00:00"), así que
+        // compararla tal cual con la hora actual rechazaba cualquier examen del mismo
+        // día. Se compara el inicio real del examen (fecha + hora de inicio) con la
+        // hora oficial de Bolivia (el servidor de deploy puede estar en UTC).
+        LocalDateTime inicioExamen = request.getFechaExamen().toLocalDate()
+                .atTime(request.getHoraInicio() != null ? request.getHoraInicio() : LocalTime.MIDNIGHT);
+        if (inicioExamen.isBefore(HoraOficial.ahora())) {
             throw new IllegalArgumentException(
                     "La fecha del examen no puede ser anterior a la fecha actual.");
         }

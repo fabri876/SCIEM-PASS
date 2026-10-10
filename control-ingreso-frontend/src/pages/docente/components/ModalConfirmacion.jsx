@@ -17,8 +17,8 @@ export default function ModalConfirmacion({ mostrar, estudiante, motivoTexto, gu
                         <Icono nombre="advertencia" className="w-6 h-6" />
                     </div>
                     <div className="space-y-1">
-                        <h3 className="font-black text-base text-[#1A365D]">¿Está seguro de realizar los cambios?</h3>
-                        <p className="text-xs text-slate-500 leading-relaxed">{mensaje}</p>
+                        <h3 className="font-black text-base text-[#003770]">¿Está seguro de realizar los cambios?</h3>
+                        <p className="text-[13px] text-slate-500 leading-relaxed">{mensaje}</p>
                     </div>
                 </div>
 
@@ -26,20 +26,20 @@ export default function ModalConfirmacion({ mostrar, estudiante, motivoTexto, gu
                     esto un nombre largo (medido: "Michelle Beatriz Sandoval
                     Loayza" ocupa 190px) empujaba el bloque NUEVO ESTADO fuera
                     del modal en pantallas angostas. */}
-                <div className="bg-[#F8FAFC] border border-slate-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
+                <div className="bg-[#F8FAFC] border border-slate-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-[13px]">
                     <div className="min-w-0">
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase">ESTUDIANTE</span>
-                        <span className="font-extrabold text-[#1A365D] block truncate" title={nombre}>{nombre}</span>
+                        <span className="block text-[13px] font-bold text-slate-400 uppercase">ESTUDIANTE</span>
+                        <span className="font-extrabold text-[#003770] block truncate" title={nombre}>{nombre}</span>
                     </div>
                     <div className="text-right shrink-0">
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase">NUEVO ESTADO</span>
-                        <span className={`font-black ${habilitado ? 'text-emerald-600' : 'text-rose-600'}`}>{habilitado ? 'Habilitado' : 'Inhabilitado'}</span>
+                        <span className="block text-[13px] font-bold text-slate-400 uppercase">NUEVO ESTADO</span>
+                        <span className={`font-black ${habilitado ? 'text-[#003770]' : 'text-rose-600'}`}>{habilitado ? 'Habilitado' : 'Inhabilitado'}</span>
                     </div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
-                    <button type="button" onClick={onCancelar} disabled={guardando} className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition cursor-pointer disabled:opacity-50">Cancelar</button>
-                    <button type="button" onClick={onConfirmar} disabled={guardando} className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#2563EB] hover:bg-blue-700 transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50">
+                    <button type="button" onClick={onCancelar} disabled={guardando} className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 text-[13px] font-bold text-slate-600 bg-white hover:bg-slate-50 transition cursor-pointer disabled:opacity-50">Cancelar</button>
+                    <button type="button" onClick={onConfirmar} disabled={guardando} className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-[13px] font-bold text-white bg-[#003770] hover:bg-blue-700 transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50">
                         <span>✔</span> {guardando ? 'Guardando...' : 'Sí, confirmar'}
                     </button>
                 </div>

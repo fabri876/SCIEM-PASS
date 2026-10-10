@@ -24,7 +24,8 @@ public class JwtAccessDeniedHandler implements AccessDeniedHandler {
 
     // HU06: un rol sin permiso que intenta entrar a estas rutas queda en
     // auditoría como ACCESO_DENEGADO (criterio de QA).
-    private static final List<String> RUTAS_AUDITADAS = List.of("/api/incidencias", "/api/ingresos-excepcionales");
+    private static final List<String> RUTAS_AUDITADAS = List.of("/api/incidencias", "/api/ingresos-excepcionales",
+            "/api/monitoreo");
 
     private final ObjectMapper objectMapper;
     private final AuditoriaService auditoriaService;

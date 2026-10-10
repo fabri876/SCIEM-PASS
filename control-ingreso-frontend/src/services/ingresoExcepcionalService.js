@@ -22,10 +22,16 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
     ...(objOpciones.headers || {}),
   };
 
-  const response = await fetch(`${strApiBaseUrl}${strRuta}`, {
-    ...objOpciones,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${strApiBaseUrl}${strRuta}`, {
+      ...objOpciones,
+      headers,
+    });
+  } catch {
+    // Sin red o servidor caído: el backend no llegó a guardar nada.
+    throw new Error("No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo; no se guardó nada.");
+  }
 
   if (response.status === 401) {
     cerrarSesion();

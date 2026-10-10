@@ -11,13 +11,21 @@
 
 | Acción | ADMINISTRADOR | DOCENTE | OPERADOR | ESTUDIANTE |
 | :--- | :---: | :---: | :---: | :---: |
-| Autorizar ingreso excepcional | ✅ | ✅ solo sus materias | ❌ | ❌ |
-| Registrar incidencia | ✅ | ✅ solo sus materias | ✅ | ❌ |
-| Ver / revisar / cerrar incidencias | ✅ | ✅ solo sus materias | ❌ | ❌ |
-| Ver ingresos excepcionales | ✅ | ✅ solo sus materias | ❌ | ❌ |
+| Autorizar ingreso excepcional | ✅ | ✅ exámenes asignados | ❌ | ❌ |
+| Registrar incidencia | ✅ | ✅ exámenes asignados | ✅ aulas asignadas | ❌ |
+| Ver / revisar / cerrar incidencias | ✅ | ✅ exámenes asignados | ❌ | ❌ |
+| Ver ingresos excepcionales | ✅ | ✅ exámenes asignados | ❌ | ❌ |
+
+**Actualización 09/10/2026 (recomendación de la ingeniera):** todo se registra sobre un examen **ya asignado** a quien lo registra.
+- **DOCENTE:** exámenes de los que es responsable (`examen.idusuario`).
+- **OPERADOR:** aulas de examen asignadas y ACTIVAS en `ayudante_examen` (la misma asignación de la HU05).
+- **Incidencias:** se pueden registrar **el día del examen o después**, nunca antes. El ingreso excepcional sigue siendo solo durante el examen.
 
 - Rol sin permiso → `403` con `"Acceso denegado: su rol no tiene permiso para esta acción."`
-- Docente en una materia ajena → `403` con `"No es docente de esta materia."`
+- Docente de otra materia → `403` con `"No es docente de esta materia."`
+- Docente de la materia que no es el asignado al examen → `403` con `"No es el docente asignado a este examen."`
+- Operador sin esa aula asignada (o asignación inactiva) → `403` con `"No tiene asignada esta aula de examen."`
+- Incidencia de un examen futuro → `409` con `"El examen es el dd/MM/yyyy; todavía no se pueden registrar incidencias."`
 - Sin token o token vencido → `401`. El frontend muestra **"Tu sesión expiró, vuelve a iniciar sesión"** y no reintenta.
 - Todo acceso negado, ingreso excepcional (aceptado o rechazado), incidencia, retiro y cambio de estado queda en el **Historial de Auditoría**. El frontend no tiene que hacer nada para eso.
 
@@ -28,7 +36,8 @@
 | Método | Endpoint | Roles | Uso |
 | :--- | :--- | :--- | :--- |
 | GET | `/api/incidencias/catalogos` | A, D, O | Tipos, severidades, estados y motivos de excepción |
-| GET | `/api/incidencias/ambientes?fecha=` | A, D, O | Aulas de los exámenes del día (selector) |
+| GET | `/api/incidencias/ambientes?fecha=` | A, D, O | Aulas asignadas de un día (por defecto hoy): selector del **ingreso excepcional** |
+| GET | `/api/incidencias/aulas-asignadas` | A, D, O | Aulas asignadas de **todas las fechas hasta hoy** (más recientes primero): selector de **incidencias**. Mismo formato que `/ambientes` |
 | GET | `/api/incidencias/estudiante?idAmbiente=&q=` | A, D, O | Estudiante involucrado en una incidencia |
 | POST | `/api/incidencias` *(multipart)* | A, D, O | Registrar incidencia |
 | GET | `/api/incidencias?idExamen=&idAmbiente=&tipo=&estado=` | A, D | Lista + totales |
@@ -235,7 +244,7 @@ Usar `aforo` de la respuesta para actualizar "57/60 · quedan 3".
 | `severidad` | texto | ✅ | `codigo` de `severidades` |
 | `descripcion` | texto | ✅ | 15 a 500 caracteres |
 | `codSisEstudiante` | número | ❌ | Del estudiante involucrado |
-| `retirarEstudiante` | `true`/`false` | ❌ | Solo si el estudiante ya ingresó |
+| `retirarEstudiante` | `true`/`false` | ❌ | **No se usa** (09/10: la ingeniera pidió quitar el retiro de la interfaz). El frontend manda siempre `false` |
 | `evidencia` | archivo | ❌ | JPG o PNG, máx. 5 MB |
 
 `claveSolicitud` evita duplicados: si el usuario presiona dos veces, las dos peticiones llevan la misma clave y el backend devuelve la misma incidencia. Generar una clave nueva solo al abrir otra vez el formulario.
@@ -334,3 +343,34 @@ Una incidencia `CERRADA` no muestra botones de cambio de estado.
 - **Horas:** vienen en hora de Bolivia, sin zona (`"2026-10-04T08:21:57"`). Mostrarlas tal cual (`HH:mm`), sin convertir.
 - **Archivos:** validar en el navegador (JPG/PNG, ≤ 5 MB) para avisar rápido; el backend vuelve a validar el contenido real.
 - **Contadores de caracteres:** `maxLength={500}` en observación y descripción.
+
+---
+
+## 6. Integración con el punto de control (HU05)
+
+Los criterios de QA piden los botones "Autorizar ingreso excepcional", "Registrar incidencia" y "Rechazar y continuar" en el resultado del punto de control (pantallas de la HU05). Los modales de la HU06 ya están listos para usarse desde ahí:
+
+```jsx
+import ModalIncidencia from "../../../../components/incidencias/ModalIncidencia";
+import ModalIngresoExcepcional from "../../../../components/incidencias/ModalIngresoExcepcional";
+
+// aula = { idAmbiente, idExamen, asignatura, aula, fechaExamen, aforo } (formato de /api/incidencias/ambientes)
+<ModalIncidencia
+  boolAbierto={abrirIncidencia}
+  onCerrar={() => setAbrirIncidencia(false)}
+  aulasDisponibles={[aula]}
+  aulaPreseleccionada={aula}
+  estudianteInicial={{ nombreCompleto, ci, codSis, estado, horaIngresoPrevio, puedeRetirar }} // opcional
+/>
+<ModalIngresoExcepcional
+  boolAbierto={abrirExcepcional}
+  onCerrar={() => setAbrirExcepcional(false)}
+  aulasDisponibles={[aula]}
+  aulaPreseleccionada={aula}
+/>
+```
+
+- **"Autorizar ingreso excepcional":** mostrarlo solo a DOCENTE y ADMINISTRADOR. El operador nunca lo ve.
+- **"Registrar incidencia":** lo ven los tres roles.
+- **"Rechazar y continuar":** es solo del punto de control; limpia el resultado y no llama a la HU06.
+- **El "intento no autorizado" automático** lo guarda la HU05 al mostrar un rechazo (tabla `intentosnoautorizados`).

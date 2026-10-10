@@ -27,7 +27,7 @@ export default function PieSincronizacion({ onForzar }) {
     <footer className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
         <span className="text-[#1860A3]">Sincronizados Servidor: {formatearNumero(estadoRed.enviados)}</span>
-        <span className="text-[#475569]">{textoPendientes(estadoRed.pend)} offline</span>
+        <span className="text-[#64748B]">{textoPendientes(estadoRed.pend)} offline</span>
       </div>
 
       {bajo && (
@@ -36,7 +36,7 @@ export default function PieSincronizacion({ onForzar }) {
 
       <div className="flex items-center gap-3">
         <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
-          <div className="h-full rounded-full bg-[#1860A3] transition-all duration-500" style={{ width: ancho + "%" }}></div>
+          <div className="h-full rounded-full bg-[#4A97D3] transition-all duration-500" style={{ width: ancho + "%" }}></div>
         </div>
         <span className="text-[11px] font-bold text-slate-500 w-44 text-right shrink-0">{etiqueta}</span>
       </div>

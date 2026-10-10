@@ -14,10 +14,10 @@ export default function ModalPin({ visible, mensaje, fnConfirmar, fnCancelar }) 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <form onSubmit={fnEnviar} className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4">
-        <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-[#0B2545] text-white mx-auto">
+        <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-[#003770] text-white mx-auto">
           <Lock className="w-6 h-6" />
         </div>
-        <h3 className="text-lg font-black text-[#0B2545] text-center">Pantalla bloqueada</h3>
+        <h3 className="text-lg font-black text-[#003770] text-center">Pantalla bloqueada</h3>
         <p className="text-xs font-semibold text-slate-500 text-center">
           Inactividad detectada. El escaneo de fondo y la sincronización siguen activos. Ingresa tu PIN para
           continuar.
@@ -31,7 +31,7 @@ export default function ModalPin({ visible, mensaje, fnConfirmar, fnCancelar }) 
           placeholder="PIN 4–6 dígitos"
           value={strPin}
           onChange={(e) => setStrPin(e.target.value)}
-          className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#0B2545] focus:ring-2 focus:ring-[#0B2545]/20 text-xs font-bold outline-none transition-all text-center tracking-widest"
+          className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#003770] focus:ring-2 focus:ring-[#003770]/20 text-xs font-bold outline-none transition-all text-center tracking-widest"
         />
         <div className="flex gap-2">
           <button
@@ -43,7 +43,7 @@ export default function ModalPin({ visible, mensaje, fnConfirmar, fnCancelar }) 
           </button>
           <button
             type="submit"
-            className="flex-1 h-11 rounded-xl bg-[#0B2545] hover:bg-[#13315C] text-white font-extrabold text-xs transition-colors cursor-pointer"
+            className="flex-1 h-11 rounded-xl bg-[#003770] hover:bg-[#124B83] text-white font-extrabold text-xs transition-colors cursor-pointer"
           >
             Desbloquear
           </button>

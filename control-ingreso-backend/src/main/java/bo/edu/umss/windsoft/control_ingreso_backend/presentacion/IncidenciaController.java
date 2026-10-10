@@ -70,6 +70,17 @@ public class IncidenciaController {
                 ClientIpResolver.resolver(request)));
     }
 
+    /**
+     * Aulas de todos los exámenes asignados al usuario que ya se tomaron o se
+     * toman hoy (más recientes primero). Es la lista para registrar o revisar
+     * incidencias, que se pueden cargar después del examen.
+     */
+    @GetMapping("/aulas-asignadas")
+    public ResponseEntity<List<AmbienteControlDto>> aulasAsignadas(HttpServletRequest request) {
+        return ResponseEntity.ok(ambienteExamenService.listarAsignadas(contextoUsuarioService.actual(),
+                ClientIpResolver.resolver(request)));
+    }
+
     /** Estudiante involucrado: nombre y si ya ingresó, o estado NO_ENCONTRADO. */
     @GetMapping("/estudiante")
     public ResponseEntity<ConsultaEstudianteDto> buscarEstudiante(@RequestParam Integer idAmbiente,

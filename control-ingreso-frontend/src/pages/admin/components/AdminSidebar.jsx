@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Calendar, UserCheck, History, Shield, LogOut, AlertTriangle, BookOpen } from "lucide-react";
+import { Users, Calendar, UserCheck, History, Shield, LogOut, AlertTriangle, BookOpen, Activity } from "lucide-react";
 import { cerrarSesion } from "../../../services/authService";
 import { obtenerTotalIncidenciasAbiertas } from "../../../services/incidenciaService";
 
@@ -10,6 +10,7 @@ const baseMenuItems = [
     { id: "Roles y Permisos", label: "Roles y Permisos", icon: Shield },
     { id: "Registro de Exámenes", label: "Registro de Exámenes", icon: Calendar },
     { id: "Habilitación de Estudiantes", label: "Habilitación de Estudiantes", icon: UserCheck },
+    { id: "Monitoreo de Asistencia", label: "Monitoreo de Asistencia", icon: Activity },
     { id: "Incidencias", label: "Incidencias", icon: AlertTriangle, esIncidencia: true },
     { id: "Historial de Auditoría", label: "Historial de Auditoría", icon: History },
 ];
@@ -31,7 +32,12 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
             }
         }
         fnCargarContador();
-        return () => { cancel = true; };
+        // Se actualiza cuando la sección Incidencias registra, revisa o cierra algo.
+        window.addEventListener("incidencias:actualizadas", fnCargarContador);
+        return () => {
+            cancel = true;
+            window.removeEventListener("incidencias:actualizadas", fnCargarContador);
+        };
     }, [activeMenu]);
 
     const fnCerrarSesion = () => {
