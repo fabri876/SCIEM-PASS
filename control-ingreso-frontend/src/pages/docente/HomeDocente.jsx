@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Header from "../../components/layout/Header";
 import VentanaEmergente from "../../components/common/VentanaEmergente";
-import ExamenForm from "../../components/examenes/ExamenForm";
 import BulkUploadCard from "../admin/components/BulkUploadCard";
 import UsuarioFormFields from "../admin/components/UsuarioFormFields";
 import { obtenerUsuarioActual } from "../../services/authService";
@@ -18,11 +17,19 @@ import { useOperador } from "../control/operadorContexto";
 import ToastOperador from "../control/components/ToastOperador";
 import PieSincronizacion from "../control/components/PieSincronizacion";
 import { formatearNumero } from "../control/datosMockOperador";
+import CalendarioExamenes from "../credencial/componentes/CalendarioExamenes";
+import { fechaCorta } from "../credencial/componentes/formato";
+import SeccionMisExamenes from "./components/SeccionMisExamenes";
+import SeccionRegistrarExamen from "./components/SeccionRegistrarExamen";
+import TarjetaExamenInicio from "./components/TarjetaExamenInicio";
+import ProximoExamenDocente from "./components/ProximoExamenDocente";
+import AsignarOperadoresDocente from "./operadores/AsignarOperadoresDocente";
+import { estadoExamen, marcaTiempo } from "./utilidadesExamenDocente";
 
-// Un docente no puede registrar a otro docente, solo Ayudante o Estudiante
+// Un docente no puede registrar a otro docente, solo Operador o Estudiante
 // (el backend ya lo valida igual en UsuarioService.validarPermisosRegistro).
 const ROLES_REGISTRABLES_POR_DOCENTE = [
-    { valor: "OPERADOR", etiqueta: "Ayudante" },
+    { valor: "OPERADOR", etiqueta: "Operador" },
     { valor: "ESTUDIANTE", etiqueta: "Estudiante" },
 ];
 
@@ -67,7 +74,7 @@ function FilaConexionDocente() {
     );
 }
 
-function TarjetaExamenDocente({ examen }) {
+function TarjetaExamenDocente({ examen, boolResaltado = false }) {
     const navigate = useNavigate();
     const objCtx = useOperador();
     const objNomi = objCtx.listExamenes.find((e) => e.id === examen.idExamen);
@@ -81,9 +88,11 @@ function TarjetaExamenDocente({ examen }) {
     const porcentaje = examen.totalInscritos > 0
         ? Math.round((examen.ingresados / examen.totalInscritos) * 100)
         : 0;
+    // El botón siempre se ve en exámenes reales; la pantalla de control avisa si aún no es la hora
+    const boolPuedeIngreso = examen.esExamenReal !== false;
 
     return (
-        <div className="bg-white border border-[#CBD5E1] rounded-xl p-5 space-y-3">
+        <div id={`examen-${examen.idExamen}`} className={`bg-white border rounded-xl p-5 space-y-3 transition ${boolResaltado ? "border-[#1A365D] ring-2 ring-[#1A365D]/20" : "border-[#CBD5E1]"}`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-[10px] bg-[#003770] text-white flex items-center justify-center shadow-xs shrink-0">
@@ -99,17 +108,27 @@ function TarjetaExamenDocente({ examen }) {
                             )}
                         </div>
                         <p className="text-xs text-[#64748B] font-bold mt-0.5">
-                            {examen.aula} · <span className="text-[#124B83]">{examen.horario}</span>
+                            {examen.fechaExamen ? `${fechaCorta(String(examen.fechaExamen).slice(0, 10))} · ` : ""}{examen.aula} · <span className="text-[#124B83]">{examen.horario}</span>
                         </p>
                     </div>
                 </div>
 
-                <button
-                    onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`)}
-                    className="bg-[#003770] hover:bg-[#124B83] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer self-start sm:self-center"
-                >
-                    Gestionar Habilitaciones
-                </button>
+                <div className="flex flex-wrap gap-2 self-start sm:self-center">
+                    {boolPuedeIngreso && (
+                        <button
+                            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`)}
+                            className="bg-[#003770] hover:bg-[#124B83] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
+                        >
+                            Control de ingreso →
+                        </button>
+                    )}
+                    <button
+                        onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`)}
+                        className="bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#1A365D] font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
+                    >
+                        Gestionar Habilitaciones
+                    </button>
+                </div>
             </div>
 
             {/* HU7: nómina local para trabajar sin red */}
@@ -206,8 +225,23 @@ export default function HomeDocente() {
     const [usuario, setUsuario] = useState(null);
     const [examenes, setExamenes] = useState([]);
     const [boolCargando, setBoolCargando] = useState(true);
-    const [strMenuActivo, setStrMenuActivo] = useState("inicio");
+    // Permite volver desde otra pantalla (p. ej. Gestionar Habilitaciones) a una sección concreta:
+    // navigate("/home/docente", { state: { menu: "mis-examenes" } })
+    const objUbicacion = useLocation();
+    const strMenuInicial = ["inicio", "mis-examenes", "control-ingresos", "incidencias"].includes(objUbicacion.state?.menu)
+        ? objUbicacion.state.menu
+        : "inicio";
+    const [strMenuActivo, setStrMenuActivo] = useState(strMenuInicial);
     const [totalIncidenciasAbiertas, setTotalIncidenciasAbiertas] = useState(0);
+    // Sección desde la que se abrió "Registrar examen" (para que Cancelar vuelva ahí)
+    const [strMenuAntesRegistro, setStrMenuAntesRegistro] = useState("mis-examenes");
+    // Examen que se resalta al entrar a "Mis Exámenes" desde "Ver detalle"
+    const [idExamenResaltado, setIdExamenResaltado] = useState(null);
+    // Se incrementa al registrar un examen para volver a cargar la lista
+    const [numRecarga, setNumRecarga] = useState(0);
+    // Asignación de operadores por aula: examen abierto y recarga de la lista de operadores
+    const [idExamenOperadores, setIdExamenOperadores] = useState(null);
+    const [numRecargaOperadores, setNumRecargaOperadores] = useState(0);
 
     useEffect(() => {
         let cancel = false;
@@ -293,6 +327,7 @@ export default function HomeDocente() {
                             inhabilitados: inhab,
                             totalInscritos: total,
                             esExamenReal: true,
+                            ambientes: ex.ambientes || [],
                         };
                     });
                     setExamenes(mapeados);
@@ -339,15 +374,58 @@ export default function HomeDocente() {
 
         cargarExamenesDocente();
         return () => { cancel = true; };
-    }, [usuario]);
+    }, [usuario, numRecarga]);
 
     const strNombre = usuario?.nombre || "Docente";
     const strApellido = usuario?.apellido || "";
     const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`;
 
-    const [boolModalAbierto, setBoolModalAbierto] = useState(false);
     const [boolModalRegistroAbierto, setBoolModalRegistroAbierto] = useState(false);
     const [strSeccionRegistro, setStrSeccionRegistro] = useState("individual");
+
+    const fnIrARegistrarExamen = () => {
+        if (strMenuActivo !== "registrar-examen") setStrMenuAntesRegistro(strMenuActivo);
+        setStrMenuActivo("registrar-examen");
+    };
+
+    const fnAbrirOperadores = (idExamen) => {
+        setIdExamenOperadores(idExamen);
+        setStrMenuActivo("asignar-operadores");
+    };
+
+    const fnRegistrarOperador = () => {
+        setStrSeccionRegistro("individual");
+        setBoolModalRegistroAbierto(true);
+    };
+
+    const fnVerDetalleExamen = (idExamen) => {
+        setIdExamenResaltado(idExamen);
+        setStrMenuActivo("mis-examenes");
+    };
+
+    const fnExamenRegistrado = () => {
+        setNumRecarga((n) => n + 1);
+        setIdExamenResaltado(null);
+        setStrMenuActivo("mis-examenes");
+    };
+
+    // Exámenes que aún no terminaron, del más cercano al más lejano (Inicio y "Próximo examen")
+    const listExamenesVigentes = examenes
+        .filter((e) => e.esExamenReal !== false && ["EN_CURSO", "PROXIMO"].includes(estadoExamen(e)))
+        .sort((a, b) => marcaTiempo(a) - marcaTiempo(b));
+
+    const listExamenesCalendario = examenes
+        .filter((e) => e.esExamenReal !== false && e.fechaExamen)
+        .map((e) => ({
+            id: e.idExamen,
+            fecha: String(e.fechaExamen).slice(0, 10),
+            materia: e.nombreExamen,
+            horaInicio: e.horaInicio,
+            horaFin: e.horaFin,
+            aula: e.aulaNombre,
+        }));
+
+    const boolMenuControl = strMenuActivo === "control-ingresos" || strMenuActivo === "asignar-operadores";
 
     const fnCargarMasiva = async (file, materia, tipoCarga, docente, grupo) => {
         return cargarUsuariosMasivo(file, "ESTUDIANTE", grupo ? Number(grupo) : null);
@@ -356,10 +434,12 @@ export default function HomeDocente() {
     const fnRegistrarIndividual = async (datos) => {
         await registrarUsuarioIndividual(datos);
         setBoolModalRegistroAbierto(false);
+        // Si se registró un operador, la pantalla de asignación vuelve a pedir la lista
+        setNumRecargaOperadores((n) => n + 1);
     };
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-nunito pb-16">
+        <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-800 font-nunito">
 
             {/* HEADER FIJO (incluye el menú de cuenta: cambiar contraseña /
                 cerrar sesión, ver Header.jsx) */}
@@ -368,7 +448,8 @@ export default function HomeDocente() {
             </div>
 
             {/* CONTENEDOR PRINCIPAL */}
-            <div className="flex pt-[115px] max-w-[1440px] mx-auto px-6 gap-6">
+            <div className="flex-1 w-full">
+            <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-6 gap-6">
 
                 {/* SIDEBAR IZQUIERDA */}
                 <aside className="w-72 shrink-0 hidden lg:block space-y-6">
@@ -395,22 +476,34 @@ export default function HomeDocente() {
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                             Inicio
                         </button>
-                        <button onClick={() => setBoolModalAbierto(true)} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
-                            <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
-                            Registrar Examen
-                        </button>
-                        <button onClick={() => setStrMenuActivo("inicio")} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
-                            <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                            Mis Exámenes
-                        </button>
                         <button
-                            onClick={() => setStrMenuActivo("control-ingresos")}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "control-ingresos"
+                            onClick={() => { setIdExamenResaltado(null); setStrMenuActivo("mis-examenes"); }}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "mis-examenes"
                                     ? "bg-[#1A365D] text-white shadow-xs"
                                     : "text-slate-700 hover:bg-slate-50"
                                 }`}
                         >
-                            <ScanLine className={`w-4 h-4 ${strMenuActivo === "control-ingresos" ? "text-white" : "text-[#1A365D]"}`} />
+                            <svg className={`w-4 h-4 ${strMenuActivo === "mis-examenes" ? "text-white" : "text-[#1A365D]"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            Mis Exámenes
+                        </button>
+                        <button
+                            onClick={fnIrARegistrarExamen}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "registrar-examen"
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                                }`}
+                        >
+                            <svg className={`w-4 h-4 ${strMenuActivo === "registrar-examen" ? "text-white" : "text-[#1A365D]"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                            Registrar Examen
+                        </button>
+                        <button
+                            onClick={() => setStrMenuActivo("control-ingresos")}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${boolMenuControl
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                                }`}
+                        >
+                            <ScanLine className={`w-4 h-4 ${boolMenuControl ? "text-white" : "text-[#1A365D]"}`} />
                             Control de ingresos
                         </button>
                         <button onClick={() => setStrMenuActivo("inicio")} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
@@ -439,7 +532,7 @@ export default function HomeDocente() {
                         </button>
                         <button onClick={() => { setStrSeccionRegistro("individual"); setBoolModalRegistroAbierto(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
                             <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
-                            Registrar Estudiante/Ayudante
+                            Registrar Estudiante/Operador
                         </button>
                     </div>
                 </aside>
@@ -449,8 +542,44 @@ export default function HomeDocente() {
                     <main className="flex-1 min-w-0 space-y-6">
                         {strMenuActivo === "incidencias" ? (
                             <SeccionIncidencias rol="DOCENTE" />
+                        ) : strMenuActivo === "mis-examenes" ? (
+                            <SeccionMisExamenes
+                                examenes={examenes}
+                                boolCargando={boolCargando}
+                                TarjetaExamen={TarjetaExamenDocente}
+                                onRegistrar={fnIrARegistrarExamen}
+                                idResaltado={idExamenResaltado}
+                            />
+                        ) : strMenuActivo === "registrar-examen" ? (
+                            <SeccionRegistrarExamen
+                                onCancelar={() => setStrMenuActivo(strMenuAntesRegistro)}
+                                onRegistrado={fnExamenRegistrado}
+                            />
+                        ) : strMenuActivo === "asignar-operadores" ? (
+                            (() => {
+                                const examenOp = examenes.find((e) => e.idExamen === idExamenOperadores);
+                                if (!examenOp) {
+                                    return (
+                                        <div className="bg-white rounded-3xl border border-slate-200 p-10 text-center text-sm font-semibold text-slate-500">
+                                            {boolCargando ? "Cargando examen..." : "No se encontró el examen."}{" "}
+                                            <button type="button" onClick={() => setStrMenuActivo("control-ingresos")} className="text-[#003770] font-bold hover:underline cursor-pointer">Volver</button>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <AsignarOperadoresDocente
+                                        key={examenOp.idExamen}
+                                        examen={examenOp}
+                                        usuario={usuario}
+                                        soloLectura={["EN_CURSO", "FINALIZADO"].includes(estadoExamen(examenOp))}
+                                        onVolver={() => setStrMenuActivo("control-ingresos")}
+                                        onRegistrarOperador={fnRegistrarOperador}
+                                        numRecargaOperadores={numRecargaOperadores}
+                                    />
+                                );
+                            })()
                         ) : strMenuActivo === "control-ingresos" ? (
-                            <SeccionControlIngresosDocente examenes={examenes} boolCargando={boolCargando} />
+                            <SeccionControlIngresosDocente examenes={examenes} boolCargando={boolCargando} onAsignarOperadores={fnAbrirOperadores} />
                         ) : (
                             <>
                                 <FilaConexionDocente />
@@ -470,89 +599,59 @@ export default function HomeDocente() {
                                 {/* GRILLA PRINCIPAL */}
                                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-                                    {/* SECCIÓN DE EXÁMENES */}
+                                    {/* SECCIÓN DE EXÁMENES (resumen: lo demás está en "Mis Exámenes") */}
                                     <div className="xl:col-span-2 space-y-4">
                                         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                                            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-                                                <div>
-                                                    <h3 className="text-base font-black text-[#1A365D]">
-                                                        Mis Exámenes / Asignaturas
-                                                    </h3>
-                                                    <p className="text-xs text-slate-500 font-medium">
-                                                        Docente Activo – <span className="font-bold text-[#1A365D]">{examenes.length} registradas</span>
-                                                    </p>
+                                            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-2">
+                                                <h3 className="text-base font-black text-[#1A365D]">
+                                                    Exámenes próximos
+                                                </h3>
+                                                <span className="text-[11px] font-extrabold text-[#1A365D] bg-slate-100 px-3 py-1 rounded-full">
+                                                    {listExamenesVigentes.length} {listExamenesVigentes.length === 1 ? "examen" : "exámenes"}
+                                                </span>
+                                            </div>
+
+                                            {boolCargando ? (
+                                                <div className="text-center py-8 text-slate-500 text-xs font-semibold animate-pulse">
+                                                    Cargando exámenes del docente...
                                                 </div>
+                                            ) : listExamenesVigentes.length === 0 ? (
+                                                <div className="text-center py-8 text-slate-500 text-xs font-semibold bg-[#F8FAFC] rounded-2xl border border-slate-200 mt-4">
+                                                    No tienes exámenes próximos.
+                                                </div>
+                                            ) : (
+                                                listExamenesVigentes.slice(0, 3).map((examen) => (
+                                                    <TarjetaExamenInicio
+                                                        key={examen.idExamen}
+                                                        examen={examen}
+                                                        onVerDetalle={fnVerDetalleExamen}
+                                                    />
+                                                ))
+                                            )}
+
+                                            <div className="border-t border-slate-100 pt-4 mt-2">
                                                 <button
-                                                    onClick={() => setBoolModalAbierto(true)}
-                                                    className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
+                                                    type="button"
+                                                    onClick={() => { setIdExamenResaltado(null); setStrMenuActivo("mis-examenes"); }}
+                                                    className="text-xs font-bold text-[#003770] hover:underline cursor-pointer"
                                                 >
-                                                    + Registrar examen
+                                                    Ver todos mis exámenes →
                                                 </button>
                                             </div>
-
-                                            <div className="space-y-4">
-                                                {boolCargando ? (
-                                                    <div className="text-center py-8 text-slate-500 text-xs font-semibold animate-pulse">
-                                                        Cargando asignaturas y exámenes del docente...
-                                                    </div>
-                                                ) : examenes.length === 0 ? (
-                                                    <div className="text-center py-8 text-slate-500 text-xs font-semibold bg-[#F8FAFC] rounded-2xl border border-slate-200">
-                                                        No tienes exámenes ni asignaturas asignadas en el sistema.
-                                                    </div>
-                                                ) : (
-                                                    examenes.map((examen) => (
-                                                        <TarjetaExamenDocente key={examen.idExamen} examen={examen} />
-                                                    ))
-                                                )}
-                                            </div>
                                         </div>
-
                                     </div>
 
                                     {/* PANEL DERECHO */}
                                     <div className="space-y-6">
-                                        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                                            <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-3 flex items-center gap-2">
-                                                <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                                Calendario Académico
-                                            </h4>
-                                            <div className="text-center bg-[#F8FAFC] p-4 rounded-2xl border border-slate-200">
-                                                <p className="text-xs font-bold text-[#1A365D]">Septiembre 2026</p>
-                                                <div className="grid grid-cols-7 gap-1 mt-3 text-[11px] font-bold text-slate-600">
-                                                    <span className="text-slate-400">Lu</span>
-                                                    <span className="text-slate-400">Ma</span>
-                                                    <span className="text-slate-400">Mi</span>
-                                                    <span className="text-slate-400">Ju</span>
-                                                    <span className="text-slate-400">Vi</span>
-                                                    <span className="text-slate-400">Sá</span>
-                                                    <span className="text-slate-400">Do</span>
-                                                    {Array.from({ length: 30 }, (_, i) => i + 1).map((dia) => (
-                                                        <span
-                                                            key={dia}
-                                                            className={`py-1 rounded-lg ${dia === 5 ? 'bg-[#1A365D] text-white font-black' : 'hover:bg-slate-200'}`}
-                                                        >
-                                                            {dia}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                                            <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-2">
-                                                Próximo Examen
-                                            </h4>
-                                            <div className="p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
-                                                <p className="font-extrabold text-xs text-[#1A365D]">Inteligencia Artificial</p>
-                                                <p className="text-[11px] text-slate-600 mt-0.5">Viernes, 5 de Septiembre · 09:00</p>
-                                                <p className="text-[10px] text-[#1A365D] font-bold mt-2">Aula 612 · Bloque F</p>
-                                            </div>
-
-                                        </div>
-
+                                        <CalendarioExamenes
+                                            listExamenes={listExamenesCalendario}
+                                            onVerQr={fnVerDetalleExamen}
+                                        />
+                                        <ProximoExamenDocente
+                                            examen={listExamenesVigentes[0] || null}
+                                            onVerDetalle={fnVerDetalleExamen}
+                                        />
                                     </div>
-
-
 
                                 </div>
 
@@ -563,14 +662,7 @@ export default function HomeDocente() {
                     <ToastOperador />
                 </OperadorProvider>
             </div>
-
-
-            <VentanaEmergente
-                boolAbierto={boolModalAbierto}
-                onCerrar={() => setBoolModalAbierto(false)}
-            >
-                <ExamenForm onCancelar={() => setBoolModalAbierto(false)} />
-            </VentanaEmergente>
+            </div>
 
 
             <VentanaEmergente
@@ -578,9 +670,9 @@ export default function HomeDocente() {
                 onCerrar={() => setBoolModalRegistroAbierto(false)}
             >
                 <div className="p-6">
-                    <h2 className="text-base font-black text-[#1A365D] mb-1">Registrar Estudiante o Ayudante</h2>
+                    <h2 className="text-base font-black text-[#1A365D] mb-1">Registrar Estudiante u Operador</h2>
                     <p className="text-xs text-slate-500 font-medium mb-4">
-                        La carga masiva solo admite Estudiantes. Para registrar un Ayudante, usa el registro individual.
+                        La carga masiva solo admite Estudiantes. Para registrar un Operador, usa el registro individual.
                     </p>
 
                     <div className="flex gap-2 mb-5 bg-slate-100 p-1 rounded-xl w-fit">

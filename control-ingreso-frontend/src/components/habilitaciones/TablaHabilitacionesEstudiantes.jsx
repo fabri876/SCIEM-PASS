@@ -35,7 +35,7 @@ function Toast({ toast, onClose }) {
     if (!toast) return null;
     const cls = toast.type === 'error'
         ? 'bg-rose-50 border-rose-200 text-rose-600'
-        : 'bg-emerald-50 border-emerald-200 text-emerald-800';
+        : 'bg-[#EFF6FF] border-[#BFDBFE] text-[#003770]';
     return (
         <div className={`fixed bottom-4 right-4 z-[120] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-lg border text-sm font-bold font-nunito ${cls}`} role="status">
             <span>{toast.message}</span>
@@ -48,7 +48,7 @@ function MetricCard({ titulo, valor, detalle, claseNumero, claseIcono, icono }) 
     return (
         <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 flex items-center justify-between">
             <div>
-                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase block mb-1">{titulo}</span>
+                <span className="text-[13px] font-black tracking-widest text-slate-400 uppercase block mb-1">{titulo}</span>
                 <div className="flex items-baseline gap-2">
                     <span className={`text-3xl font-black ${claseNumero}`}>{valor}</span>
                     {detalle}
@@ -63,11 +63,11 @@ function MetricCard({ titulo, valor, detalle, claseNumero, claseIcono, icono }) 
 
 function BadgeEstado({ habilitado }) {
     return habilitado ? (
-        <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-3 py-1 rounded-full text-[11px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Habilitado
+        <span className="inline-flex items-center gap-1.5 bg-[#EFF6FF] text-[#003770] border border-[#BFDBFE] font-bold px-3 py-1 rounded-full text-[13px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#003770]"></span> Habilitado
         </span>
     ) : (
-        <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-600 border border-rose-200 font-bold px-3 py-1 rounded-full text-[11px]">
+        <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-600 border border-rose-200 font-bold px-3 py-1 rounded-full text-[13px]">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Inhabilitado
         </span>
     );
@@ -80,12 +80,12 @@ function FilaEstudiante({ est, numeroFila, onGestionar }) {
             <td className="py-4 px-3 sm:px-6 font-bold text-slate-500">{numeroFila}</td>
             <td className="py-4 px-3 sm:px-6">
                 <div className="flex items-center gap-3">
-                    <span className="w-8 h-8 rounded-full bg-blue-100 text-primary-blue flex items-center justify-center font-black text-xs flex-shrink-0">
+                    <span className="w-8 h-8 rounded-full bg-blue-100 text-primary-blue flex items-center justify-center font-black text-[13px] flex-shrink-0">
                         {iniciales || 'US'}
                     </span>
                     <div>
-                        <p className="font-extrabold text-[#1A365D]">{`${est.nombreEstudiante || ''} ${est.apellidoEstudiante || ''}`.trim()}</p>
-                        <p className="text-[11px] text-slate-400 font-normal">{est.emailEstudiante}</p>
+                        <p className="font-extrabold text-[#003770]">{`${est.nombreEstudiante || ''} ${est.apellidoEstudiante || ''}`.trim()}</p>
+                        <p className="text-[13px] text-slate-400 font-normal">{est.emailEstudiante}</p>
                     </div>
                 </div>
             </td>
@@ -98,7 +98,7 @@ function FilaEstudiante({ est, numeroFila, onGestionar }) {
                     : est.nombreMotivo}
             </td>
             <td className="py-4 px-3 sm:px-6 text-right">
-                <button onClick={() => onGestionar(est)} className="bg-primary-blue hover:bg-blue-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-1.5">
+                <button onClick={() => onGestionar(est)} className="bg-primary-blue hover:bg-blue-700 text-white font-bold text-[13px] py-2 px-3.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-1.5">
                     <Icono nombre="lapiz" className="w-[15px] h-[15px]" /> Modificar estado
                 </button>
             </td>
@@ -107,10 +107,10 @@ function FilaEstudiante({ est, numeroFila, onGestionar }) {
 }
 
 function Paginacion({ paginaActual, totalPaginas, onPagina }) {
-    const clsBtn = "px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-[#1A365D] disabled:opacity-40 cursor-pointer transition hover:bg-slate-50";
+    const clsBtn = "px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[13px] font-bold text-[#003770] disabled:opacity-40 cursor-pointer transition hover:bg-slate-50";
     return (
         <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#F8FAFC]">
-            <span className="text-xs text-slate-500 font-semibold">Mostrando página <span className="font-bold text-[#1A365D]">{paginaActual}</span> de <span className="font-bold text-[#1A365D]">{totalPaginas}</span></span>
+            <span className="text-[13px] text-slate-500 font-semibold">Mostrando página <span className="font-bold text-[#003770]">{paginaActual}</span> de <span className="font-bold text-[#003770]">{totalPaginas}</span></span>
             <div className="flex gap-2 w-full sm:w-auto justify-center">
                 <button onClick={() => onPagina(paginaActual - 1)} disabled={paginaActual === 1} className={`${clsBtn} flex-1 sm:flex-none`}>Anterior</button>
                 <button onClick={() => onPagina(paginaActual + 1)} disabled={paginaActual === totalPaginas} className={`${clsBtn} flex-1 sm:flex-none`}>Siguiente</button>
@@ -120,11 +120,11 @@ function Paginacion({ paginaActual, totalPaginas, onPagina }) {
 }
 
 function SelectorEstado({ habilitado, onHabilitar, onInhabilitar }) {
-    const base = "p-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs transition cursor-pointer";
+    const base = "p-2.5 rounded-xl border flex items-center justify-center gap-2 text-[13px] transition cursor-pointer";
     return (
         <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={onHabilitar} className={`${base} ${habilitado ? 'border-primary-blue bg-blue-50 text-[#1A365D] font-extrabold shadow-xs ring-1 ring-primary-blue' : 'border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50'}`}>
-                <span className={`w-2 h-2 rounded-full ${habilitado ? 'bg-emerald-600' : 'bg-slate-300'}`}></span> Habilitado
+            <button type="button" onClick={onHabilitar} className={`${base} ${habilitado ? 'border-primary-blue bg-blue-50 text-[#003770] font-extrabold shadow-xs ring-1 ring-primary-blue' : 'border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50'}`}>
+                <span className={`w-2 h-2 rounded-full ${habilitado ? 'bg-[#003770]' : 'bg-slate-300'}`}></span> Habilitado
             </button>
             <button type="button" onClick={onInhabilitar} className={`${base} ${!habilitado ? 'border-rose-600 bg-rose-50 text-rose-600 font-extrabold shadow-xs ring-1 ring-rose-600' : 'border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50'}`}>
                 <span className={`w-2 h-2 rounded-full ${!habilitado ? 'bg-rose-600' : 'bg-slate-300'}`}></span> Inhabilitado
@@ -138,20 +138,20 @@ function SeccionMotivo({ nombreMotivo, motivoSelectValue, motivoPersonalizado, m
     return (
         <div className="mb-5 space-y-3">
             <div className="flex items-center justify-between">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">MOTIVO DE INHABILITACIÓN</label>
+                <label className="block text-[13px] font-bold text-slate-400 uppercase tracking-wider">MOTIVO DE INHABILITACIÓN</label>
                 {existeMotivo && (
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">Opcional</span>
-                        <button type="button" onClick={onModificar} className="text-[11px] font-bold text-primary-blue hover:underline cursor-pointer">Modificar</button>
+                        <span className="text-[13px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">Opcional</span>
+                        <button type="button" onClick={onModificar} className="text-[13px] font-bold text-primary-blue hover:underline cursor-pointer">Modificar</button>
                         <span className="text-slate-300 font-bold">|</span>
-                        <button type="button" onClick={onEliminar} className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer">Eliminar</button>
+                        <button type="button" onClick={onEliminar} className="text-[13px] font-bold text-rose-600 hover:underline cursor-pointer">Eliminar</button>
                     </div>
                 )}
             </div>
 
             <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">Seleccionar causal o motivo institucional:</label>
-                <select value={motivoSelectValue} onChange={(e) => onSelect(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-[#1A365D] focus:outline-none focus:border-primary-blue">
+                <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Seleccionar causal o motivo institucional:</label>
+                <select value={motivoSelectValue} onChange={(e) => onSelect(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-[13px] font-medium text-[#003770] focus:outline-none focus:border-primary-blue">
                     <option value="">Seleccionar motivo de inhabilitación...</option>
                     {motivos.map((mot, idx) => <option key={idx} value={mot}>{mot}</option>)}
                     <option value="__personalizado__">+ Registrar nuevo motivo personalizado...</option>
@@ -161,10 +161,10 @@ function SeccionMotivo({ nombreMotivo, motivoSelectValue, motivoPersonalizado, m
             {motivoSelectValue === '__personalizado__' && (
                 <div className="bg-[#F8FAFC] border border-blue-200 p-3.5 rounded-2xl shadow-xs space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-primary-blue flex items-center gap-1.5"><span>➕</span> Registrar nuevo motivo personalizado</span>
-                        <button type="button" onClick={onCerrar} className="text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer">✕</button>
+                        <span className="text-[13px] font-bold text-primary-blue flex items-center gap-1.5"><span>➕</span> Registrar nuevo motivo personalizado</span>
+                        <button type="button" onClick={onCerrar} className="text-slate-400 hover:text-slate-600 text-[13px] font-bold cursor-pointer">✕</button>
                     </div>
-                    <textarea rows="3" value={motivoPersonalizado} onChange={(e) => onPersonalizado(e.target.value)} placeholder="Escribir justificación o motivo institucional personalizado..." className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-[#1A365D] focus:outline-none focus:border-primary-blue" />
+                    <textarea rows="3" value={motivoPersonalizado} onChange={(e) => onPersonalizado(e.target.value)} placeholder="Escribir justificación o motivo institucional personalizado..." className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-[13px] font-medium text-[#003770] focus:outline-none focus:border-primary-blue" />
                 </div>
             )}
         </div>
@@ -188,25 +188,25 @@ function ModalConfirmacion({ mostrar, estudiante, motivoTexto, guardando, onCanc
                         <Icono nombre="advertencia" className="w-6 h-6" />
                     </div>
                     <div className="space-y-1">
-                        <h3 className="font-black text-base text-[#1A365D]">¿Está seguro de realizar los cambios?</h3>
-                        <p className="text-xs text-slate-500 leading-relaxed">{mensaje}</p>
+                        <h3 className="font-black text-base text-[#003770]">¿Está seguro de realizar los cambios?</h3>
+                        <p className="text-[13px] text-slate-500 leading-relaxed">{mensaje}</p>
                     </div>
                 </div>
 
-                <div className="bg-[#F8FAFC] border border-slate-200 rounded-2xl p-3 flex items-center justify-between text-xs">
+                <div className="bg-[#F8FAFC] border border-slate-200 rounded-2xl p-3 flex items-center justify-between text-[13px]">
                     <div>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase">ESTUDIANTE</span>
-                        <span className="font-extrabold text-[#1A365D]">{nombre}</span>
+                        <span className="block text-[13px] font-bold text-slate-400 uppercase">ESTUDIANTE</span>
+                        <span className="font-extrabold text-[#003770]">{nombre}</span>
                     </div>
                     <div className="text-right">
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase">NUEVO ESTADO</span>
-                        <span className={`font-black ${habilitado ? 'text-emerald-600' : 'text-rose-600'}`}>{habilitado ? 'Habilitado' : 'Inhabilitado'}</span>
+                        <span className="block text-[13px] font-bold text-slate-400 uppercase">NUEVO ESTADO</span>
+                        <span className={`font-black ${habilitado ? 'text-[#003770]' : 'text-rose-600'}`}>{habilitado ? 'Habilitado' : 'Inhabilitado'}</span>
                     </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-2">
-                    <button type="button" onClick={onCancelar} disabled={guardando} className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition cursor-pointer disabled:opacity-50">Cancelar</button>
-                    <button type="button" onClick={onConfirmar} disabled={guardando} className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-primary-blue hover:bg-blue-700 transition shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50">
+                    <button type="button" onClick={onCancelar} disabled={guardando} className="px-4 py-2.5 rounded-xl border border-slate-200 text-[13px] font-bold text-slate-600 bg-white hover:bg-slate-50 transition cursor-pointer disabled:opacity-50">Cancelar</button>
+                    <button type="button" onClick={onConfirmar} disabled={guardando} className="px-5 py-2.5 rounded-xl text-[13px] font-bold text-white bg-primary-blue hover:bg-blue-700 transition shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50">
                         <span>✔</span> {guardando ? 'Guardando...' : 'Sí, confirmar'}
                     </button>
                 </div>
@@ -430,9 +430,9 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
     const porcentaje = (n) => (totalEstudiantes > 0 ? Math.round((n / totalEstudiantes) * 100) : 0);
 
     const metricas = [
-        { titulo: 'TOTAL ESTUDIANTES', valor: totalEstudiantes, icono: 'estudiantes', detalle: <span className="text-xs text-slate-500 font-medium">registrados</span>, claseNumero: 'text-[#1A365D]', claseIcono: 'bg-blue-50 text-primary-blue' },
-        { titulo: 'HABILITADOS', valor: totalHabilitados, icono: 'habilitado', detalle: <span className="text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">{porcentaje(totalHabilitados)}%</span>, claseNumero: 'text-emerald-600', claseIcono: 'bg-emerald-50 text-emerald-600' },
-        { titulo: 'INHABILITADOS', valor: totalInhabilitados, icono: 'inhabilitado', detalle: <span className="text-xs text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">{porcentaje(totalInhabilitados)}%</span>, claseNumero: 'text-rose-600', claseIcono: 'bg-rose-50 text-rose-600' },
+        { titulo: 'TOTAL ESTUDIANTES', valor: totalEstudiantes, icono: 'estudiantes', detalle: <span className="text-[13px] text-slate-500 font-medium">registrados</span>, claseNumero: 'text-[#003770]', claseIcono: 'bg-blue-50 text-primary-blue' },
+        { titulo: 'HABILITADOS', valor: totalHabilitados, icono: 'habilitado', detalle: <span className="text-[13px] text-[#003770] font-bold bg-[#EFF6FF] px-2 py-0.5 rounded-md">{porcentaje(totalHabilitados)}%</span>, claseNumero: 'text-[#003770]', claseIcono: 'bg-[#EFF6FF] text-[#003770]' },
+        { titulo: 'INHABILITADOS', valor: totalInhabilitados, icono: 'inhabilitado', detalle: <span className="text-[13px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">{porcentaje(totalInhabilitados)}%</span>, claseNumero: 'text-rose-600', claseIcono: 'bg-rose-50 text-rose-600' },
     ];
 
     const textoMotivoConfirmacion = useMemo(() => {
@@ -460,15 +460,15 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 {(materia.codigo || infoExamen.siglaAsignatura) && (
-                                    <span className="bg-blue-100/80 text-primary-blue font-extrabold px-2.5 py-0.5 rounded-lg text-xs border border-blue-200 uppercase tracking-wider">
+                                    <span className="bg-blue-100/80 text-primary-blue font-extrabold px-2.5 py-0.5 rounded-lg text-[13px] border border-blue-200 uppercase tracking-wider">
                                         {materia.codigo || infoExamen.siglaAsignatura}
                                     </span>
                                 )}
-                                <h2 className="text-lg font-black text-[#1A365D]">{materia.nombre}</h2>
-                                <span className="bg-emerald-50 text-emerald-600 font-bold px-2.5 py-0.5 rounded-full text-[11px] border border-emerald-200">Activa</span>
+                                <h2 className="text-lg font-black text-[#003770]">{materia.nombre}</h2>
+                                <span className="bg-[#EFF6FF] text-[#003770] font-bold px-2.5 py-0.5 rounded-full text-[13px] border border-[#BFDBFE]">Activa</span>
                             </div>
-                            <p className="text-xs text-slate-500 font-medium mt-0.5">
-                                <span className="font-bold text-[#1A365D]">Docente:</span> {materia.docente} &bull; <span className="font-bold text-[#1A365D]">Gestión:</span> II-2026
+                            <p className="text-[13px] text-slate-500 font-medium mt-0.5">
+                                <span className="font-bold text-[#003770]">Docente:</span> {materia.docente} &bull; <span className="font-bold text-[#003770]">Gestión:</span> II-2026
                             </p>
                         </div>
                     </div>
@@ -477,7 +477,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                             <button
                                 type="button"
                                 onClick={onVolver}
-                                className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs py-2 px-3.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                                className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-[13px] py-2 px-3.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-1.5"
                             >
                                 <span>←</span>
                                 <span>Volver a Materias</span>
@@ -486,7 +486,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <button
                             type="button"
                             onClick={() => mostrarToast('success', 'Exportando lista oficial de estudiantes habilitados...')}
-                            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs py-2 px-3.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-2 justify-center"
+                            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-[13px] py-2 px-3.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-2 justify-center"
                         >
                             <Icono nombre="exportar" className="w-4 h-4 text-primary-blue" /> Exportar lista oficial
                         </button>
@@ -501,8 +501,8 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <Icono nombre="documento" />
                     </div>
                     <div className="min-w-0">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">EXAMEN</span>
-                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{infoExamen.nombreExamen || '---'}</p>
+                        <span className="text-[13px] font-black uppercase text-slate-400 tracking-wider block">EXAMEN</span>
+                        <p className="text-[13px] font-extrabold text-[#003770] truncate">{infoExamen.nombreExamen || '---'}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
@@ -510,8 +510,8 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <Icono nombre="calendario" />
                     </div>
                     <div className="min-w-0">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">FECHA</span>
-                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{infoExamen.fecha || '---'}</p>
+                        <span className="text-[13px] font-black uppercase text-slate-400 tracking-wider block">FECHA</span>
+                        <p className="text-[13px] font-extrabold text-[#003770] truncate">{infoExamen.fecha || '---'}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
@@ -519,8 +519,8 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <Icono nombre="horario" />
                     </div>
                     <div className="min-w-0">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">HORA</span>
-                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{infoExamen.hora || '---'}</p>
+                        <span className="text-[13px] font-black uppercase text-slate-400 tracking-wider block">HORA</span>
+                        <p className="text-[13px] font-extrabold text-[#003770] truncate">{infoExamen.hora || '---'}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3">
@@ -528,8 +528,8 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <Icono nombre="reloj" />
                     </div>
                     <div className="min-w-0">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">DURACIÓN</span>
-                        <p className="text-xs font-extrabold text-[#1A365D] truncate">{(() => {
+                        <span className="text-[13px] font-black uppercase text-slate-400 tracking-wider block">DURACIÓN</span>
+                        <p className="text-[13px] font-extrabold text-[#003770] truncate">{(() => {
                             const calcDuracion = (dur, hor) => {
                                 let totalMins = 0;
                                 if (hor && hor.includes('-')) {
@@ -569,8 +569,8 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <Icono nombre="ubicacion" />
                     </div>
                     <div className="min-w-0">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">AMBIENTE</span>
-                        <p className="text-xs font-extrabold text-[#1A365D] break-words line-clamp-2" title={infoExamen.ambiente}>{infoExamen.ambiente || '---'}</p>
+                        <span className="text-[13px] font-black uppercase text-slate-400 tracking-wider block">AMBIENTE</span>
+                        <p className="text-[13px] font-extrabold text-[#003770] break-words line-clamp-2" title={infoExamen.ambiente}>{infoExamen.ambiente || '---'}</p>
                     </div>
                 </div>
             </div>
@@ -588,7 +588,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         value={busqueda}
                         onChange={(e) => { setBusqueda(e.target.value); setPaginaActual(1); }}
                         placeholder="Buscar por Nombre, Cédula (CI) o Código SIS..."
-                        className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-[#1A365D] focus:outline-none focus:border-primary-blue"
+                        className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-[13px] font-medium text-[#003770] focus:outline-none focus:border-primary-blue"
                     />
                 </div>
                 <div className="flex items-center gap-1 bg-[#F8FAFC] border border-slate-200 rounded-xl p-1 w-full sm:w-auto overflow-x-auto">
@@ -596,7 +596,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <button
                             key={f.key}
                             onClick={() => { setFiltroEstado(f.key); setPaginaActual(1); }}
-                            className={`text-xs font-bold px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap transition cursor-pointer ${filtroEstado === f.key ? 'bg-[#1A365D] text-white shadow-xs' : 'text-slate-600 hover:bg-white'}`}
+                            className={`text-[13px] font-bold px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap transition cursor-pointer ${filtroEstado === f.key ? 'bg-[#003770] text-white shadow-xs' : 'text-slate-600 hover:bg-white'}`}
                         >
                             {f.label}
                         </button>
@@ -607,15 +607,15 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
             {/* TABLA DE NÓMINA DE ESTUDIANTES */}
             <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
                 {cargando ? (
-                    <div className="p-12 text-center text-xs font-bold text-slate-500">Cargando estudiantes desde el servidor...</div>
+                    <div className="p-12 text-center text-[13px] font-bold text-slate-500">Cargando estudiantes desde el servidor...</div>
                 ) : estudiantesFiltrados.length === 0 ? (
-                    <div className="p-12 text-center text-xs font-bold text-slate-500">No se encontraron estudiantes registrados con ese criterio de búsqueda.</div>
+                    <div className="p-12 text-center text-[13px] font-bold text-slate-500">No se encontraron estudiantes registrados con ese criterio de búsqueda.</div>
                 ) : (
                     <>
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[760px] text-left text-xs">
+                            <table className="w-full min-w-[760px] text-left text-[13px]">
                                 <thead>
-                                    <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[10px] tracking-wider bg-[#F8FAFC]">
+                                    <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[13px] tracking-wider bg-[#F8FAFC]">
                                         <th className="py-3.5 px-3 sm:px-6">N°</th>
                                         <th className="py-3.5 px-3 sm:px-6">Estudiante</th>
                                         <th className="py-3.5 px-3 sm:px-6">CI</th>
@@ -652,25 +652,25 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <div>
                             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-5">
                                 <div>
-                                    <span className="text-[10px] font-black uppercase text-primary-blue tracking-wider block">GESTIÓN INDIVIDUAL</span>
-                                    <h3 className="font-black text-sm text-[#1A365D]">Detalle de habilitación</h3>
+                                    <span className="text-[13px] font-black uppercase text-primary-blue tracking-wider block">GESTIÓN INDIVIDUAL</span>
+                                    <h3 className="font-black text-sm text-[#003770]">Detalle de habilitación</h3>
                                 </div>
-                                <button onClick={() => setEstudianteSeleccionado(null)} className="text-slate-400 hover:text-[#1A365D] font-bold p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">✕</button>
+                                <button onClick={() => setEstudianteSeleccionado(null)} className="text-slate-400 hover:text-[#003770] font-bold p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">✕</button>
                             </div>
 
                             <div className="bg-[#F8FAFC] border border-slate-200 p-3.5 rounded-2xl mb-5 flex items-start gap-3">
-                                <span className="w-9 h-9 rounded-xl bg-primary-blue text-white flex items-center justify-center font-black text-xs flex-shrink-0">
+                                <span className="w-9 h-9 rounded-xl bg-primary-blue text-white flex items-center justify-center font-black text-[13px] flex-shrink-0">
                                     {`${estudianteSeleccionado.nombreEstudiante?.[0] || ''}${estudianteSeleccionado.apellidoEstudiante?.[0] || ''}`.toUpperCase()}
                                 </span>
                                 <div className="min-w-0">
-                                    <h4 className="font-extrabold text-xs text-[#1A365D] truncate">{`${estudianteSeleccionado.nombreEstudiante} ${estudianteSeleccionado.apellidoEstudiante}`}</h4>
-                                    <p className="text-[11px] text-primary-blue font-semibold">{estudianteSeleccionado.carreraEstudiante || estudianteSeleccionado.carrera || 'Ingeniería de Sistemas'}</p>
-                                    <p className="text-[10px] text-slate-500 font-medium mt-0.5">{estudianteSeleccionado.codSisEstudiante} &bull; {estudianteSeleccionado.ciEstudiante}</p>
+                                    <h4 className="font-extrabold text-[13px] text-[#003770] truncate">{`${estudianteSeleccionado.nombreEstudiante} ${estudianteSeleccionado.apellidoEstudiante}`}</h4>
+                                    <p className="text-[13px] text-primary-blue font-semibold">{estudianteSeleccionado.carreraEstudiante || estudianteSeleccionado.carrera || 'Ingeniería de Sistemas'}</p>
+                                    <p className="text-[13px] text-slate-500 font-medium mt-0.5">{estudianteSeleccionado.codSisEstudiante} &bull; {estudianteSeleccionado.ciEstudiante}</p>
                                 </div>
                             </div>
 
                             <div className="mb-5">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">ESTADO DE HABILITACIÓN</label>
+                                <label className="block text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">ESTADO DE HABILITACIÓN</label>
                                 <SelectorEstado
                                     habilitado={estudianteSeleccionado.estadoHabilitacion}
                                     onHabilitar={() => { setEstudianteSeleccionado({ ...estudianteSeleccionado, estadoHabilitacion: true, nombreMotivo: '-' }); setMotivoSelectValue(''); setMotivoPersonalizado(''); }}
@@ -680,8 +680,8 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
 
                             {estudianteSeleccionado.estadoHabilitacion ? (
                                 <div className="mb-5 bg-blue-50/60 border border-blue-200/80 p-3.5 rounded-2xl">
-                                    <h4 className="text-xs font-extrabold text-[#1A365D] mb-0.5">Auditoría Institucional Automática</h4>
-                                    <p className="text-[11px] text-slate-500 font-medium leading-relaxed">Cualquier cambio de estado generará un registro con firma digital y marca temporal visible en el historial del estudiante.</p>
+                                    <h4 className="text-[13px] font-extrabold text-[#003770] mb-0.5">Auditoría Institucional Automática</h4>
+                                    <p className="text-[13px] text-slate-500 font-medium leading-relaxed">Cualquier cambio de estado generará un registro con firma digital y marca temporal visible en el historial del estudiante.</p>
                                 </div>
                             ) : (
                                 <SeccionMotivo
@@ -701,10 +701,10 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
 
                     {estudianteSeleccionado && (
                         <div className="pt-3 border-t border-slate-100 space-y-2.5">
-                            <button type="button" onClick={prepararGuardado} disabled={guardando} className="w-full bg-primary-blue hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-xs cursor-pointer flex items-center justify-center disabled:opacity-50">
+                            <button type="button" onClick={prepararGuardado} disabled={guardando} className="w-full bg-primary-blue hover:bg-blue-700 text-white font-bold text-[13px] py-2.5 rounded-xl transition shadow-xs cursor-pointer flex items-center justify-center disabled:opacity-50">
                                 {guardando ? 'Guardando...' : 'Guardar cambios'}
                             </button>
-                            <button type="button" onClick={() => setEstudianteSeleccionado(null)} disabled={guardando} className="w-full text-center text-xs font-bold text-slate-500 hover:text-[#1A365D] py-1 cursor-pointer transition disabled:opacity-50">
+                            <button type="button" onClick={() => setEstudianteSeleccionado(null)} disabled={guardando} className="w-full text-center text-[13px] font-bold text-slate-500 hover:text-[#003770] py-1 cursor-pointer transition disabled:opacity-50">
                                 Cerrar sin guardar
                             </button>
                         </div>
