@@ -158,6 +158,7 @@ const MAPA_ESTADOS = {
   DUPLICADO: "YA_REGISTRADO",
   YA_REGISTRADO: "YA_REGISTRADO",
   OTRA_AULA: "OTRA_AULA",
+  AMBIENTE_DIFERENTE: "OTRA_AULA", // HU10: el backend lo devuelve con el aula asignada en primerIngreso
   AULA_INCORRECTA: "OTRA_AULA",
   NO_INSCRITO: "NO_INSCRITO",
   NO_ENCONTRADO: "NO_ENCONTRADO",
@@ -211,7 +212,9 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
       apellidos: est.nombreCompleto ? "" : est.apellidos || "",
       carrera: est.carrera || "Carrera no asignada",
       fotoUrl: est.fotoUrl,
-      aulaAsignada: est.nombreAmbiente || objExamen.aula,
+      // HU10: en "aula diferente" el aula ASIGNADA viene en primerIngreso.nombreAmbiente
+      aulaAsignada: (strResultado === "OTRA_AULA" && objData.primerIngreso?.nombreAmbiente)
+        || est.nombreAmbiente || objExamen.aula,
       normaParticular: est.normaParticular || null,
     }
     : null;

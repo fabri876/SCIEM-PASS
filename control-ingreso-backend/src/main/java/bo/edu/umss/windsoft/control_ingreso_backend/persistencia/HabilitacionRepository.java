@@ -29,6 +29,12 @@ public interface HabilitacionRepository extends JpaRepository<Habilitacion, Inte
     long countByIdAsignatura(Integer idAsignatura);
 
     long countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(Integer idAsignatura, Integer idExamen);
+
+    /** HU10: habilitados de un examen con su estudiante (para el reparto por aulas). */
+    @Query("SELECT h FROM Habilitacion h JOIN FETCH h.estudiante " +
+           "WHERE h.idAsignatura = :idAsignatura AND h.idExamen = :idExamen AND h.estadohabilitacion = true")
+    List<Habilitacion> findHabilitadosConEstudiante(@Param("idAsignatura") Integer idAsignatura,
+                                                    @Param("idExamen") Integer idExamen);
     long countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(Integer idAsignatura, Integer idExamen);
     long countByIdAsignaturaAndIdExamen(Integer idAsignatura, Integer idExamen);
 
