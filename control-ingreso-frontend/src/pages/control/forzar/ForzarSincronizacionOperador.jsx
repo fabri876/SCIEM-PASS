@@ -5,8 +5,8 @@ import PillsEstadoOperador from "../components/PillsEstadoOperador";
 import { formatearNumero, infoLote } from "../datosMockOperador";
 
 const COLOR_LOG = {
-  ok: "bg-emerald-500",
-  info: "bg-sky-500",
+  ok: "bg-[#267BC2]",
+  info: "bg-[#4A97D3]",
   off: "bg-slate-400",
 };
 
@@ -38,7 +38,7 @@ export default function ForzarSincronizacionOperador() {
       <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h2 className="text-base font-black text-[#0B2545]">Sincronización</h2>
+            <h2 className="text-base font-black text-[#003770]">Sincronización</h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               Gestiona el envío de las marcas registradas sin red hacia el servidor central.
             </p>
@@ -47,12 +47,12 @@ export default function ForzarSincronizacionOperador() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
-            <p className="text-[10px] font-black uppercase tracking-wide text-amber-600">Pendientes offline</p>
+          <div className="rounded-2xl border border-[#CBD5E1] bg-[#F1F5F9]/60 p-4">
+            <p className="text-[10px] font-black uppercase tracking-wide text-[#64748B]">Pendientes offline</p>
             <p className="text-2xl font-black text-slate-800 mt-1">{formatearNumero(estadoRed.pend)}</p>
           </div>
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-            <p className="text-[10px] font-black uppercase tracking-wide text-emerald-600">Sincronizados servidor</p>
+          <div className="rounded-2xl border border-[#D9E8F7] bg-[#F0F6FC]/60 p-4">
+            <p className="text-[10px] font-black uppercase tracking-wide text-[#1860A3]">Sincronizados servidor</p>
             <p className="text-2xl font-black text-slate-800 mt-1">{formatearNumero(estadoRed.enviados)}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -67,7 +67,7 @@ export default function ForzarSincronizacionOperador() {
 
         <div className="space-y-2">
           <div className="h-3 rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full rounded-full bg-[#2563EB] transition-all duration-500" style={{ width: ancho + "%" }}></div>
+            <div className="h-full rounded-full bg-[#4A97D3] transition-all duration-500" style={{ width: ancho + "%" }}></div>
           </div>
           <p className="text-xs font-bold text-slate-600">{texto}</p>
         </div>
@@ -77,7 +77,7 @@ export default function ForzarSincronizacionOperador() {
             type="button"
             onClick={fnDoForzar}
             disabled={sinPendientes}
-            className="inline-flex items-center gap-2 px-5 h-11 rounded-xl bg-[#0B2545] hover:bg-[#13315C] disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 h-11 rounded-xl bg-[#003770] hover:bg-[#124B83] disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-xs transition-colors cursor-pointer"
           >
             <Upload className="w-4 h-4" /> {sinPendientes ? "Sin pendientes" : "Forzar Sincronización"}
           </button>
@@ -106,7 +106,7 @@ export default function ForzarSincronizacionOperador() {
       <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs">
         <div className="flex items-center gap-2 mb-4">
           <History className="w-4 h-4 text-slate-400" />
-          <h2 className="text-sm font-black text-[#0B2545]">Registro de sincronización</h2>
+          <h2 className="text-sm font-black text-[#003770]">Registro de sincronización</h2>
         </div>
         <div className="space-y-1.5 max-h-80 overflow-auto">
           {listLogs.length === 0 && <p className="text-xs text-slate-400 font-semibold">Sin eventos todavía</p>}
