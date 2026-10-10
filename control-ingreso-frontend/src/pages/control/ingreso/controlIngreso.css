@@ -26,5 +26,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ci-visor.ci-leyendo .ci-linea { animation: none; top: 50%; }
-  .ci-aparecer, .ci-deslizar { animation: none; }
+  .ci-aparecer, .ci-deslizar, .animate-slide-up { animation: none; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }

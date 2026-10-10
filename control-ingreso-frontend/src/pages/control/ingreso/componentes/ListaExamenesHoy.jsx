@@ -1,6 +1,6 @@
 // "Mis exámenes": los 3 más relevantes como tarjetas + "Ver todos" con la lista completa
 import { useMemo, useState } from "react";
-import { GraduationCap, Clock, ArrowLeft, Search, Check, Download } from "lucide-react";
+import { GraduationCap, Clock, ArrowLeft, Search, Check, Download, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
 import PildoraFila from "./PildoraFila";
 
 const ESTADOS = {
@@ -51,48 +51,121 @@ function Chip({ strClase, numValor, strEtiqueta }) {
    - fnDescargarNomina(examen) → inicia la descarga
    Mientras no estén conectados, el botón se muestra desactivado. */
 function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
+  const [toast, setToast] = useState(null);
+  const [forzando, setForzando] = useState(false);
+
+  const mostrarToast = (msg, tipo = "info") => {
+    setToast({ msg, tipo });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleForzar = () => {
+    if (forzando) return;
+    setForzando(true);
+    mostrarToast("Iniciando sincronización forzada…", "info");
+    // Simula sync: 2s "enviando", luego éxito
+    setTimeout(() => {
+      mostrarToast("Sincronización completada: 3 marcas enviadas", "ok");
+      setForzando(false);
+    }, 2000);
+  };
+
   const strEstado = objNomina?.estado || "ninguna";
 
   if (strEstado === "lista") {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#D9E8F7] text-[#124B83]">
-        <Check className="w-3.5 h-3.5" />
-        Disponible sin internet{objNomina.total ? ` · ${objNomina.total} estudiantes` : ""}
-      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#D9E8F7] text-[#124B83]">
+          <CheckCircle className="w-3.5 h-3.5" />
+          Disponible sin internet{objNomina.total ? ` · ${objNomina.total} estudiantes` : ""}
+        </span>
+        <button
+          type="button"
+          onClick={handleForzar}
+          disabled={forzando}
+          className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-xs font-semibold cursor-pointer disabled:cursor-not-allowed"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
+        </button>
+        {toast && (
+          <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${
+            toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
+          }`}>
+            {toast.msg}
+          </div>
+        )}
+      </div>
     );
   }
 
   if (strEstado === "descargando") {
     const numPct = objNomina.porcentaje ?? 0;
     return (
-      <span className="inline-flex items-center gap-2 text-xs text-[#475569]">
-        <span className="w-24 h-[6px] rounded-full bg-[#F1F5F9] overflow-hidden">
-          <i className="block h-full bg-[#003770] rounded-full transition-[width] duration-500" style={{ width: numPct + "%" }} />
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-2 text-xs text-[#475569]">
+          <span className="w-24 h-[6px] rounded-full bg-[#F1F5F9] overflow-hidden">
+            <i className="block h-full bg-[#003770] rounded-full transition-[width] duration-500" style={{ width: numPct + "%" }} />
+          </span>
+          {boolSinRed ? "Descarga en pausa" : "Descargando nómina…"} {numPct} %
         </span>
-        {boolSinRed ? "Descarga en pausa" : "Descargando nómina…"} {numPct} %
-      </span>
+        <button
+          type="button"
+          onClick={handleForzar}
+          disabled={forzando || boolSinRed}
+          className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-xs font-semibold cursor-pointer disabled:cursor-not-allowed"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
+        </button>
+      </div>
     );
   }
 
   if (boolSinRed) {
     return (
-      <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-[#FEF2F2] text-[#B91C1C]">
-        Sin nómina · requiere conexión
-      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-[#FEF2F2] text-[#B91C1C]">
+          Sin nómina · requiere conexión
+        </span>
+        <button
+          type="button"
+          onClick={handleForzar}
+          disabled={forzando}
+          className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-xs font-semibold cursor-pointer disabled:cursor-not-allowed"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
+        </button>
+      </div>
     );
   }
 
   const boolConectado = typeof fnDescargarNomina === "function";
   return (
-    <button
-      type="button"
-      onClick={() => boolConectado && fnDescargarNomina(examen)}
-      disabled={!boolConectado}
-      title={boolConectado ? "" : "La descarga se habilita cuando se conecte con el modo sin conexión"}
-      className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg border border-[#CBD5E1] bg-white text-[#003770] text-xs font-semibold hover:border-[#003770] cursor-pointer disabled:text-[#9AA8BA] disabled:hover:border-[#CBD5E1] disabled:cursor-not-allowed"
-    >
-      <Download className="w-3.5 h-3.5" /> Descargar nómina
-    </button>
+    <div className="inline-flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => boolConectado && fnDescargarNomina(examen)}
+        disabled={!boolConectado}
+        title={boolConectado ? "" : "La descarga se habilita cuando se conecte con el modo sin conexión"}
+        className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg border border-[#CBD5E1] bg-white text-[#003770] text-xs font-semibold hover:border-[#003770] cursor-pointer disabled:text-[#9AA8BA] disabled:hover:border-[#CBD5E1] disabled:cursor-not-allowed"
+      >
+        <Download className="w-3.5 h-3.5" /> Descargar nómina
+      </button>
+      <button
+        type="button"
+        onClick={handleForzar}
+        disabled={forzando}
+        className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-xs font-semibold cursor-pointer disabled:cursor-not-allowed"
+      >
+        <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
+      </button>
+      {toast && (
+        <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${
+          toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
+        }`}>
+          {toast.msg}
+        </div>
+      )}
+    </div>
   );
 }
 
