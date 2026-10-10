@@ -9,8 +9,10 @@ import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
 import { obtenerMisExamenes, obtenerAsignaturasPorDocente } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
+import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
 import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
-import { AlertTriangle, GraduationCap, Download, RefreshCw, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, ScanLine } from "lucide-react";
+import { GraduationCap, Download, RefreshCw, CheckCircle2 } from "lucide-react";
 import OperadorProvider from "../control/OperadorProvider";
 import { useOperador } from "../control/operadorContexto";
 import ToastOperador from "../control/components/ToastOperador";
@@ -252,12 +254,21 @@ export default function HomeDocente() {
                 const dataExamenes = await obtenerMisExamenes();
                 if (!cancel && Array.isArray(dataExamenes) && dataExamenes.length > 0) {
                     const mapeados = dataExamenes.map((ex) => {
+                        const primerAmb = ex.ambientes && ex.ambientes.length > 0 ? ex.ambientes[0] : null;
+                        const horaInicio = (ex.horaInicio || primerAmb?.horaInicio || "").toString().substring(0, 5);
+                        const horaFin = (ex.horaFin || primerAmb?.horaFin || "").toString().substring(0, 5);
+                        const aulaNombre = primerAmb?.nombreAmbiente || primerAmb?.nombreAula || "";
+                        const bloque = primerAmb?.ubicacionAmbiente || primerAmb?.bloque || "";
                         const strAula = ex.ambientes && ex.ambientes.length > 0
-                            ? ex.ambientes.map(a => `${a.nombreAula || 'Aula'} · ${a.bloque || ''}`.trim()).join(' + ')
-                            : 'Aula por definir';
-                        const strHorario = ex.horaInicio && ex.horaFin
-                            ? `${ex.horaInicio.substring(0, 5)} – ${ex.horaFin.substring(0, 5)}`
-                            : (ex.duracionExamen ? `${ex.duracionExamen}` : 'Horario programado');
+                            ? ex.ambientes.map((a) => {
+                                const nombre = a.nombreAmbiente || a.nombreAula || "Aula";
+                                const ubi = a.ubicacionAmbiente || a.bloque || "";
+                                return `${nombre}${ubi ? ` · ${ubi}` : ""}`;
+                            }).join(" + ")
+                            : "Aula por definir";
+                        const strHorario = horaInicio && horaFin
+                            ? `${horaInicio} – ${horaFin}`
+                            : (ex.duracionExamen ? `${ex.duracionExamen}` : "Horario programado");
 
                         const total = ex.totalInscritos || ex.totalEstudiantes || 0;
                         const ing = ex.ingresados || 0;
@@ -267,14 +278,21 @@ export default function HomeDocente() {
                         return {
                             idExamen: ex.idExamen,
                             idAsignatura: ex.idAsignatura,
-                            nombreExamen: ex.nombreAsignatura || ex.nombreTipoExamen || 'Examen Programado',
-                            siglaAsignatura: ex.siglaAsignatura || '',
+                            nombreExamen: ex.nombreAsignatura || ex.nombreTipoExamen || "Examen Programado",
+                            siglaAsignatura: ex.siglaAsignatura || "",
                             aula: strAula,
+                            aulaNombre: aulaNombre || "Aula por definir",
+                            bloque,
                             horario: strHorario,
+                            fechaExamen: ex.fechaExamen,
+                            horaInicio,
+                            horaFin,
+                            tipoExamen: ex.nombreTipoExamen || "",
                             ingresados: ing,
                             noLlegan: faltan,
                             inhabilitados: inhab,
                             totalInscritos: total,
+                            esExamenReal: true,
                         };
                     });
                     setExamenes(mapeados);
@@ -306,6 +324,7 @@ export default function HomeDocente() {
                                 noLlegan: Math.max(0, total - hab - inhab),
                                 inhabilitados: inhab,
                                 totalInscritos: total,
+                                esExamenReal: false,
                             };
                         });
                         setExamenes(mapeadosAsig);
@@ -368,11 +387,10 @@ export default function HomeDocente() {
                     <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1">
                         <button
                             onClick={() => setStrMenuActivo("inicio")}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${
-                                strMenuActivo === "inicio"
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "inicio"
                                     ? "bg-[#1A365D] text-white shadow-xs"
                                     : "text-slate-700 hover:bg-slate-50"
-                            }`}
+                                }`}
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                             Inicio
@@ -385,28 +403,36 @@ export default function HomeDocente() {
                             <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                             Mis Exámenes
                         </button>
+                        <button
+                            onClick={() => setStrMenuActivo("control-ingresos")}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "control-ingresos"
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                                }`}
+                        >
+                            <ScanLine className={`w-4 h-4 ${strMenuActivo === "control-ingresos" ? "text-white" : "text-[#1A365D]"}`} />
+                            Control de ingresos
+                        </button>
                         <button onClick={() => setStrMenuActivo("inicio")} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
                             <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                             Reportes y Asistencia
                         </button>
                         <button
                             onClick={() => setStrMenuActivo("incidencias")}
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${
-                                strMenuActivo === "incidencias"
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "incidencias"
                                     ? "bg-[#1A365D] text-white shadow-xs"
                                     : "text-slate-700 hover:bg-slate-50"
-                            }`}
+                                }`}
                         >
                             <div className="flex items-center gap-3">
                                 <AlertTriangle className={`w-4 h-4 ${strMenuActivo === "incidencias" ? "text-white" : "text-[#1A365D]"}`} />
                                 <span>Incidencias</span>
                             </div>
                             {totalIncidenciasAbiertas > 0 && (
-                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                    strMenuActivo === "incidencias"
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${strMenuActivo === "incidencias"
                                         ? "bg-white text-rose-600"
                                         : "bg-rose-100 text-rose-700"
-                                }`}>
+                                    }`}>
                                     {totalIncidenciasAbiertas}
                                 </span>
                             )}
@@ -420,119 +446,121 @@ export default function HomeDocente() {
 
                 {/* CONTENIDO CENTRAL — demo HU7 (mismo provider que el operador) */}
                 <OperadorProvider>
-                <main className="flex-1 min-w-0 space-y-6">
-                    {strMenuActivo === "incidencias" ? (
-                        <SeccionIncidencias rol="DOCENTE" />
-                    ) : (
-                        <>
-                    <FilaConexionDocente />
+                    <main className="flex-1 min-w-0 space-y-6">
+                        {strMenuActivo === "incidencias" ? (
+                            <SeccionIncidencias rol="DOCENTE" />
+                        ) : strMenuActivo === "control-ingresos" ? (
+                            <SeccionControlIngresosDocente examenes={examenes} boolCargando={boolCargando} />
+                        ) : (
+                            <>
+                                <FilaConexionDocente />
 
-                    <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>
-                        <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
-                            ¡HOLA, {strNombre.toUpperCase()}!
-                        </span>
-                        <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
-                            Bienvenida a SCIEM-PASS
-                        </h1>
-                        <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
-                            Aquí podrás supervisar tus exámenes programados hoy, llevar el control de ingresos y gestionar las habilitaciones de tus estudiantes.
-                        </p>
-                    </div>
-
-                    {/* GRILLA PRINCIPAL */}
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-                        {/* SECCIÓN DE EXÁMENES */}
-                        <div className="xl:col-span-2 space-y-4">
-                            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                                <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-                                    <div>
-                                        <h3 className="text-base font-black text-[#1A365D]">
-                                            Mis Exámenes / Asignaturas
-                                        </h3>
-                                        <p className="text-xs text-slate-500 font-medium">
-                                            Docente Activo – <span className="font-bold text-[#1A365D]">{examenes.length} registradas</span>
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => setBoolModalAbierto(true)}
-                                        className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
-                                    >
-                                        + Registrar examen
-                                    </button>
+                                <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>
+                                    <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
+                                        ¡HOLA, {strNombre.toUpperCase()}!
+                                    </span>
+                                    <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
+                                        Bienvenida a SCIEM-PASS
+                                    </h1>
+                                    <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
+                                        Aquí podrás supervisar tus exámenes programados hoy, llevar el control de ingresos y gestionar las habilitaciones de tus estudiantes.
+                                    </p>
                                 </div>
 
-                                <div className="space-y-4">
-                                    {boolCargando ? (
-                                        <div className="text-center py-8 text-slate-500 text-xs font-semibold animate-pulse">
-                                            Cargando asignaturas y exámenes del docente...
+                                {/* GRILLA PRINCIPAL */}
+                                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+                                    {/* SECCIÓN DE EXÁMENES */}
+                                    <div className="xl:col-span-2 space-y-4">
+                                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+                                            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+                                                <div>
+                                                    <h3 className="text-base font-black text-[#1A365D]">
+                                                        Mis Exámenes / Asignaturas
+                                                    </h3>
+                                                    <p className="text-xs text-slate-500 font-medium">
+                                                        Docente Activo – <span className="font-bold text-[#1A365D]">{examenes.length} registradas</span>
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => setBoolModalAbierto(true)}
+                                                    className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
+                                                >
+                                                    + Registrar examen
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                {boolCargando ? (
+                                                    <div className="text-center py-8 text-slate-500 text-xs font-semibold animate-pulse">
+                                                        Cargando asignaturas y exámenes del docente...
+                                                    </div>
+                                                ) : examenes.length === 0 ? (
+                                                    <div className="text-center py-8 text-slate-500 text-xs font-semibold bg-[#F8FAFC] rounded-2xl border border-slate-200">
+                                                        No tienes exámenes ni asignaturas asignadas en el sistema.
+                                                    </div>
+                                                ) : (
+                                                    examenes.map((examen) => (
+                                                        <TarjetaExamenDocente key={examen.idExamen} examen={examen} />
+                                                    ))
+                                                )}
+                                            </div>
                                         </div>
-                                    ) : examenes.length === 0 ? (
-                                        <div className="text-center py-8 text-slate-500 text-xs font-semibold bg-[#F8FAFC] rounded-2xl border border-slate-200">
-                                            No tienes exámenes ni asignaturas asignadas en el sistema.
-                                        </div>
-                                    ) : (
-                                        examenes.map((examen) => (
-                                            <TarjetaExamenDocente key={examen.idExamen} examen={examen} />
-                                        ))
-                                    )}
-                                </div>
-                            </div>
 
-                        </div>
-
-                        {/* PANEL DERECHO */}
-                        <div className="space-y-6">
-                            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                                <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                    Calendario Académico
-                                </h4>
-                                <div className="text-center bg-[#F8FAFC] p-4 rounded-2xl border border-slate-200">
-                                    <p className="text-xs font-bold text-[#1A365D]">Septiembre 2026</p>
-                                    <div className="grid grid-cols-7 gap-1 mt-3 text-[11px] font-bold text-slate-600">
-                                        <span className="text-slate-400">Lu</span>
-                                        <span className="text-slate-400">Ma</span>
-                                        <span className="text-slate-400">Mi</span>
-                                        <span className="text-slate-400">Ju</span>
-                                        <span className="text-slate-400">Vi</span>
-                                        <span className="text-slate-400">Sá</span>
-                                        <span className="text-slate-400">Do</span>
-                                        {Array.from({ length: 30 }, (_, i) => i + 1).map((dia) => (
-                                            <span
-                                                key={dia}
-                                                className={`py-1 rounded-lg ${dia === 5 ? 'bg-[#1A365D] text-white font-black' : 'hover:bg-slate-200'}`}
-                                            >
-                                                {dia}
-                                            </span>
-                                        ))}
                                     </div>
+
+                                    {/* PANEL DERECHO */}
+                                    <div className="space-y-6">
+                                        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+                                            <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-3 flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                Calendario Académico
+                                            </h4>
+                                            <div className="text-center bg-[#F8FAFC] p-4 rounded-2xl border border-slate-200">
+                                                <p className="text-xs font-bold text-[#1A365D]">Septiembre 2026</p>
+                                                <div className="grid grid-cols-7 gap-1 mt-3 text-[11px] font-bold text-slate-600">
+                                                    <span className="text-slate-400">Lu</span>
+                                                    <span className="text-slate-400">Ma</span>
+                                                    <span className="text-slate-400">Mi</span>
+                                                    <span className="text-slate-400">Ju</span>
+                                                    <span className="text-slate-400">Vi</span>
+                                                    <span className="text-slate-400">Sá</span>
+                                                    <span className="text-slate-400">Do</span>
+                                                    {Array.from({ length: 30 }, (_, i) => i + 1).map((dia) => (
+                                                        <span
+                                                            key={dia}
+                                                            className={`py-1 rounded-lg ${dia === 5 ? 'bg-[#1A365D] text-white font-black' : 'hover:bg-slate-200'}`}
+                                                        >
+                                                            {dia}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+                                            <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-2">
+                                                Próximo Examen
+                                            </h4>
+                                            <div className="p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
+                                                <p className="font-extrabold text-xs text-[#1A365D]">Inteligencia Artificial</p>
+                                                <p className="text-[11px] text-slate-600 mt-0.5">Viernes, 5 de Septiembre · 09:00</p>
+                                                <p className="text-[10px] text-[#1A365D] font-bold mt-2">Aula 612 · Bloque F</p>
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+
+
                                 </div>
-                            </div>
 
-                            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                                <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-2">
-                                    Próximo Examen
-                                </h4>
-                                <div className="p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
-                                    <p className="font-extrabold text-xs text-[#1A365D]">Inteligencia Artificial</p>
-                                    <p className="text-[11px] text-slate-600 mt-0.5">Viernes, 5 de Septiembre · 09:00</p>
-                                    <p className="text-[10px] text-[#1A365D] font-bold mt-2">Aula 612 · Bloque F</p>
-                                </div>
-
-                            </div>
-
-                        </div>
-
-
-
-                    </div>
-
-                    <PieSincronizacionDocente />
-                    </>
-                    )}
-                </main>
-                <ToastOperador />
+                                <PieSincronizacionDocente />
+                            </>
+                        )}
+                    </main>
+                    <ToastOperador />
                 </OperadorProvider>
             </div>
 
