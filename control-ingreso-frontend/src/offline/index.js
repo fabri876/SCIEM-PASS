@@ -74,6 +74,6 @@ export { useInactividad, crearInactividad } from "./useInactividad.js";
 export {
   limpiarAlLogout,
   limpiezaTotalDispositivoCompartido,
-  LIMPIEZA_DEFAULTS,
+  LIMPIEZA_DEFAULTS_EXPORT as LIMPIEZA_DEFAULTS,
 } from "./logoutCleanup.js";
 export { INACTIVIDAD_CONFIG } from "./constantes.js";
