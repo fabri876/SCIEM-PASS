@@ -311,8 +311,49 @@ class IngresoExcepcionalServiceTest {
         ConsultaEstudianteDto dto = service.consultar(ID_AMBIENTE, "0000000", false, "ip");
 
         assertEquals("NO_ENCONTRADO", dto.estado());
-        assertEquals("Estudiante no encontrado.", dto.mensaje());
+        assertTrue(dto.mensaje().startsWith("Estudiante no encontrado"));
         assertFalse(dto.puedeAutorizarExcepcional());
+    }
+
+    @Test
+    @DisplayName("QA: al buscar con el aula llena, no deja autorizar, explica el motivo y el intento queda en auditoría")
+    void consultar_aulaLlena_auditaIntento() {
+        when(ingresoRepository.countByIdAmbienteAndIdExpulsionIsNull(ID_AMBIENTE)).thenReturn(60L);
+
+        ConsultaEstudianteDto dto = service.consultar(ID_AMBIENTE, String.valueOf(CODSIS), false, "ip");
+
+        assertFalse(dto.puedeAutorizarExcepcional());
+        assertTrue(dto.mensaje().contains("Aula llena (60/60)"));
+        verify(auditoriaService).registrar(eq("INGRESO_EXCEPCIONAL_RECHAZADO"), anyString(),
+                eq("c.ramos@est.umss.edu"), contains("Aula llena"), eq("ip"));
+    }
+
+    @Test
+    @DisplayName("QA: al buscar a quien ya ingresó, se indica hora y aula y el intento queda en auditoría")
+    void consultar_duplicado_auditaIntento() {
+        Ingreso previo = new Ingreso();
+        previo.setIdAmbiente(ID_AMBIENTE);
+        previo.setHoraIngreso(HoraOficial.hoy().atTime(7, 41));
+        when(ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(CODSIS, ID_ASIGNATURA, ID_EXAMEN))
+                .thenReturn(Optional.of(previo));
+
+        ConsultaEstudianteDto dto = service.consultar(ID_AMBIENTE, String.valueOf(CODSIS), false, "ip");
+
+        assertEquals("DUPLICADO", dto.estado());
+        assertTrue(dto.mensaje().contains("07:41") && dto.mensaje().contains("Aula 601"));
+        assertFalse(dto.puedeAutorizarExcepcional());
+        verify(auditoriaService).registrar(eq("INGRESO_EXCEPCIONAL_RECHAZADO"), anyString(), anyString(),
+                contains("07:41"), eq("ip"));
+    }
+
+    @Test
+    @DisplayName("Buscar al estudiante desde el formulario de incidencias no registra intentos de ingreso")
+    void consultar_desdeIncidencia_noAudita() {
+        when(ingresoRepository.countByIdAmbienteAndIdExpulsionIsNull(ID_AMBIENTE)).thenReturn(60L);
+
+        service.consultar(ID_AMBIENTE, String.valueOf(CODSIS), true, "ip");
+
+        verify(auditoriaService, never()).registrar(anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
     private void autenticar(String rol, int idUsuario, String correo) {
