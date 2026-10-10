@@ -1,5 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { Wifi, WifiOff, Upload } from "lucide-react";
+import { Outlet } from "react-router-dom";
 import Header from "../../components/layout/Header";
 import OperadorProvider from "./OperadorProvider";
 import { useOperador } from "./operadorContexto";
@@ -7,46 +6,15 @@ import ModalPin from "./components/ModalPin";
 import ModalCierreSesion from "./components/ModalCierreSesion";
 import ToastOperador from "./components/ToastOperador";
 
-const LISTA_MODOS = [
-  { to: "/control/conectado", etiqueta: "Conectado", descripcion: "Modo en línea", icono: Wifi },
-  { to: "/control/offline", etiqueta: "Offline", descripcion: "Sin conexión", icono: WifiOff },
-  { to: "/control/forzar", etiqueta: "Forzar", descripcion: "Sincronización", icono: Upload },
-];
-
-function MapaModos() {
-  return (
-    <div className="bg-white border border-slate-200/80 rounded-2xl p-2 shadow-xs flex flex-wrap items-center gap-1.5">
-      {LISTA_MODOS.map((m) => {
-        const Icono = m.icono;
-        return (
-          <NavLink key={m.to} to={m.to}>
-            {({ isActive }) => (
-              <span
-                className={
-                  "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-colors " +
-                  (isActive ? "bg-[#0B2545] text-white shadow-xs" : "text-slate-600 hover:bg-slate-100")
-                }
-              >
-                <Icono className="w-4 h-4" />
-                {m.etiqueta}
-                <span className={"hidden sm:inline text-[10px] font-bold " + (isActive ? "text-white/70" : "text-slate-400")}>
-                  {m.descripcion}
-                </span>
-              </span>
-            )}
-          </NavLink>
-        );
-      })}
-    </div>
-  );
-}
-
 function ContenidoOperador() {
   const {
     pinVisible, pinMensaje, pinApertura, fnConfirmarPin, fnCerrarSesion,
-    logoutConfirmVisible, logoutMensaje, fnLogoutDefinitivo, fnCancelarLogout,
+    logoutConfirmVisible, logoutMensaje, fnCancelarLogout,
     sesionCerradaVisible, resumenSesion, fnResetDemo,
+    estadoRed, fnCambiarRed,
   } = useOperador();
+
+  const boolEnLinea = estadoRed.net !== "offline";
 
   return (
     <div className="min-h-screen bg-[#F1F5F9] text-slate-800 font-nunito pb-16">
@@ -55,7 +23,39 @@ function ContenidoOperador() {
       </div>
 
       <main className="max-w-[1200px] w-full mx-auto pt-[115px] px-4 sm:px-6 space-y-5">
-        <MapaModos />
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Conmutador Online / Offline de la demo (la red real también actualiza el estado) */}
+          <div className="inline-flex items-center gap-1 p-1.5 rounded-2xl bg-white border border-[#CBD5E1] shadow-xs">
+            <button
+              type="button"
+              onClick={() => fnCambiarRed("online")}
+              aria-pressed={boolEnLinea}
+              className={
+                "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
+                (boolEnLinea ? "bg-[#003770] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
+              }
+            >
+              Online
+            </button>
+            <button
+              type="button"
+              onClick={() => fnCambiarRed("offline")}
+              aria-pressed={!boolEnLinea}
+              className={
+                "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
+                (!boolEnLinea ? "bg-[#B91C1C] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
+              }
+            >
+              Offline
+            </button>
+          </div>
+          <p className="text-xs font-bold text-[#64748B]">
+            Estado actual:{" "}
+            <span className={boolEnLinea ? "text-[#1860A3]" : "text-[#B91C1C]"}>
+              {boolEnLinea ? "Con red" : "Sin red"}
+            </span>
+          </p>
+        </div>
         <Outlet />
       </main>
 
@@ -65,7 +65,7 @@ function ContenidoOperador() {
         mensajeConfirm={logoutMensaje}
         visibleCerrada={sesionCerradaVisible}
         resumen={resumenSesion}
-        onConfirmar={fnLogoutDefinitivo}
+        onConfirmar={fnCerrarSesion}
         onCancelar={fnCancelarLogout}
         onReiniciar={fnResetDemo}
       />

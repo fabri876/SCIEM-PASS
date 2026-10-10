@@ -16,3 +16,4 @@
 export const strApiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
 //const rawUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
 //export const strApiBaseUrl = rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl;
+

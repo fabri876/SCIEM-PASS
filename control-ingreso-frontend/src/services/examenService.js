@@ -137,3 +137,15 @@ export async function obtenerExamenPorId(idExamen) {
 
     return response.json();
 }
+/** Cartelera publica: datos de examen, docente y aula, sin informacion de estudiantes. */
+export async function obtenerExamenesProximos() {
+    const response = await fetch(`${strApiBaseUrl}/api/publico/examenes/proximos`);
+    if (!response.ok) throw new Error("No se pudieron cargar los proximos examenes.");
+    return response.json();
+}
+
+export async function obtenerCambiosExamenes() {
+ const response = await fetch(`${strApiBaseUrl}/api/publico/examenes/cambios`);
+ if (!response.ok) throw new Error("No se pudieron cargar los cambios de examenes.");
+ return response.json();
+}

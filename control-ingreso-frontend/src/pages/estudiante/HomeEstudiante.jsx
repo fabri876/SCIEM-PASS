@@ -1,17 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import Header from "../../components/layout/Header";
 import { obtenerUsuarioActual } from "../../services/authService";
-import StudentExamList from "./components/StudentExamList";
+import { obtenerMisExamenesEstudiante } from "../../services/credencialService";
+import ProximoExamen from "../credencial/componentes/ProximoExamen";
+import TarjetaExamenEstudiante from "../credencial/componentes/TarjetaExamenEstudiante";
+import VistaCredencialQr from "../credencial/componentes/VistaCredencialQr";
+import CalendarioExamenes from "../credencial/componentes/CalendarioExamenes";
+import { diasHasta } from "../credencial/componentes/formato";
+
+// Próximos (el más cercano primero) y pasados (el más reciente primero)
+function ordenarExamenes(list) {
+  const clave = (e) => `${e.fecha}T${e.horaInicio}`;
+  const proximos = list.filter((e) => (diasHasta(e.fecha) ?? 0) >= 0).sort((a, b) => clave(a).localeCompare(clave(b)));
+  const pasados = list.filter((e) => (diasHasta(e.fecha) ?? 0) < 0).sort((a, b) => clave(b).localeCompare(clave(a)));
+  return { proximos, pasados };
+}
 
 export default function HomeEstudiante() {
   const [usuario, setUsuario] = useState(null);
   const [activeMenu, setActiveMenu] = useState("Inicio");
+
+  // Exámenes del estudiante y su credencial QR
   const [listExamenes, setListExamenes] = useState([]);
   const [cargandoExamenes, setCargandoExamenes] = useState(true);
-
-  // Estados para el Calendario Funcional
-  const [fechaActualCalendario, setFechaActualCalendario] = useState(new Date());
-  const [diaSeleccionado, setDiaSeleccionado] = useState(new Date().getDate());
+  const [strErrorExamenes, setStrErrorExamenes] = useState("");
+  const [idExamenQr, setIdExamenQr] = useState(null);
+  const [boolVerPasados, setBoolVerPasados] = useState(false);
+  const refMain = useRef(null);
 
   useEffect(() => {
     const user = obtenerUsuarioActual();
@@ -32,97 +48,25 @@ export default function HomeEstudiante() {
       });
     }
 
-    const cargarExamenesEstudiante = async () => {
-      try {
-        setTimeout(() => {
-          setListExamenes([
-            {
-              id: 101,
-              materia: "Programación II - Grupo A",
-              fecha: "20 de septiembre, 2026",
-              hora: "08:00 - 11:00",
-              ambiente: "Aula 612 - Bloque F",
-              estado: "HABILITADO",
-              docente: "Facultad de Ingeniería",
-            },
-            {
-              id: 102,
-              materia: "Física II - Grupo B",
-              fecha: "20 de septiembre, 2026",
-              hora: "14:00 - 17:00",
-              ambiente: "Aula 305 - Bloque C",
-              estado: "INHABILITADO",
-              docente: "Facultad de Ingeniería",
-            },
-          ]);
-          setCargandoExamenes(false);
-        }, 500);
-      } catch (error) {
-        console.error("Error al cargar exámenes:", error);
-        setCargandoExamenes(false);
-      }
-    };
-
-    cargarExamenesEstudiante();
+    obtenerMisExamenesEstudiante()
+      .then(setListExamenes)
+      .catch(() => setStrErrorExamenes("No pudimos cargar tus exámenes. Intenta de nuevo en unos minutos."))
+      .finally(() => setCargandoExamenes(false));
   }, []);
 
   const strNombre = usuario?.nombre || "Estudiante";
   const strApellido = usuario?.apellido || "";
   const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`;
 
-  // --- Lógica del Calendario Funcional ---
-  const diasSemana = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
-  const nombresMeses = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-  ];
+  const { proximos, pasados } = useMemo(() => ordenarExamenes(listExamenes), [listExamenes]);
+  const examenDestacado = proximos.find((e) => e.habilitado !== false) || null;
+  const listResto = proximos.filter((e) => e !== examenDestacado);
+  const examenQr = listExamenes.find((e) => e.id === idExamenQr) || null;
 
-  const anioActual = fechaActualCalendario.getFullYear();
-  const mesActualIndex = fechaActualCalendario.getMonth();
-
-  const cambiarMes = (direccion) => {
-    const nuevaFecha = new Date(anioActual, mesActualIndex + direccion, 1);
-    setFechaActualCalendario(nuevaFecha);
+  const fnVerQr = (id) => {
+    setIdExamenQr(id);
+    refMain.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-  // Obtener la estructura de días del mes actual
-  const obtenerMatrizCalendario = () => {
-    const primerDiaDelMes = new Date(anioActual, mesActualIndex, 1);
-    const ultimoDiaDelMes = new Date(anioActual, mesActualIndex + 1, 0);
-
-    let primerDiaSemana = primerDiaDelMes.getDay() - 1; // Ajustar para que Lunes sea 0
-    if (primerDiaSemana === -1) primerDiaSemana = 6; // Si es domingo
-
-    const totalDias = ultimoDiaDelMes.getDate();
-    const matriz = [];
-    let semana = [];
-
-    // Espacios vacíos antes del primer día del mes
-    for (let i = 0; i < primerDiaSemana; i++) {
-      semana.push(null);
-    }
-
-    for (let dia = 1; dia <= totalDias; dia++) {
-      semana.push(dia);
-      if (semana.length === 7) {
-        matriz.push(semana);
-        semana = [];
-      }
-    }
-
-    // Rellenar los espacios restantes de la última semana
-    if (semana.length > 0) {
-      while (semana.length < 7) {
-        semana.push(null);
-      }
-      matriz.push(semana);
-    }
-
-    return matriz;
-  };
-
-  const matrizDias = obtenerMatrizCalendario();
-  const fechaHoyReal = new Date();
 
   return (
     <div className="h-screen w-screen bg-[var(--color-bg-app)] font-[var(--font-nunito)] text-[var(--color-text-body)] overflow-hidden flex flex-col">
@@ -207,165 +151,73 @@ export default function HomeEstudiante() {
           </div>
         </aside>
 
+
         {/* Área Central de Contenido */}
-        <main className="flex-1 h-[calc(100vh-98px)] overflow-y-auto px-6 lg:px-10 py-8 space-y-8">
-
-          {/* Banner de Bienvenida Estilo Corporativo */}
-          <section className="relative bg-[image:var(--gradient-banner)] rounded-3xl p-8 text-white shadow-lg overflow-hidden border border-blue-900/20">
-            <div className="absolute right-[-20px] top-[-20px] w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-            <div className="relative z-10 max-w-2xl space-y-2">
-              <span className="text-xs font-bold text-blue-200 uppercase tracking-wider">¡Hola, {strNombre}!</span>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-                Bienvenida a SCIEM-PASS
-              </h1>
-              <p className="text-sm text-blue-100/90 font-normal leading-relaxed">
-                Aquí podrás consultar tus exámenes, ver tu información académica y gestionar tu ingreso de forma digital.
-              </p>
-            </div>
-          </section>
-
-          {/* Grid Principal de Módulos (Central y Derecho) */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start pb-12">
-
-            {/* Columna Izquierda / Central (Listados y Exámenes) */}
-            <div className="xl:col-span-8 space-y-6">
-              <div className="bg-[var(--color-bg-card)] rounded-3xl p-6 shadow-xs border border-[var(--color-border)]">
-                <StudentExamList listExamenes={listExamenes} cargando={cargandoExamenes} />
+        <main ref={refMain} className="flex-1 h-[calc(100vh-98px)] overflow-y-auto px-6 lg:px-10 py-8">
+          <div className="max-w-[1100px] flex flex-col gap-6 text-[#08264A]">
+            {/* El saludo solo va en la pantalla principal, no en el detalle del QR */}
+            {!examenQr && (
+              <div>
+                <h1 className="m-0 text-[22px] max-md:text-xl font-bold text-[#08264A]">Hola, {strNombre.split(" ")[0]}</h1>
+                <p className="mt-1 text-[13px] text-[#64748B]">Consulta tus exámenes y tu credencial QR de ingreso.</p>
               </div>
-            </div>
+            )}
 
-            {/* Columna Derecha (Calendario Funcional y Accesos) */}
-            <div className="xl:col-span-4 space-y-6">
+            {examenQr ? (
+              <VistaCredencialQr examen={examenQr} usuario={usuario} onVolver={() => setIdExamenQr(null)} />
+            ) : (
+              <>
+                {strErrorExamenes && (
+                  <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strErrorExamenes}</div>
+                )}
 
-              {/* Tarjeta de Calendario Académico Funcional */}
-              <div className="bg-[var(--color-bg-card)] rounded-3xl p-6 shadow-xs border border-[var(--color-border)] space-y-4">
+                {cargandoExamenes && <div className="h-[150px] rounded-xl bg-[#D9E8F7] animate-pulse" aria-label="Cargando" />}
 
-                {/* Cabecera del Calendario */}
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-[var(--color-text-title)] flex items-center gap-2">
-                    <svg className="w-5 h-5 text-primary-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>Calendario Académico</span>
-                  </h3>
-                </div>
+                {examenDestacado && <ProximoExamen examen={examenDestacado} onVerDetalle={fnVerQr} />}
 
-                {/* Selector de Mes Funcional */}
-                <div className="flex items-center justify-between bg-[var(--color-bg-app)] px-4 py-2.5 rounded-xl border border-[var(--color-border)] text-xs font-bold text-[var(--color-text-title)]">
-                  <button
-                    onClick={() => cambiarMes(-1)}
-                    className="p-1 hover:text-primary-navy transition-colors cursor-pointer"
-                    title="Mes Anterior"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <span>{nombresMeses[mesActualIndex]} {anioActual}</span>
-                  <button
-                    onClick={() => cambiarMes(1)}
-                    className="p-1 hover:text-primary-navy transition-colors cursor-pointer"
-                    title="Mes Siguiente"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
+                <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-6 items-start max-xl:grid-cols-1">
+                  {/* Mis exámenes */}
+                  <section aria-labelledby="he-t-examenes" className="flex flex-col gap-3 min-w-0">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h2 id="he-t-examenes" className="m-0 text-base font-bold text-[#08264A]">Mis exámenes</h2>
+                      {!cargandoExamenes && <span className="text-xs text-[#64748B]">El QR se habilita desde el día anterior a cada examen</span>}
+                    </div>
 
-                {/* Cuadrícula del Calendario */}
-                <div className="pt-1">
-                  {/* Días de la semana */}
-                  <div className="grid grid-cols-7 text-center text-[11px] font-bold text-[var(--color-secondary-data)] mb-2">
-                    {diasSemana.map((dia, index) => (
-                      <span key={index}>{dia}</span>
-                    ))}
-                  </div>
+                    {cargandoExamenes && [0, 1].map((i) => <div key={i} className="h-[78px] rounded-xl bg-white border border-[#CBD5E1] animate-pulse" />)}
 
-                  {/* Números de los días generados dinámicamente */}
-                  <div className="space-y-1">
-                    {matrizDias.map((semana, idxS) => (
-                      <div key={idxS} className="grid grid-cols-7 text-center text-xs">
-                        {semana.map((dia, idxD) => {
-                          if (dia === null) {
-                            return <span key={idxD} />;
-                          }
-
-                          const esHoy =
-                            dia === fechaHoyReal.getDate() &&
-                            mesActualIndex === fechaHoyReal.getMonth() &&
-                            anioActual === fechaHoyReal.getFullYear();
-
-                          const esSeleccionado = dia === diaSeleccionado;
-
-                          return (
-                            <div key={idxD} className="flex flex-col items-center justify-center h-8 relative">
-                              <button
-                                onClick={() => setDiaSeleccionado(dia)}
-                                className={`w-7 h-7 rounded-full flex items-center justify-center font-medium transition-all cursor-pointer ${esHoy
-                                  ? "bg-primary-navy text-white font-bold shadow-md shadow-slate-950/30"
-                                  : esSeleccionado
-                                    ? "bg-slate-200 text-primary-navy font-bold border border-slate-300"
-                                    : "text-[var(--color-text-title)] hover:bg-slate-100 hover:text-primary-navy"
-                                  }`}
-                              >
-                                {dia}
-                              </button>
-                            </div>
-                          );
-                        })}
+                    {!cargandoExamenes && !strErrorExamenes && listExamenes.length === 0 && (
+                      <div className="bg-white border border-dashed border-[#CBD5E1] rounded-xl px-5 py-10 text-center">
+                        <p className="m-0 text-[15px] font-semibold text-[#08264A]">No tienes exámenes inscritos</p>
+                        <p className="mt-1 text-[13px] text-[#64748B]">Cuando te inscriban en un examen, aparecerá aquí con su QR.</p>
                       </div>
-                    ))}
-                  </div>
+                    )}
+
+                    {listResto.map((ex) => <TarjetaExamenEstudiante key={ex.id} examen={ex} onVerQr={fnVerQr} />)}
+
+                    {pasados.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setBoolVerPasados((v) => !v)}
+                          aria-expanded={boolVerPasados}
+                          className="self-start mt-1 inline-flex items-center gap-1 text-[13px] font-semibold text-[#1860A3] hover:underline cursor-pointer"
+                        >
+                          {boolVerPasados
+                            ? <>Ocultar exámenes pasados <ChevronUp className="w-4 h-4" /></>
+                            : <>Ver exámenes pasados ({pasados.length}) <ChevronDown className="w-4 h-4" /></>}
+                        </button>
+                        {boolVerPasados && pasados.map((ex) => <TarjetaExamenEstudiante key={ex.id} examen={ex} onVerQr={fnVerQr} />)}
+                      </>
+                    )}
+                  </section>
+
+                  {/* Calendario: días con examen marcados */}
+                  <aside>
+                    <CalendarioExamenes listExamenes={listExamenes} onVerQr={fnVerQr} />
+                  </aside>
                 </div>
-
-                {/* Tarjeta de Próximo Examen inferior */}
-                <div className="pt-3 border-t border-[var(--color-border)] space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-secondary-data)] block">
-                    Próximo Examen
-                  </span>
-                  <div className="p-3 bg-[var(--color-bg-app)] rounded-2xl border border-[var(--color-border)] space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between font-bold text-[var(--color-text-title)]">
-                      <span>Programación II - Grupo A</span>
-                      <svg className="w-3.5 h-3.5 text-[var(--color-secondary-data)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                    <div className="text-[11px] text-[var(--color-secondary-data)] space-y-0.5">
-                      <p>20 de septiembre, 2026</p>
-                      <p>08:00 - 11:00 • Aula 612 - Bloque F</p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Tarjeta de Información Académica */}
-              <div className="bg-[var(--color-bg-card)] rounded-3xl p-6 shadow-xs border border-[var(--color-border)] space-y-4">
-                <h3 className="text-base font-bold text-[var(--color-text-title)] flex items-center gap-2">
-                  <svg className="w-5 h-5 text-primary-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>Información Académica</span>
-                </h3>
-                <div className="space-y-3 text-xs">
-                  <div className="p-3 bg-[var(--color-bg-app)] rounded-xl border border-[var(--color-border)]">
-                    <span className="text-[var(--color-text-body)] font-semibold block text-[11px] uppercase">Carrera</span>
-                    <span className="font-bold text-[var(--color-text-title)] text-xs">Ingeniería de Sistemas</span>
-                  </div>
-                  <div className="p-3 bg-[var(--color-bg-app)] rounded-xl border border-[var(--color-border)]">
-                    <span className="text-[var(--color-text-body)] font-semibold block text-[11px] uppercase">Facultad</span>
-                    <span className="font-bold text-[var(--color-text-title)] text-xs">Facultad de Ingeniería</span>
-                  </div>
-                  <div className="p-3 bg-[var(--color-bg-app)] rounded-xl border border-[var(--color-border)]">
-                    <span className="text-[var(--color-text-body)] font-semibold block text-[11px] uppercase">Semestre Actual</span>
-                    <span className="font-bold text-primary-navy text-xs">2/2026</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
+              </>
+            )}
           </div>
 
         </main>

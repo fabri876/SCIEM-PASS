@@ -6,6 +6,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Asignatura;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Aula;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HoraOficial;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AsignaturaRepository;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -126,9 +128,9 @@ public class AmbienteExamenService {
     }
 
     /**
-     * Aulas que el usuario puede ver, con filtros opcionales. Un docente que
-     * pide explícitamente un examen o aula de otra materia recibe 403 (y queda
-     * auditado); sin filtros, simplemente ve solo las suyas.
+     * Aulas de examen que el usuario tiene asignadas, con filtros opcionales.
+     * Si pide explícitamente un examen o aula que no tiene asignado recibe 403
+     * (y queda auditado); sin filtros, simplemente ve solo lo suyo.
      */
     public List<Ambiente> ambientesVisibles(UsuarioActual usuario, Integer idExamen, Integer idAmbiente,
                                             boolean permiteOperador, String accion, String ip) {
@@ -138,29 +140,41 @@ public class AmbienteExamenService {
 
         if (idAmbiente != null) {
             Ambiente ambiente = obtener(idAmbiente);
-            contextoUsuarioService.verificarAccesoMateria(usuario, ambiente.getIdAsignatura(), permiteOperador, accion, ip);
+            contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, permiteOperador, accion, ip);
             return List.of(ambiente);
         }
 
         if (idExamen != null) {
             List<Ambiente> delExamen = ambienteRepository.findByIdExamen(idExamen);
-            if (!delExamen.isEmpty()) {
-                contextoUsuarioService.verificarAccesoMateria(usuario, delExamen.get(0).getIdAsignatura(),
-                        permiteOperador, accion, ip);
+            if (delExamen.isEmpty() || usuario.esAdmin()) {
+                return delExamen;
             }
+            if (usuario.esOperador()) {
+                Set<Integer> asignadas = contextoUsuarioService.ambientesDelOperador(usuario.idUsuario());
+                List<Ambiente> suyas = delExamen.stream().filter(a -> asignadas.contains(a.getIdAmbiente())).toList();
+                if (suyas.isEmpty()) {
+                    // Audita y lanza 403.
+                    contextoUsuarioService.verificarAccesoAmbiente(usuario, delExamen.get(0), permiteOperador, accion, ip);
+                }
+                return suyas;
+            }
+            // Docente: si es responsable del examen, todas sus aulas.
+            contextoUsuarioService.verificarAccesoAmbiente(usuario, delExamen.get(0), permiteOperador, accion, ip);
             return delExamen;
         }
 
-        if (usuario.esAdmin() || (usuario.esOperador() && permiteOperador)) {
+        if (usuario.esAdmin()) {
             return ambienteRepository.findAll();
         }
+        if (usuario.esOperador()) {
+            return ambienteRepository.findAllById(contextoUsuarioService.ambientesDelOperador(usuario.idUsuario()));
+        }
         // Solo queda el docente (verificarRol ya descartó los demás casos).
-        return contextoUsuarioService.asignaturasDelDocente(usuario.idUsuario()).stream()
-                .flatMap(idAsignatura -> ambienteRepository.findByIdAsignatura(idAsignatura).stream())
-                .toList();
+        Set<Integer> examenes = contextoUsuarioService.examenesDelDocente(usuario.idUsuario());
+        return examenes.isEmpty() ? List.of() : ambienteRepository.findByIdExamenIn(new ArrayList<>(examenes));
     }
 
-    /** Aulas de los exámenes de una fecha (por defecto hoy) que el usuario puede operar. */
+    /** Aulas de los exámenes de una fecha (por defecto hoy) que el usuario tiene asignadas. */
     @Transactional(readOnly = true)
     public List<AmbienteControlDto> listarDelDia(UsuarioActual usuario, LocalDate fecha, boolean permiteOperador, String ip) {
         LocalDate dia = fecha == null ? HoraOficial.hoy() : fecha;
@@ -171,13 +185,43 @@ public class AmbienteExamenService {
                 .sorted(Comparator.comparing((AmbienteInfo i) -> i.ambiente().getHoraInicio(),
                                 Comparator.nullsLast(Comparator.naturalOrder()))
                         .thenComparing(AmbienteInfo::aula, Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(info -> {
-                    EstadoIngresoAula estado = estadoIngreso(info);
-                    Ambiente a = info.ambiente();
-                    return new AmbienteControlDto(a.getIdAmbiente(), a.getIdAsignatura(), info.asignatura(),
-                            a.getIdExamen(), info.fechaExamen(), info.aula(), a.getHoraInicio(), a.getHoraFin(),
-                            aforo(a.getIdAmbiente()), estado.cerrado(), estado.motivo());
-                })
+                .map(this::aDto)
                 .toList();
+    }
+
+    /**
+     * Aulas de todos los exámenes asignados que ya se tomaron o se toman hoy.
+     * Las incidencias se pueden registrar después del examen (recomendación
+     * de la ingeniera), así que aquí no se limita a la fecha de hoy.
+     * Orden: los exámenes más recientes primero.
+     */
+    @Transactional(readOnly = true)
+    public List<AmbienteControlDto> listarAsignadas(UsuarioActual usuario, String ip) {
+        LocalDate hoy = HoraOficial.hoy();
+        List<Ambiente> visibles = ambientesVisibles(usuario, null, null, true, "Listar aulas asignadas", ip);
+
+        return describir(visibles).values().stream()
+                .filter(info -> info.fechaExamen() == null || !info.fechaExamen().isAfter(hoy))
+                .sorted(Comparator.comparing(AmbienteInfo::fechaExamen, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(i -> i.ambiente().getHoraInicio(), Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(AmbienteInfo::aula, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(this::aDto)
+                .toList();
+    }
+
+    /** No se registran incidencias de un examen que todavía no se tomó. */
+    public void verificarExamenYaIniciado(AmbienteInfo info) {
+        if (info.fechaExamen() != null && info.fechaExamen().isAfter(HoraOficial.hoy())) {
+            throw new ConflictoEstadoException("El examen es el " + info.fechaExamen().format(FORMATO_FECHA)
+                    + "; todavía no se pueden registrar incidencias.");
+        }
+    }
+
+    private AmbienteControlDto aDto(AmbienteInfo info) {
+        EstadoIngresoAula estado = estadoIngreso(info);
+        Ambiente a = info.ambiente();
+        return new AmbienteControlDto(a.getIdAmbiente(), a.getIdAsignatura(), info.asignatura(),
+                a.getIdExamen(), info.fechaExamen(), info.aula(), a.getHoraInicio(), a.getHoraFin(),
+                aforo(a.getIdAmbiente()), estado.cerrado(), estado.motivo());
     }
 }

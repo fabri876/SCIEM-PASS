@@ -2,10 +2,10 @@ import { Check, X, AlertTriangle, Clock, HardDrive } from "lucide-react";
 import { useOperador } from "../operadorContexto";
 
 const MAPA = {
-  ok: { icono: Check, fondo: "bg-emerald-50/90 border-emerald-200 text-emerald-950", badge: "bg-emerald-600", etiqueta: "PERMITIDO" },
-  no: { icono: X, fondo: "bg-rose-50/90 border-rose-200 text-rose-950", badge: "bg-rose-600", etiqueta: "DENEGADO" },
-  warn: { icono: AlertTriangle, fondo: "bg-amber-50/90 border-amber-200 text-amber-950", badge: "bg-amber-500", etiqueta: "RECHAZADO" },
-  wait: { icono: Clock, fondo: "bg-yellow-50/90 border-yellow-200 text-yellow-950", badge: "bg-yellow-500", etiqueta: "YA MARCADO" },
+  ok: { icono: Check, fondo: "bg-[#F0F6FC]/90 border-[#D9E8F7] text-[#003770]", badge: "bg-[#1860A3]", etiqueta: "PERMITIDO" },
+  no: { icono: X, fondo: "bg-[#FEF2F2]/90 border-[#FEE2E2] text-[#B91C1C]", badge: "bg-[#B91C1C]", etiqueta: "DENEGADO" },
+  warn: { icono: AlertTriangle, fondo: "bg-[#F1F5F9]/90 border-[#CBD5E1] text-[#475569]", badge: "bg-[#9AA8BA]", etiqueta: "RECHAZADO" },
+  wait: { icono: Clock, fondo: "bg-[#F1F5F9]/90 border-[#CBD5E1] text-[#475569]", badge: "bg-[#9AA8BA]", etiqueta: "YA MARCADO" },
   nodata: { icono: HardDrive, fondo: "bg-slate-50/90 border-slate-200 text-slate-800", badge: "bg-slate-500", etiqueta: "SIN DATOS LOCALES" },
 };
 
@@ -22,7 +22,7 @@ export default function ResultadoValidacion() {
         </span>
         <div>
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">{objResultado.titulo}</span>
-          <h3 className="text-lg font-black text-[#0B2545] leading-tight">{objResultado.nombre}</h3>
+          <h3 className="text-lg font-black text-[#003770] leading-tight">{objResultado.nombre}</h3>
         </div>
       </div>
 

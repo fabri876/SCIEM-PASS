@@ -2,11 +2,11 @@ import { Check, X, AlertTriangle, Clock, CameraOff } from "lucide-react";
 import { useOperador } from "../operadorContexto";
 
 const ITEMS = [
-  { cls: "ok", icono: Check, texto: "Permitido", sub: "Verde · ingreso registrado", clases: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  { cls: "no", icono: X, texto: "No está en la nómina", sub: "Rojo · rechazado", clases: "text-rose-700 bg-rose-50 border-rose-200" },
-  { cls: "warn", icono: AlertTriangle, texto: "No habilitado", sub: "Naranja · muestra el motivo", clases: "text-amber-700 bg-amber-50 border-amber-200" },
-  { cls: "wait", icono: Clock, texto: "Ya marcado", sub: "Amarillo · hora y puerta", clases: "text-yellow-700 bg-yellow-50 border-yellow-200" },
-  { cls: "qr", icono: CameraOff, texto: "QR inválido", sub: "Naranja · rechazado, sin transacción", clases: "text-amber-700 bg-amber-50 border-amber-200" },
+  { cls: "ok", icono: Check, texto: "Permitido", sub: "Azul · ingreso registrado", clases: "text-[#1860A3] bg-[#F0F6FC] border-[#D9E8F7]" },
+  { cls: "no", icono: X, texto: "No está en la nómina", sub: "Rojo · rechazado", clases: "text-[#B91C1C] bg-[#FEF2F2] border-[#FEE2E2]" },
+  { cls: "warn", icono: AlertTriangle, texto: "No habilitado", sub: "Gris · muestra el motivo", clases: "text-[#475569] bg-[#F1F5F9] border-[#CBD5E1]" },
+  { cls: "wait", icono: Clock, texto: "Ya marcado", sub: "Gris · hora y puerta", clases: "text-[#475569] bg-[#F1F5F9] border-[#CBD5E1]" },
+  { cls: "qr", icono: CameraOff, texto: "QR inválido", sub: "Gris · rechazado, sin transacción", clases: "text-[#475569] bg-[#F1F5F9] border-[#CBD5E1]" },
 ];
 
 export default function LeyendaValidacion() {

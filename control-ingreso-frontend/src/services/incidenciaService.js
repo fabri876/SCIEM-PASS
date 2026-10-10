@@ -22,10 +22,16 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
     ...(objOpciones.headers || {}),
   };
 
-  const response = await fetch(`${strApiBaseUrl}${strRuta}`, {
-    ...objOpciones,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${strApiBaseUrl}${strRuta}`, {
+      ...objOpciones,
+      headers,
+    });
+  } catch {
+    // Sin red o servidor caído: el backend no llegó a guardar nada.
+    throw new Error("No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo; no se guardó nada.");
+  }
 
   if (response.status === 401) {
     cerrarSesion();
@@ -72,6 +78,23 @@ export async function obtenerAmbientesDelDia(strFecha) {
   if (strFecha) params.set("fecha", strFecha);
   const strQuery = params.toString() ? `?${params.toString()}` : "";
   return fetchAutenticado(`/api/incidencias/ambientes${strQuery}`);
+}
+
+/**
+ * Aulas de TODOS los exámenes asignados al usuario que ya se tomaron o se toman
+ * hoy (más recientes primero). Las incidencias se pueden registrar después del
+ * examen, así que esta es la lista para la sección Incidencias.
+ * GET /api/incidencias/aulas-asignadas
+ * Roles: ADMINISTRADOR, DOCENTE (exámenes de los que es responsable),
+ *        OPERADOR (aulas asignadas en la HU05)
+ */
+export async function obtenerAulasAsignadas() {
+  return fetchAutenticado("/api/incidencias/aulas-asignadas");
+}
+
+/** Avisa al menú lateral (contador de abiertas) que algo cambió. */
+export function notificarCambioIncidencias() {
+  window.dispatchEvent(new Event("incidencias:actualizadas"));
 }
 
 /**

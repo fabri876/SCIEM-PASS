@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "../common/Logo";
 import UserAccountMenu from "../common/UserAccountMenu";
 import NotificationsMenu from "./NotificationsMenu";
-import { obtenerToken, obtenerUsuarioActual, cerrarSesion } from "../../services/authService";
+import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, cerrarSesion } from "../../services/authService";
 
 /**
  * Header.jsx
@@ -111,6 +111,9 @@ export default function Header() {
   const fnAlternarMenu = () => setBoolMenuAbierto((boolPrev) => !boolPrev);
   const fnCerrarMenu = () => setBoolMenuAbierto(false);
 
+  const navItems = arrNavItems.map(item => item.strTexto === "Inicio" && boolAutenticado
+    ? { ...item, strRuta: obtenerRutaPorRol(usuarioActual.rol) } : item);
+
   // Activo si la URL es exactamente la ruta del ítem o una sub-ruta suya
   const fnEsActivo = (strRuta) =>
     location.pathname === strRuta || location.pathname.startsWith(`${strRuta}/`);
@@ -124,7 +127,7 @@ export default function Header() {
         className="hidden md:flex ml-auto items-center gap-[38px] h-full"
         aria-label="Navegación principal"
       >
-        {arrNavItems.map((item) => (
+        {navItems.map((item) => (
           <NavItem
             key={item.strTexto}
             {...item}
@@ -178,7 +181,7 @@ export default function Header() {
           id="header-menu-mobile"
           className="absolute top-full left-0 right-0 md:hidden bg-white border-b border-[#E2E8F0]/75 shadow-lg flex flex-col px-5 py-4 gap-1 z-50 max-h-[calc(100vh-70px)] overflow-y-auto"
         >
-          {arrNavItems.map((item) => (
+          {navItems.map((item) => (
             <NavItem
               key={item.strTexto}
               {...item}

@@ -77,10 +77,14 @@ function configurar(r, strRol) {
       };
     case "OTRA_AULA":
       return {
-        strTono: "bad", Icono: MapPin, strTitulo: "AULA INCORRECTA", strSub: "INGRESO DENEGADO · ESTÁ HABILITADO, PERO EN OTRA AULA",
+        strTono: "bad", Icono: MapPin, strTitulo: "INGRESO A UN AMBIENTE DIFERENTE", strSub: "INGRESO DENEGADO · ESTÁ HABILITADO, PERO EN OTRA AULA",
         notas: (
           <Nota strTipo="azul">
-            Su ambiente asignado es el <b className="font-semibold">Aula {e?.aulaAsignada}</b>. Indícale que se dirija a su aula.
+            El estudiante debe dirigirse al{" "}
+            <b className="font-semibold">
+              {/^aula/i.test(String(e?.aulaAsignada || "")) ? e?.aulaAsignada : `Aula ${e?.aulaAsignada}`}
+            </b>
+            . El docente puede reubicarlo desde el monitoreo si en esta aula hay pupitres libres.
           </Nota>
         ),
       };
