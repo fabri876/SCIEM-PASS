@@ -50,6 +50,7 @@ public class SecurityConfig {
                         // 401 antes de que llegue la petición real, y el fetch() del frontend
                         // falla como error de CORS sin ni siquiera intentar autenticar.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/publico/examenes/proximos", "/api/publico/examenes/cambios").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/ping",
