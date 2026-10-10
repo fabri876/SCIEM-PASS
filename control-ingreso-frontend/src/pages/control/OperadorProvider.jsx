@@ -17,9 +17,7 @@ import {
   suscribirConectividad,
   useConectividad,
   useEstadoSync,
-  suspenderSincronizacion,
-  reanudarSincronizacion,
-} from "../offline";
+} from "../../offline";
 
 const RESULTADO_INICIAL = {
   kind: "ok", titulo: "Permitido", nombre: "Andrea Mamani Quispe",

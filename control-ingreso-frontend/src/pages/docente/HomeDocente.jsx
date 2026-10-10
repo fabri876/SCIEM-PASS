@@ -9,9 +9,10 @@ import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
 import { obtenerMisExamenes, obtenerAsignaturasPorDocente } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
+import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
 import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
-import { AlertTriangle, ScanLine } from "lucide-react";
+import { AlertTriangle, ScanLine, Activity } from "lucide-react";
 import { GraduationCap, Download, RefreshCw, CheckCircle2 } from "lucide-react";
 import OperadorProvider from "../control/OperadorProvider";
 import { useOperador } from "../control/operadorContexto";
@@ -418,6 +419,16 @@ export default function HomeDocente() {
                             Reportes y Asistencia
                         </button>
                         <button
+                            onClick={() => setStrMenuActivo("monitoreo")}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "monitoreo"
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                                }`}
+                        >
+                            <Activity className={`w-4 h-4 ${strMenuActivo === "monitoreo" ? "text-white" : "text-[#1A365D]"}`} />
+                            Monitoreo de Asistencia
+                        </button>
+                        <button
                             onClick={() => setStrMenuActivo("incidencias")}
                             className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "incidencias"
                                     ? "bg-[#1A365D] text-white shadow-xs"
@@ -449,6 +460,8 @@ export default function HomeDocente() {
                     <main className="flex-1 min-w-0 space-y-6">
                         {strMenuActivo === "incidencias" ? (
                             <SeccionIncidencias rol="DOCENTE" />
+                        ) : strMenuActivo === "monitoreo" ? (
+                            <SeccionMonitoreo rol="DOCENTE" />
                         ) : strMenuActivo === "control-ingresos" ? (
                             <SeccionControlIngresosDocente examenes={examenes} boolCargando={boolCargando} />
                         ) : (
