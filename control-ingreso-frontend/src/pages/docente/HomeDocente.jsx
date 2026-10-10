@@ -12,6 +12,12 @@ import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias"
 import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
 import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
 import { AlertTriangle, ScanLine } from "lucide-react";
+import { GraduationCap, Download, RefreshCw, CheckCircle2 } from "lucide-react";
+import OperadorProvider from "../control/OperadorProvider";
+import { useOperador } from "../control/operadorContexto";
+import ToastOperador from "../control/components/ToastOperador";
+import PieSincronizacion from "../control/components/PieSincronizacion";
+import { formatearNumero } from "../control/datosMockOperador";
 
 // Un docente no puede registrar a otro docente, solo Ayudante o Estudiante
 // (el backend ya lo valida igual en UsuarioService.validarPermisosRegistro).
@@ -20,8 +26,183 @@ const ROLES_REGISTRABLES_POR_DOCENTE = [
     { valor: "ESTUDIANTE", etiqueta: "Estudiante" },
 ];
 
-export default function HomeDocente() {
+// --- UI HU7 (idéntica a la del operador) aplicada al home del docente ---
+
+function FilaConexionDocente() {
+    const { estadoRed, fnCambiarRed } = useOperador();
+    const boolEnLinea = estadoRed.net !== "offline";
+    return (
+        <div className="flex items-center gap-4 flex-wrap">
+            <div className="inline-flex items-center gap-1 p-1.5 rounded-2xl bg-white border border-[#CBD5E1] shadow-xs">
+                <button
+                    type="button"
+                    onClick={() => fnCambiarRed("online")}
+                    aria-pressed={boolEnLinea}
+                    className={
+                        "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
+                        (boolEnLinea ? "bg-[#003770] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
+                    }
+                >
+                    Online
+                </button>
+                <button
+                    type="button"
+                    onClick={() => fnCambiarRed("offline")}
+                    aria-pressed={!boolEnLinea}
+                    className={
+                        "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
+                        (!boolEnLinea ? "bg-[#B91C1C] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
+                    }
+                >
+                    Offline
+                </button>
+            </div>
+            <p className="text-xs font-bold text-[#64748B]">
+                Estado actual:{" "}
+                <span className={boolEnLinea ? "text-[#1860A3]" : "text-[#B91C1C]"}>
+                    {boolEnLinea ? "Con red" : "Sin red"}
+                </span>
+            </p>
+        </div>
+    );
+}
+
+function TarjetaExamenDocente({ examen }) {
     const navigate = useNavigate();
+    const objCtx = useOperador();
+    const objNomi = objCtx.listExamenes.find((e) => e.id === examen.idExamen);
+    const strEstadoNomi = objNomi?.estado || "ninguna";
+    const boolOffline = objCtx.estadoRed.net === "offline";
+    const boolDescargando = strEstadoNomi === "descargando";
+    const numPctDescarga = boolDescargando && objNomi.total
+        ? Math.min(100, Math.floor((objNomi.cargados / objNomi.total) * 100))
+        : 0;
+    const numTotalNomi = objNomi?.total ?? examen.totalInscritos ?? 0;
+    const porcentaje = examen.totalInscritos > 0
+        ? Math.round((examen.ingresados / examen.totalInscritos) * 100)
+        : 0;
+
+    return (
+        <div className="bg-white border border-[#CBD5E1] rounded-xl p-5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-[10px] bg-[#003770] text-white flex items-center justify-center shadow-xs shrink-0">
+                        <GraduationCap className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h4 className="font-black text-sm text-[#08264A]">{examen.nombreExamen}</h4>
+                            {examen.siglaAsignatura && (
+                                <span className="bg-[#F0F6FC] text-[#1860A3] font-extrabold px-2 py-0.5 rounded text-[10px]">
+                                    {examen.siglaAsignatura}
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-xs text-[#64748B] font-bold mt-0.5">
+                            {examen.aula} · <span className="text-[#124B83]">{examen.horario}</span>
+                        </p>
+                    </div>
+                </div>
+
+                <button
+                    onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`)}
+                    className="bg-[#003770] hover:bg-[#124B83] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer self-start sm:self-center"
+                >
+                    Gestionar Habilitaciones
+                </button>
+            </div>
+
+            {/* HU7: nómina local para trabajar sin red */}
+            <div className="space-y-2">
+                {strEstadoNomi === "listo" && (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#124B83] bg-[#F0F6FC] border border-[#D9E8F7] rounded-full px-2.5 py-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        Nómina lista para offline · {formatearNumero(numTotalNomi)} estudiante{numTotalNomi === 1 ? "" : "s"}
+                    </span>
+                )}
+
+                {boolDescargando && (
+                    <div>
+                        <div className="h-1.5 rounded-full bg-[#F1F5F9] overflow-hidden">
+                            <i className="block h-full rounded-full bg-[#4A97D3] transition-[width] duration-500" style={{ width: numPctDescarga + "%" }} />
+                        </div>
+                        <p className="mt-1 text-[11px] font-semibold text-[#64748B]">
+                            {boolOffline ? "Descarga en pausa · " : "Descargando nómina… "}
+                            {numPctDescarga} % · {formatearNumero(objNomi.cargados)} de {formatearNumero(objNomi.total)}
+                        </p>
+                    </div>
+                )}
+
+                {strEstadoNomi === "ninguna" && (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#475569] bg-[#F1F5F9] border border-[#CBD5E1] rounded-full px-2.5 py-1">
+                        Sin nómina local · descárgala para trabajar sin red
+                    </span>
+                )}
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                        type="button"
+                        onClick={() => objCtx.fnDescargar(examen.idExamen, {
+                            materia: examen.nombreExamen,
+                            tipo: "",
+                            aula: examen.aula,
+                            contador: { habilitados: examen.totalInscritos, ingresaron: examen.ingresados },
+                        })}
+                        disabled={boolOffline || boolDescargando}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#267BC2] hover:bg-[#124B83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-semibold px-2.5 py-1.5 transition-colors cursor-pointer"
+                    >
+                        <Download className="w-3.5 h-3.5" /> Descargar nómina
+                    </button>
+
+                    {!boolOffline ? (
+                        <button
+                            type="button"
+                            onClick={() => objCtx.fnActualizar(examen.idExamen)}
+                            disabled={strEstadoNomi !== "listo" || objNomi?.actualizando}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#4A97D3]/40 text-[#4A97D3] hover:bg-[#4A97D3]/10 disabled:opacity-40 disabled:cursor-not-allowed text-[11px] font-semibold px-2.5 py-1.5 transition-colors cursor-pointer"
+                        >
+                            <RefreshCw className={"w-3.5 h-3.5 " + (objNomi?.actualizando ? "animate-spin" : "")} />
+                            {objNomi?.actualizando ? "Actualizando…" : "Actualizar nómina"}
+                        </button>
+                    ) : (
+                        <span className="inline-flex items-center text-[10px] font-semibold text-[#475569] bg-[#F1F5F9] border border-[#CBD5E1] rounded-full px-2.5 py-1.5">
+                            Requiere conexión
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+                <span className="bg-[#F0F6FC] border border-[#D9E8F7] text-[#1860A3] text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
+                    ✓ {examen.ingresados} Ingresaron
+                </span>
+                <span className="bg-[#F1F5F9] border border-[#CBD5E1] text-[#475569] text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
+                    ⏱ {examen.noLlegan} Faltan
+                </span>
+                <span className="bg-[#FEF2F2] border border-[#FCD9D9] text-[#B91C1C] text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
+                    ✕ {examen.inhabilitados} Inhabilitados
+                </span>
+            </div>
+
+            <div>
+                <div className="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
+                    <span>Progreso de acceso</span>
+                    <span className="font-mono">{examen.ingresados} / {examen.totalInscritos}</span>
+                </div>
+                <div className="w-full bg-[#F1F5F9] h-2 rounded-full overflow-hidden border border-[#CBD5E1]">
+                    <div className="bg-[#003770] h-full rounded-full transition-all duration-500" style={{ width: `${porcentaje}%` }}></div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function PieSincronizacionDocente() {
+    const { fnDoForzar } = useOperador();
+    return <PieSincronizacion onForzar={() => fnDoForzar()} />;
+}
+
+export default function HomeDocente() {
     const [usuario, setUsuario] = useState(null);
     const [examenes, setExamenes] = useState([]);
     const [boolCargando, setBoolCargando] = useState(true);
@@ -206,11 +387,10 @@ export default function HomeDocente() {
                     <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1">
                         <button
                             onClick={() => setStrMenuActivo("inicio")}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${
-                                strMenuActivo === "inicio"
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "inicio"
                                     ? "bg-[#1A365D] text-white shadow-xs"
                                     : "text-slate-700 hover:bg-slate-50"
-                            }`}
+                                }`}
                         >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                             Inicio
@@ -225,11 +405,10 @@ export default function HomeDocente() {
                         </button>
                         <button
                             onClick={() => setStrMenuActivo("control-ingresos")}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${
-                                strMenuActivo === "control-ingresos"
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "control-ingresos"
                                     ? "bg-[#1A365D] text-white shadow-xs"
                                     : "text-slate-700 hover:bg-slate-50"
-                            }`}
+                                }`}
                         >
                             <ScanLine className={`w-4 h-4 ${strMenuActivo === "control-ingresos" ? "text-white" : "text-[#1A365D]"}`} />
                             Control de ingresos
@@ -240,22 +419,20 @@ export default function HomeDocente() {
                         </button>
                         <button
                             onClick={() => setStrMenuActivo("incidencias")}
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${
-                                strMenuActivo === "incidencias"
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "incidencias"
                                     ? "bg-[#1A365D] text-white shadow-xs"
                                     : "text-slate-700 hover:bg-slate-50"
-                            }`}
+                                }`}
                         >
                             <div className="flex items-center gap-3">
                                 <AlertTriangle className={`w-4 h-4 ${strMenuActivo === "incidencias" ? "text-white" : "text-[#1A365D]"}`} />
                                 <span>Incidencias</span>
                             </div>
                             {totalIncidenciasAbiertas > 0 && (
-                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                    strMenuActivo === "incidencias"
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${strMenuActivo === "incidencias"
                                         ? "bg-white text-rose-600"
                                         : "bg-rose-100 text-rose-700"
-                                }`}>
+                                    }`}>
                                     {totalIncidenciasAbiertas}
                                 </span>
                             )}
@@ -267,172 +444,124 @@ export default function HomeDocente() {
                     </div>
                 </aside>
 
-                {/* CONTENIDO CENTRAL */}
-                <main className="flex-1 min-w-0 space-y-6">
-                    {strMenuActivo === "incidencias" ? (
-                        <SeccionIncidencias rol="DOCENTE" />
-                    ) : strMenuActivo === "control-ingresos" ? (
-                        <SeccionControlIngresosDocente examenes={examenes} boolCargando={boolCargando} />
-                    ) : (
-                        <>
-                    <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>
-                        <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
-                            ¡HOLA, {strNombre.toUpperCase()}!
-                        </span>
-                        <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
-                            Bienvenida a SCIEM-PASS
-                        </h1>
-                        <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
-                            Aquí podrás supervisar tus exámenes programados hoy, llevar el control de ingresos y gestionar las habilitaciones de tus estudiantes.
-                        </p>
-                    </div>
+                {/* CONTENIDO CENTRAL — demo HU7 (mismo provider que el operador) */}
+                <OperadorProvider>
+                    <main className="flex-1 min-w-0 space-y-6">
+                        {strMenuActivo === "incidencias" ? (
+                            <SeccionIncidencias rol="DOCENTE" />
+                        ) : strMenuActivo === "control-ingresos" ? (
+                            <SeccionControlIngresosDocente examenes={examenes} boolCargando={boolCargando} />
+                        ) : (
+                            <>
+                                <FilaConexionDocente />
 
-                    {/* GRILLA PRINCIPAL */}
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-                        {/* SECCIÓN DE EXÁMENES */}
-                        <div className="xl:col-span-2 space-y-4">
-                            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                                <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-                                    <div>
-                                        <h3 className="text-base font-black text-[#1A365D]">
-                                            Mis Exámenes / Asignaturas
-                                        </h3>
-                                        <p className="text-xs text-slate-500 font-medium">
-                                            Docente Activo – <span className="font-bold text-[#1A365D]">{examenes.length} registradas</span>
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => setBoolModalAbierto(true)}
-                                        className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
-                                    >
-                                        + Registrar examen
-                                    </button>
+                                <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>
+                                    <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
+                                        ¡HOLA, {strNombre.toUpperCase()}!
+                                    </span>
+                                    <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
+                                        Bienvenida a SCIEM-PASS
+                                    </h1>
+                                    <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
+                                        Aquí podrás supervisar tus exámenes programados hoy, llevar el control de ingresos y gestionar las habilitaciones de tus estudiantes.
+                                    </p>
                                 </div>
 
-                                <div className="space-y-4">
-                                    {boolCargando ? (
-                                        <div className="text-center py-8 text-slate-500 text-xs font-semibold animate-pulse">
-                                            Cargando asignaturas y exámenes del docente...
-                                        </div>
-                                    ) : examenes.length === 0 ? (
-                                        <div className="text-center py-8 text-slate-500 text-xs font-semibold bg-[#F8FAFC] rounded-2xl border border-slate-200">
-                                            No tienes exámenes ni asignaturas asignadas en el sistema.
-                                        </div>
-                                    ) : (
-                                        examenes.map((examen) => {
-                                            const porcentaje = examen.totalInscritos > 0
-                                                ? Math.round((examen.ingresados / examen.totalInscritos) * 100)
-                                                : 0;
-                                            return (
-                                                <div key={examen.idExamen} className="bg-[#F8FAFC] p-5 rounded-2xl border border-slate-200 space-y-3">
-                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                        <div className="flex items-start gap-3">
-                                                            <div className="w-10 h-10 rounded-xl bg-[#1A365D] text-white flex items-center justify-center text-lg font-bold shadow-xs shrink-0">
-                                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-                                                            </div>
-                                                            <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <h4 className="font-black text-sm text-[#1A365D]">{examen.nombreExamen}</h4>
-                                                                    {examen.siglaAsignatura && (
-                                                                        <span className="bg-blue-100 text-[#2563EB] font-extrabold px-2 py-0.5 rounded text-[10px]">
-                                                                            {examen.siglaAsignatura}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <p className="text-xs text-slate-600 font-bold mt-0.5">
-                                                                    {examen.aula} · <span className="text-[#1A365D]">{examen.horario}</span>
-                                                                </p>
-                                                            </div>
-                                                        </div>
+                                {/* GRILLA PRINCIPAL */}
+                                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-                                                        <button
-                                                            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`)}
-                                                            className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer self-start sm:self-center"
-                                                        >
-                                                            Gestionar Habilitaciones
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="flex flex-wrap gap-2 pt-1">
-                                                        <span className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
-                                                            ✓ {examen.ingresados} Ingresaron
-                                                        </span>
-                                                        <span className="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
-                                                            ⏱ {examen.noLlegan} Faltan
-                                                        </span>
-                                                        <span className="bg-red-50 border border-red-200 text-rose-600 text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
-                                                            ✕ {examen.inhabilitados} Inhabilitados
-                                                        </span>
-                                                    </div>
-
-                                                    <div>
-                                                        <div className="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
-                                                            <span>Progreso de acceso</span>
-                                                            <span className="font-mono">{examen.ingresados} / {examen.totalInscritos}</span>
-                                                        </div>
-                                                        <div className="w-full bg-white h-2 rounded-full overflow-hidden border border-slate-200">
-                                                            <div className="bg-[#1A365D] h-full rounded-full transition-all duration-500" style={{ width: `${porcentaje}%` }}></div>
-                                                        </div>
-                                                    </div>
+                                    {/* SECCIÓN DE EXÁMENES */}
+                                    <div className="xl:col-span-2 space-y-4">
+                                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+                                            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+                                                <div>
+                                                    <h3 className="text-base font-black text-[#1A365D]">
+                                                        Mis Exámenes / Asignaturas
+                                                    </h3>
+                                                    <p className="text-xs text-slate-500 font-medium">
+                                                        Docente Activo – <span className="font-bold text-[#1A365D]">{examenes.length} registradas</span>
+                                                    </p>
                                                 </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                            </div>
+                                                <button
+                                                    onClick={() => setBoolModalAbierto(true)}
+                                                    className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
+                                                >
+                                                    + Registrar examen
+                                                </button>
+                                            </div>
 
-                        </div>
+                                            <div className="space-y-4">
+                                                {boolCargando ? (
+                                                    <div className="text-center py-8 text-slate-500 text-xs font-semibold animate-pulse">
+                                                        Cargando asignaturas y exámenes del docente...
+                                                    </div>
+                                                ) : examenes.length === 0 ? (
+                                                    <div className="text-center py-8 text-slate-500 text-xs font-semibold bg-[#F8FAFC] rounded-2xl border border-slate-200">
+                                                        No tienes exámenes ni asignaturas asignadas en el sistema.
+                                                    </div>
+                                                ) : (
+                                                    examenes.map((examen) => (
+                                                        <TarjetaExamenDocente key={examen.idExamen} examen={examen} />
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
 
-                        {/* PANEL DERECHO */}
-                        <div className="space-y-6">
-                            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                                <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                    Calendario Académico
-                                </h4>
-                                <div className="text-center bg-[#F8FAFC] p-4 rounded-2xl border border-slate-200">
-                                    <p className="text-xs font-bold text-[#1A365D]">Septiembre 2026</p>
-                                    <div className="grid grid-cols-7 gap-1 mt-3 text-[11px] font-bold text-slate-600">
-                                        <span className="text-slate-400">Lu</span>
-                                        <span className="text-slate-400">Ma</span>
-                                        <span className="text-slate-400">Mi</span>
-                                        <span className="text-slate-400">Ju</span>
-                                        <span className="text-slate-400">Vi</span>
-                                        <span className="text-slate-400">Sá</span>
-                                        <span className="text-slate-400">Do</span>
-                                        {Array.from({ length: 30 }, (_, i) => i + 1).map((dia) => (
-                                            <span
-                                                key={dia}
-                                                className={`py-1 rounded-lg ${dia === 5 ? 'bg-[#1A365D] text-white font-black' : 'hover:bg-slate-200'}`}
-                                            >
-                                                {dia}
-                                            </span>
-                                        ))}
                                     </div>
+
+                                    {/* PANEL DERECHO */}
+                                    <div className="space-y-6">
+                                        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+                                            <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-3 flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                Calendario Académico
+                                            </h4>
+                                            <div className="text-center bg-[#F8FAFC] p-4 rounded-2xl border border-slate-200">
+                                                <p className="text-xs font-bold text-[#1A365D]">Septiembre 2026</p>
+                                                <div className="grid grid-cols-7 gap-1 mt-3 text-[11px] font-bold text-slate-600">
+                                                    <span className="text-slate-400">Lu</span>
+                                                    <span className="text-slate-400">Ma</span>
+                                                    <span className="text-slate-400">Mi</span>
+                                                    <span className="text-slate-400">Ju</span>
+                                                    <span className="text-slate-400">Vi</span>
+                                                    <span className="text-slate-400">Sá</span>
+                                                    <span className="text-slate-400">Do</span>
+                                                    {Array.from({ length: 30 }, (_, i) => i + 1).map((dia) => (
+                                                        <span
+                                                            key={dia}
+                                                            className={`py-1 rounded-lg ${dia === 5 ? 'bg-[#1A365D] text-white font-black' : 'hover:bg-slate-200'}`}
+                                                        >
+                                                            {dia}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+                                            <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-2">
+                                                Próximo Examen
+                                            </h4>
+                                            <div className="p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
+                                                <p className="font-extrabold text-xs text-[#1A365D]">Inteligencia Artificial</p>
+                                                <p className="text-[11px] text-slate-600 mt-0.5">Viernes, 5 de Septiembre · 09:00</p>
+                                                <p className="text-[10px] text-[#1A365D] font-bold mt-2">Aula 612 · Bloque F</p>
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+
+
                                 </div>
-                            </div>
 
-                            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                                <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider mb-2">
-                                    Próximo Examen
-                                </h4>
-                                <div className="p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
-                                    <p className="font-extrabold text-xs text-[#1A365D]">Inteligencia Artificial</p>
-                                    <p className="text-[11px] text-slate-600 mt-0.5">Viernes, 5 de Septiembre · 09:00</p>
-                                    <p className="text-[10px] text-[#1A365D] font-bold mt-2">Aula 612 · Bloque F</p>
-                                </div>
-
-                            </div>
-
-                        </div>
-
-
-
-                    </div>
-                    </>
-                    )}
-                </main>
+                                <PieSincronizacionDocente />
+                            </>
+                        )}
+                    </main>
+                    <ToastOperador />
+                </OperadorProvider>
             </div>
 
 

@@ -54,6 +54,7 @@ export default function OperadorProvider({ children }) {
     return () => clearTimeout(t);
   }, [objToast]);
 
+
   const fnAgregarLog = useCallback((clase, mensaje) => {
     setListLogs((prev) => [{ hora: horaActual(), clase, mensaje }, ...prev].slice(0, 30));
   }, []);
@@ -97,6 +98,18 @@ export default function OperadorProvider({ children }) {
     }
     setEstadoRed(next);
   }, [fnDetenerTimers, fnAgregarLog, fnMostrarToast, fnSyncTick]);
+
+  // La red se actualiza con eventos reales del navegador (online/offline)
+  useEffect(() => {
+    const fnOnline = () => fnCambiarRed("online");
+    const fnOffline = () => fnCambiarRed("offline");
+    window.addEventListener("online", fnOnline);
+    window.addEventListener("offline", fnOffline);
+    return () => {
+      window.removeEventListener("online", fnOnline);
+      window.removeEventListener("offline", fnOffline);
+    };
+  }, [fnCambiarRed]);
 
   const fnDoForzar = useCallback(() => {
     const s = refEstado.current;
@@ -166,15 +179,31 @@ export default function OperadorProvider({ children }) {
     }
   }, []);
 
-  const fnDescargar = useCallback((id) => {
+  // Descarga la nómina de un examen. Si el examen viene del backend (no está en la
+  // demo mock), lo crea en la lista para que su barra de descarga y su estado local
+  // se comporten igual que los demás.
+  const fnDescargar = useCallback((id, objDatos) => {
     const s = refEstado.current;
     if (s.net === "offline") {
       fnMostrarToast("Sin conexión. Conéctate para descargar la nómina.");
       return;
     }
-    setListExamenes((prev) => prev.map((e) => (e.id === id ? { ...e, estado: "descargando", cargados: 0 } : e)));
-    const nombre = obtenerExamen(refExamenes.current, id).nombre.split(" · ")[0];
-    fnAgregarLog("info", "Descarga de nómina iniciada · " + nombre);
+    const objPrevio = refExamenes.current.find((e) => e.id === id);
+    const strNombre = objPrevio
+      ? objPrevio.nombre
+      : [objDatos?.materia, objDatos?.tipo].filter(Boolean).join(" · ") || "Examen asignado";
+    const numTotal = objPrevio?.total || objDatos?.contador?.habilitados || 1;
+    setListExamenes((prev) => (prev.some((e) => e.id === id)
+      ? prev.map((e) => (e.id === id ? { ...e, estado: "descargando", cargados: 0 } : e))
+      : [...prev, {
+          id,
+          nombre: strNombre,
+          sub: objDatos?.aula ? "Aula " + objDatos.aula : "",
+          estado: "descargando", hace: 0, cargados: 0, total: numTotal,
+          actualizando: false, cap: objDatos?.contador?.habilitados || 0,
+          ing: objDatos?.contador?.ingresaron || 0,
+        }]));
+    fnAgregarLog("info", "Descarga de nómina iniciada · " + strNombre.split(" · ")[0]);
   }, [fnMostrarToast, fnAgregarLog]);
 
   const fnActualizar = useCallback((id) => {
@@ -183,6 +212,7 @@ export default function OperadorProvider({ children }) {
       fnMostrarToast("Actualización no disponible sin conexión. Se conserva la última nómina.");
       return;
     }
+    if (!refExamenes.current.some((e) => e.id === id)) return;
     setListExamenes((prev) => prev.map((e) => (e.id === id ? { ...e, actualizando: true } : e)));
     const demora = s.net === "slow" ? 3200 : 1600;
     setTimeout(() => {

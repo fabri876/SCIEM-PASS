@@ -15,7 +15,7 @@ export default function SelectorExamen() {
             className={
               "text-[11px] font-extrabold px-3 py-1.5 rounded-xl border transition-colors cursor-pointer " +
               (activo
-                ? "bg-[#0B2545] text-white border-[#0B2545]"
+                ? "bg-[#003770] text-white border-[#003770]"
                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50")
             }
           >
