@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { QrCode, Keyboard } from "lucide-react";
-import { USAR_MOCK, obtenerSisPendienteMock } from "../../../../services/ingresoService";
 
 const ID_LECTOR = "ci-lector-qr";
 
@@ -68,22 +67,11 @@ function PanelQR({ onValidar, boolValidando, idExamen }) {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 150, height: 150 } },
         fnAlLeer,
-        () => {}
+        () => { }
       );
     } catch {
       await fnDetener();
-      if (USAR_MOCK) {
-        // Sin cámara en modo prueba: se simula la lectura de un estudiante pendiente
-        setStrEstado("leyendo");
-        setTimeout(() => {
-          const strSis = obtenerSisPendienteMock(idExamen);
-          setStrEstado("inactivo");
-          if (strSis) fnAlLeer(strSis);
-          else setStrAviso("No quedan estudiantes pendientes.");
-        }, 1100);
-      } else {
-        setStrAviso("No se pudo abrir la cámara. Revisa el permiso del navegador o usa el ingreso manual.");
-      }
+      setStrAviso("No se pudo abrir la cámara. Revisa el permiso del navegador o usa el ingreso manual.");
     }
   };
 
