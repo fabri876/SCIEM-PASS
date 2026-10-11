@@ -1,8 +1,8 @@
 // Página del DOCENTE: mismo control de ingreso + lista oficial del aula
 // Ruta: /home/docente/examenes/:idExamen/control-ingreso  (mismo estilo que .../habilitaciones)
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Clock, ListChecks } from "lucide-react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { ListChecks } from "lucide-react";
 import Header from "../../../components/layout/Header";
 import useControlIngreso from "./useControlIngreso";
 import SeccionControlIngreso from "./SeccionControlIngreso";
@@ -13,6 +13,8 @@ import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilid
 export default function ControlIngresoDocente() {
   const { idExamen } = useParams();
   const navigate = useNavigate();
+  // Sección del panel desde la que se entró (para que "Volver" regrese ahí)
+  const strMenuOrigen = useLocation().state?.menuOrigen || "inicio";
   const ctrl = useControlIngreso(idExamen ? Number(idExamen) : null);
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
 
@@ -49,9 +51,9 @@ export default function ControlIngresoDocente() {
       <main className="max-w-[1200px] w-full mx-auto pt-[115px] px-4 sm:px-6 space-y-6">
         <EncabezadoControl
           strTitulo="Control de ingreso"
-          strDetalle={examen ? `${examen.tipo} · ${examen.materia}` : "Control de ingreso"}
+          strDetalle={examen ? `${examen.tipo} · ${examen.materia}${boolAunNoEmpieza ? ` · Registro desde las ${strHoraApertura}` : ""}` : "Control de ingreso"}
           boolMostrarRed
-          onVolver={() => navigate("/home/docente")}
+          onVolver={() => navigate("/home/docente", { state: { menu: strMenuOrigen } })}
         >
           <button
             type="button"
@@ -61,15 +63,6 @@ export default function ControlIngresoDocente() {
             <ListChecks className="w-4 h-4" /> Lista oficial del aula
           </button>
         </EncabezadoControl>
-
-        {boolAunNoEmpieza && (
-          <div role="status" className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] text-[15px] text-slate-700">
-            <Clock className="w-5 h-5 text-[#003770] shrink-0" />
-            <span>
-              <b className="text-[#003770]">El examen aún no ha empezado.</b> El registro de ingresos se habilita desde las {strHoraApertura}.
-            </span>
-          </div>
-        )}
 
         <div ref={refBloque} aria-disabled={boolAunNoEmpieza} className={boolAunNoEmpieza ? "opacity-50 select-none" : ""}>
           <SeccionControlIngreso ctrl={ctrl} strRol="docente" boolPermitirVolver={false} />
