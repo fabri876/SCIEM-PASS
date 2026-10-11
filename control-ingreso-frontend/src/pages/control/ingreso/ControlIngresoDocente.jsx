@@ -1,5 +1,6 @@
-// Página del DOCENTE: mismo control de ingreso + lista oficial del aula
-// Ruta: /home/docente/examenes/:idExamen/control-ingreso  (mismo estilo que .../habilitaciones)
+// Página del DOCENTE (y del ADMINISTRADOR): mismo control de ingreso + lista oficial del aula
+// Rutas: /home/docente/examenes/:idExamen/control-ingreso  (docente)
+//        /admin/examenes/:idExamen/control-ingreso         (administrador)
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ListChecks } from "lucide-react";
@@ -14,8 +15,18 @@ import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilid
 export default function ControlIngresoDocente() {
   const { idExamen } = useParams();
   const navigate = useNavigate();
+  const objUbicacion = useLocation();
+  // El administrador entra desde "Gestión de Exámenes" y ve el examen de cualquier docente
+  const boolAdmin = objUbicacion.pathname.startsWith("/admin");
+  const strNombreDocente = objUbicacion.state?.nombreDocente || "";
   // Sección del panel desde la que se entró (para que "Volver" regrese ahí)
-  const strMenuOrigen = useLocation().state?.menuOrigen || "inicio";
+  const strMenuOrigen = objUbicacion.state?.menuOrigen || "inicio";
+  const TEXTO_VOLVER = { inicio: "Inicio", "mis-examenes": "Mis exámenes", "control-ingresos": "Control de ingresos" };
+  const strTextoVolver = boolAdmin ? "Gestión de Exámenes" : (TEXTO_VOLVER[strMenuOrigen] || "Inicio");
+  const fnVolver = () => {
+    if (boolAdmin) navigate("/admin", { state: { menu: "Gestión de Exámenes" } });
+    else navigate("/home/docente", { state: { menu: strMenuOrigen } });
+  };
   const ctrl = useControlIngreso(idExamen ? Number(idExamen) : null);
   const { estadoRed, fnCambiarRed } = useOperador();
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
@@ -89,9 +100,10 @@ export default function ControlIngresoDocente() {
 
         <EncabezadoControl
           strTitulo="Control de ingreso"
-          strDetalle={examen ? `${examen.tipo} · ${examen.materia}${boolAunNoEmpieza ? ` · Registro desde las ${strHoraApertura}` : ""}` : "Control de ingreso"}
+          strDetalle={examen ? `${examen.tipo} · ${examen.materia}${boolAdmin && strNombreDocente ? ` · Docente: ${strNombreDocente}` : ""}${boolAunNoEmpieza ? ` · Registro desde las ${strHoraApertura}` : ""}` : "Control de ingreso"}
           boolMostrarRed
-          onVolver={() => navigate("/home/docente", { state: { menu: strMenuOrigen } })}
+          onVolver={fnVolver}
+          strTextoVolver={strTextoVolver}
           net={estadoRed.net}
           pend={estadoRed.pend}
         >
