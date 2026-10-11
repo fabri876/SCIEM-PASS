@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ListChecks } from "lucide-react";
 import Header from "../../../components/layout/Header";
+import { useOperador } from "../operadorContexto";
 import useControlIngreso from "./useControlIngreso";
 import SeccionControlIngreso from "./SeccionControlIngreso";
 import EncabezadoControl from "./componentes/EncabezadoControl";
@@ -16,12 +17,14 @@ export default function ControlIngresoDocente() {
   // Sección del panel desde la que se entró (para que "Volver" regrese ahí)
   const strMenuOrigen = useLocation().state?.menuOrigen || "inicio";
   const ctrl = useControlIngreso(idExamen ? Number(idExamen) : null);
+  const { estadoRed, fnCambiarRed } = useOperador();
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
 
   const fnCerrarLista = useCallback(() => setBoolListaAbierta(false), []);
   const fnRegistrarDesdeLista = useCallback((strCi) => ctrl.fnValidar(strCi, "LISTA"), [ctrl]);
 
   const examen = ctrl.examenActual;
+  const boolEnLinea = estadoRed.net !== "offline";
 
   // El registro se habilita desde MINUTOS_ANTES_CONTROL_INGRESO antes del inicio.
   // Antes de eso se ve la pantalla, pero no se puede registrar.
@@ -49,11 +52,48 @@ export default function ControlIngresoDocente() {
         <Header />
       </div>
       <main className="max-w-[1200px] w-full mx-auto pt-[115px] px-4 sm:px-6 space-y-6">
+
+        {/* Segmented control Online/Offline (idéntico a operador) */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="inline-flex items-center gap-1 p-1.5 rounded-2xl bg-white border border-[#CBD5E1] shadow-xs">
+            <button
+              type="button"
+              onClick={() => fnCambiarRed("online")}
+              aria-pressed={boolEnLinea}
+              className={
+                "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
+                (boolEnLinea ? "bg-[#003770] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
+              }
+            >
+              Online
+            </button>
+            <button
+              type="button"
+              onClick={() => fnCambiarRed("offline")}
+              aria-pressed={!boolEnLinea}
+              className={
+                "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
+                (!boolEnLinea ? "bg-[#B91C1C] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
+              }
+            >
+              Offline
+            </button>
+          </div>
+          <p className="text-xs font-bold text-[#64748B]">
+            Estado actual:{" "}
+            <span className={boolEnLinea ? "text-[#1860A3]" : "text-[#B91C1C]"}>
+              {boolEnLinea ? "Con red" : "Sin red"}
+            </span>
+          </p>
+        </div>
+
         <EncabezadoControl
           strTitulo="Control de ingreso"
           strDetalle={examen ? `${examen.tipo} · ${examen.materia}${boolAunNoEmpieza ? ` · Registro desde las ${strHoraApertura}` : ""}` : "Control de ingreso"}
           boolMostrarRed
           onVolver={() => navigate("/home/docente", { state: { menu: strMenuOrigen } })}
+          net={estadoRed.net}
+          pend={estadoRed.pend}
         >
           <button
             type="button"
@@ -68,6 +108,17 @@ export default function ControlIngresoDocente() {
           <SeccionControlIngreso ctrl={ctrl} strRol="docente" boolPermitirVolver={false} />
         </div>
       </main>
+
+      {ctrl.boolCargandoExamenes && (
+        <div className="max-w-[1200px] mx-auto px-4 py-8 text-center text-slate-500">
+          Cargando examen…
+        </div>
+      )}
+      {ctrl.strError && (
+        <div className="max-w-[1200px] mx-auto px-4 py-4 bg-[#FEF2F2] text-[#B91C1C] rounded-xl">
+          Error: {ctrl.strError}
+        </div>
+      )}
 
       <PanelListaOficial
         boolAbierto={boolListaAbierta}

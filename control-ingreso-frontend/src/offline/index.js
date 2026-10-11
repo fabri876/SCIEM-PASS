@@ -4,6 +4,15 @@ export {
   ESTADO_SYNC,
   RESULTADO_VALIDACION,
   STATUS_ITEM_SYNC,
+  URL_NOMINA,
+  URL_FOTOS,
+  PRIMERA_PAGINA,
+  MAX_PAGINAS,
+  HORAS_NOMINA_DESACTUALIZADA,
+  MS_NOMINA_DESACTUALIZADA,
+  ERROR_NOMINA,
+  PURGA_HORAS,
+  INACTIVIDAD_CONFIG,
 } from "./constantes.js";
 export {
   normalizarCi,
@@ -62,7 +71,13 @@ export {
 export { useConectividad } from "./useConectividad.js";
 export { useEstadoSync } from "./useEstadoSync.js";
 export {
-  PURGA_HORAS,
+  descargarNomina,
+  obtenerEstadoNomina,
+  eliminarNominaLocal,
+  fetchPaginaPorDefecto,
+} from "./nominaLoader.js";
+export { useNominaLocal } from "./useNominaLocal.js";
+export {
   ejecutarPurgaCompleta,
   programarPurgaPeriodica,
   purgarAsistenciasProcesadas,
@@ -76,4 +91,3 @@ export {
   limpiezaTotalDispositivoCompartido,
   LIMPIEZA_DEFAULTS_EXPORT as LIMPIEZA_DEFAULTS,
 } from "./logoutCleanup.js";
-export { INACTIVIDAD_CONFIG } from "./constantes.js";
