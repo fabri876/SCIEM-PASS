@@ -1,5 +1,17 @@
 export { db } from './db.js';
-export { ERROR_ASISTENCIA, ESTADO_SYNC, RESULTADO_VALIDACION, STATUS_ITEM_SYNC } from './constantes.js';
+export {
+  ERROR_ASISTENCIA,
+  ESTADO_SYNC,
+  RESULTADO_VALIDACION,
+  STATUS_ITEM_SYNC,
+  URL_NOMINA,
+  URL_FOTOS,
+  PRIMERA_PAGINA,
+  MAX_PAGINAS,
+  HORAS_NOMINA_DESACTUALIZADA,
+  MS_NOMINA_DESACTUALIZADA,
+  ERROR_NOMINA
+} from './constantes.js';
 export { normalizarCi, normalizarCodigo, normalizarQr, extraerQr } from './normalize.js';
 export { generarUuid } from './uuid.js';
 export { obtenerDeviceId } from './deviceId.js';
@@ -48,3 +60,10 @@ export {
 } from './syncScheduler.js';
 export { useConectividad } from './useConectividad.js';
 export { useEstadoSync } from './useEstadoSync.js';
+export {
+  descargarNomina,
+  obtenerEstadoNomina,
+  eliminarNominaLocal,
+  fetchPaginaPorDefecto
+} from './nominaLoader.js';
+export { useNominaLocal } from './useNominaLocal.js';
