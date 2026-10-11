@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { ChevronLeft, Search, Download, Lock, LockOpen, RefreshCw, WifiOff, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, Search, Download, RefreshCw, WifiOff, CheckCircle2 } from "lucide-react";
 import {
     obtenerAsistentesAula,
     descargarAsistentesCsv,
-    cambiarIngresoAula,
     esEndpointNoDisponible,
 } from "../../services/monitoreoService";
 import usePolling from "../../hooks/usePolling";
 import { ESTADOS_ASISTENTE, estiloOcupacion, normalizarAsistentes, textoBusqueda } from "./utilidadesMonitoreo";
-import ModalCierreAula from "./ModalCierreAula";
 
 const POR_PAGINA = 10;
 const FILTROS = [
@@ -30,28 +28,30 @@ function Dato({ titulo, valor, tono = "text-slate-800" }) {
 
 /**
  * Detalle de un aula (mockup 10-B): totales, lista de asistentes con filtro,
- * búsqueda y paginación, exportación CSV y cierre / reapertura del ingreso.
+ * búsqueda y paginación, y exportación CSV. La lista muestra el aula asignada
+ * de cada estudiante y la nueva aula de los reubicados (criterios de QA).
  *   aula  → la tarjeta del tablero (idAmbiente, aula, ubicacion, capacidad, ...)
- *   boolCerradoInicial → estado de cierre que ya conoce el dashboard (HU06)
+ *   boolCerradoInicial → true si ya pasó la hora de fin del aula (dato de la HU06)
+ *
+ * El cierre manual del ingreso NO forma parte de los criterios de la HU10: se quitó.
  */
-export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial, onVolver, onCambioIngreso }) {
+export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial, onVolver }) {
     const [detalle, setDetalle] = useState(null);
     const [strEstado, setStrEstado] = useState("cargando"); // cargando | ok | noDisponible | error
     const [strError, setStrError] = useState("");
     const [boolSinConexion, setBoolSinConexion] = useState(false);
-    const [boolCerrado, setBoolCerrado] = useState(Boolean(boolCerradoInicial));
+    const boolCerrado = Boolean(boolCerradoInicial);
 
     const [strFiltro, setStrFiltro] = useState("TODOS");
     const [strBusqueda, setStrBusqueda] = useState("");
     const [intPagina, setIntPagina] = useState(1);
 
-    const [boolModalCierre, setBoolModalCierre] = useState(false);
-    const [boolGuardando, setBoolGuardando] = useState(false);
-    const [strErrorCierre, setStrErrorCierre] = useState("");
     const [boolExportando, setBoolExportando] = useState(false);
     const [strAviso, setStrAviso] = useState({ tipo: "", texto: "" });
     const refAviso = useRef(null);
     const refSolicitud = useRef(null);
+    // Si ya hay una lista cargada y una actualización falla, se conserva (no se borra la tabla)
+    const refHayLista = useRef(false);
 
     const idExamen = examen.idExamen;
     const idAmbiente = aula.idAmbiente;
@@ -63,18 +63,18 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
         try {
             const datos = normalizarAsistentes(await obtenerAsistentesAula(idAmbiente, idExamen, { signal: ctrl.signal }));
             setDetalle(datos);
-            if (datos.boolAbierto != null) setBoolCerrado(!datos.boolAbierto);
+            refHayLista.current = true;
             setStrEstado("ok");
             setBoolSinConexion(false);
             setStrError("");
         } catch (err) {
             if (err?.name === "AbortError") return;
             if (esEndpointNoDisponible(err)) setStrEstado("noDisponible");
-            else if (detalle) setBoolSinConexion(true); // conserva la lista anterior
+            else if (refHayLista.current) setBoolSinConexion(true); // conserva la lista anterior
             else setStrEstado("error");
             setStrError(err.message || "No se pudo cargar la lista del aula.");
         }
-    }, [idAmbiente, idExamen]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [idAmbiente, idExamen]);
 
     usePolling(fnActualizar, 15000, { boolActivo: strEstado !== "noDisponible", clave: `${idExamen}-${idAmbiente}` });
     useEffect(() => () => {
@@ -108,29 +108,6 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
     const intPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
     const intPaginaVisible = Math.min(intPagina, intPaginas);
     const visibles = filtrados.slice((intPaginaVisible - 1) * POR_PAGINA, intPaginaVisible * POR_PAGINA);
-
-    const fnConfirmarCierre = async () => {
-        if (boolGuardando) return;
-        const boolCerrar = !boolCerrado;
-        setBoolGuardando(true);
-        setStrErrorCierre("");
-        try {
-            await cambiarIngresoAula(idAmbiente, !boolCerrar); // abierto = !cerrar
-            setBoolCerrado(boolCerrar);
-            setBoolModalCierre(false);
-            onCambioIngreso(idAmbiente, boolCerrar);
-            fnAviso("ok", boolCerrar ? `Ingreso cerrado en ${aula.aula}.` : `Ingreso reabierto en ${aula.aula}.`);
-            fnActualizar();
-        } catch (err) {
-            setStrErrorCierre(
-                esEndpointNoDisponible(err)
-                    ? "El backend todavía no publicó el cierre de aulas. No se hizo ningún cambio."
-                    : err.message || "No se pudo cambiar el estado del ingreso."
-            );
-        } finally {
-            setBoolGuardando(false);
-        }
-    };
 
     const fnExportar = async () => {
         if (boolExportando) return;
@@ -177,7 +154,7 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                         <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-lg font-black text-[#003770]">{aula.aula}</h3>
                             <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${boolCerrado ? "bg-slate-800 text-white" : estilo.pill}`}>
-                                {boolCerrado ? "Ingreso cerrado" : estilo.etiqueta}
+                                {boolCerrado ? "Ingreso finalizado" : estilo.etiqueta}
                             </span>
                         </div>
                         <p className="text-xs font-semibold text-slate-500">
@@ -185,18 +162,10 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-extrabold ${boolCerrado ? "text-rose-700" : "text-emerald-700"}`}>
-                            <i className={`w-2 h-2 rounded-full ${boolCerrado ? "bg-rose-500" : "bg-emerald-500"}`} />
-                            {boolCerrado ? "Ingreso cerrado" : "Ingreso abierto"}
+                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-extrabold ${boolCerrado ? "text-slate-600" : "text-emerald-700"}`}>
+                            <i className={`w-2 h-2 rounded-full ${boolCerrado ? "bg-slate-400" : "bg-emerald-500"}`} />
+                            {boolCerrado ? "Ingreso finalizado (pasó la hora de fin)" : "Ingreso abierto"}
                         </span>
-                        <button
-                            type="button"
-                            onClick={() => { setStrErrorCierre(""); setBoolModalCierre(true); }}
-                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border cursor-pointer transition ${boolCerrado ? "bg-white border-slate-300 text-slate-700 hover:bg-slate-50" : "bg-rose-600 border-rose-600 text-white hover:bg-rose-700"}`}
-                        >
-                            {boolCerrado ? <LockOpen className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                            {boolCerrado ? "Reabrir ingreso" : "Cerrar ingreso"}
-                        </button>
                     </div>
                 </div>
 
@@ -317,17 +286,6 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                 )}
             </section>
 
-            {boolModalCierre && (
-                <ModalCierreAula
-                    strAula={aula.aula}
-                    boolCerrar={!boolCerrado}
-                    intPresentes={intPresentes}
-                    boolGuardando={boolGuardando}
-                    strError={strErrorCierre}
-                    onConfirmar={fnConfirmarCierre}
-                    onCancelar={() => setBoolModalCierre(false)}
-                />
-            )}
         </div>
     );
 }

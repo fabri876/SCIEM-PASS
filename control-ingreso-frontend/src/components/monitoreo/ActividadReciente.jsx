@@ -31,7 +31,7 @@ export default function ActividadReciente({ incidencias, alertas }) {
                 fecha: a.hora,
                 Icono: MapPinOff,
                 tono: "rojo",
-                etiqueta: "Aula diferente",
+                etiqueta: "Ingreso a un ambiente diferente",
                 titulo: a.estudiante,
                 detalle: `${nombreAula(a.aulaActual)} → debe ir al ${nombreAula(a.aulaAsignada)}`,
             })

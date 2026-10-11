@@ -63,7 +63,7 @@ export default function PanelAulasCruzadas({ alertas, rol, onReubicar }) {
                                     </p>
                                 </div>
                                 <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white text-center shrink-0">
-                                    AULA DIFERENTE
+                                    INGRESO A UN AMBIENTE DIFERENTE
                                 </span>
                             </div>
 
