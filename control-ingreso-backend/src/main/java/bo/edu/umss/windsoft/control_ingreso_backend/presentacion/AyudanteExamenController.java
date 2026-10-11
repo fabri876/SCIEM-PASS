@@ -39,7 +39,7 @@ public class AyudanteExamenController {
     }
 
     @GetMapping("/control/jornada-activa")
-    @PreAuthorize("hasRole('OPERADOR')")
+    @PreAuthorize("hasAnyRole('OPERADOR','ADMINISTRADOR','DOCENTE')")
     public ResponseEntity<JornadaActivaDTO> obtenerJornadaActiva() {
         Integer idUsuario = contextoUsuarioService.actual().idUsuario();
         JornadaActivaDTO jornadaActiva = controlIngresoAyudanteService.obtenerJornadaActiva(idUsuario);
@@ -47,7 +47,7 @@ public class AyudanteExamenController {
     }
 
     @GetMapping("/control/examen-seleccionado")
-    @PreAuthorize("hasRole('OPERADOR')")
+    @PreAuthorize("hasAnyRole('OPERADOR','ADMINISTRADOR','DOCENTE')")
     public ResponseEntity<JornadaActivaDTO> obtenerExamenSeleccionado(
             @org.springframework.web.bind.annotation.RequestParam Integer idasignatura,
             @org.springframework.web.bind.annotation.RequestParam Integer idexamen,
@@ -58,7 +58,7 @@ public class AyudanteExamenController {
     }
 
     @GetMapping("/control/ultimos-ingresos")
-    @PreAuthorize("hasRole('OPERADOR')")
+    @PreAuthorize("hasAnyRole('OPERADOR','ADMINISTRADOR','DOCENTE')")
     public ResponseEntity<List<bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UltimoIngresoDTO>> obtenerUltimosIngresos(
             @org.springframework.web.bind.annotation.RequestParam Integer idasignatura,
             @org.springframework.web.bind.annotation.RequestParam Integer idexamen,
@@ -70,7 +70,7 @@ public class AyudanteExamenController {
     }
 
     @PostMapping("/control/ingresos")
-    @PreAuthorize("hasRole('OPERADOR')")
+    @PreAuthorize("hasAnyRole('OPERADOR','ADMINISTRADOR','DOCENTE')")
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(@Valid @RequestBody VerificarIngresoRequestDTO dto) {
         Integer idOperador = contextoUsuarioService.actual().idUsuario();
         return controlIngresoAyudanteService.registrarIngreso(dto, idOperador);

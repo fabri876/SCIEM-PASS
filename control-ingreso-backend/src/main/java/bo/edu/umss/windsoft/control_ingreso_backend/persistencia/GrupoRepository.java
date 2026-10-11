@@ -10,6 +10,7 @@ import java.util.Optional;
 @Repository
 public interface GrupoRepository extends JpaRepository<Grupo, Integer> {
     List<Grupo> findByIdAsignatura(Integer idAsignatura);
+    List<Grupo> findByIdAsignaturaIn(List<Integer> idsAsignatura);
     Optional<Grupo> findByIdAsignaturaAndNombreGrupo(Integer idAsignatura, String nombreGrupo);
     Optional<Grupo> findByIdAsignaturaAndNombreGrupoIgnoreCase(Integer idAsignatura, String nombreGrupo);
 }
