@@ -120,7 +120,7 @@ function SyncProgress({ net, pend, syncTotal, lote, enviados }) {
   );
 }
 
-export default function EncabezadoControl({ strTitulo, strDetalle = "Control de ingreso", onVolver, children, net: netProp, pend: pendProp }) {
+export default function EncabezadoControl({ strTitulo, strDetalle = "Control de ingreso", onVolver, strTextoVolver = "Mis exámenes", children, net: netProp, pend: pendProp }) {
   const { net: autoNet, pend: autoPend, enviados, spacePrc, lastSend } = useMockConnection();
   const [showSync, setShowSync] = useState(false);
 
@@ -139,7 +139,7 @@ export default function EncabezadoControl({ strTitulo, strDetalle = "Control de 
           onClick={onVolver}
           className="inline-flex items-center gap-1.5 mb-2.5 text-[13px] font-medium text-[#1860A3] hover:underline cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" /> Mis exámenes
+          <ArrowLeft className="w-4 h-4" /> {strTextoVolver}
         </button>
       )}
 

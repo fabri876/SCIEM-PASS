@@ -56,7 +56,7 @@ export default function TarjetaExamenInicio({ examen, onVerDetalle }) {
       {boolIngreso ? (
         <button
           type="button"
-          onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`)}
+          onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "inicio" } })}
           className="inline-flex items-center justify-center gap-2 bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs h-10 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap self-start sm:self-center"
         >
           Control de ingreso <ArrowRight className="w-4 h-4" />

@@ -8,7 +8,7 @@ const baseMenuItems = [
     { id: "Gestión de Usuarios", label: "Gestión de Usuarios", icon: Users },
     { id: "Gestión de Asignaturas y Grupos", label: "Gestión de Asignaturas y Grupos", icon: BookOpen },
     { id: "Roles y Permisos", label: "Roles y Permisos", icon: Shield },
-    { id: "Registro de Exámenes", label: "Registro de Exámenes", icon: Calendar },
+    { id: "Gestión de Exámenes", label: "Gestión de Exámenes", icon: Calendar },
     { id: "Habilitación de Estudiantes", label: "Habilitación de Estudiantes", icon: UserCheck },
     { id: "Monitoreo de Asistencia", label: "Monitoreo de Asistencia", icon: Activity },
     { id: "Incidencias", label: "Incidencias", icon: AlertTriangle, esIncidencia: true },

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     obtenerExamenes,
     obtenerTiposExamen,
@@ -6,7 +7,6 @@ import {
 } from "../../../services/examenService";
 import {
     obtenerDocentesAdmin,
-    obtenerAmbientesPorExamen,
     obtenerNormasParticularesAdmin,
     crearNormaGeneralAdmin,
     editarNormaGeneralAdmin,
@@ -15,6 +15,23 @@ import {
 } from "../../../services/adminNormasService";
 import VentanaEmergente from "../../../components/common/VentanaEmergente";
 import ExamenFormAdmin from "./ExamenFormAdmin";
+import DetalleExamenAdmin from "./DetalleExamenAdmin";
+import MenuIngresoExamen from "./MenuIngresoExamen";
+import AsignarOperadoresDocente from "../../docente/operadores/AsignarOperadoresDocente";
+import PanelListaOficial from "../../control/ingreso/componentes/PanelListaOficial";
+import {
+    ESTILOS_ESTADO,
+    estadoDeExamen,
+    marcaDeExamen,
+    fechaCorta,
+    rangoHorario,
+    tiempoDeExamen,
+    nombreGrupo,
+    horaAperturaControl,
+    controlDisponible,
+    ordenarPorFecha,
+    sinAcentos,
+} from "../utilidadesExamenAdmin";
 
 const INT_EXAMENES_POR_PAGINA = 10;
 
@@ -23,6 +40,18 @@ const INT_EXAMENES_POR_PAGINA = 10;
 // mismo con otras palabras, pero el agrupado automático solo detecta texto
 // igual una vez normalizado — ver normalizarTexto más abajo).
 const PALETA_GRUPOS = ["#F0F5FB", "#FBF3E9", "#F1F8F1", "#FCEFF5", "#F5F1FB"];
+
+const OPCIONES_ORDEN = [
+    { valor: "proximos", etiqueta: "Más próximos primero" },
+    { valor: "antiguos", etiqueta: "Más antiguos primero" },
+];
+
+const CHIPS_ESTADO = [
+    { valor: "TODOS", etiqueta: "Todos" },
+    { valor: "PROXIMO", etiqueta: "Próximos" },
+    { valor: "EN_CURSO", etiqueta: "En curso" },
+    { valor: "FINALIZADO", etiqueta: "Finalizados" },
+];
 
 function IconoMas() {
     return (
@@ -59,49 +88,6 @@ function IconoBasurero() {
     );
 }
 
-function IconoX() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
-        </svg>
-    );
-}
-
-function IconoDocumento() {
-    return (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />
-        </svg>
-    );
-}
-
-function IconoUbicacion() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" />
-            <circle cx="12" cy="9.5" r="2.3" />
-        </svg>
-    );
-}
-
-function IconoNormas() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 3.75h6a1 1 0 011 1v1.25H8V4.75a1 1 0 011-1z" />
-            <rect x="6" y="5" width="12" height="15" rx="1.5" />
-            <path strokeLinecap="round" d="M9 11h6M9 14.5h6M9 18h3.5" />
-        </svg>
-    );
-}
-
-function IconoFlechaOrden() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16m0 0l-3-3m3 3l3-3M17 20V4m0 0l3 3m-3-3l-3 3" />
-        </svg>
-    );
-}
-
 function IconoFlechaIzquierda() {
     return (
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -118,55 +104,91 @@ function IconoFlechaDerecha() {
     );
 }
 
-function formatearFecha(strFechaIso) {
-    if (!strFechaIso) return "-";
-    const [anio, mes, dia] = strFechaIso.split("-");
-    return `${dia}/${mes}/${anio}`;
-}
-
-function formatearDuracion(strDuracion) {
-    // duracionExamen llega como "HH:mm:ss" (LocalTime)
-    if (!strDuracion) return "-";
-    const [hh, mm] = strDuracion.split(":");
-    const partes = [];
-    if (parseInt(hh, 10) > 0) partes.push(`${parseInt(hh, 10)}h`);
-    if (parseInt(mm, 10) > 0) partes.push(`${parseInt(mm, 10)}min`);
-    return partes.length > 0 ? partes.join(" ") : "-";
+function IconoBuscar() {
+    return (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <circle cx="11" cy="11" r="7" />
+            <path strokeLinecap="round" d="M21 21l-4.3-4.3" />
+        </svg>
+    );
 }
 
 function normalizarTexto(strTexto) {
     return (strTexto || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-// Extrae la clave de comparación según el criterio elegido.
-// "registro": cuándo se cargó el examen en el sistema (fechaCreacionExamen,
-//   con idExamen como respaldo si esa fecha no viene en la respuesta).
-// "examen": cuándo se rinde el examen (fechaExamen).
-function obtenerClaveOrden(ex, strCriterio) {
-    if (strCriterio === "examen") {
-        return ex.fechaExamen || null;
-    }
-    return ex.fechaCreacionExamen || null;
+// Números de página con "…" cuando son muchas: 1 … 4 5 6 … 12
+function armarPaginas(intActual, intTotal) {
+    if (intTotal <= 7) return Array.from({ length: intTotal }, (_, i) => i + 1);
+    const set = new Set([1, intTotal, intActual - 1, intActual, intActual + 1]);
+    const arr = [...set].filter((p) => p >= 1 && p <= intTotal).sort((a, b) => a - b);
+    const res = [];
+    arr.forEach((p, i) => {
+        if (i > 0 && p - arr[i - 1] > 1) res.push("…");
+        res.push(p);
+    });
+    return res;
 }
 
-function compararExamenes(a, b, strCriterio) {
-    const claveA = obtenerClaveOrden(a, strCriterio);
-    const claveB = obtenerClaveOrden(b, strCriterio);
-    if (claveA && claveB && claveA !== claveB) {
-        return claveA < claveB ? -1 : 1;
-    }
-    if (claveA && !claveB) return -1;
-    if (!claveA && claveB) return 1;
-    // Respaldo: por id autoincremental (más antiguo -> más nuevo)
-    return (a.idExamen ?? 0) - (b.idExamen ?? 0);
+const CLASE_SELECT =
+    "h-[38px] px-3 rounded-[10px] border border-[#D5DEEC] bg-white text-[#10294D] text-[12.5px] font-semibold max-w-full cursor-pointer outline-none focus:border-[#2B6CB0]";
+
+function Paginacion({ intActual, intTotal, onCambiar }) {
+    const clasePagina = (boolActiva) =>
+        `w-[34px] h-[34px] rounded-lg border text-[12.5px] font-bold flex items-center justify-center transition ${boolActiva
+            ? "bg-[#003770] border-[#003770] text-white"
+            : "bg-white border-[#D5DEEC] text-slate-600 hover:bg-slate-50 cursor-pointer"
+        }`;
+    return (
+        <nav aria-label="Paginación" className="flex items-center gap-1.5">
+            <button
+                type="button"
+                onClick={() => onCambiar(Math.max(1, intActual - 1))}
+                disabled={intActual === 1}
+                aria-label="Página anterior"
+                className={clasePagina(false) + " disabled:opacity-40 disabled:cursor-not-allowed"}
+            >
+                <IconoFlechaIzquierda />
+            </button>
+            {armarPaginas(intActual, intTotal).map((p, i) =>
+                p === "…" ? (
+                    <span key={`e${i}`} className="w-[24px] text-center text-slate-400">…</span>
+                ) : (
+                    <button
+                        key={p}
+                        type="button"
+                        onClick={() => onCambiar(p)}
+                        aria-current={p === intActual ? "page" : undefined}
+                        className={clasePagina(p === intActual)}
+                    >
+                        {p}
+                    </button>
+                )
+            )}
+            <button
+                type="button"
+                onClick={() => onCambiar(Math.min(intTotal, intActual + 1))}
+                disabled={intActual === intTotal}
+                aria-label="Página siguiente"
+                className={clasePagina(false) + " disabled:opacity-40 disabled:cursor-not-allowed"}
+            >
+                <IconoFlechaDerecha />
+            </button>
+        </nav>
+    );
 }
 
-const ETIQUETAS_ORDEN = {
-    registro: { desc: "Más recientes primero", asc: "Más antiguos primero" },
-    examen: { desc: "Fecha más lejana primero", asc: "Fecha más próxima primero" },
-};
+function PildoraEstado({ strEstado }) {
+    const e = ESTILOS_ESTADO[strEstado] || ESTILOS_ESTADO.PROXIMO;
+    return (
+        <span className={`inline-block rounded-full border text-[11.5px] font-bold px-3 py-[3px] whitespace-nowrap ${e.clase}`}>
+            {e.texto}
+        </span>
+    );
+}
 
 export default function SeccionRegistroExamenes() {
+    const navigate = useNavigate();
     const [strTabActiva, setStrTabActiva] = useState("examenes"); // "examenes" | "generales" | "particulares"
 
     const [arrExamenes, setArrExamenes] = useState([]);
@@ -180,14 +202,24 @@ export default function SeccionRegistroExamenes() {
     const [examenEnDetalle, setExamenEnDetalle] = useState(null);
     const [objExamenEditando, setObjExamenEditando] = useState(null);
 
-    const [strCriterioOrden, setStrCriterioOrden] = useState("registro"); // "registro" | "examen"
-    const [strDireccionOrden, setStrDireccionOrden] = useState("desc"); // "desc" | "asc"
+    // Acciones del botón "Ingreso"
+    const [examenOperadores, setExamenOperadores] = useState(null);
+    const [examenLista, setExamenLista] = useState(null);
+
+    // Filtros, orden y paginación
+    const [strBusqueda, setStrBusqueda] = useState("");
+    const [strEstadoFiltro, setStrEstadoFiltro] = useState("TODOS");
+    const [strDocenteFiltro, setStrDocenteFiltro] = useState("");
+    const [strAsignaturaFiltro, setStrAsignaturaFiltro] = useState("");
+    const [strOrden, setStrOrden] = useState("proximos");
     const [intPaginaActual, setIntPaginaActual] = useState(1);
 
-    // Ambientes (aulas asignadas) por examen, para la columna "Docente / Aula / Hora".
-    // Se piden solo para los exámenes visibles en la página actual (10 como
-    // máximo), no para los 200 de golpe, dado que el backend es lento.
-    const [mapAmbientesPorExamen, setMapAmbientesPorExamen] = useState({});
+    // El estado (Próximo / En curso / Finalizado) depende de la hora: se recalcula cada minuto
+    const [dateAhora, setDateAhora] = useState(() => new Date());
+    useEffect(() => {
+        const t = setInterval(() => setDateAhora(new Date()), 60000);
+        return () => clearInterval(t);
+    }, []);
 
     // Edición inline de normas generales
     const [idNormaGeneralEnEdicion, setIdNormaGeneralEnEdicion] = useState(null);
@@ -209,7 +241,6 @@ export default function SeccionRegistroExamenes() {
             .then(([examenes, tipos, docentes, normasGenerales, normasParticulares]) => {
                 setArrExamenes(examenes || []);
                 setIntPaginaActual(1);
-                setMapAmbientesPorExamen({});
 
                 const objMapTipo = {};
                 (tipos || []).forEach((t) => {
@@ -247,58 +278,92 @@ export default function SeccionRegistroExamenes() {
         return mapa;
     }, [arrExamenes]);
 
-    const arrExamenesOrdenados = useMemo(() => {
-        const copia = [...arrExamenes].sort((a, b) => compararExamenes(a, b, strCriterioOrden));
-        if (strDireccionOrden === "desc") copia.reverse();
-        return copia;
-    }, [arrExamenes, strCriterioOrden, strDireccionOrden]);
+    function nombreDocenteDe(ex) {
+        return ex.nombreDocente || mapDocentePorId[ex.idUsuario] || `Docente #${ex.idUsuario ?? "-"}`;
+    }
 
-    const intTotalPaginas = Math.max(
-        1,
-        Math.ceil(arrExamenesOrdenados.length / INT_EXAMENES_POR_PAGINA)
+    function nombreTipoDe(ex) {
+        return ex.nombreTipoExamen || mapTiposExamen[ex.idTipoExamen] || ex.detalleTipoExamen || "-";
+    }
+
+    // Cada examen con sus datos calculados (estado, docente, tipo) para filtrar y ordenar
+    const arrExamenesCalculados = useMemo(
+        () =>
+            arrExamenes.map((ex) => ({
+                ...ex,
+                _estado: estadoDeExamen(ex, dateAhora),
+                _marca: marcaDeExamen(ex),
+                _docente: nombreDocenteDe(ex),
+                _tipo: nombreTipoDe(ex),
+            })),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [arrExamenes, dateAhora, mapDocentePorId, mapTiposExamen]
     );
 
-    // Si cambia el orden o la página quedó fuera de rango (p.ej. tras recargar
-    // con menos exámenes), volvemos a una página válida.
+    const arrDocentesOpciones = useMemo(() => {
+        const mapa = new Map();
+        arrExamenesCalculados.forEach((ex) => mapa.set(String(ex.idUsuario), ex._docente));
+        return [...mapa.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    }, [arrExamenesCalculados]);
+
+    const arrAsignaturasOpciones = useMemo(() => {
+        const mapa = new Map();
+        arrExamenesCalculados.forEach((ex) =>
+            mapa.set(String(ex.idAsignatura), ex.nombreAsignatura || `Asignatura #${ex.idAsignatura}`)
+        );
+        return [...mapa.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    }, [arrExamenesCalculados]);
+
+    // Búsqueda + docente + asignatura (sin estado: los chips cuentan sobre este resultado)
+    const arrBaseFiltrada = useMemo(() => {
+        const strQ = sinAcentos(strBusqueda);
+        return arrExamenesCalculados.filter((ex) => {
+            if (strDocenteFiltro && String(ex.idUsuario) !== strDocenteFiltro) return false;
+            if (strAsignaturaFiltro && String(ex.idAsignatura) !== strAsignaturaFiltro) return false;
+            if (strQ) {
+                const strTexto = sinAcentos(`${ex.nombreAsignatura || ""} ${ex.siglaAsignatura || ""} ${ex._docente}`);
+                if (!strTexto.includes(strQ)) return false;
+            }
+            return true;
+        });
+    }, [arrExamenesCalculados, strBusqueda, strDocenteFiltro, strAsignaturaFiltro]);
+
+    const objConteos = useMemo(() => {
+        const c = { TODOS: arrBaseFiltrada.length, PROXIMO: 0, EN_CURSO: 0, FINALIZADO: 0 };
+        arrBaseFiltrada.forEach((ex) => { c[ex._estado] += 1; });
+        return c;
+    }, [arrBaseFiltrada]);
+
+    const arrExamenesOrdenados = useMemo(() => {
+        const arr = strEstadoFiltro === "TODOS"
+            ? arrBaseFiltrada
+            : arrBaseFiltrada.filter((ex) => ex._estado === strEstadoFiltro);
+        return ordenarPorFecha(arr, strOrden);
+    }, [arrBaseFiltrada, strEstadoFiltro, strOrden]);
+
+    const boolHayFiltros = Boolean(strBusqueda || strDocenteFiltro || strAsignaturaFiltro || strEstadoFiltro !== "TODOS");
+
+    function handleLimpiarFiltros() {
+        setStrBusqueda("");
+        setStrEstadoFiltro("TODOS");
+        setStrDocenteFiltro("");
+        setStrAsignaturaFiltro("");
+    }
+
+    const intTotalPaginas = Math.max(1, Math.ceil(arrExamenesOrdenados.length / INT_EXAMENES_POR_PAGINA));
+
+    // Al cambiar filtros u orden se vuelve a la página 1
+    useEffect(() => {
+        setIntPaginaActual(1);
+    }, [strBusqueda, strEstadoFiltro, strDocenteFiltro, strAsignaturaFiltro, strOrden]);
+
+    // Si la página quedó fuera de rango (p. ej. tras recargar con menos exámenes)
     useEffect(() => {
         setIntPaginaActual((prev) => Math.min(prev, intTotalPaginas));
-    }, [strCriterioOrden, strDireccionOrden, intTotalPaginas]);
+    }, [intTotalPaginas]);
 
-    const arrExamenesPagina = arrExamenesOrdenados.slice(
-        (intPaginaActual - 1) * INT_EXAMENES_POR_PAGINA,
-        intPaginaActual * INT_EXAMENES_POR_PAGINA
-    );
-
-    // Trae los ambientes de los exámenes de la página actual que todavía no
-    // se hayan pedido (se cachean en mapAmbientesPorExamen para no repetir).
-    useEffect(() => {
-        const arrIdsFaltantes = arrExamenesPagina
-            .map((ex) => ex.idExamen)
-            .filter((id) => !(id in mapAmbientesPorExamen));
-
-        if (arrIdsFaltantes.length === 0) return;
-
-        // Marca como "cargando" de inmediato para no repetir el fetch si el
-        // efecto se vuelve a disparar antes de que respondan.
-        setMapAmbientesPorExamen((prev) => {
-            const siguiente = { ...prev };
-            arrIdsFaltantes.forEach((id) => {
-                siguiente[id] = "cargando";
-            });
-            return siguiente;
-        });
-
-        arrIdsFaltantes.forEach((id) => {
-            obtenerAmbientesPorExamen(id)
-                .then((ambientes) => {
-                    setMapAmbientesPorExamen((prev) => ({ ...prev, [id]: ambientes || [] }));
-                })
-                .catch(() => {
-                    setMapAmbientesPorExamen((prev) => ({ ...prev, [id]: "error" }));
-                });
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [arrExamenesPagina]);
+    const intDesde = (intPaginaActual - 1) * INT_EXAMENES_POR_PAGINA;
+    const arrExamenesPagina = arrExamenesOrdenados.slice(intDesde, intDesde + INT_EXAMENES_POR_PAGINA);
 
     function handleCerrarModal() {
         setBoolModalAbierto(false);
@@ -315,22 +380,15 @@ export default function SeccionRegistroExamenes() {
     }
 
     function handleEditar(ex) {
-        // Ya existe PUT /api/examenes/{id} (confirmado en ExamenController.java).
-        // Si los ambientes de este examen todavía no se pidieron (no debería
-        // pasar, ya que se precargan para toda la página visible, pero por
-        // las dudas), se piden ahora antes de abrir el formulario.
-        if (!(ex.idExamen in mapAmbientesPorExamen)) {
-            setMapAmbientesPorExamen((prev) => ({ ...prev, [ex.idExamen]: "cargando" }));
-            obtenerAmbientesPorExamen(ex.idExamen)
-                .then((ambientes) => {
-                    setMapAmbientesPorExamen((prev) => ({ ...prev, [ex.idExamen]: ambientes || [] }));
-                })
-                .catch(() => {
-                    setMapAmbientesPorExamen((prev) => ({ ...prev, [ex.idExamen]: "error" }));
-                });
-        }
+        // PUT /api/examenes/{id}. Los ambientes (aulas y horas) ya vienen dentro de cada examen.
         setObjExamenEditando(ex);
         setBoolModalAbierto(true);
+    }
+
+    function handleAbrirControl(ex) {
+        navigate(`/admin/examenes/${ex.idExamen}/control-ingreso`, {
+            state: { nombreDocente: ex._docente },
+        });
     }
 
     async function handleEliminarNormaGeneral(norma) {
@@ -362,54 +420,6 @@ export default function SeccionRegistroExamenes() {
             setStrMensajeNormas(error.message || "No se pudo crear la norma general a partir de esta.");
         }
     }
-
-    function handleCambiarCriterio(e) {
-        const strNuevoCriterio = e.target.value;
-        setStrCriterioOrden(strNuevoCriterio);
-        // Por defecto: registro -> recientes primero; examen -> próximos primero
-        setStrDireccionOrden(strNuevoCriterio === "examen" ? "asc" : "desc");
-    }
-
-    function handleAlternarDireccion() {
-        setStrDireccionOrden((prev) => (prev === "desc" ? "asc" : "desc"));
-    }
-
-    function renderCeldaDocenteAulaHora(ex) {
-        const strNombreDocente =
-            ex.nombreDocente || mapDocentePorId[ex.idUsuario] || `Docente #${ex.idUsuario ?? "-"}`;
-        const ambientes = mapAmbientesPorExamen[ex.idExamen];
-
-        if (ambientes === undefined || ambientes === "cargando") {
-            return <span className="text-gray-400">Cargando…</span>;
-        }
-        if (ambientes === "error") {
-            return <span className="text-gray-400">{strNombreDocente}</span>;
-        }
-        if (!ambientes || ambientes.length === 0) {
-            // Un examen normal siempre debería tener al menos el ambiente
-            // principal (el backend lo crea siempre al registrar, tanto en
-            // REGULAR como en EVENTUAL). Si esto aparece, no es un estado
-            // válido — probablemente un examen de antes de que se completara
-            // la funcionalidad de ambientes, o un bug real. Se marca en rojo
-            // a propósito para que no se confunda con algo esperado.
-            return (
-                <span className="text-red-600 font-semibold">
-                    {strNombreDocente} · ⚠ sin aula/horario registrado (revisar)
-                </span>
-            );
-        }
-
-        const strAulas = ambientes.map((a) => a.nombreAmbiente).join(", ");
-        const strHora = ambientes[0]?.horaInicio ? ambientes[0].horaInicio.slice(0, 5) : "";
-        return (
-            <span>
-                {strNombreDocente} · {strAulas}
-                {strHora ? ` · ${strHora}` : ""}
-            </span>
-        );
-    }
-
-    // ===================== Normas generales =====================
 
     async function handleGuardarNuevaGeneral() {
         const strTexto = strNuevaDescripcionGeneral.trim();
@@ -466,8 +476,6 @@ export default function SeccionRegistroExamenes() {
         }
     }
 
-    // ===================== Normas particulares (historial) =====================
-
     const arrParticularesConColor = useMemo(() => {
         const conteo = {};
         arrNormasParticulares.forEach((n) => {
@@ -498,11 +506,37 @@ export default function SeccionRegistroExamenes() {
         });
     }, [arrNormasParticulares, mapExamenPorId, mapDocentePorId]);
 
+    // ===================== Asignar / ver operadores =====================
+
+    if (examenOperadores) {
+        const strDocenteOp = examenOperadores._docente;
+        return (
+            <AsignarOperadoresDocente
+                key={examenOperadores.idExamen}
+                examen={{
+                    idExamen: examenOperadores.idExamen,
+                    idAsignatura: examenOperadores.idAsignatura,
+                    nombreExamen: examenOperadores.nombreAsignatura,
+                    tipoExamen: examenOperadores._tipo,
+                    horario: rangoHorario(examenOperadores),
+                    horaInicio: tiempoDeExamen(examenOperadores).horaInicio,
+                    fechaExamen: examenOperadores.fechaExamen,
+                    ambientes: examenOperadores.ambientes || [],
+                }}
+                usuario={{ idUsuario: examenOperadores.idUsuario, nombre: strDocenteOp, apellido: "" }}
+                soloLectura={examenOperadores._estado !== "PROXIMO"}
+                boolVistaAdmin
+                strTextoVolver="Gestión de Exámenes"
+                onVolver={() => setExamenOperadores(null)}
+            />
+        );
+    }
+
     return (
         <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center justify-between mb-1 flex-wrap gap-3">
                 <div>
-                    <h2 className="text-[17px] font-bold text-[#163F79]">Registro de Exámenes</h2>
+                    <h2 className="text-[17px] font-bold text-[#163F79]">Gestión de Exámenes</h2>
                 </div>
             </div>
 
@@ -554,140 +588,189 @@ export default function SeccionRegistroExamenes() {
             {/* ===================== TAB: Exámenes registrados ===================== */}
             {!boolCargando && strTabActiva === "examenes" && (
                 <>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-                        <p className="text-[13px] text-gray-500">
-                            {arrExamenes.length} examen{arrExamenes.length === 1 ? "" : "es"} en el periodo actual
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2.5">
-                            {arrExamenes.length > 0 && (
-                                <>
-                                    <select
-                                        value={strCriterioOrden}
-                                        onChange={handleCambiarCriterio}
-                                        className="h-[42px] px-3 rounded-md border border-[#C8D6E8] text-[#163F79] text-[12.5px] font-semibold max-w-full"
-                                    >
-                                        <option value="registro">Ordenar por: fecha de registro</option>
-                                        <option value="examen">Ordenar por: fecha del examen</option>
-                                    </select>
-                                    <button
-                                        type="button"
-                                        onClick={handleAlternarDireccion}
-                                        title="Alternar dirección"
-                                        className="flex items-center gap-1.5 h-[42px] px-3.5 rounded-md border border-[#C8D6E8] text-[#163F79] text-[12.5px] font-semibold"
-                                    >
-                                        <IconoFlechaOrden />
-                                        {ETIQUETAS_ORDEN[strCriterioOrden][strDireccionOrden]}
-                                    </button>
-                                </>
-                            )}
+                    {arrExamenes.length === 0 ? (
+                        <div className="flex flex-col items-center gap-3 py-10">
+                            <p className="text-[13px] text-gray-500">Todavía no hay exámenes registrados.</p>
                             <button
                                 type="button"
                                 onClick={() => {
                                     setObjExamenEditando(null);
                                     setBoolModalAbierto(true);
                                 }}
-                                className="flex items-center gap-2 h-[42px] px-5 rounded-md bg-[#163F79] text-white font-semibold text-[13.5px]"
+                                className="flex items-center gap-2 h-[40px] px-5 rounded-[10px] bg-[#003770] hover:bg-[#002a55] text-white font-semibold text-[13px]"
                             >
                                 <IconoMas />
                                 Registrar examen
                             </button>
                         </div>
-                    </div>
-
-                    {arrExamenes.length === 0 && (
-                        <p className="text-[13px] text-gray-500 py-6 text-center">
-                            Todavía no hay exámenes registrados.
-                        </p>
-                    )}
-
-                    {arrExamenes.length > 0 && (
+                    ) : (
                         <>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead>
-                                        <tr className="text-[11.5px] font-bold text-gray-400 uppercase tracking-wide">
-                                            <th className="pb-3 pr-3">Asignatura</th>
-                                            <th className="pb-3 pr-3">Tipo</th>
-                                            <th className="pb-3 pr-3">Fecha del examen</th>
-                                            <th className="pb-3 pr-3">Registrado el</th>
-                                            <th className="pb-3 pr-3">Duración</th>
-                                            <th className="pb-3 pr-3">Docente / Aula / Hora</th>
-                                            <th className="pb-3 pr-3">Estado</th>
-                                            <th className="pb-3">Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {arrExamenesPagina.map((ex) => {
-                                            const strNombreTipo =
-                                                ex.nombreTipoExamen ||
-                                                mapTiposExamen[ex.idTipoExamen] ||
-                                                ex.detalleTipoExamen ||
-                                                "-";
-                                            return (
-                                                <tr key={ex.idExamen} className="border-t border-[#EEF1F8] text-[13.5px] text-[#22304F]">
-                                                    <td className="py-3.5 pr-3 font-semibold">
-                                                        {ex.nombreAsignatura || `Asignatura #${ex.idAsignatura}`}
-                                                    </td>
-                                                    <td className="py-3.5 pr-3">{strNombreTipo}</td>
-                                                    <td className="py-3.5 pr-3">{formatearFecha(ex.fechaExamen)}</td>
-                                                    <td className="py-3.5 pr-3 text-gray-500">
-                                                        {ex.fechaCreacionExamen ? formatearFecha(ex.fechaCreacionExamen) : "—"}
-                                                    </td>
-                                                    <td className="py-3.5 pr-3">{formatearDuracion(ex.duracionExamen)}</td>
-                                                    <td className="py-3.5 pr-3">{renderCeldaDocenteAulaHora(ex)}</td>
-                                                    <td className="py-3.5 pr-3">
-                                                        <span
-                                                            className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold ${ex.estadoExamen
-                                                                    ? "bg-[#EAF7EF] text-[#1C8A4C]"
-                                                                    : "bg-[#F4F6FA] text-gray-500"
-                                                                }`}
-                                                        >
-                                                            {ex.estadoExamen ? "Programado" : "Inactivo"}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-3.5">
-                                                        <div className="flex items-center gap-3.5">
-                                                            <button type="button" title="Ver detalles" onClick={() => handleVerDetalle(ex)} className="text-[#5E71A0] hover:text-[#163F79]">
-                                                                <IconoOjo />
-                                                            </button>
-                                                            <button type="button" title="Editar" onClick={() => handleEditar(ex)} className="text-[#5E71A0] hover:text-[#163F79]">
-                                                                <IconoLapiz />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                            {/* Filtros */}
+                            <div className="flex flex-wrap items-center gap-2.5 mb-3.5">
+                                <div className="relative flex-1 basis-[240px] max-w-[340px]">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                        <IconoBuscar />
+                                    </span>
+                                    <input
+                                        type="text"
+                                        value={strBusqueda}
+                                        onChange={(e) => setStrBusqueda(e.target.value)}
+                                        placeholder="Buscar asignatura o docente…"
+                                        className="w-full h-[38px] pl-9 pr-3 rounded-[10px] border border-[#D5DEEC] text-[12.5px] text-[#10294D] placeholder:text-slate-400 outline-none focus:border-[#2B6CB0]"
+                                    />
+                                </div>
+                                <select value={strDocenteFiltro} onChange={(e) => setStrDocenteFiltro(e.target.value)} className={CLASE_SELECT}>
+                                    <option value="">Docente: Todos</option>
+                                    {arrDocentesOpciones.map(([id, nombre]) => (
+                                        <option key={id} value={id}>{nombre}</option>
+                                    ))}
+                                </select>
+                                <select value={strAsignaturaFiltro} onChange={(e) => setStrAsignaturaFiltro(e.target.value)} className={CLASE_SELECT}>
+                                    <option value="">Asignatura: Todas</option>
+                                    {arrAsignaturasOpciones.map(([id, nombre]) => (
+                                        <option key={id} value={id}>{nombre}</option>
+                                    ))}
+                                </select>
+                                {boolHayFiltros && (
+                                    <button
+                                        type="button"
+                                        onClick={handleLimpiarFiltros}
+                                        className="text-[12.5px] font-bold text-[#003770] hover:underline cursor-pointer"
+                                    >
+                                        Limpiar
+                                    </button>
+                                )}
+                                <div className="flex-1" />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setObjExamenEditando(null);
+                                        setBoolModalAbierto(true);
+                                    }}
+                                    className="flex items-center gap-2 h-[38px] px-4 rounded-[10px] bg-[#003770] hover:bg-[#002a55] text-white font-semibold text-[12.5px] cursor-pointer"
+                                >
+                                    <IconoMas />
+                                    Registrar examen
+                                </button>
                             </div>
 
-                            {intTotalPaginas > 1 && (
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-5 pt-4 border-t border-[#EEF1F8] gap-3">
-                                    <p className="text-[12.5px] text-gray-500">
-                                        Página {intPaginaActual} de {intTotalPaginas}
-                                    </p>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setIntPaginaActual((p) => Math.max(1, p - 1))}
-                                            disabled={intPaginaActual === 1}
-                                            className="flex items-center gap-1 h-[36px] px-3 rounded-md border border-[#C8D6E8] text-[#163F79] text-[12.5px] font-semibold disabled:opacity-40"
-                                        >
-                                            <IconoFlechaIzquierda />
-                                            Anterior
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setIntPaginaActual((p) => Math.min(intTotalPaginas, p + 1))}
-                                            disabled={intPaginaActual === intTotalPaginas}
-                                            className="flex items-center gap-1 h-[36px] px-3 rounded-md border border-[#C8D6E8] text-[#163F79] text-[12.5px] font-semibold disabled:opacity-40"
-                                        >
-                                            Siguiente
-                                            <IconoFlechaDerecha />
-                                        </button>
-                                    </div>
+                            {/* Chips de estado + orden */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {CHIPS_ESTADO.map((chip) => {
+                                        const boolActivo = strEstadoFiltro === chip.valor;
+                                        return (
+                                            <button
+                                                key={chip.valor}
+                                                type="button"
+                                                onClick={() => setStrEstadoFiltro(chip.valor)}
+                                                aria-pressed={boolActivo}
+                                                className={`inline-flex items-center gap-2 h-[30px] pl-3.5 pr-1.5 rounded-full border text-[12px] font-bold cursor-pointer transition ${boolActivo
+                                                    ? "bg-[#003770] border-[#003770] text-white"
+                                                    : "bg-white border-[#D5DEEC] text-slate-600 hover:bg-slate-50"
+                                                    }`}
+                                            >
+                                                {chip.etiqueta}
+                                                <span className={`min-w-[20px] text-center px-1.5 py-px rounded-full text-[11px] ${boolActivo ? "bg-white/20" : "bg-[#EEF2F8]"}`}>
+                                                    {objConteos[chip.valor]}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
+                                <label className="inline-flex items-center gap-2 text-[12px] text-slate-500">
+                                    Fecha del examen:
+                                    <select
+                                        value={strOrden}
+                                        onChange={(e) => setStrOrden(e.target.value)}
+                                        className={CLASE_SELECT + " h-[30px] text-[12px]"}
+                                    >
+                                        {OPCIONES_ORDEN.map((o) => (
+                                            <option key={o.valor} value={o.valor}>{o.etiqueta}</option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
+
+                            {arrExamenesOrdenados.length === 0 ? (
+                                <div className="flex flex-col items-center py-12 text-center">
+                                    <span className="w-[68px] h-[68px] rounded-full bg-[#EAF1FB] text-[#003770] flex items-center justify-center mb-3.5">
+                                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <circle cx="11" cy="11" r="7" />
+                                            <path strokeLinecap="round" d="M21 21l-4.3-4.3" />
+                                        </svg>
+                                    </span>
+                                    <p className="text-[15px] font-bold text-[#0B3A73]">No se encontraron exámenes</p>
+                                    <p className="text-[13px] text-slate-500 mt-1">Ajusta los filtros de búsqueda.</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left">
+                                            <thead>
+                                                <tr className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                                                    <th className="pb-3 pr-3">Asignatura</th>
+                                                    <th className="pb-3 pr-3">Tipo</th>
+                                                    <th className="pb-3 pr-3">Docente</th>
+                                                    <th className="pb-3 pr-3">Fecha y hora</th>
+                                                    <th className="pb-3 pr-3">Estado</th>
+                                                    <th className="pb-3">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {arrExamenesPagina.map((ex) => {
+                                                    const strGrupo = nombreGrupo(ex);
+                                                    return (
+                                                        <tr key={ex.idExamen} className="border-t border-[#EEF1F8] text-[13px] text-[#10294D]">
+                                                            <td className="py-3.5 pr-3 font-bold">
+                                                                <span className="inline-flex items-center gap-2">
+                                                                    {ex.nombreAsignatura || `Asignatura #${ex.idAsignatura}`}
+                                                                    {strGrupo && (
+                                                                        <span className="bg-[#E8F0FB] text-[#003770] border border-[#BFD3F2] rounded-full text-[11px] font-bold px-2.5 py-px whitespace-nowrap">
+                                                                            {strGrupo}
+                                                                        </span>
+                                                                    )}
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-3.5 pr-3 whitespace-nowrap">{ex._tipo}</td>
+                                                            <td className="py-3.5 pr-3">{ex._docente}</td>
+                                                            <td className="py-3.5 pr-3 whitespace-nowrap">{fechaCorta(ex)}</td>
+                                                            <td className="py-3.5 pr-3"><PildoraEstado strEstado={ex._estado} /></td>
+                                                            <td className="py-3.5">
+                                                                <div className="flex items-center gap-3.5">
+                                                                    <button type="button" title="Ver detalles" onClick={() => handleVerDetalle(ex)} className="text-[#5E71A0] hover:text-[#163F79] cursor-pointer">
+                                                                        <IconoOjo />
+                                                                    </button>
+                                                                    <button type="button" title="Editar" onClick={() => handleEditar(ex)} className="text-[#5E71A0] hover:text-[#163F79] cursor-pointer">
+                                                                        <IconoLapiz />
+                                                                    </button>
+                                                                    <MenuIngresoExamen
+                                                                        boolSoloLectura={ex._estado !== "PROXIMO"}
+                                                                        boolFinalizado={ex._estado === "FINALIZADO"}
+                                                                        boolControlDisponible={controlDisponible(ex, dateAhora)}
+                                                                        strDisponibleDesde={horaAperturaControl(ex)}
+                                                                        onAsignar={() => setExamenOperadores(ex)}
+                                                                        onVerLista={() => setExamenLista(ex)}
+                                                                        onAbrirControl={() => handleAbrirControl(ex)}
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-4 pt-4 border-t border-[#EEF1F8] gap-3">
+                                        <p className="text-[12px] text-slate-500">
+                                            Mostrando {intDesde + 1}–{intDesde + arrExamenesPagina.length} de {arrExamenesOrdenados.length} exámenes
+                                        </p>
+                                        {intTotalPaginas > 1 && (
+                                            <Paginacion intActual={intPaginaActual} intTotal={intTotalPaginas} onCambiar={setIntPaginaActual} />
+                                        )}
+                                    </div>
+                                </>
                             )}
                         </>
                     )}
@@ -879,7 +962,7 @@ export default function SeccionRegistroExamenes() {
                     onCancelar={handleCerrarModal}
                     objExamenAEditar={objExamenEditando}
                     arrAmbientesExamenAEditar={
-                        objExamenEditando ? mapAmbientesPorExamen[objExamenEditando.idExamen] : null
+                        objExamenEditando ? objExamenEditando.ambientes || [] : null
                     }
                     arrNormasParticularesExamenAEditar={
                         objExamenEditando
@@ -889,187 +972,27 @@ export default function SeccionRegistroExamenes() {
                 />
             </VentanaEmergente>
 
-            <VentanaEmergente boolAbierto={!!examenEnDetalle} onCerrar={handleCerrarDetalle}>
+            <VentanaEmergente boolAbierto={!!examenEnDetalle} onCerrar={handleCerrarDetalle} strMaxWidth="max-w-xl">
                 {examenEnDetalle && (
-                    <div className="bg-white rounded-lg overflow-hidden w-full">
-                        <div className="flex items-start justify-between p-6 pb-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-[#163F79] flex items-center justify-center text-white flex-shrink-0">
-                                    <IconoDocumento />
-                                </div>
-                                <div>
-                                    <h3 className="text-[17px] font-bold text-[#163F79]">
-                                        {examenEnDetalle.nombreAsignatura || `Asignatura #${examenEnDetalle.idAsignatura}`}
-                                    </h3>
-                                    <p className="text-[12px] text-gray-500">
-                                        {examenEnDetalle.nombreTipoExamen ||
-                                            mapTiposExamen[examenEnDetalle.idTipoExamen] ||
-                                            examenEnDetalle.detalleTipoExamen ||
-                                            "-"}
-                                    </p>
-                                </div>
-                            </div>
-                            <button type="button" onClick={handleCerrarDetalle} className="text-gray-400 hover:text-[#163F79] mt-1">
-                                <IconoX />
-                            </button>
-                        </div>
-
-                        <div className="bg-[#EBF3FA] px-6 py-2.5 mt-4 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
-                            <IconoUbicacion />
-                            Información general
-                        </div>
-                        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
-                            <div>
-                                <div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">
-                                    Fecha del examen
-                                </div>
-                                <div className="text-[13.5px] text-[#22304F] font-semibold">
-                                    {formatearFecha(examenEnDetalle.fechaExamen)}
-                                </div>
-                            </div>
-                            <div>
-                                <div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">
-                                    Registrado el
-                                </div>
-                                <div className="text-[13.5px] text-[#22304F]">
-                                    {examenEnDetalle.fechaCreacionExamen ? formatearFecha(examenEnDetalle.fechaCreacionExamen) : "—"}
-                                </div>
-                            </div>
-                            <div>
-                                <div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">
-                                    Duración
-                                </div>
-                                <div className="text-[13.5px] text-[#22304F]">
-                                    {formatearDuracion(examenEnDetalle.duracionExamen)}
-                                </div>
-                            </div>
-                            <div>
-                                <div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">
-                                    Docente
-                                </div>
-                                <div className="text-[13.5px] text-[#22304F]">
-                                    {examenEnDetalle.nombreDocente ||
-                                        mapDocentePorId[examenEnDetalle.idUsuario] ||
-                                        `Docente #${examenEnDetalle.idUsuario ?? "-"}`}
-                                </div>
-                            </div>
-                            <div>
-                                <div className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">
-                                    Estado
-                                </div>
-                                <div>
-                                    <span
-                                        className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold ${examenEnDetalle.estadoExamen
-                                                ? "bg-[#EAF7EF] text-[#1C8A4C]"
-                                                : "bg-[#F4F6FA] text-gray-500"
-                                            }`}
-                                    >
-                                        {examenEnDetalle.estadoExamen ? "Programado" : "Inactivo"}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
-                            <IconoUbicacion />
-                            Ambiente(s)
-                        </div>
-                        <div className="p-6">
-                            {(() => {
-                                const ambientes = mapAmbientesPorExamen[examenEnDetalle.idExamen];
-                                if (ambientes === undefined || ambientes === "cargando") {
-                                    return <span className="text-[13px] text-gray-400">Cargando…</span>;
-                                }
-                                if (ambientes === "error") {
-                                    return <span className="text-[13px] text-gray-400">No se pudo cargar el ambiente.</span>;
-                                }
-                                if (!ambientes || ambientes.length === 0) {
-                                    return (
-                                        <span className="text-[13px] text-red-600 font-semibold">
-                                            ⚠ Sin aula/horario registrado — este examen no debería estar así, conviene revisarlo con Neil.
-                                        </span>
-                                    );
-                                }
-                                return (
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {ambientes.map((a) => (
-                                            <span
-                                                key={a.idAmbiente}
-                                                className="inline-flex items-center gap-1.5 bg-[#F4F6FA] text-[#22304F] border border-[#E2E8F0] px-3 py-1.5 rounded-full text-[12.5px] font-semibold"
-                                            >
-                                                {a.nombreAmbiente}
-                                                <span className="text-gray-400 font-normal">
-                                                    {a.horaInicio?.slice(0, 5)}-{a.horaFin?.slice(0, 5)}
-                                                </span>
-                                            </span>
-                                        ))}
-                                    </div>
-                                );
-                            })()}
-                        </div>
-
-                        <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
-                            <IconoNormas />
-                            Normas generales de este examen
-                        </div>
-                        <div className="p-6">
-                            {(() => {
-                                // Neil, 27/09/2026: ExamenRespuestaDto ahora trae "normasGenerales"
-                                // embebido, ya no hace falta el aviso de que no estaba disponible.
-                                const normasGeneralesDelExamen = examenEnDetalle.normasGenerales || [];
-                                if (normasGeneralesDelExamen.length === 0) {
-                                    return <span className="text-[13px] text-gray-400">Ninguna</span>;
-                                }
-                                return (
-                                    <ul className="space-y-1.5">
-                                        {normasGeneralesDelExamen.map((n) => (
-                                            <li key={n.idNormaGeneral} className="text-[13px] text-[#22304F] flex gap-2">
-                                                <span className="text-[#2B6CB0] flex-shrink-0">•</span>
-                                                {n.descripcionNorma}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                );
-                            })()}
-                        </div>
-
-                        <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
-                            <IconoNormas />
-                            Normas particulares de este examen
-                        </div>
-                        <div className="p-6">
-                            {(() => {
-                                const propias = arrNormasParticulares.filter(
-                                    (n) => n.idExamen === examenEnDetalle.idExamen
-                                );
-                                if (propias.length === 0) {
-                                    return <span className="text-[13px] text-gray-400">Ninguna</span>;
-                                }
-                                return (
-                                    <ul className="space-y-1.5">
-                                        {propias.map((n) => (
-                                            <li key={n.idNormaEspecifica} className="text-[13px] text-[#22304F] flex gap-2">
-                                                <span className="text-[#2B6CB0] flex-shrink-0">•</span>
-                                                {n.descripcionNorma}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                );
-                            })()}
-                        </div>
-
-                        <div className="flex justify-end px-6 py-4 border-t border-gray-100">
-                            <button
-                                type="button"
-                                onClick={handleCerrarDetalle}
-                                className="h-[38px] px-5 rounded-md border border-[#C8D6E8] text-[#163F79] font-semibold text-[13px]"
-                            >
-                                Cerrar
-                            </button>
-                        </div>
-                    </div>
+                    <DetalleExamenAdmin
+                        examen={examenEnDetalle}
+                        strTipo={nombreTipoDe(examenEnDetalle)}
+                        strDocente={nombreDocenteDe(examenEnDetalle)}
+                        strEstado={estadoDeExamen(examenEnDetalle, dateAhora)}
+                        arrNormasParticulares={arrNormasParticulares.filter((n) => n.idExamen === examenEnDetalle.idExamen)}
+                        onCerrar={handleCerrarDetalle}
+                    />
                 )}
             </VentanaEmergente>
+
+            {/* Lista oficial de estudiantes (solo lectura para el administrador) */}
+            <PanelListaOficial
+                boolAbierto={!!examenLista}
+                onCerrar={() => setExamenLista(null)}
+                idExamen={examenLista ? examenLista.idExamen : null}
+                numVersion={0}
+                strUltimoRegistrado={null}
+            />
         </div>
     );
 }
