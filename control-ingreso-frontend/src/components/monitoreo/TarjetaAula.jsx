@@ -39,7 +39,7 @@ export default function TarjetaAula({ aula, incidencias, boolCerrada, onAbrir })
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full text-center ${estilo.pill}`}>{estilo.etiqueta}</span>
                     {boolCerrada && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-800 text-white">
-                            <Lock className="w-3 h-3" /> Ingreso cerrado
+                            <Lock className="w-3 h-3" /> Ingreso finalizado
                         </span>
                     )}
                 </div>

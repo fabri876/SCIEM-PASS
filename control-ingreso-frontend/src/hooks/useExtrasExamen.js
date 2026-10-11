@@ -10,7 +10,7 @@ import { normalizarLlegadas } from "../components/monitoreo/utilidadesMonitoreo"
  * propio fallo (si uno falla, el resto del dashboard sigue):
  *   - incidencias del examen      → endpoint REAL de la HU06 (GET /api/incidencias)
  *   - aulas con ingreso cerrado   → endpoint REAL de la HU06 (GET /api/incidencias/ambientes)
- *   - curva de llegada            → endpoint PROPUESTO de la HU10 (puede no existir aún)
+ *   - curva de llegada            → endpoint de la HU10 (GET /api/monitoreo/examenes/{id}/llegadas)
  */
 export default function useExtrasExamen(examen, boolActivo) {
     const idExamen = examen?.idExamen ?? null;
@@ -69,14 +69,5 @@ export default function useExtrasExamen(examen, boolActivo) {
 
     usePolling(fnActualizar, 15000, { boolActivo: boolActivo && Boolean(idExamen), clave: idExamen });
 
-    /** Refleja un cierre/reapertura al instante y confirma con el servidor. */
-    const aplicarCierre = useCallback(
-        (idAmbiente, boolCerrado) => {
-            setCierres((prev) => ({ ...prev, [idAmbiente]: { cerrado: boolCerrado, motivo: null } }));
-            fnActualizar();
-        },
-        [fnActualizar]
-    );
-
-    return { incidencias, cierres, llegadas, aplicarCierre, recargar: fnActualizar };
+    return { incidencias, cierres, llegadas, recargar: fnActualizar };
 }
