@@ -146,6 +146,18 @@ function App() {
           }
         />
 
+        {/* Control de ingreso de un examen visto por el Administrador */}
+        <Route
+          path="/admin/examenes/:idExamen/control-ingreso"
+          element={
+            <RutaProtegida listRolesPermitidos={["ADMINISTRADOR"]}>
+              <OperadorProvider>
+                <ControlIngresoDocente />
+              </OperadorProvider>
+            </RutaProtegida>
+          }
+        />
+
         {/* Rutas del Docente */}
         <Route
           path="/home/docente"

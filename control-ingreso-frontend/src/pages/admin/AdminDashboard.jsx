@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import Header from "../../components/layout/Header";
 import AdminSidebar from "./components/AdminSidebar";
 import AdminMetricsCards from "./components/AdminMetricsCards";
@@ -26,7 +27,10 @@ import {
 } from "../../services/adminService";
 
 export default function AdminDashboard({ onNavigateToLogin }) {
-    const [activeMenu, setActiveMenu] = useState("Gestión de Usuarios");
+    // Al volver desde otra pantalla (p. ej. el control de ingreso) se puede indicar la sección:
+    // navigate("/admin", { state: { menu: "Gestión de Exámenes" } })
+    const objUbicacion = useLocation();
+    const [activeMenu, setActiveMenu] = useState(objUbicacion.state?.menu || "Gestión de Usuarios");
     const [revisionAcademica, setRevisionAcademica] = useState(0);
     const usuarioSesion = obtenerUsuarioActual();
 
@@ -262,9 +266,9 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     )}
 
                     {/* =================================================
-                        REGISTRO DE EXÁMENES
+                        GESTIÓN DE EXÁMENES
                         ================================================= */}
-                    {activeMenu === "Registro de Exámenes" && <SeccionRegistroExamenes />}
+                    {activeMenu === "Gestión de Exámenes" && <SeccionRegistroExamenes />}
 
                     {/* =================================================
                         HABILITACIÓN DE ESTUDIANTES / GESTIÓN DE MATERIAS

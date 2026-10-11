@@ -109,6 +109,8 @@ export default function AsignarOperadoresDocente({
     onVolver,
     onRegistrarOperador,
     numRecargaOperadores = 0,
+    boolVistaAdmin = false,
+    strTextoVolver = "Control de ingresos",
 }) {
     const aulas = useMemo(
         () =>
@@ -358,7 +360,7 @@ export default function AsignarOperadoresDocente({
     const encabezado = (
         <div>
             <button type="button" onClick={onVolver} className="text-sm font-bold text-[#003770] hover:underline cursor-pointer">
-                ← Volver a Control de ingresos
+                ← Volver a {strTextoVolver}
             </button>
             <h1 className="text-3xl font-black text-[#1A365D] mt-1">{titulo}</h1>
             <p className="text-[15px] text-slate-600 mt-1">
@@ -483,13 +485,17 @@ export default function AsignarOperadoresDocente({
                         <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-2xl p-4 flex items-center gap-4 flex-wrap">
                             <div className="flex-1 min-w-60">
                                 <p className="font-black text-base text-[#B91C1C]">
-                                    {fallaOperadores ? "No se pudo cargar tu lista de operadores." : "Aún no tienes operadores registrados."}
+                                    {fallaOperadores
+                                        ? (boolVistaAdmin ? "No se pudo cargar la lista de operadores del docente." : "No se pudo cargar tu lista de operadores.")
+                                        : (boolVistaAdmin ? "El docente aún no tiene operadores registrados." : "Aún no tienes operadores registrados.")}
                                 </p>
                                 <p className="text-[15px] text-slate-700 mt-0.5">
-                                    Solo puedes asignar operadores que hayas registrado en tus grupos. Mientras no tengas, tú atiendes todas las aulas.
+                                    {boolVistaAdmin
+                                        ? "Solo se pueden asignar operadores registrados en los grupos del docente. Mientras no tenga, el docente atiende todas las aulas."
+                                        : "Solo puedes asignar operadores que hayas registrado en tus grupos. Mientras no tengas, tú atiendes todas las aulas."}
                                 </p>
                             </div>
-                            <BotonPrincipal onClick={onRegistrarOperador}>Registrar operador</BotonPrincipal>
+                            {onRegistrarOperador && <BotonPrincipal onClick={onRegistrarOperador}>Registrar operador</BotonPrincipal>}
                         </div>
                     )}
                     <section className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
@@ -499,7 +505,7 @@ export default function AsignarOperadoresDocente({
                                 <p className="text-[15px] text-slate-500 mt-1">
                                     {hayOperadores
                                         ? "Un responsable atiende toda el aula. Con dos o más, el rango de apellidos se divide entre ellos."
-                                        : "Con tus operadores registrados podrás dividir el rango de cada aula entre ellos."}
+                                        : (boolVistaAdmin ? "Con los operadores del docente podrás dividir el rango de cada aula entre ellos." : "Con tus operadores registrados podrás dividir el rango de cada aula entre ellos.")}
                                 </p>
                             </div>
                             {hayOperadores && <BotonSecundario onClick={dividirTodasEnPartesIguales}>Dividir en partes iguales</BotonSecundario>}
@@ -537,7 +543,7 @@ export default function AsignarOperadoresDocente({
                                                     {iniciales(r.nombre)}
                                                 </span>
                                                 <div className="w-52">
-                                                    <p className="font-black text-base text-[#1A365D] leading-tight">{r.rol === "DOCENTE" ? `Yo (${r.nombre})` : r.nombre}</p>
+                                                    <p className="font-black text-base text-[#1A365D] leading-tight">{r.rol === "DOCENTE" && !boolVistaAdmin ? `Yo (${r.nombre})` : r.nombre}</p>
                                                     <p className="text-[13px] text-slate-500">{r.rol === "DOCENTE" ? "Docente" : "Operador"}</p>
                                                 </div>
                                                 {lista.length === 1 ? (
@@ -580,10 +586,10 @@ export default function AsignarOperadoresDocente({
                                             className="h-10 px-3 rounded-xl border-[1.5px] border-[#CBD5E1] bg-white font-bold text-[14.5px] text-[#003770] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <option value="">+ Agregar responsable</option>
-                                            {!docenteYaEsta && <option value="DOCENTE">Yo ({docente.nombre}) · Docente</option>}
+                                            {!docenteYaEsta && <option value="DOCENTE">{boolVistaAdmin ? docente.nombre : `Yo (${docente.nombre})`} · Docente</option>}
                                             {disponibles.map((o) => <option key={o.idUsuario} value={String(o.idUsuario)}>{nombreCompleto(o)} · Operador</option>)}
                                         </select>
-                                        <span className="text-[14px] text-slate-500">operador o yo (docente)</span>
+                                        <span className="text-[14px] text-slate-500">{boolVistaAdmin ? "operador o el docente" : "operador o yo (docente)"}</span>
                                     </div>
                                 </div>
                             );
@@ -594,7 +600,11 @@ export default function AsignarOperadoresDocente({
                         </div>
                     </section>
                     <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl px-5 py-3.5 text-[15px] text-slate-700">
-                        <b className="text-[#003770]">Si un aula queda sin operador,</b> la atiendes tú como docente. El administrador puede entrar a cualquier aula sin estar en la lista.
+                        {boolVistaAdmin ? (
+                            <><b className="text-[#003770]">Si un aula queda sin operador,</b> la atiende el docente. El administrador puede entrar a cualquier aula sin estar en la lista.</>
+                        ) : (
+                            <><b className="text-[#003770]">Si un aula queda sin operador,</b> la atiendes tú como docente. El administrador puede entrar a cualquier aula sin estar en la lista.</>
+                        )}
                     </div>
                 </>
             )}
@@ -633,7 +643,7 @@ export default function AsignarOperadoresDocente({
                                     {filasResumen.map((f, i) => (
                                         <tr key={i}>
                                             <td className="px-6 py-3.5 border-t border-slate-200 font-black text-[#1A365D]">{f.aula}</td>
-                                            <td className="px-3 py-3.5 border-t border-slate-200">{f.responsable.rol === "DOCENTE" ? `${f.responsable.nombre} (yo)` : f.responsable.nombre}</td>
+                                            <td className="px-3 py-3.5 border-t border-slate-200">{f.responsable.rol === "DOCENTE" && !boolVistaAdmin ? `${f.responsable.nombre} (yo)` : f.responsable.nombre}</td>
                                             <td className="px-3 py-3.5 border-t border-slate-200">
                                                 <Pildora tipo={f.responsable.rol === "DOCENTE" ? "rojo" : "azul"}>{f.responsable.rol === "DOCENTE" ? "Docente" : "Operador"}</Pildora>
                                             </td>
