@@ -1,142 +1,135 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import {
-  Users,
-  UserCheck,
-  Clock,
-  TrendingUp,
-  Ban,
-  AlertOctagon,
-  MapPin,
-  RefreshCw,
-  ArrowRight,
-  CheckCircle2,
-  X,
-  WifiOff,
-} from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { RefreshCw, WifiOff, CheckCircle2, ShieldAlert } from "lucide-react";
 import {
   obtenerExamenesMonitoreo,
   obtenerTableroMonitoreo,
   reubicarYAutorizar,
 } from "../../services/monitoreoService";
-import { formatearFecha, formatearHora } from "../incidencias/utilidadesIncidencias";
+import usePolling from "../../hooks/usePolling";
+import useExtrasExamen from "../../hooks/useExtrasExamen";
+import { formatearFecha } from "../incidencias/utilidadesIncidencias";
+import { horaConSegundos, horaCorta, horaLocalActual, normalizarTablero } from "./utilidadesMonitoreo";
+import TarjetasMetricas from "./TarjetasMetricas";
+import TarjetaAula from "./TarjetaAula";
+import PanelAulasCruzadas from "./PanelAulasCruzadas";
+import ModalReubicacion from "./ModalReubicacion";
+import CurvaLlegada from "./CurvaLlegada";
+import ActividadReciente from "./ActividadReciente";
+import DetalleAulaMonitoreo from "./DetalleAulaMonitoreo";
 
-const INTERVALO_MS = 15000;
-
-const ESTILO_NIVEL = {
-  FUERA_DE_LIMITE: { etiqueta: "Aula Fuera de Límite", pill: "bg-rose-600 text-white", barra: "bg-rose-500", borde: "border-rose-300 ring-2 ring-rose-100" },
-  ALTA: { etiqueta: "Ocupación alta", pill: "bg-amber-100 text-amber-800", barra: "bg-amber-500", borde: "border-slate-200" },
-  DISPONIBLE: { etiqueta: "Con cupos", pill: "bg-emerald-100 text-emerald-800", barra: "bg-emerald-500", borde: "border-slate-200" },
-};
-
-function horaSegundos(strFechaHora) {
-  if (!strFechaHora) return "--:--:--";
-  const partes = String(strFechaHora).split("T");
-  return (partes.length > 1 ? partes[1] : partes[0]).substring(0, 8);
-}
-
-function Kpi({ Icono, titulo, valor, detalle, tono = "navy", children }) {
-  const colores = {
-    navy: "text-[#003770]",
-    verde: "text-emerald-700",
-    ambar: "text-amber-700",
-    rojo: "text-rose-700",
-  };
-  return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-1.5 min-w-0">
-      <div className="flex items-center gap-2 text-[11px] font-extrabold text-slate-500 uppercase tracking-wide">
-        <Icono className="w-3.5 h-3.5 shrink-0" />
-        <span className="truncate">{titulo}</span>
-      </div>
-      <span className={`text-2xl sm:text-3xl font-black tabular-nums leading-none ${colores[tono]}`}>{valor}</span>
-      {children}
-      {detalle && <span className="text-[11px] font-semibold text-slate-500">{detalle}</span>}
-    </div>
-  );
-}
+const INTERVALO_MS = 15000; // CA-04
 
 /**
  * HU10 · Dashboard de monitoreo de asistencia y control de aulas.
- * rol: "DOCENTE" (exámenes asignados, puede reubicar) o "ADMINISTRADOR" (todos, solo ve).
+ * Compartido por Admin y Docente (igual que SeccionIncidencias de la HU06).
+ *   rol "DOCENTE"       → sus exámenes asignados; puede usar Reubicación Express.
+ *   rol "ADMINISTRADOR" → todos los exámenes; solo consulta.
  */
 export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
   const [examenes, setExamenes] = useState([]);
+  const [boolCargandoExamenes, setBoolCargandoExamenes] = useState(true);
   const [idExamen, setIdExamen] = useState(null);
+
   const [tablero, setTablero] = useState(null);
-  const [boolCargando, setBoolCargando] = useState(true);
+  const [boolCargandoTablero, setBoolCargandoTablero] = useState(false);
   const [strError, setStrError] = useState("");
+  const [boolSinPermiso, setBoolSinPermiso] = useState(false);
   const [boolSinConexion, setBoolSinConexion] = useState(false);
+  const [strHoraDatos, setStrHoraDatos] = useState("");
   const [intSegundos, setIntSegundos] = useState(0);
+  const [boolActualizando, setBoolActualizando] = useState(false);
 
   const [alertaAReubicar, setAlertaAReubicar] = useState(null);
   const [boolReubicando, setBoolReubicando] = useState(false);
   const [strErrorReubicar, setStrErrorReubicar] = useState("");
   const [strExito, setStrExito] = useState("");
 
-  const idExamenRef = useRef(null);
-  useEffect(() => {
-    idExamenRef.current = idExamen;
-  }, [idExamen]);
+  const [aulaDetalle, setAulaDetalle] = useState(null); // aula abierta (detalle) o null
 
-  // 1. Exámenes del selector (hoy primero)
+  const refExamen = useRef(null);
+  const refAbort = useRef(null);
+  const refTemporizadorExito = useRef(null);
+
+  // 1. Exámenes del selector (el de hoy / en curso primero). Una sola vez.
   useEffect(() => {
-    let cancelado = false;
-    obtenerExamenesMonitoreo()
+    const ctrl = new AbortController();
+    obtenerExamenesMonitoreo({ signal: ctrl.signal })
       .then((lista) => {
-        if (cancelado) return;
+
         const arr = Array.isArray(lista) ? lista : [];
         setExamenes(arr);
-        setIdExamen(arr[0]?.idExamen ?? null);
-        if (arr.length === 0) setBoolCargando(false);
+        const enCurso = arr.find((e) => e.enCurso) || arr[0];
+        setIdExamen(enCurso?.idExamen ?? null);
       })
       .catch((err) => {
-        if (!cancelado) {
-          setStrError(err.message || "No se pudieron cargar tus exámenes.");
-          setBoolCargando(false);
-        }
+        if (err?.name === "AbortError") return;
+        if (err?.status === 403) setBoolSinPermiso(true);
+        setStrError(err.message || "No se pudieron cargar los exámenes.");
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setBoolCargandoExamenes(false);
       });
-    return () => {
-      cancelado = true;
-    };
+    return () => ctrl.abort();
   }, []);
 
-  // 2. Tablero: carga inmediata y luego cada 15 s (se pausa con la pestaña oculta)
+  // 2. Tablero. Conserva los últimos datos si una actualización falla (CA-05).
   const fnActualizar = useCallback(async () => {
-    const id = idExamenRef.current;
+    const id = refExamen.current;
     if (!id) return;
+    refAbort.current?.abort();
+    const ctrl = new AbortController();
+    refAbort.current = ctrl;
+    setBoolActualizando(true);
     try {
-      const datos = await obtenerTableroMonitoreo(id);
-      if (idExamenRef.current !== id) return; // cambió de examen mientras cargaba
+      const datos = normalizarTablero(await obtenerTableroMonitoreo(id, { signal: ctrl.signal }));
+      if (refExamen.current !== id) return; // cambió de examen mientras cargaba
       setTablero(datos);
+      setStrHoraDatos(horaConSegundos(datos.actualizado) !== "--:--:--" ? horaConSegundos(datos.actualizado) : horaLocalActual());
       setBoolSinConexion(false);
+      setBoolSinPermiso(false);
       setStrError("");
       setIntSegundos(0);
     } catch (err) {
-      // Se conservan los últimos datos y se avisa
-      setBoolSinConexion(true);
+      if (err?.name === "AbortError" || refExamen.current !== id) return;
+      if (err?.status === 403) {
+        setBoolSinPermiso(true);
+        setTablero(null);
+      } else {
+        setBoolSinConexion(true);
+      }
       setStrError(err.message || "No se pudo actualizar el dashboard.");
     } finally {
-      setBoolCargando(false);
+      if (refExamen.current === id) {
+        setBoolCargandoTablero(false);
+        setBoolActualizando(false);
+      }
     }
   }, []);
 
+  // Al cambiar de examen: limpiar y consultar de inmediato.
   useEffect(() => {
-    if (!idExamen) return undefined;
-    setBoolCargando(true);
+    refExamen.current = idExamen;
+    refAbort.current?.abort();
     setTablero(null);
-    fnActualizar();
+    setStrError("");
+    setBoolSinConexion(false);
+    setBoolSinPermiso(false);
+    setBoolCargandoTablero(Boolean(idExamen));
+  }, [idExamen]);
 
-    const intervalo = setInterval(() => {
-      if (!document.hidden) fnActualizar();
-    }, INTERVALO_MS);
-    const alVolver = () => {
-      if (!document.hidden) fnActualizar();
-    };
-    document.addEventListener("visibilitychange", alVolver);
-    return () => {
-      clearInterval(intervalo);
-      document.removeEventListener("visibilitychange", alVolver);
-    };
-  }, [idExamen, fnActualizar]);
+  // 3. Polling cada 15 s, en pausa con la pestaña oculta (CA-04).
+  // Con el detalle de un aula abierto, el dashboard no consulta (el detalle tiene su propio ciclo).
+  usePolling(fnActualizar, INTERVALO_MS, { boolActivo: Boolean(idExamen) && !aulaDetalle, clave: idExamen });
+
+  const examenActual = useMemo(() => examenes.find((e) => e.idExamen === idExamen), [examenes, idExamen]);
+
+  // Incidencias, cierres de aula y curva de llegada (cada fuente falla por separado)
+  const extras = useExtrasExamen(examenActual, Boolean(idExamen) && !aulaDetalle);
+
+  // Cambiar de examen cierra el detalle
+  useEffect(() => {
+    setAulaDetalle(null);
+  }, [idExamen]);
 
   // "Actualizado hace X s"
   useEffect(() => {
@@ -144,32 +137,64 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
     return () => clearInterval(reloj);
   }, []);
 
+  useEffect(
+    () => () => {
+      refAbort.current?.abort();
+      clearTimeout(refTemporizadorExito.current);
+    },
+    []
+  );
+
+  // 4. Reubicación Express (solo docente)
+  const fnAbrirReubicacion = useCallback((alerta) => {
+    setStrErrorReubicar("");
+    setAlertaAReubicar(alerta);
+  }, []);
+  const fnCerrarReubicacion = useCallback(() => setAlertaAReubicar(null), []);
+
   const fnConfirmarReubicacion = async () => {
-    if (!alertaAReubicar || boolReubicando) return;
+    if (!alertaAReubicar || boolReubicando || rol !== "DOCENTE") return;
     setBoolReubicando(true);
     setStrErrorReubicar("");
     try {
       const res = await reubicarYAutorizar(alertaAReubicar.idIntento);
-      setStrExito(res?.mensaje || "Reubicación registrada.");
+
       setAlertaAReubicar(null);
+      setStrExito(res?.mensaje || `${alertaAReubicar.estudiante} fue reubicado y su ingreso quedó registrado.`);
+      clearTimeout(refTemporizadorExito.current);
+      refTemporizadorExito.current = setTimeout(() => setStrExito(""), 6000);
       fnActualizar();
-      setTimeout(() => setStrExito(""), 6000);
+
     } catch (err) {
-      // La asignación original se mantiene: el backend no guardó nada
-      setStrErrorReubicar(err.message || "No se pudo completar la reubicación. Se mantiene la asignación original.");
-      fnActualizar();
+      // El backend no guardó nada: la asignación original se mantiene.
+      setStrErrorReubicar(
+        err?.status === 409
+          ? `${err.message} Se actualizaron los datos del dashboard.`
+          : err.message || "No se pudo completar la reubicación. Se mantiene la asignación original."
+      );
+      if (err?.status === 409 || err?.status === 403) fnActualizar(); // cupo agotado / ya procesado por otro
     } finally {
       setBoolReubicando(false);
     }
   };
 
-  const m = tablero?.metricas;
-  const examenActual = examenes.find((e) => e.idExamen === idExamen);
+  const boolSinExamenes = !boolCargandoExamenes && examenes.length === 0 && !strError;
+
+  if (aulaDetalle && examenActual) {
+    return (
+      <DetalleAulaMonitoreo
+        examen={examenActual}
+        aula={aulaDetalle}
+        boolCerradoInicial={Boolean(extras.cierres[aulaDetalle.idAmbiente]?.cerrado)}
+        onVolver={() => setAulaDetalle(null)}
+        onCambioIngreso={extras.aplicarCierre}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
-
-      {/* Barra superior: examen y estado de actualización */}
+      {/* Barra superior: examen, estado de la actualización */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-base font-black text-[#003770]">Monitoreo de asistencia</h3>
@@ -179,221 +204,141 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {tablero && (
-            <span className={`inline-flex items-center gap-1.5 text-[11px] font-extrabold px-3 py-1.5 rounded-full border ${
-              boolSinConexion ? "bg-rose-50 border-rose-200 text-rose-700" : "bg-emerald-50 border-emerald-200 text-emerald-700"
-            }`}>
+            <span
+              role="status"
+              className={`inline-flex items-center gap-1.5 text-[11px] font-extrabold px-3 py-1.5 rounded-full border ${boolSinConexion ? "bg-rose-50 border-rose-200 text-rose-700" : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                }`}
+            >
               {boolSinConexion ? <WifiOff className="w-3.5 h-3.5" /> : <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
-              {boolSinConexion
-                ? `Sin conexión · datos de las ${horaSegundos(tablero.actualizado)}`
-                : `Actualizado hace ${intSegundos} s`}
+              {boolSinConexion ? `Sin conexión, mostrando datos de las ${strHoraDatos}` : `Actualizado hace ${intSegundos} s`}
             </span>
           )}
           <select
             value={idExamen ?? ""}
             onChange={(e) => setIdExamen(Number(e.target.value))}
             disabled={examenes.length === 0}
-            className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-full"
+            aria-label="Examen a monitorear"
+            className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-full disabled:opacity-60"
           >
-            {examenes.length === 0 && <option value="">Sin exámenes</option>}
+            {examenes.length === 0 && <option value="">{boolCargandoExamenes ? "Cargando..." : "Sin exámenes"}</option>}
             {examenes.map((ex) => (
               <option key={ex.idExamen} value={ex.idExamen}>
                 {ex.asignatura} · {formatearFecha(ex.fechaExamen)}
-                {ex.horaInicio ? ` · ${ex.horaInicio.substring(0, 5)}–${(ex.horaFin || "").substring(0, 5)}` : ""}
+                {ex.horaInicio ? ` · ${horaCorta(ex.horaInicio)}–${horaCorta(ex.horaFin)}` : ""}
                 {ex.enCurso ? " · EN CURSO" : ""}
               </option>
             ))}
           </select>
           <button
+            type="button"
             onClick={fnActualizar}
-            disabled={!idExamen}
+            disabled={!idExamen || boolActualizando}
             className="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 p-2 rounded-xl transition cursor-pointer disabled:opacity-45"
             title="Actualizar ahora"
+            aria-label="Actualizar ahora"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className={`w-3.5 h-3.5 ${boolActualizando ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
 
-      {strError && !tablero && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-2xl text-xs font-bold">✕ {strError}</div>
+      {/* Estados: error / sin permiso / vacío / cargando / éxito */}
+      {boolSinPermiso ? (
+        <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-2xl text-xs font-bold flex items-start gap-2">
+          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{strError || "No tienes permiso para monitorear este examen."} El intento quedó registrado en auditoría.</span>
+        </div>
+      ) : (
+        strError &&
+        !tablero && (
+          <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-2xl text-xs font-bold flex items-center justify-between gap-3 flex-wrap">
+            <span>✕ {strError}</span>
+            {idExamen && (
+              <button type="button" onClick={fnActualizar} className="underline cursor-pointer">Reintentar</button>
+            )}
+          </div>
+        )
       )}
       {strExito && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-2xl text-xs font-bold flex items-center gap-2">
+        <div role="status" className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-2xl text-xs font-bold flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{strExito}</span>
         </div>
       )}
-      {!boolCargando && examenes.length === 0 && !strError && (
+      {boolSinExamenes && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-2xl text-xs font-bold">
-          No tienes exámenes asignados para monitorear.
+          {rol === "DOCENTE" ? "No tienes exámenes asignados para monitorear." : "No hay exámenes registrados para monitorear."}
         </div>
       )}
-      {boolCargando && !tablero && examenes.length > 0 && (
+      {boolCargandoExamenes && (
+        <div className="text-center py-10 text-slate-400 text-xs font-semibold animate-pulse">Cargando exámenes...</div>
+      )}
+      {boolCargandoTablero && !tablero && !strError && (
         <div className="text-center py-10 text-slate-400 text-xs font-semibold animate-pulse">Cargando el dashboard del examen...</div>
       )}
 
-      {tablero && m && (
+      {tablero && (
         <>
-          {/* Métricas generales */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-            <Kpi Icono={Users} titulo="Habilitados" valor={m.habilitados} detalle={`${tablero.aulas.length} aula(s)`} />
-            <Kpi Icono={UserCheck} titulo="Ingresados" valor={m.ingresados} tono="verde"
-              detalle={m.excepcionales > 0 ? `incluye ${m.excepcionales} excepcional(es)` : "registrados en el examen"} />
-            <Kpi Icono={Clock} titulo="Pendientes" valor={m.pendientes} tono="ambar" detalle="habilitados que no ingresaron" />
-            <Kpi Icono={TrendingUp} titulo="Avance" valor={`${m.porcentajeAvance}%`}>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, m.porcentajeAvance)}%` }} />
-              </div>
-            </Kpi>
-            <Kpi Icono={Ban} titulo="Duplicados Bloqueados" valor={m.duplicadosBloqueados} tono={m.duplicadosBloqueados > 0 ? "rojo" : "navy"} />
-            <Kpi Icono={AlertOctagon} titulo="Aulas Fuera de Límite" valor={m.aulasFueraDeLimite} tono={m.aulasFueraDeLimite > 0 ? "rojo" : "navy"} />
+          <TarjetasMetricas metricas={tablero.metricas} intAulas={tablero.aulas.length} intAlertasAulaCruzada={tablero.alertas.length} incidencias={extras.incidencias} />
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+            <div className="xl:col-span-7 min-w-0">
+              <CurvaLlegada estado={extras.llegadas.estado} datos={extras.llegadas.datos} strHoraInicio={examenActual?.horaInicio} boolEnCurso={Boolean(examenActual?.enCurso)} />
+            </div>
+            <div className="xl:col-span-5 min-w-0">
+              <ActividadReciente incidencias={extras.incidencias} alertas={tablero.alertas} />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-
-            {/* Aulas: la más ocupada primero */}
-            <div className="xl:col-span-7 bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 space-y-3 min-w-0">
+            <section className="xl:col-span-7 bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 space-y-3 min-w-0" aria-label="Ocupación por aula">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h4 className="text-sm font-black text-[#003770]">Ocupación por aula</h4>
+                <h4 className="text-sm font-black text-[#003770]">Aulas del examen</h4>
                 <div className="flex gap-3 text-[10px] font-bold text-slate-500 flex-wrap">
-                  <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Con cupos</span>
-                  <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full bg-amber-500 inline-block" />70 % o más</span>
-                  <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full bg-rose-500 inline-block" />Fuera de límite</span>
+                  <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />&lt; 70 %</span>
+                  <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full bg-amber-500 inline-block" />70–89 %</span>
+                  <span className="flex items-center gap-1"><i className="w-2 h-2 rounded-full bg-rose-500 inline-block" />≥ 90 %</span>
                 </div>
               </div>
               {tablero.aulas.length === 0 ? (
                 <p className="text-xs text-slate-400 font-semibold py-6 text-center">El examen no tiene aulas asignadas.</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {tablero.aulas.map((aula) => {
-                    const estilo = aula.capacidad == null
-                      ? { etiqueta: "Sin capacidad registrada", pill: "bg-slate-100 text-slate-600", barra: "bg-slate-400", borde: "border-slate-200" }
-                      : ESTILO_NIVEL[aula.nivel] || ESTILO_NIVEL.DISPONIBLE;
-                    return (
-                      <div key={aula.idAmbiente} className={`border rounded-2xl p-3.5 space-y-2 ${estilo.borde}`}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-black text-[#003770] text-sm truncate">{aula.aula}</p>
-                            {aula.ubicacion && <p className="text-[10.5px] text-slate-500 font-semibold truncate">{aula.ubicacion}</p>}
-                          </div>
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 text-center ${estilo.pill}`}>{estilo.etiqueta}</span>
-                        </div>
-                        <p className="text-xl font-black text-slate-800 tabular-nums">
-                          {aula.ingresados}
-                          <span className="text-xs font-bold text-slate-500">
-                            {aula.capacidad != null ? ` / ${aula.capacidad} · ${aula.porcentajeOcupacion}%` : " ingresados"}
-                          </span>
-                        </p>
-                        {aula.capacidad != null && (
-                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-500 ${estilo.barra}`}
-                              style={{ width: `${Math.min(100, aula.porcentajeOcupacion)}%` }} />
-                          </div>
-                        )}
-                        <div className="grid grid-cols-3 gap-1 text-[10.5px] font-bold text-slate-600 pt-1 border-t border-dashed border-slate-200">
-                          <span>Asignados <b className="block text-slate-800 tabular-nums">{aula.asignados}</b></span>
-                          <span>Pendientes <b className="block text-amber-700 tabular-nums">{aula.pendientes}</b></span>
-                          <span>Cupos <b className="block text-slate-800 tabular-nums">{aula.disponibles ?? "—"}</b></span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Estudiantes en un aula diferente */}
-            <div className="xl:col-span-5 bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 space-y-3 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="text-sm font-black text-[#003770]">Estudiantes en un aula diferente</h4>
-                <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${tablero.alertas.length ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500"}`}>
-                  {tablero.alertas.length}
-                </span>
-              </div>
-              {tablero.alertas.length === 0 ? (
-                <p className="text-xs text-slate-400 font-semibold py-6 text-center">Ningún estudiante se presentó en un aula que no es la suya.</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {tablero.alertas.map((alerta) => (
-                    <div key={alerta.idIntento} className="border border-rose-200 bg-rose-50/40 rounded-2xl p-3.5 space-y-2 text-xs break-words">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-black text-slate-800">{alerta.estudiante}</p>
-                          <p className="text-[11px] font-bold text-slate-500">SIS {alerta.codSis}{alerta.ci ? ` · CI ${alerta.ci}` : ""} · {formatearHora(alerta.hora)}</p>
-                        </div>
-                        <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white text-center shrink-0">INGRESO A UN AMBIENTE DIFERENTE</span>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap text-[11.5px] font-bold">
-                        <span className="flex items-center gap-1 text-rose-700"><MapPin className="w-3.5 h-3.5" />Está en {alerta.aulaActual}</span>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="text-emerald-800">
-                          Debe dirigirse al {alerta.aulaAsignada}{alerta.ubicacionAsignada ? ` (${alerta.ubicacionAsignada})` : ""}
-                        </span>
-                      </div>
-                      {rol === "DOCENTE" && alerta.puedeReubicar ? (
-                        <button
-                          onClick={() => {
-                            setStrErrorReubicar("");
-                            setAlertaAReubicar(alerta);
-                          }}
-                          className="w-full sm:w-auto bg-[#1A365D] hover:bg-[#132743] text-white px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer"
-                        >
-                          Reubicar y Autorizar en {alerta.aulaActual}
-                          {alerta.cuposAulaActual != null ? ` · ${alerta.cuposAulaActual} cupo(s)` : ""}
-                        </button>
-                      ) : (
-                        <p className="text-[11px] font-bold text-slate-500">{alerta.motivoNoReubicable}</p>
-                      )}
-                    </div>
+                  {tablero.aulas.map((aula) => (
+                    <TarjetaAula
+                      key={aula.idAmbiente}
+                      aula={aula}
+                      incidencias={extras.incidencias ? extras.incidencias.porAula[aula.idAmbiente] || null : undefined}
+                      boolCerrada={Boolean(extras.cierres[aula.idAmbiente]?.cerrado)}
+                      onAbrir={setAulaDetalle}
+                    />
                   ))}
                 </div>
               )}
+            </section>
+
+            <div className="xl:col-span-5 min-w-0">
+              <PanelAulasCruzadas alertas={tablero.alertas} rol={rol} onReubicar={fnAbrirReubicacion} />
             </div>
           </div>
+
+          {examenActual && (
+            <p className="text-[11px] text-slate-400 font-semibold text-right">
+              {examenActual.asignatura} · {formatearFecha(examenActual.fechaExamen)} · datos de las {strHoraDatos}
+            </p>
+          )}
         </>
       )}
 
-      {/* Confirmación de la reubicación express */}
-      {alertaAReubicar && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-200 p-5 space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="text-base font-black text-[#003770]">¿Reubicar y autorizar el ingreso?</h3>
-              <button onClick={() => setAlertaAReubicar(null)} disabled={boolReubicando}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 cursor-pointer" title="Cerrar">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-sm text-slate-600 font-semibold">
-              <b className="text-slate-800">{alertaAReubicar.estudiante}</b> (SIS {alertaAReubicar.codSis}) pasará del{" "}
-              <b className="text-slate-800">{alertaAReubicar.aulaAsignada}</b> al{" "}
-              <b className="text-slate-800">{alertaAReubicar.aulaActual}</b>, y se registrará su ingreso ahora.
-            </p>
-            <p className="text-[11px] text-blue-900 font-bold bg-blue-50 border border-blue-200 rounded-xl p-2.5">
-              Quedará en el historial de auditoría con tu usuario, la fecha y hora oficiales y tu IP.
-            </p>
-            {strErrorReubicar && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-700 p-2.5 rounded-xl text-xs font-bold">✕ {strErrorReubicar}</div>
-            )}
-            <div className="flex gap-2">
-              <button onClick={() => setAlertaAReubicar(null)} disabled={boolReubicando}
-                className="flex-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 py-2.5 rounded-xl font-bold text-xs cursor-pointer">
-                Cancelar
-              </button>
-              <button onClick={fnConfirmarReubicacion} disabled={boolReubicando}
-                className="flex-[1.5] bg-[#1A365D] hover:bg-[#132743] disabled:opacity-50 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer">
-                {boolReubicando && <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />}
-                Confirmar reubicación
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {examenActual && tablero && (
-        <p className="text-[11px] text-slate-400 font-semibold text-right">
-          {examenActual.asignatura} · {formatearFecha(examenActual.fechaExamen)} · datos de las {horaSegundos(tablero.actualizado)}
-        </p>
+      {alertaAReubicar && (
+        <ModalReubicacion
+          alerta={alertaAReubicar}
+          boolGuardando={boolReubicando}
+          strError={strErrorReubicar}
+          onConfirmar={fnConfirmarReubicacion}
+          onCancelar={fnCerrarReubicacion}
+        />
       )}
     </div>
   );
