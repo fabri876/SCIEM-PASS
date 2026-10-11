@@ -187,7 +187,6 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
         aula={aulaDetalle}
         boolCerradoInicial={Boolean(extras.cierres[aulaDetalle.idAmbiente]?.cerrado)}
         onVolver={() => setAulaDetalle(null)}
-        onCambioIngreso={extras.aplicarCierre}
       />
     );
   }

@@ -32,7 +32,7 @@ export function nombreAula(strAula) {
  */
 export const ESTILOS_OCUPACION = {
     sinCapacidad: { clave: "SIN_CAPACIDAD", etiqueta: "Sin capacidad registrada", pill: "bg-slate-100 text-slate-600", barra: "bg-slate-400", borde: "border-slate-200" },
-    fuera: { clave: "FUERA_DE_LIMITE", etiqueta: "Fuera de límite", pill: "bg-rose-600 text-white", barra: "bg-rose-500", borde: "border-rose-300 ring-2 ring-rose-100" },
+    fuera: { clave: "FUERA_DE_LIMITE", etiqueta: "Aula Fuera de Límite", pill: "bg-rose-600 text-white", barra: "bg-rose-500", borde: "border-rose-300 ring-2 ring-rose-100" },
     casiLlena: { clave: "CASI_LLENA", etiqueta: "Casi llena", pill: "bg-rose-100 text-rose-700", barra: "bg-rose-500", borde: "border-rose-300 ring-2 ring-rose-100" },
     alta: { clave: "ALTA", etiqueta: "Ocupación alta", pill: "bg-amber-100 text-amber-800", barra: "bg-amber-500", borde: "border-slate-200" },
     disponible: { clave: "DISPONIBLE", etiqueta: "Con cupos", pill: "bg-emerald-100 text-emerald-800", barra: "bg-emerald-500", borde: "border-slate-200" },

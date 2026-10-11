@@ -102,7 +102,7 @@ class MonitoreoServiceTest {
         asignacion = new AsignacionAulaService(ambienteRepository, aulaRepository, habilitacionRepository,
                 usuarioRepository, cambioAmbienteRepository);
         service = new MonitoreoService(asignacion, ambientes, contexto, ingresoRepository, intentoRepository,
-                cambioAmbienteRepository, usuarioRepository, auditoriaService);
+                cambioAmbienteRepository, usuarioRepository, examenRepository, auditoriaService);
 
         Ambiente a601 = ambiente(AMB_601, 10);
         Ambiente a604 = ambiente(AMB_604, 11);
@@ -333,6 +333,80 @@ class MonitoreoServiceTest {
 
         assertThrows(ConflictoEstadoException.class, () -> service.reubicarYAutorizar(77, "ip"));
         verify(cambioAmbienteRepository, never()).save(any());
+    }
+
+    // ---------------------------------------------------- lista y curva
+
+    @Test
+    @DisplayName("Lista del aula: asignados por apellido con su estado; el reubicado aparece en su aula nueva")
+    void asistentes_conReubicado() {
+        when(ingresoRepository.findByIdAsignaturaAndIdExamen(ID_ASIGNATURA, ID_EXAMEN)).thenReturn(ingresos);
+        Ingreso alba = ingreso(9101, AMB_601);
+        alba.setHoraIngreso(HoraOficial.hoy().atTime(7, 52));
+        ingresos.add(alba);
+        CambioAmbiente cambio = new CambioAmbiente();
+        cambio.setCodsisEstudiante(9103);       // Cruz: de la 604 a la 601
+        cambio.setIdAmbiente(AMB_601);
+        cambio.setIdAmbienteOrigen(AMB_604);
+        cambios.add(cambio);
+
+        var lista = service.asistentes(AMB_601, "ip");
+
+        assertEquals("Aula 601", lista.aula());
+        assertEquals(3, lista.asistentes().size()); // Alba, Barrios y Cruz (reubicada)
+        assertEquals("PRESENTE", lista.asistentes().get(0).estado());
+        assertEquals("AUSENTE", lista.asistentes().get(1).estado());
+        var cruz = lista.asistentes().stream().filter(a -> a.codSis() == 9103).findFirst().orElseThrow();
+        assertTrue(cruz.observacion().contains("Reubicado desde Aula 604"));
+    }
+
+    @Test
+    @DisplayName("Lista del aula: un ingreso excepcional sin asignación aparece como EXCEPCIONAL con su motivo")
+    void asistentes_excepcional() {
+        when(ingresoRepository.findByIdAsignaturaAndIdExamen(ID_ASIGNATURA, ID_EXAMEN)).thenReturn(ingresos);
+        Ingreso excepcional = ingreso(5555, AMB_604);
+        excepcional.setTipoIngreso(TipoIngreso.EXCEPCIONAL);
+        excepcional.setMotivoExcepcion(bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion.SIN_CARNET_QR);
+        excepcional.setIdUsuarioEstudiante(999);
+        ingresos.add(excepcional);
+
+        var lista = service.asistentes(AMB_604, "ip");
+
+        var fila = lista.asistentes().stream().filter(a -> a.codSis() == 5555).findFirst().orElseThrow();
+        assertEquals("EXCEPCIONAL", fila.estado());
+        assertTrue(fila.observacion().contains("Sin carnet o QR"));
+    }
+
+    @Test
+    @DisplayName("CSV de la lista: se genera y queda en auditoría como EXPORTACION_ASISTENCIA")
+    void asistentesCsv_audita() {
+        when(ingresoRepository.findByIdAsignaturaAndIdExamen(ID_ASIGNATURA, ID_EXAMEN)).thenReturn(ingresos);
+
+        String csv = new String(service.asistentesCsv(AMB_601, "ip"), java.nio.charset.StandardCharsets.UTF_8);
+
+        assertTrue(csv.contains("Código SIS;Estudiante"));
+        assertTrue(csv.contains("Alba"));
+        verify(auditoriaService).registrar(eq("EXPORTACION_ASISTENCIA"), anyString(), anyString(), contains("Aula 601"), eq("ip"));
+    }
+
+    @Test
+    @DisplayName("Curva de llegada: agrupa cada 5 minutos y rellena con cero los tramos sin ingresos")
+    void llegadas_agrupaYRellena() {
+        Ingreso a = ingreso(9101, AMB_601);
+        a.setHoraIngreso(HoraOficial.hoy().atTime(7, 41));
+        Ingreso b = ingreso(9102, AMB_601);
+        b.setHoraIngreso(HoraOficial.hoy().atTime(7, 44));
+        Ingreso c = ingreso(9103, AMB_604);
+        c.setHoraIngreso(HoraOficial.hoy().atTime(7, 52));
+        ingresos.addAll(List.of(a, b, c));
+
+        var curva = service.llegadas(ID_EXAMEN, 5, "ip");
+
+        assertEquals(3, curva.size());
+        assertEquals("07:40", curva.get(0).hora());
+        assertEquals(2, curva.get(0).cantidad());
+        assertEquals(0, curva.get(1).cantidad()); // 07:45 sin ingresos
+        assertEquals(1, curva.get(2).cantidad());
     }
 
     // ---------------------------------------------------------- auxiliares

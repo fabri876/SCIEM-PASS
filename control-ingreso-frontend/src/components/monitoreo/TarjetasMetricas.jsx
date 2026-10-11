@@ -33,7 +33,7 @@ export default function TarjetasMetricas({ metricas, intAulas, intAlertasAulaCru
                 titulo="Ingresados"
                 valor={m.ingresados}
                 tono="verde"
-                detalle={`${intAvance} % de los habilitados`}
+                detalle={`Avance del examen: ${intAvance} %`}
             >
                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden" role="progressbar" aria-valuenow={intAvance} aria-valuemin={0} aria-valuemax={100} aria-label="Avance de ingreso">
                     <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${intAvance}%` }} />
@@ -43,7 +43,7 @@ export default function TarjetasMetricas({ metricas, intAulas, intAlertasAulaCru
             <Kpi Icono={Clock} titulo="Pendientes" valor={m.pendientes} tono="ambar" detalle="Habilitados que aún no ingresan" />
             <Kpi
                 Icono={Ban}
-                titulo="Duplicados bloqueados"
+                titulo="Duplicados Bloqueados"
                 valor={m.duplicadosBloqueados}
                 tono={m.duplicadosBloqueados > 0 ? "rojo" : "navy"}
                 detalle="Intentos de reingreso denegados"
@@ -64,10 +64,10 @@ export default function TarjetasMetricas({ metricas, intAulas, intAlertasAulaCru
             />
             <Kpi
                 Icono={AlertOctagon}
-                titulo="Aulas fuera de límite"
+                titulo="Aulas Fuera de Límite"
                 valor={m.aulasFueraDeLimite}
                 tono={m.aulasFueraDeLimite > 0 ? "rojo" : "navy"}
-                detalle="Pasaron su capacidad"
+                detalle="Alcanzaron o superaron su capacidad"
             />
         </div>
     );
