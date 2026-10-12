@@ -78,6 +78,10 @@ public class Ingreso {
     @Column(name = "metodo_ingreso", nullable = false)
     private MetodoIngreso metodoIngreso = MetodoIngreso.ESCANEO;
 
+    /** Identificador generado por el dispositivo para idempotencia offline (HU7). */
+    @Column(name = "client_uuid", length = 100, unique = true)
+    private String clientUuid;
+
     public Ingreso() {
     }
 
@@ -114,4 +118,6 @@ public class Ingreso {
     public void setEvidenciaUrl(String evidenciaUrl) { this.evidenciaUrl = evidenciaUrl; }
     public MetodoIngreso getMetodoIngreso() { return metodoIngreso; }
     public void setMetodoIngreso(MetodoIngreso metodoIngreso) { this.metodoIngreso = metodoIngreso; }
+    public String getClientUuid() { return clientUuid; }
+    public void setClientUuid(String clientUuid) { this.clientUuid = clientUuid; }
 }

@@ -18,6 +18,8 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Integer> {
                                                                        Integer idAsignatura,
                                                                        Integer idExamen);
 
+    Optional<Ingreso> findByClientUuid(String clientUuid);
+
     /** HU10: todos los ingresos de un examen, incluidos los retirados (lista del aula). */
     List<Ingreso> findByIdAsignaturaAndIdExamen(Integer idAsignatura, Integer idExamen);
 
