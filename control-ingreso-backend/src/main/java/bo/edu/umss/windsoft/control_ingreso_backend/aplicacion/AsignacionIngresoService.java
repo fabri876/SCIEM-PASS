@@ -32,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -216,11 +218,38 @@ public class AsignacionIngresoService {
             throw new AccesoDenegadoException("No es el docente responsable de este examen.");
         }
 
+        List<Ambiente> ambientesProgramados = ambienteRepository.findByIdExamen(idExamen);
+        LocalDateTime ahora = LocalDateTime.now(ZoneId.of("America/La_Paz"));
+        boolean examenIniciado = examen.getFechaExamen() != null && ambientesProgramados.stream()
+                .anyMatch(a -> a.getHoraInicio() != null
+                        && !ahora.isBefore(LocalDateTime.of(examen.getFechaExamen(), a.getHoraInicio())));
+        if (examenIniciado) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No se puede modificar la asignación porque el examen ya comenzó.");
+        }
+
         Integer idAsignatura = request.idAsignatura();
+        if (idAsignatura == null || !idAsignatura.equals(examen.getIdAsignatura())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La asignatura no corresponde al examen seleccionado.");
+        }
+
+        Set<Integer> ambientesDelExamen = ambienteRepository.findByIdExamen(idExamen).stream()
+                .map(Ambiente::getIdAmbiente).collect(Collectors.toSet());
+        Set<Integer> operadoresEnSolicitud = new java.util.HashSet<>();
 
         for (AsignacionIngresoRequestDTO.ItemAsignacion item : request.asignaciones()) {
             Integer idAmbiente = item.idAmbiente();
             Integer idOperador = item.idOperador();
+
+            if (!ambientesDelExamen.contains(idAmbiente)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "El ambiente " + idAmbiente + " no pertenece al examen.");
+            }
+            if (idOperador != null && !operadoresEnSolicitud.add(idOperador)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "El operador " + idOperador + " no puede asignarse a dos aulas.");
+            }
 
             // Desactivar asignaciones anteriores en este ambiente que NO sean el operador nuevo
             List<AyudanteExamen> existentes = ayudanteExamenRepository

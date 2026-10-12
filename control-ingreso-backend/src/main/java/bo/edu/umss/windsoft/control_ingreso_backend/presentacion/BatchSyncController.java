@@ -47,6 +47,9 @@ public class BatchSyncController {
                         || item.ambienteId() == null || item.codigoSis() == null) {
                     throw new IllegalArgumentException("Faltan examenId, asignaturaId, ambienteId o codigoSis");
                 }
+                if (item.clockOffsetMs() != null && Math.abs(item.clockOffsetMs()) > 600_000L) {
+                    throw new IllegalArgumentException("El desfase del reloj supera el límite permitido de 10 minutos");
+                }
                 if (item.clientUuid() != null && ingresoRepository.findByClientUuid(item.clientUuid()).isPresent()) {
                     salida.put("estado", "DUPLICADO");
                     salida.put("mensaje", "La marcación ya fue procesada anteriormente");
