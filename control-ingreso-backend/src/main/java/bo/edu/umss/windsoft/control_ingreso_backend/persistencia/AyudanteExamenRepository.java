@@ -19,4 +19,7 @@ public interface AyudanteExamenRepository extends JpaRepository<AyudanteExamen, 
             Integer idasignatura, Integer idexamen, Integer idambiente, String estadoAsignacion);
 
     boolean existsByIdIdayudanteAndEstadoAsignacion(Integer idayudante, String estadoAsignacion);
+
+    /** Todas las asignaciones activas de un examen (cualquier aula): para admin. */
+    List<AyudanteExamen> findByIdIdexamenAndEstadoAsignacion(Integer idexamen, String estadoAsignacion);
 }

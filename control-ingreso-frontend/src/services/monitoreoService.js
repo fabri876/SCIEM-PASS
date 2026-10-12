@@ -91,11 +91,9 @@ export async function reubicarYAutorizar(idIntento) {
 }
 
 /* =============================================================================
- * CONTRATO PROPUESTO (HU10 del Sprint 2) — pendiente de confirmar con Marcela.
- * Estas 4 llamadas siguen el HTML del sprint. Si Marcela cambia una ruta o un
- * campo, se ajusta SOLO aquí y en normalizarLlegadas / normalizarAsistentes
- * (utilidadesMonitoreo.js). Mientras el endpoint no exista (404/405/501) la
- * pantalla muestra "se activará cuando el backend lo publique", sin romperse.
+ * Curva de llegada, lista del aula y exportación CSV: implementados en el
+ * backend (MonitoreoController). El cierre manual del ingreso de un aula NO
+ * forma parte de los criterios de la HU10 y se quitó.
  * ========================================================================== */
 
 /** Curva de llegada, un punto cada N minutos. GET /api/monitoreo/examenes/{idExamen}/llegadas?intervalo=5 */
@@ -118,12 +116,4 @@ export async function descargarAsistentesCsv(idAmbiente, idExamen) {
     headers: { Accept: "text/csv" },
   });
   return response.blob();
-}
-
-/** Cierra (false) o reabre (true) el ingreso de un aula. PATCH /api/monitoreo/ambientes/{idAmbiente}/ingreso {abierto} */
-export async function cambiarIngresoAula(idAmbiente, boolAbierto) {
-  return fetchAutenticado(`/api/monitoreo/ambientes/${idAmbiente}/ingreso`, {
-    method: "PATCH",
-    body: JSON.stringify({ abierto: boolAbierto }),
-  });
 }

@@ -6,6 +6,7 @@ public record UltimoIngresoDTO(
         Integer idIngreso,
         LocalDateTime horaIngreso,
         String metodoIngreso,
-        EstudianteResumenDTO estudiante
+        EstudianteResumenDTO estudiante,
+        String registradoPor
 ) {
 }

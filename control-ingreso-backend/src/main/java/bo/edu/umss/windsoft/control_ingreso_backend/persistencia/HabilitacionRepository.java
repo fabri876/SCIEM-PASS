@@ -41,6 +41,11 @@ public interface HabilitacionRepository extends JpaRepository<Habilitacion, Inte
     Optional<Habilitacion> findByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(Integer idAsignatura, Integer idExamen, Integer codsisestudiante);
     Optional<Habilitacion> findByIdAsignaturaAndIdExamenAndIdUsuario(Integer idAsignatura, Integer idExamen, Integer idUsuario);
 
+    @Query("SELECT h FROM Habilitacion h JOIN FETCH h.estudiante " +
+           "WHERE h.idAsignatura = :idAsignatura AND h.idExamen = :idExamen")
+    List<Habilitacion> findHabilitacionesConEstudiante(@Param("idAsignatura") Integer idAsignatura,
+                                                        @Param("idExamen") Integer idExamen);
+
     @Query("SELECT h.idAsignatura, h.estadohabilitacion, COUNT(h) FROM Habilitacion h WHERE h.idAsignatura IS NOT NULL GROUP BY h.idAsignatura, h.estadohabilitacion")
     List<Object[]> countHabilitacionesGroupedByAsignatura();
 }

@@ -62,7 +62,7 @@ function TarjetaExamenDocente({ examen, boolResaltado = false }) {
                 <div className="flex flex-wrap gap-2 self-start sm:self-center">
                     {boolPuedeIngreso && (
                         <button
-                            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "mis-examenes" } })}
+                            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "mis-examenes", examen } })}
                             className="bg-[#003770] hover:bg-[#124B83] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
                         >
                             Control de ingreso →

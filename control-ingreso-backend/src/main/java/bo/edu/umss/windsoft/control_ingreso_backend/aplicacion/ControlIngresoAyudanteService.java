@@ -215,11 +215,15 @@ public class ControlIngresoAyudanteService {
 
                     String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
 
+                    Usuario operador = ing.getIdUsuarioRegistra() != null ? usuarioRepository.findById(ing.getIdUsuarioRegistra()).orElse(null) : null;
+                    String registradoPor = operador != null ? (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim() : null;
+
                     return new UltimoIngresoDTO(
                             ing.getIdIngreso(),
                             ing.getHoraIngreso(),
                             metodo,
-                            estDto
+                            estDto,
+                            registradoPor
                     );
                 })
                 .toList();
