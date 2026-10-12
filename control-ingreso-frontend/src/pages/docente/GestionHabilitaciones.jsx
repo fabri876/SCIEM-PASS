@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { obtenerHabilitaciones, actualizarHabilitacion, exportarListaOficial } from "../../services/habilitacionService";
+import { obtenerHabilitaciones, actualizarHabilitacion, exportarListaOficial, asociarEstudianteAExamen } from "../../services/habilitacionService";
 import { obtenerExamenPorId } from "../../services/examenService";
 import { obtenerExamenPorAsignatura } from "../../services/asignaturaService";
 import Icono from "./components/Icono";
@@ -68,6 +68,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     const [filtroEstado, setFiltroEstado] = useState('todos');
     const [paginaActual, setPaginaActual] = useState(1);
     const [toast, setToast] = useState(null);
+    const [codigoNuevo, setCodigoNuevo] = useState('');
+    const [asociando, setAsociando] = useState(false);
     const toastTimer = useRef(null);
 
     const mostrarToast = (type, message) => {
@@ -273,6 +275,27 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
         }
     };
 
+    const asociarNuevoEstudiante = async (e) => {
+        e.preventDefault();
+        if (!/^\d+$/.test(codigoNuevo.trim())) {
+            mostrarToast('error', 'Ingresa un Código SIS válido.');
+            return;
+        }
+        try {
+            setAsociando(true);
+            const nuevo = await asociarEstudianteAExamen({
+                codigoSis: codigoNuevo.trim(),
+                idAsignatura: infoExamen.idAsignatura,
+                idExamen: Number(examenIdActivo),
+            });
+            setEstudiantes((prev) => [...prev, normalizarHabilitaciones([nuevo])[0]]);
+            setCodigoNuevo('');
+            mostrarToast('success', 'Estudiante asociado al examen.');
+        } catch (err) {
+            mostrarToast('error', err.message || 'No se pudo asociar el estudiante.');
+        } finally { setAsociando(false); }
+    };
+
     const totalEstudiantes = estudiantes.length;
     const totalHabilitados = estudiantes.filter((e) => e.estadoHabilitacion).length;
     const totalInhabilitados = estudiantes.filter((e) => !e.estadoHabilitacion).length;
@@ -375,6 +398,15 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                             }
                         }}
                     />
+
+                    <form onSubmit={asociarNuevoEstudiante} className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col sm:flex-row gap-3 sm:items-center">
+                        <div className="flex-1">
+                            <p className="text-sm font-extrabold text-[#003770]">Asociar estudiante al examen</p>
+                            <p className="text-xs text-slate-500">Ingresa el Código SIS del estudiante.</p>
+                        </div>
+                        <input value={codigoNuevo} onChange={(e) => setCodigoNuevo(e.target.value)} inputMode="numeric" placeholder="Código SIS" className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm" />
+                        <button disabled={asociando} className="bg-[#003770] text-white rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50">{asociando ? 'Asociando…' : 'Asociar estudiante'}</button>
+                    </form>
 
                     {/* Los separadores van con border-l explicito en "lg" y no con
                         divide-x: las clases divide-* de Tailwind v4 no pintaban

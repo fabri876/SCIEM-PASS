@@ -7,6 +7,9 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoInhabilitacion
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HabilitacionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.MotivoInhabilitacionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsociarEstudianteExamenRequest;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HabilitacionRequestDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HabilitacionResponseDto;
 import org.apache.poi.ss.usermodel.Cell;
@@ -34,14 +37,43 @@ public class HabilitacionService {
     private final HabilitacionRepository habilitacionRepository;
     private final UsuarioRepository usuarioRepository;
     private final MotivoInhabilitacionRepository motivoInhabilitacionRepository;
+    private final EstudianteRepository estudianteRepository;
+    private final ExamenRepository examenRepository;
 
     public HabilitacionService(
             HabilitacionRepository habilitacionRepository,
             UsuarioRepository usuarioRepository,
-            MotivoInhabilitacionRepository motivoInhabilitacionRepository) {
+            MotivoInhabilitacionRepository motivoInhabilitacionRepository,
+            EstudianteRepository estudianteRepository,
+            ExamenRepository examenRepository) {
         this.habilitacionRepository = habilitacionRepository;
         this.usuarioRepository = usuarioRepository;
         this.motivoInhabilitacionRepository = motivoInhabilitacionRepository;
+        this.estudianteRepository = estudianteRepository;
+        this.examenRepository = examenRepository;
+    }
+
+    @Transactional
+    public HabilitacionResponseDto asociarEstudiante(AsociarEstudianteExamenRequest request) {
+        var examen = examenRepository.findById(request.idExamen())
+                .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el examen."));
+        if (!examen.getIdAsignatura().equals(request.idAsignatura())) {
+            throw new IllegalArgumentException("La asignatura no corresponde al examen.");
+        }
+        if (habilitacionRepository.existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(
+                request.idAsignatura(), request.idExamen(), request.codigoSis())) {
+            throw new IllegalArgumentException("El estudiante ya está asociado a este examen.");
+        }
+        var estudiante = estudianteRepository.findByCodsisestudiante(request.codigoSis())
+                .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el estudiante."));
+        var h = new Habilitacion();
+        h.setEstudiante(estudiante);
+        h.setIdAsignatura(request.idAsignatura());
+        h.setIdExamen(request.idExamen());
+        h.setIdUsuario(estudiante.getIdusuario());
+        h.setEstadohabilitacion(request.habilitado() == null || request.habilitado());
+        h.setObservacionhabilitacion(request.observacion());
+        return mapearADto(habilitacionRepository.save(h));
     }
 
     @Transactional(readOnly = true)

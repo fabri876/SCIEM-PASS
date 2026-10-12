@@ -33,13 +33,13 @@ public class AsignacionIngresoCompatController {
     @GetMapping("/operadores-disponibles")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','DOCENTE')")
     public ResponseEntity<?> operadores(@PathVariable Integer idExamen) {
-        return ResponseEntity.ok(service.operadoresDisponibles(idExamen));
+        return ResponseEntity.ok(service.operadoresDisponibles(idExamen, contexto.actual()));
     }
 
     @GetMapping("/asignacion-ingreso")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','DOCENTE','OPERADOR')")
     public ResponseEntity<Map<String, Object>> leer(@PathVariable Integer idExamen) {
-        List<AulaAsignacionDTO> actuales = service.leerAsignacion(idExamen);
+        List<AulaAsignacionDTO> actuales = service.leerAsignacion(idExamen, contexto.actual());
         List<Map<String, Object>> aulas = new ArrayList<>();
         List<Map<String, Object>> responsables = new ArrayList<>();
         for (AulaAsignacionDTO a : actuales) {

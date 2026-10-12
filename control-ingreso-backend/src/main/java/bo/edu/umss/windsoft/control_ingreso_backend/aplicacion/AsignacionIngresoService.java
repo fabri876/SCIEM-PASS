@@ -12,6 +12,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteReposit
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AulaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteGrupoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsignacionIngresoRequestDTO;
@@ -63,6 +64,7 @@ public class AsignacionIngresoService {
     private final AulaRepository           aulaRepository;
     private final AyudanteExamenRepository ayudanteExamenRepository;
     private final AyudanteRepository       ayudanteRepository;
+    private final AyudanteGrupoRepository  ayudanteGrupoRepository;
     private final UsuarioRepository        usuarioRepository;
     private final HabilitacionRepository   habilitacionRepository;
     private final IngresoRepository        ingresoRepository;
@@ -74,6 +76,7 @@ public class AsignacionIngresoService {
                                     AulaRepository aulaRepository,
                                     AyudanteExamenRepository ayudanteExamenRepository,
                                     AyudanteRepository ayudanteRepository,
+                                    AyudanteGrupoRepository ayudanteGrupoRepository,
                                     UsuarioRepository usuarioRepository,
                                     HabilitacionRepository habilitacionRepository,
                                     IngresoRepository ingresoRepository,
@@ -84,6 +87,7 @@ public class AsignacionIngresoService {
         this.aulaRepository           = aulaRepository;
         this.ayudanteExamenRepository = ayudanteExamenRepository;
         this.ayudanteRepository       = ayudanteRepository;
+        this.ayudanteGrupoRepository  = ayudanteGrupoRepository;
         this.usuarioRepository        = usuarioRepository;
         this.habilitacionRepository   = habilitacionRepository;
         this.ingresoRepository        = ingresoRepository;
@@ -107,8 +111,11 @@ public class AsignacionIngresoService {
                 .map(ae -> ae.getId().getIdayudante())
                 .collect(Collectors.toSet());
 
-        // Todos los ayudantes registrados en el sistema
-        List<Ayudante> todosAyudantes = ayudanteRepository.findAll();
+        // Priorizar ayudantes vinculados a grupos de la asignatura del examen.
+        List<Integer> idsVinculados = ayudanteGrupoRepository.findUsuariosPorExamen(idExamen);
+        List<Ayudante> todosAyudantes = idsVinculados.isEmpty()
+                ? ayudanteRepository.findAll()
+                : ayudanteRepository.findByIdusuarioIn(idsVinculados);
         List<Integer> idsUsuarios = todosAyudantes.stream()
                 .map(Ayudante::getIdusuario)
                 .toList();
@@ -134,6 +141,16 @@ public class AsignacionIngresoService {
                 .sorted(Comparator.comparing(OperadorDisponibleDTO::apellido,
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
+    }
+
+    public List<OperadorDisponibleDTO> operadoresDisponibles(Integer idExamen,
+                                                              ContextoUsuarioService.UsuarioActual usuario) {
+        Examen examen = examenRepository.findById(idExamen)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Examen no encontrado: " + idExamen));
+        if (usuario != null && usuario.esDocente() && !usuario.idUsuario().equals(examen.getIdUsuario())) {
+            throw new AccesoDenegadoException("No puede consultar operadores de un examen de otro docente.");
+        }
+        return operadoresDisponibles(idExamen);
     }
 
     // -----------------------------------------------------------------------
@@ -190,6 +207,17 @@ public class AsignacionIngresoService {
                     operador != null ? operador.getApellidousuario() : null
             );
         }).toList();
+    }
+
+    /** Consulta compatible con validación de propietario para DOCENTE. */
+    public List<AulaAsignacionDTO> leerAsignacion(Integer idExamen,
+                                                   ContextoUsuarioService.UsuarioActual usuario) {
+        Examen examen = examenRepository.findById(idExamen)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Examen no encontrado: " + idExamen));
+        if (usuario != null && usuario.esDocente() && !usuario.idUsuario().equals(examen.getIdUsuario())) {
+            throw new AccesoDenegadoException("No puede consultar un examen de otro docente.");
+        }
+        return leerAsignacion(idExamen);
     }
 
     // -----------------------------------------------------------------------
