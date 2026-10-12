@@ -1,7 +1,7 @@
 // Página del DOCENTE (y del ADMINISTRADOR): mismo control de ingreso + lista oficial del aula
 // Rutas: /home/docente/examenes/:idExamen/control-ingreso  (docente)
 //        /admin/examenes/:idExamen/control-ingreso         (administrador)
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ListChecks } from "lucide-react";
 import Header from "../../../components/layout/Header";
@@ -27,7 +27,13 @@ export default function ControlIngresoDocente() {
     if (boolAdmin) navigate("/admin", { state: { menu: "Gestión de Exámenes" } });
     else navigate("/home/docente", { state: { menu: strMenuOrigen } });
   };
-  const ctrl = useControlIngreso(idExamen ? Number(idExamen) : null);
+  const objExamenNavegado = objUbicacion.state?.examen || null;
+  const objAmbiente = objExamenNavegado?.ambientes?.[0] || null;
+  const idAmbiente = objExamenNavegado?.idambiente ?? objAmbiente?.idAmbiente ?? objAmbiente?.idambiente;
+  const idAsignatura = objExamenNavegado?.idAsignatura ?? objExamenNavegado?.idasignatura;
+  const idControl = idAsignatura && idAmbiente ? `${idAsignatura}-${idExamen}-${idAmbiente}` : (idExamen ? Number(idExamen) : null);
+  const objExamenInicial = objExamenNavegado && idControl ? { id: idControl, idasignatura: idAsignatura, idexamen: Number(idExamen), idambiente: idAmbiente, materia: objExamenNavegado.nombreExamen || objExamenNavegado.nombreAsignatura, tipo: objExamenNavegado.tipoExamen || objExamenNavegado.nombreTipoExamen || "Examen", aula: objExamenNavegado.aulaNombre || objExamenNavegado.aula, edificio: objExamenNavegado.bloque, fecha: objExamenNavegado.fechaExamen, horaInicio: objExamenNavegado.horaInicio, horaFin: objExamenNavegado.horaFin, contador: { ingresaron: objExamenNavegado.ingresados || 0, pendientes: objExamenNavegado.noLlegan || 0, inhabilitados: objExamenNavegado.inhabilitados || 0, habilitados: objExamenNavegado.totalInscritos || 0 } } : null;
+  const ctrl = useControlIngreso(idControl, { examenInicial: objExamenInicial });
   const { estadoRed, fnCambiarRed } = useOperador();
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
 
@@ -50,11 +56,6 @@ export default function ControlIngresoDocente() {
   const strHoraApertura = dateApertura
     ? `${String(dateApertura.getHours()).padStart(2, "0")}:${String(dateApertura.getMinutes()).padStart(2, "0")}`
     : "";
-  const refBloque = useRef(null);
-  useEffect(() => {
-    // "inert" desactiva el clic y el teclado dentro del bloque
-    if (refBloque.current) refBloque.current.toggleAttribute("inert", boolAunNoEmpieza);
-  }, [boolAunNoEmpieza, examen]);
 
   return (
     // Mismo layout que HomeControl: header fijo arriba y contenido con pt-[115px]
@@ -116,7 +117,7 @@ export default function ControlIngresoDocente() {
           </button>
         </EncabezadoControl>
 
-        <div ref={refBloque} aria-disabled={boolAunNoEmpieza} className={boolAunNoEmpieza ? "opacity-50 select-none" : ""}>
+        <div>
           <SeccionControlIngreso ctrl={ctrl} strRol="docente" boolPermitirVolver={false} />
         </div>
       </main>
