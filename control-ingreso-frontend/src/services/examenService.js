@@ -1,5 +1,6 @@
 import { strApiBaseUrl } from "./apiConfig";
-import { obtenerToken } from "./authService";
+import { obtenerToken, obtenerUsuarioActual } from "./authService";
+import { cargarExamenesConRespaldo, examenRepo } from "../offline/examenRepo";
 
 
 //examenService.js
@@ -30,15 +31,26 @@ export async function registrarExamen(objExamen) {
 
 export async function obtenerAsignaturasPorDocente(idUsuario, codsisDocente) {
     const params = new URLSearchParams({ idUsuario, codsisDocente });
-    const response = await fetch(`${strApiBaseUrl}/api/asignaturas/por-docente?${params}`, {
-        headers: construirHeaders(),
+    const res = await cargarExamenesConRespaldo({
+        clave: `asignaturas-${idUsuario}`,
+        usuarioId: idUsuario,
+        fetcher: async ({ signal }) => {
+            const response = await fetch(`${strApiBaseUrl}/api/asignaturas/por-docente?${params}`, {
+                headers: construirHeaders(),
+                signal,
+            });
+
+            if (!response.ok) {
+                const err = new Error("No se pudieron obtener las asignaturas");
+                err.status = response.status;
+                throw err;
+            }
+
+            return response.json();
+        },
     });
 
-    if (!response.ok) {
-        throw new Error("No se pudieron obtener las asignaturas");
-    }
-
-    return response.json();
+    return res.examenes;
 }
 
 export async function obtenerHorariosRegulares(idUsuario, codsisDocente, idAsignatura) {
@@ -115,37 +127,107 @@ export async function obtenerExamenes() {
 }
 
 export async function obtenerMisExamenes() {
-    const response = await fetch(`${strApiBaseUrl}/api/examenes/mis-examenes`, {
-        headers: construirHeaders(),
+    const usuario = obtenerUsuarioActual();
+    const res = await cargarExamenesConRespaldo({
+        clave: "mis-examenes",
+        usuarioId: usuario?.idUsuario ?? null,
+        fetcher: async ({ signal }) => {
+            const response = await fetch(`${strApiBaseUrl}/api/examenes/mis-examenes`, {
+                headers: construirHeaders(),
+                signal,
+            });
+
+            if (!response.ok) {
+                const err = new Error("No se pudieron obtener los exámenes del docente");
+                err.status = response.status;
+                throw err;
+            }
+
+            return response.json();
+        },
     });
 
-    if (!response.ok) {
-        throw new Error("No se pudieron obtener los exámenes del docente");
-    }
-
-    return response.json();
+    return res.examenes;
 }
 
 export async function obtenerExamenPorId(idExamen) {
-    const response = await fetch(`${strApiBaseUrl}/api/examenes/${idExamen}`, {
-        headers: construirHeaders(),
-    });
+    const usuario = obtenerUsuarioActual();
+    const controller = new AbortController();
+    let timerId = null;
 
-    if (!response.ok) {
-        throw new Error("No se pudo obtener el examen");
+    try {
+        const promesaTimeout = new Promise((_, reject) => {
+            timerId = setTimeout(() => {
+                controller.abort();
+                reject(Object.assign(new Error("Timeout de red"), { name: "TimeoutError" }));
+            }, 5000);
+        });
+
+        const promesaFetch = (async () => {
+            const response = await fetch(`${strApiBaseUrl}/api/examenes/${idExamen}`, {
+                headers: construirHeaders(),
+                signal: controller.signal,
+            });
+
+            if (!response.ok) {
+                const err = new Error("No se pudo obtener el examen");
+                err.status = response.status;
+                throw err;
+            }
+
+            return await response.json();
+        })();
+
+        // Evitar unhandled rejection si el timeout rechaza primero
+        promesaFetch.catch(() => {});
+
+        return await Promise.race([promesaFetch, promesaTimeout]);
+    } catch (error) {
+        const status = error?.status;
+        const esTimeout = error?.name === "TimeoutError";
+        const esErrorRedSinStatus = status === undefined || status === null;
+        const es5xx = typeof status === "number" && status >= 500 && status <= 599;
+        const es401 = status === 401;
+
+        // Solo cae al respaldo ante error de red, timeout, 5xx o 401. 403, 404 u otros 4xx se propagan.
+        if (esTimeout || esErrorRedSinStatus || es5xx || es401) {
+            const local = await examenRepo.obtenerExamen(idExamen, { usuarioId: usuario?.idUsuario ?? null });
+            if (local) return local;
+        }
+
+        throw error;
+    } finally {
+        if (timerId) {
+            clearTimeout(timerId);
+        }
     }
-
-    return response.json();
 }
+
 /** Cartelera publica: datos de examen, docente y aula, sin informacion de estudiantes. */
 export async function obtenerExamenesProximos() {
-    const response = await fetch(`${strApiBaseUrl}/api/publico/examenes/proximos`);
-    if (!response.ok) throw new Error("No se pudieron cargar los proximos examenes.");
-    return response.json();
+    const res = await cargarExamenesConRespaldo({
+        clave: "proximos",
+        usuarioId: null,
+        fetcher: async ({ signal }) => {
+            const response = await fetch(`${strApiBaseUrl}/api/publico/examenes/proximos`, {
+                signal,
+            });
+
+            if (!response.ok) {
+                const err = new Error("No se pudieron cargar los proximos examenes.");
+                err.status = response.status;
+                throw err;
+            }
+
+            return response.json();
+        },
+    });
+
+    return res.examenes;
 }
 
 export async function obtenerCambiosExamenes() {
- const response = await fetch(`${strApiBaseUrl}/api/publico/examenes/cambios`);
- if (!response.ok) throw new Error("No se pudieron cargar los cambios de examenes.");
- return response.json();
+    const response = await fetch(`${strApiBaseUrl}/api/publico/examenes/cambios`);
+    if (!response.ok) throw new Error("No se pudieron cargar los cambios de examenes.");
+    return response.json();
 }

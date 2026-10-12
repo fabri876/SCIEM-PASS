@@ -91,3 +91,10 @@ export {
   limpiezaTotalDispositivoCompartido,
   LIMPIEZA_DEFAULTS_EXPORT as LIMPIEZA_DEFAULTS,
 } from "./logoutCleanup.js";
+export {
+  examenRepo,
+  cargarExamenesConRespaldo,
+  obtenerOrigenExamenes,
+  suscribirOrigenExamenes,
+} from "./examenRepo.js";
+
