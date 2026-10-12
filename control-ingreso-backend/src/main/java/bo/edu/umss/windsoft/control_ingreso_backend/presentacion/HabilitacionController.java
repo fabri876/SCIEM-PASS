@@ -3,6 +3,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.HabilitacionService;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HabilitacionRequestDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HabilitacionResponseDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsociarEstudianteExamenRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PostMapping;
 
 import java.util.List;
 
@@ -60,6 +62,12 @@ public class HabilitacionController {
             @Valid @RequestBody HabilitacionRequestDto request) {
         HabilitacionResponseDto actualizado = habilitacionService.actualizarHabilitacion(id, request);
         return ResponseEntity.ok(actualizado);
+    }
+
+    @PostMapping("/asociar-examen")
+    public ResponseEntity<HabilitacionResponseDto> asociarEstudiante(
+            @Valid @RequestBody AsociarEstudianteExamenRequest request) {
+        return ResponseEntity.ok(habilitacionService.asociarEstudiante(request));
     }
 }
 

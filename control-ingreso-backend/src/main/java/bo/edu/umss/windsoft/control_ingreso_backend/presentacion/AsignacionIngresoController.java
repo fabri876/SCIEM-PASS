@@ -27,6 +27,8 @@ import java.util.List;
  * PUT  /api/v1/control/examenes/{idExamen}/asignacion-ingreso      → guarda asignación
  */
 @RestController
+// Se conservan ambas rutas para compatibilidad con el frontend actual y con
+// el contrato versionado de control de ingreso.
 @RequestMapping("/api/v1/control/examenes/{idExamen}")
 public class AsignacionIngresoController {
 

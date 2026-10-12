@@ -122,3 +122,10 @@ export async function actualizarHabilitacion(idHabilitacion, { estadoHabilitacio
         }),
     });
 }
+
+export async function asociarEstudianteAExamen({ codigoSis, idAsignatura, idExamen, habilitado = true, observacion = null }) {
+    return fetchAutenticado('/api/habilitaciones/asociar-examen', {
+        method: 'POST',
+        body: JSON.stringify({ codigoSis: Number(codigoSis), idAsignatura, idExamen, habilitado, observacion }),
+    });
+}

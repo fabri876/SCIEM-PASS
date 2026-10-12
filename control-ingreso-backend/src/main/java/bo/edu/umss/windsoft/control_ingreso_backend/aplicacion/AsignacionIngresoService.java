@@ -12,6 +12,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteReposit
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AulaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteGrupoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsignacionIngresoRequestDTO;
@@ -32,6 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -61,6 +64,7 @@ public class AsignacionIngresoService {
     private final AulaRepository           aulaRepository;
     private final AyudanteExamenRepository ayudanteExamenRepository;
     private final AyudanteRepository       ayudanteRepository;
+    private final AyudanteGrupoRepository  ayudanteGrupoRepository;
     private final UsuarioRepository        usuarioRepository;
     private final HabilitacionRepository   habilitacionRepository;
     private final IngresoRepository        ingresoRepository;
@@ -72,6 +76,7 @@ public class AsignacionIngresoService {
                                     AulaRepository aulaRepository,
                                     AyudanteExamenRepository ayudanteExamenRepository,
                                     AyudanteRepository ayudanteRepository,
+                                    AyudanteGrupoRepository ayudanteGrupoRepository,
                                     UsuarioRepository usuarioRepository,
                                     HabilitacionRepository habilitacionRepository,
                                     IngresoRepository ingresoRepository,
@@ -82,6 +87,7 @@ public class AsignacionIngresoService {
         this.aulaRepository           = aulaRepository;
         this.ayudanteExamenRepository = ayudanteExamenRepository;
         this.ayudanteRepository       = ayudanteRepository;
+        this.ayudanteGrupoRepository  = ayudanteGrupoRepository;
         this.usuarioRepository        = usuarioRepository;
         this.habilitacionRepository   = habilitacionRepository;
         this.ingresoRepository        = ingresoRepository;
@@ -105,8 +111,11 @@ public class AsignacionIngresoService {
                 .map(ae -> ae.getId().getIdayudante())
                 .collect(Collectors.toSet());
 
-        // Todos los ayudantes registrados en el sistema
-        List<Ayudante> todosAyudantes = ayudanteRepository.findAll();
+        // Priorizar ayudantes vinculados a grupos de la asignatura del examen.
+        List<Integer> idsVinculados = ayudanteGrupoRepository.findUsuariosPorExamen(idExamen);
+        List<Ayudante> todosAyudantes = idsVinculados.isEmpty()
+                ? ayudanteRepository.findAll()
+                : ayudanteRepository.findByIdusuarioIn(idsVinculados);
         List<Integer> idsUsuarios = todosAyudantes.stream()
                 .map(Ayudante::getIdusuario)
                 .toList();
@@ -132,6 +141,16 @@ public class AsignacionIngresoService {
                 .sorted(Comparator.comparing(OperadorDisponibleDTO::apellido,
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
+    }
+
+    public List<OperadorDisponibleDTO> operadoresDisponibles(Integer idExamen,
+                                                              ContextoUsuarioService.UsuarioActual usuario) {
+        Examen examen = examenRepository.findById(idExamen)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Examen no encontrado: " + idExamen));
+        if (usuario != null && usuario.esDocente() && !usuario.idUsuario().equals(examen.getIdUsuario())) {
+            throw new AccesoDenegadoException("No puede consultar operadores de un examen de otro docente.");
+        }
+        return operadoresDisponibles(idExamen);
     }
 
     // -----------------------------------------------------------------------
@@ -190,6 +209,17 @@ public class AsignacionIngresoService {
         }).toList();
     }
 
+    /** Consulta compatible con validación de propietario para DOCENTE. */
+    public List<AulaAsignacionDTO> leerAsignacion(Integer idExamen,
+                                                   ContextoUsuarioService.UsuarioActual usuario) {
+        Examen examen = examenRepository.findById(idExamen)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Examen no encontrado: " + idExamen));
+        if (usuario != null && usuario.esDocente() && !usuario.idUsuario().equals(examen.getIdUsuario())) {
+            throw new AccesoDenegadoException("No puede consultar un examen de otro docente.");
+        }
+        return leerAsignacion(idExamen);
+    }
+
     // -----------------------------------------------------------------------
     // Guardar / actualizar asignación de un examen
     // -----------------------------------------------------------------------
@@ -216,11 +246,38 @@ public class AsignacionIngresoService {
             throw new AccesoDenegadoException("No es el docente responsable de este examen.");
         }
 
+        List<Ambiente> ambientesProgramados = ambienteRepository.findByIdExamen(idExamen);
+        LocalDateTime ahora = LocalDateTime.now(ZoneId.of("America/La_Paz"));
+        boolean examenIniciado = examen.getFechaExamen() != null && ambientesProgramados.stream()
+                .anyMatch(a -> a.getHoraInicio() != null
+                        && !ahora.isBefore(LocalDateTime.of(examen.getFechaExamen(), a.getHoraInicio())));
+        if (examenIniciado) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No se puede modificar la asignación porque el examen ya comenzó.");
+        }
+
         Integer idAsignatura = request.idAsignatura();
+        if (idAsignatura == null || !idAsignatura.equals(examen.getIdAsignatura())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La asignatura no corresponde al examen seleccionado.");
+        }
+
+        Set<Integer> ambientesDelExamen = ambienteRepository.findByIdExamen(idExamen).stream()
+                .map(Ambiente::getIdAmbiente).collect(Collectors.toSet());
+        Set<Integer> operadoresEnSolicitud = new java.util.HashSet<>();
 
         for (AsignacionIngresoRequestDTO.ItemAsignacion item : request.asignaciones()) {
             Integer idAmbiente = item.idAmbiente();
             Integer idOperador = item.idOperador();
+
+            if (!ambientesDelExamen.contains(idAmbiente)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "El ambiente " + idAmbiente + " no pertenece al examen.");
+            }
+            if (idOperador != null && !operadoresEnSolicitud.add(idOperador)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "El operador " + idOperador + " no puede asignarse a dos aulas.");
+            }
 
             // Desactivar asignaciones anteriores en este ambiente que NO sean el operador nuevo
             List<AyudanteExamen> existentes = ayudanteExamenRepository

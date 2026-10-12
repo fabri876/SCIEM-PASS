@@ -33,15 +33,15 @@ public class GrupoService {
     private final DocenteAsignaturaRepository docenteAsignaturaRepository;
 
     public GrupoService(GrupoRepository grupoRepository,
-                        AsignaturaRepository asignaturaRepository,
-                        DocenteGrupoRepository docenteGrupoRepository,
-                        EstudianteGrupoRepository estudianteGrupoRepository,
-                        AyudanteGrupoRepository ayudanteGrupoRepository,
-                        UsuarioRepository usuarioRepository,
-                        DocenteRepository docenteRepository,
-                        EstudianteRepository estudianteRepository,
-                        AyudanteRepository ayudanteRepository,
-                        DocenteAsignaturaRepository docenteAsignaturaRepository) {
+            AsignaturaRepository asignaturaRepository,
+            DocenteGrupoRepository docenteGrupoRepository,
+            EstudianteGrupoRepository estudianteGrupoRepository,
+            AyudanteGrupoRepository ayudanteGrupoRepository,
+            UsuarioRepository usuarioRepository,
+            DocenteRepository docenteRepository,
+            EstudianteRepository estudianteRepository,
+            AyudanteRepository ayudanteRepository,
+            DocenteAsignaturaRepository docenteAsignaturaRepository) {
         this.grupoRepository = grupoRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.docenteGrupoRepository = docenteGrupoRepository;
@@ -57,15 +57,18 @@ public class GrupoService {
     @Transactional
     public GrupoResponseDto crearGrupo(Integer idAsignatura, String nombreGrupo, String horarios) {
         Asignatura asig = asignaturaRepository.findById(idAsignatura)
-                .orElseThrow(() -> new ValidacionNegocioException("La asignatura con ID " + idAsignatura + " no existe."));
+                .orElseThrow(
+                        () -> new ValidacionNegocioException("La asignatura con ID " + idAsignatura + " no existe."));
 
         if (nombreGrupo == null || nombreGrupo.isBlank() || nombreGrupo.trim().length() > 50) {
             throw new ValidacionNegocioException("El nombre del grupo es obligatorio y admite hasta 50 caracteres.");
         }
         String nombreLimpio = nombreGrupo.trim().toUpperCase(java.util.Locale.ROOT);
-        Optional<Grupo> existente = grupoRepository.findByIdAsignaturaAndNombreGrupoIgnoreCase(idAsignatura, nombreLimpio);
+        Optional<Grupo> existente = grupoRepository.findByIdAsignaturaAndNombreGrupoIgnoreCase(idAsignatura,
+                nombreLimpio);
         if (existente.isPresent()) {
-            throw new RecursoDuplicadoException("El grupo '" + nombreLimpio + "' ya existe para la asignatura " + asig.getNombreAsignatura());
+            throw new RecursoDuplicadoException(
+                    "El grupo '" + nombreLimpio + "' ya existe para la asignatura " + asig.getNombreAsignatura());
         }
 
         Grupo nuevo = new Grupo(idAsignatura, nombreLimpio, horarios);
@@ -76,14 +79,17 @@ public class GrupoService {
     @Transactional(readOnly = true)
     public List<GrupoResponseDto> obtenerGruposPorAsignatura(Integer idAsignatura) {
         Asignatura asig = asignaturaRepository.findById(idAsignatura)
-                .orElseThrow(() -> new ValidacionNegocioException("La asignatura con ID " + idAsignatura + " no existe."));
+                .orElseThrow(
+                        () -> new ValidacionNegocioException("La asignatura con ID " + idAsignatura + " no existe."));
 
         List<Grupo> grupos = grupoRepository.findByIdAsignatura(idAsignatura);
         return grupos.stream().map(g -> mapToDto(g, asig)).toList();
     }
+
     @Transactional(readOnly = true)
     public List<GrupoResponseDto> listarCatalogoGrupos() {
-        var materias = asignaturaRepository.findAll().stream().collect(java.util.stream.Collectors.toMap(Asignatura::getIdAsignatura, a -> a));
+        var materias = asignaturaRepository.findAll().stream()
+                .collect(java.util.stream.Collectors.toMap(Asignatura::getIdAsignatura, a -> a));
         return grupoRepository.findAll().stream().map(g -> mapToDto(g, materias.get(g.getIdAsignatura()))).toList();
     }
 
@@ -105,8 +111,7 @@ public class GrupoService {
                         codSis,
                         u.getNombreusuario() + " " + u.getApellidousuario(),
                         u.getCorreousuario(),
-                        u.getCiusuario()
-                ));
+                        u.getCiusuario()));
             });
         }
         return resultado;
@@ -115,7 +120,8 @@ public class GrupoService {
     @Transactional(readOnly = true)
     public List<GrupoResponseDto> obtenerGruposPorAsignaturaYDocente(Integer idAsignatura, Integer idUsuarioDocente) {
         Asignatura asig = asignaturaRepository.findById(idAsignatura)
-                .orElseThrow(() -> new ValidacionNegocioException("La asignatura con ID " + idAsignatura + " no existe."));
+                .orElseThrow(
+                        () -> new ValidacionNegocioException("La asignatura con ID " + idAsignatura + " no existe."));
 
         List<Grupo> grupos = docenteGrupoRepository.findGruposByAsignaturaAndDocente(idAsignatura, idUsuarioDocente);
         return grupos.stream().map(g -> mapToDto(g, asig)).toList();
@@ -156,11 +162,13 @@ public class GrupoService {
         if (codSisEstudiante != null && !codSisEstudiante.equals(estudiante.getCodsisestudiante())) {
             throw new ValidacionNegocioException("El código SIS no corresponde al estudiante seleccionado.");
         }
-        if (estudianteGrupoRepository.existeOtroGrupoEnAsignatura(idUsuarioEstudiante, grupo.getIdAsignatura(), idGrupo)) {
+        if (estudianteGrupoRepository.existeOtroGrupoEnAsignatura(idUsuarioEstudiante, grupo.getIdAsignatura(),
+                idGrupo)) {
             throw new ValidacionNegocioException("El estudiante ya pertenece a otro grupo de esta asignatura.");
         }
         if (!estudianteGrupoRepository.existsByIdUsuarioAndIdGrupo(idUsuarioEstudiante, idGrupo)) {
-            estudianteGrupoRepository.save(new EstudianteGrupo(idUsuarioEstudiante, estudiante.getCodsisestudiante(), idGrupo));
+            estudianteGrupoRepository
+                    .save(new EstudianteGrupo(idUsuarioEstudiante, estudiante.getCodsisestudiante(), idGrupo));
         }
     }
 
@@ -197,8 +205,7 @@ public class GrupoService {
                             dg.getCodSisDocente(),
                             u.getNombreusuario() + " " + u.getApellidousuario(),
                             u.getCorreousuario(),
-                            u.getCiusuario()
-                    ));
+                            u.getCiusuario()));
                 });
             }
 
@@ -209,8 +216,7 @@ public class GrupoService {
                     g.getIdAsignatura(),
                     nombreAsig,
                     siglaAsig,
-                    docentes
-            ));
+                    docentes));
         }
         return resultado;
     }
@@ -223,14 +229,14 @@ public class GrupoService {
                 a != null ? a.getSiglaAsignatura() : "",
                 g.getNombreGrupo(),
                 null,
-                g.getEstadoGrupo()
-        );
+                g.getEstadoGrupo());
     }
 
     public void validarUnGrupoPorAsignatura(List<Integer> idsGrupos) {
         Set<Integer> materias = new HashSet<>();
         for (Integer idGrupo : new java.util.LinkedHashSet<>(idsGrupos)) {
-            if (idGrupo == null) throw new ValidacionNegocioException("Seleccione un grupo válido.");
+            if (idGrupo == null)
+                throw new ValidacionNegocioException("Seleccione un grupo válido.");
             Grupo grupo = grupoRepository.findById(idGrupo)
                     .orElseThrow(() -> new ValidacionNegocioException("El grupo seleccionado no existe."));
             if (!materias.add(grupo.getIdAsignatura()))
@@ -239,21 +245,25 @@ public class GrupoService {
     }
 
     public void validarAccesoRegistro(List<Integer> idsGrupos, String rolDestino) {
-        if (idsGrupos == null || idsGrupos.isEmpty()) return;
+        if (idsGrupos == null || idsGrupos.isEmpty())
+            return;
         if (TipoUsuarioResolver.ESTUDIANTE.equals(rolDestino) && new java.util.HashSet<>(idsGrupos).size() > 1)
             validarUnGrupoPorAsignatura(idsGrupos);
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) throw new AccessDeniedException("Debe iniciar sesión.");
+        if (auth == null || !auth.isAuthenticated())
+            throw new AccessDeniedException("Debe iniciar sesión.");
         boolean admin = auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
         boolean docente = auth.getAuthorities().stream().anyMatch(a -> "ROLE_DOCENTE".equals(a.getAuthority()));
         if (!admin && (!docente || (!TipoUsuarioResolver.ESTUDIANTE.equals(rolDestino)
                 && !TipoUsuarioResolver.OPERADOR.equals(rolDestino)))) {
             throw new AccessDeniedException("No tiene permiso para realizar esta vinculación.");
         }
-        Integer idDocente = admin ? null : usuarioRepository.findByCorreousuario(auth.getName())
-                .orElseThrow(() -> new AccessDeniedException("Usuario no encontrado.")).getIdusuario();
+        Integer idDocente = admin ? null
+                : usuarioRepository.findByCorreousuario(auth.getName())
+                        .orElseThrow(() -> new AccessDeniedException("Usuario no encontrado.")).getIdusuario();
         for (Integer idGrupo : idsGrupos) {
-            if (idGrupo == null) throw new ValidacionNegocioException("Seleccione un grupo válido.");
+            if (idGrupo == null)
+                throw new ValidacionNegocioException("Seleccione un grupo válido.");
             Grupo grupo = grupoRepository.findById(idGrupo)
                     .orElseThrow(() -> new ValidacionNegocioException("El grupo seleccionado no existe."));
             if (!Boolean.TRUE.equals(grupo.getEstadoGrupo())) {
@@ -281,7 +291,10 @@ public class GrupoService {
         }
     }
 
-    /** Quita únicamente la relación académica; conserva la cuenta y los registros de exámenes. */
+    /**
+     * Quita únicamente la relación académica; conserva la cuenta y los registros de
+     * exámenes.
+     */
     @Transactional
     public void desvincularUsuario(Integer idUsuario, String rol, Integer idGrupo) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
@@ -298,10 +311,12 @@ public class GrupoService {
                         .orElseThrow(() -> new ValidacionNegocioException("El usuario no es docente."));
                 docenteGrupoRepository.deleteByIdUsuarioAndIdGrupo(idUsuario, idGrupo);
                 docenteGrupoRepository.flush();
-                if (docenteGrupoRepository.findGruposByAsignaturaAndDocente(grupo.getIdAsignatura(), idUsuario).isEmpty()) {
+                if (docenteGrupoRepository.findGruposByAsignaturaAndDocente(grupo.getIdAsignatura(), idUsuario)
+                        .isEmpty()) {
                     var id = new DocenteAsignaturaId(idUsuario, docente.getCodsisdocente(), grupo.getIdAsignatura());
                     if (docenteAsignaturaRepository.existsById(id)
-                            && !docenteAsignaturaRepository.tieneRegistrosVinculados(idUsuario, grupo.getIdAsignatura()))
+                            && !docenteAsignaturaRepository.tieneRegistrosVinculados(idUsuario,
+                                    grupo.getIdAsignatura()))
                         docenteAsignaturaRepository.deleteById(id);
                 }
             }
@@ -328,41 +343,55 @@ public class GrupoService {
                 .noneMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority())))
             throw new AccessDeniedException("Solo el administrador puede editar asignaciones.");
         List<Integer> nuevos = new ArrayList<>(new java.util.LinkedHashSet<>(idsGrupos));
-        if (TipoUsuarioResolver.ESTUDIANTE.equals(rol)) validarUnGrupoPorAsignatura(nuevos);
+        if (TipoUsuarioResolver.ESTUDIANTE.equals(rol))
+            validarUnGrupoPorAsignatura(nuevos);
         List<Integer> anteriores = switch (rol) {
-            case TipoUsuarioResolver.DOCENTE -> docenteGrupoRepository.findByIdUsuario(idUsuario).stream().map(DocenteGrupo::getIdGrupo).toList();
+            case TipoUsuarioResolver.DOCENTE ->
+                docenteGrupoRepository.findByIdUsuario(idUsuario).stream().map(DocenteGrupo::getIdGrupo).toList();
             case TipoUsuarioResolver.ESTUDIANTE -> {
                 estudianteRepository.bloquearParaInscripcion(idUsuario)
                         .orElseThrow(() -> new ValidacionNegocioException("El usuario no es estudiante."));
-                yield estudianteGrupoRepository.findByIdUsuario(idUsuario).stream().map(EstudianteGrupo::getIdGrupo).toList();
+                yield estudianteGrupoRepository.findByIdUsuario(idUsuario).stream().map(EstudianteGrupo::getIdGrupo)
+                        .toList();
             }
-            case TipoUsuarioResolver.OPERADOR -> ayudanteGrupoRepository.findByIdUsuario(idUsuario).stream().map(AyudanteGrupo::getIdGrupo).toList();
+            case TipoUsuarioResolver.OPERADOR ->
+                ayudanteGrupoRepository.findByIdUsuario(idUsuario).stream().map(AyudanteGrupo::getIdGrupo).toList();
             default -> throw new ValidacionNegocioException("Este rol no tiene asignaciones academicas.");
         };
         List<Integer> agregados = nuevos.stream().filter(idGrupo -> !anteriores.contains(idGrupo)).toList();
         validarAccesoRegistro(agregados, rol);
-        for (Integer idGrupo : anteriores) if (!nuevos.contains(idGrupo)) desvincularUsuario(idUsuario, rol, idGrupo);
-        // Hacer efectivas las bajas antes de insertar el nuevo grupo de la misma materia.
+        for (Integer idGrupo : anteriores)
+            if (!nuevos.contains(idGrupo))
+                desvincularUsuario(idUsuario, rol, idGrupo);
+        // Hacer efectivas las bajas antes de insertar el nuevo grupo de la misma
+        // materia.
         estudianteGrupoRepository.flush();
-        if (!agregados.isEmpty()) vincularUsuario(idUsuario, rol, agregados);
+        if (!agregados.isEmpty())
+            vincularUsuario(idUsuario, rol, agregados);
     }
 
-    public record Vinculacion(Integer idUsuario, String rol, Integer idGrupo, Integer idAsignatura, String nombreGrupo) {}
+    public record Vinculacion(Integer idUsuario, String rol, Integer idGrupo, Integer idAsignatura,
+            String nombreGrupo) {
+    }
 
     @Transactional(readOnly = true)
     public List<Vinculacion> listarVinculaciones() {
         java.util.Map<Integer, Grupo> grupos = grupoRepository.findAll().stream()
                 .collect(java.util.stream.Collectors.toMap(Grupo::getIdGrupo, g -> g));
         List<Vinculacion> resultado = new ArrayList<>();
-        docenteGrupoRepository.findAll().forEach(v -> agregarVinculacion(resultado, grupos, v.getIdUsuario(), TipoUsuarioResolver.DOCENTE, v.getIdGrupo()));
-        estudianteGrupoRepository.findAll().forEach(v -> agregarVinculacion(resultado, grupos, v.getIdUsuario(), TipoUsuarioResolver.ESTUDIANTE, v.getIdGrupo()));
-        ayudanteGrupoRepository.findAll().forEach(v -> agregarVinculacion(resultado, grupos, v.getIdUsuario(), TipoUsuarioResolver.OPERADOR, v.getIdGrupo()));
+        docenteGrupoRepository.findAll().forEach(v -> agregarVinculacion(resultado, grupos, v.getIdUsuario(),
+                TipoUsuarioResolver.DOCENTE, v.getIdGrupo()));
+        estudianteGrupoRepository.findAll().forEach(v -> agregarVinculacion(resultado, grupos, v.getIdUsuario(),
+                TipoUsuarioResolver.ESTUDIANTE, v.getIdGrupo()));
+        ayudanteGrupoRepository.findAll().forEach(v -> agregarVinculacion(resultado, grupos, v.getIdUsuario(),
+                TipoUsuarioResolver.OPERADOR, v.getIdGrupo()));
         return resultado;
     }
 
     private void agregarVinculacion(List<Vinculacion> destino, java.util.Map<Integer, Grupo> grupos,
-                                    Integer idUsuario, String rol, Integer idGrupo) {
+            Integer idUsuario, String rol, Integer idGrupo) {
         Grupo g = grupos.get(idGrupo);
-        if (g != null) destino.add(new Vinculacion(idUsuario, rol, idGrupo, g.getIdAsignatura(), g.getNombreGrupo()));
+        if (g != null)
+            destino.add(new Vinculacion(idUsuario, rol, idGrupo, g.getIdAsignatura(), g.getNombreGrupo()));
     }
 }
