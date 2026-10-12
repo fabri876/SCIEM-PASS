@@ -8,6 +8,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.AsignacionAulaSer
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ContextoUsuarioService.UsuarioActual;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.CambioAmbiente;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HoraOficial;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.IntentoNoAutorizado;
@@ -19,12 +20,16 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDene
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CambioAmbienteRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IntentoNoAutorizadoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AlertaDesubicadoDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsistenteAulaDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsistentesAulaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AulaMonitoreoDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenMonitoreoDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.LlegadaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.MetricasMonitoreoDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ReubicacionDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.TableroMonitoreoDto;
@@ -32,12 +37,14 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,12 +74,14 @@ public class MonitoreoService {
     private final IntentoNoAutorizadoRepository intentoRepository;
     private final CambioAmbienteRepository cambioAmbienteRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ExamenRepository examenRepository;
     private final AuditoriaService auditoriaService;
 
     public MonitoreoService(AsignacionAulaService asignacionAulaService, AmbienteExamenService ambienteExamenService,
                             ContextoUsuarioService contextoUsuarioService, IngresoRepository ingresoRepository,
                             IntentoNoAutorizadoRepository intentoRepository,
                             CambioAmbienteRepository cambioAmbienteRepository, UsuarioRepository usuarioRepository,
+                            ExamenRepository examenRepository,
                             AuditoriaService auditoriaService) {
         this.asignacionAulaService = asignacionAulaService;
         this.ambienteExamenService = ambienteExamenService;
@@ -81,6 +90,7 @@ public class MonitoreoService {
         this.intentoRepository = intentoRepository;
         this.cambioAmbienteRepository = cambioAmbienteRepository;
         this.usuarioRepository = usuarioRepository;
+        this.examenRepository = examenRepository;
         this.auditoriaService = auditoriaService;
     }
 
@@ -234,6 +244,167 @@ public class MonitoreoService {
                     asignada.get().nombre(), asignada.get().ubicacion(), cupos, motivoNo == null, motivoNo));
         }
         return alertas;
+    }
+
+    // -------------------------------------------------------------------------
+    // LISTA DE UN AULA (detalle del aula)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Estudiantes asignados al aula (reparto por apellido + reubicaciones) y
+     * los que ingresaron en ella sin estar asignados (excepcionales, por ejemplo).
+     * Así el docente ve el aula asignada de cada uno y la nueva aula de un reubicado.
+     */
+    @Transactional(readOnly = true)
+    public AsistentesAulaDto asistentes(Integer idAmbiente, String ip) {
+        UsuarioActual usuario = contextoUsuarioService.actual();
+        Ambiente ambiente = ambienteExamenService.ambientesVisibles(usuario, null, idAmbiente, false,
+                "Ver lista del aula " + idAmbiente, ip).get(0);
+        AmbienteInfo info = ambienteExamenService.describir(ambiente);
+        Integer idAsignatura = ambiente.getIdAsignatura();
+        Integer idExamen = ambiente.getIdExamen();
+
+        Reparto reparto = asignacionAulaService.repartir(idAsignatura, idExamen);
+        Map<Integer, String> nombreAulaPorId = reparto.aulas().stream()
+                .collect(Collectors.toMap(AulaExamen::idAmbiente, AulaExamen::nombre));
+        Map<Integer, Ingreso> ingresoPorEstudiante = new LinkedHashMap<>();
+        for (Ingreso ingreso : ingresoRepository.findByIdAsignaturaAndIdExamen(idAsignatura, idExamen)) {
+            ingresoPorEstudiante.putIfAbsent(ingreso.getCodsisEstudiante(), ingreso);
+        }
+        // Reubicación más reciente de cada estudiante (para "Reubicado desde ...")
+        Map<Integer, CambioAmbiente> reubicaciones = new LinkedHashMap<>();
+        cambioAmbienteRepository.findByIdAmbienteInOrderByFechaHoraCambioAscIdCambioAsc(nombreAulaPorId.keySet())
+                .forEach(c -> reubicaciones.put(c.getCodsisEstudiante(), c));
+
+        List<AsistenteAulaDto> asistentes = new ArrayList<>();
+        Set<Integer> incluidos = new HashSet<>();
+
+        // 1. Asignados a esta aula, en orden de apellido
+        for (EstudianteHabilitado est : reparto.habilitados().values()) {
+            if (!idAmbiente.equals(reparto.asignacion().get(est.codSis()))) {
+                continue;
+            }
+            incluidos.add(est.codSis());
+            Ingreso ingreso = ingresoPorEstudiante.get(est.codSis());
+            List<String> notas = new ArrayList<>();
+            CambioAmbiente cambio = reubicaciones.get(est.codSis());
+            if (cambio != null && idAmbiente.equals(cambio.getIdAmbiente()) && cambio.getIdAmbienteOrigen() != null) {
+                notas.add("Reubicado desde " + nombreAulaPorId.getOrDefault(cambio.getIdAmbienteOrigen(), "otra aula"));
+            }
+            if (ingreso != null && !idAmbiente.equals(ingreso.getIdAmbiente())) {
+                notas.add("Ingresó en " + nombreAulaPorId.getOrDefault(ingreso.getIdAmbiente(), "otra aula"));
+            }
+            asistentes.add(armarAsistente(est.codSis(), est.nombreCompleto(), est.ci(), ingreso, notas));
+        }
+
+        // 2. Ingresaron en esta aula sin estar asignados a ella (excepcionales u otros)
+        List<Ingreso> sinAsignar = ingresoPorEstudiante.values().stream()
+                .filter(i -> idAmbiente.equals(i.getIdAmbiente()) && !incluidos.contains(i.getCodsisEstudiante()))
+                .sorted(Comparator.comparing(Ingreso::getHoraIngreso, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+        Map<Integer, Usuario> usuarios = usuarioRepository.findAllById(sinAsignar.stream()
+                        .map(Ingreso::getIdUsuarioEstudiante).filter(Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(Usuario::getIdusuario, u -> u));
+        for (Ingreso ingreso : sinAsignar) {
+            Usuario u = usuarios.get(ingreso.getIdUsuarioEstudiante());
+            EstudianteHabilitado habilitado = reparto.habilitados().get(ingreso.getCodsisEstudiante());
+            List<String> notas = new ArrayList<>();
+            if (habilitado != null) {
+                reparto.aulaDe(ingreso.getCodsisEstudiante())
+                        .ifPresent(a -> notas.add("Asignado al " + a.nombre()));
+            } else if (ingreso.getTipoIngreso() != TipoIngreso.EXCEPCIONAL) {
+                notas.add("No figura en la lista de habilitados");
+            }
+            asistentes.add(armarAsistente(ingreso.getCodsisEstudiante(),
+                    u != null ? (u.getNombreusuario() + " " + u.getApellidousuario()).trim() : "SIS " + ingreso.getCodsisEstudiante(),
+                    u != null ? u.getCiusuario() : null, ingreso, notas));
+        }
+
+        String docente = examenRepository.findById(idExamen)
+                .map(Examen::getIdUsuario).flatMap(usuarioRepository::findById)
+                .map(u -> (u.getNombreusuario() + " " + u.getApellidousuario()).trim())
+                .orElse(null);
+        Integer capacidad = reparto.aula(idAmbiente).map(AulaExamen::capacidad).orElse(null);
+        return new AsistentesAulaDto(idAmbiente, idExamen, info.aula(),
+                reparto.aula(idAmbiente).map(AulaExamen::ubicacion).orElse(null), docente, capacidad, asistentes);
+    }
+
+    private AsistenteAulaDto armarAsistente(Integer codSis, String nombre, String ci, Ingreso ingreso, List<String> notas) {
+        if (ingreso == null) {
+            return new AsistenteAulaDto(codSis, nombre, ci, "AUSENTE", null, null, unir(notas));
+        }
+        String estado = ingreso.estaRetirado() ? "RETIRADO"
+                : ingreso.getTipoIngreso() == TipoIngreso.EXCEPCIONAL ? "EXCEPCIONAL" : "PRESENTE";
+        List<String> todas = new ArrayList<>(notas);
+        if (ingreso.getTipoIngreso() == TipoIngreso.EXCEPCIONAL && ingreso.getMotivoExcepcion() != null) {
+            todas.add(0, ingreso.getMotivoExcepcion().getEtiqueta());
+        }
+        String metodo = ingreso.getMetodoIngreso() == MetodoIngreso.ESCANEO ? "QR" : "Manual";
+        return new AsistenteAulaDto(codSis, nombre, ci, estado, ingreso.getHoraIngreso(), metodo, unir(todas));
+    }
+
+    private static String unir(List<String> notas) {
+        return notas.isEmpty() ? null : String.join(" · ", notas);
+    }
+
+    /** CSV de la lista del aula (abre bien en Excel). Queda en auditoría. */
+    @Transactional(readOnly = true)
+    public byte[] asistentesCsv(Integer idAmbiente, String ip) {
+        AsistentesAulaDto lista = asistentes(idAmbiente, ip);
+        StringBuilder csv = new StringBuilder("﻿");
+        csv.append("Código SIS;Estudiante;CI;Estado;Hora;Método;Observación\r\n");
+        for (AsistenteAulaDto a : lista.asistentes()) {
+            csv.append(celda(a.codSis())).append(';')
+                    .append(celda(a.nombre())).append(';')
+                    .append(celda(a.ci())).append(';')
+                    .append(celda(a.estado())).append(';')
+                    .append(celda(a.hora() == null ? null : a.hora().format(FORMATO_HORA))).append(';')
+                    .append(celda(a.metodo())).append(';')
+                    .append(celda(a.observacion())).append("\r\n");
+        }
+        UsuarioActual usuario = contextoUsuarioService.actual();
+        auditoriaService.registrar("EXPORTACION_ASISTENCIA", usuario.correo(), usuario.correo(),
+                "Exportó la lista del " + lista.aula() + " · examen " + lista.idExamen() + " · "
+                        + lista.asistentes().size() + " estudiante(s)", ip);
+        return csv.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static String celda(Object valor) {
+        String texto = valor == null ? "" : valor.toString();
+        return "\"" + texto.replace("\"", "\"\"") + "\"";
+    }
+
+    // -------------------------------------------------------------------------
+    // CURVA DE LLEGADA
+    // -------------------------------------------------------------------------
+
+    /** Ingresos vigentes del examen agrupados cada "intervalo" minutos, sin huecos. */
+    @Transactional(readOnly = true)
+    public List<LlegadaDto> llegadas(Integer idExamen, int intervalo, String ip) {
+        UsuarioActual usuario = contextoUsuarioService.actual();
+        List<Ambiente> ambientes = ambienteExamenService.ambientesVisibles(usuario, idExamen, null, false,
+                "Ver curva de llegada del examen " + idExamen, ip);
+        if (ambientes.isEmpty()) {
+            return List.of();
+        }
+        int minutos = Math.max(1, Math.min(60, intervalo));
+        Map<Integer, Long> porTramo = ingresoRepository
+                .findByIdAsignaturaAndIdExamenAndIdExpulsionIsNull(ambientes.get(0).getIdAsignatura(), idExamen).stream()
+                .map(Ingreso::getHoraIngreso)
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(h -> (h.getHour() * 60 + h.getMinute()) / minutos, Collectors.counting()));
+        if (porTramo.isEmpty()) {
+            return List.of();
+        }
+        int desde = porTramo.keySet().stream().min(Integer::compare).orElse(0);
+        int hasta = porTramo.keySet().stream().max(Integer::compare).orElse(0);
+        List<LlegadaDto> curva = new ArrayList<>();
+        for (int tramo = desde; tramo <= hasta; tramo++) {
+            int minutoDelDia = tramo * minutos;
+            curva.add(new LlegadaDto(String.format("%02d:%02d", minutoDelDia / 60, minutoDelDia % 60),
+                    porTramo.getOrDefault(tramo, 0L)));
+        }
+        return curva;
     }
 
     // -------------------------------------------------------------------------

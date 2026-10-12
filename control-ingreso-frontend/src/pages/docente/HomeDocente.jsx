@@ -12,12 +12,7 @@ import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
 import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
 import { AlertTriangle, ScanLine, Activity } from "lucide-react";
-import { GraduationCap, Download, RefreshCw, CheckCircle2 } from "lucide-react";
-import OperadorProvider from "../control/OperadorProvider";
-import { useOperador } from "../control/operadorContexto";
-import ToastOperador from "../control/components/ToastOperador";
-import PieSincronizacion from "../control/components/PieSincronizacion";
-import { formatearNumero } from "../control/datosMockOperador";
+import { GraduationCap } from "lucide-react";
 import CalendarioExamenes from "../credencial/componentes/CalendarioExamenes";
 import { fechaCorta } from "../credencial/componentes/formato";
 import SeccionMisExamenes from "./components/SeccionMisExamenes";
@@ -34,58 +29,8 @@ const ROLES_REGISTRABLES_POR_DOCENTE = [
     { valor: "ESTUDIANTE", etiqueta: "Estudiante" },
 ];
 
-// --- UI HU7 (idéntica a la del operador) aplicada al home del docente ---
-
-function FilaConexionDocente() {
-    const { estadoRed, fnCambiarRed } = useOperador();
-    const boolEnLinea = estadoRed.net !== "offline";
-    return (
-        <div className="flex items-center gap-4 flex-wrap">
-            <div className="inline-flex items-center gap-1 p-1.5 rounded-2xl bg-white border border-[#CBD5E1] shadow-xs">
-                <button
-                    type="button"
-                    onClick={() => fnCambiarRed("online")}
-                    aria-pressed={boolEnLinea}
-                    className={
-                        "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
-                        (boolEnLinea ? "bg-[#003770] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
-                    }
-                >
-                    Online
-                </button>
-                <button
-                    type="button"
-                    onClick={() => fnCambiarRed("offline")}
-                    aria-pressed={!boolEnLinea}
-                    className={
-                        "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
-                        (!boolEnLinea ? "bg-[#B91C1C] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
-                    }
-                >
-                    Offline
-                </button>
-            </div>
-            <p className="text-xs font-bold text-[#64748B]">
-                Estado actual:{" "}
-                <span className={boolEnLinea ? "text-[#1860A3]" : "text-[#B91C1C]"}>
-                    {boolEnLinea ? "Con red" : "Sin red"}
-                </span>
-            </p>
-        </div>
-    );
-}
-
 function TarjetaExamenDocente({ examen, boolResaltado = false }) {
     const navigate = useNavigate();
-    const objCtx = useOperador();
-    const objNomi = objCtx.listExamenes.find((e) => e.id === examen.idExamen);
-    const strEstadoNomi = objNomi?.estado || "ninguna";
-    const boolOffline = objCtx.estadoRed.net === "offline";
-    const boolDescargando = strEstadoNomi === "descargando";
-    const numPctDescarga = boolDescargando && objNomi.total
-        ? Math.min(100, Math.floor((objNomi.cargados / objNomi.total) * 100))
-        : 0;
-    const numTotalNomi = objNomi?.total ?? examen.totalInscritos ?? 0;
     const porcentaje = examen.totalInscritos > 0
         ? Math.round((examen.ingresados / examen.totalInscritos) * 100)
         : 0;
@@ -117,7 +62,7 @@ function TarjetaExamenDocente({ examen, boolResaltado = false }) {
                 <div className="flex flex-wrap gap-2 self-start sm:self-center">
                     {boolPuedeIngreso && (
                         <button
-                            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`)}
+                            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "mis-examenes", examen } })}
                             className="bg-[#003770] hover:bg-[#124B83] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
                         >
                             Control de ingreso →
@@ -129,66 +74,6 @@ function TarjetaExamenDocente({ examen, boolResaltado = false }) {
                     >
                         Gestionar Habilitaciones
                     </button>
-                </div>
-            </div>
-
-            {/* HU7: nómina local para trabajar sin red */}
-            <div className="space-y-2">
-                {strEstadoNomi === "listo" && (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#124B83] bg-[#F0F6FC] border border-[#D9E8F7] rounded-full px-2.5 py-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        Nómina lista para offline · {formatearNumero(numTotalNomi)} estudiante{numTotalNomi === 1 ? "" : "s"}
-                    </span>
-                )}
-
-                {boolDescargando && (
-                    <div>
-                        <div className="h-1.5 rounded-full bg-[#F1F5F9] overflow-hidden">
-                            <i className="block h-full rounded-full bg-[#4A97D3] transition-[width] duration-500" style={{ width: numPctDescarga + "%" }} />
-                        </div>
-                        <p className="mt-1 text-[11px] font-semibold text-[#64748B]">
-                            {boolOffline ? "Descarga en pausa · " : "Descargando nómina… "}
-                            {numPctDescarga} % · {formatearNumero(objNomi.cargados)} de {formatearNumero(objNomi.total)}
-                        </p>
-                    </div>
-                )}
-
-                {strEstadoNomi === "ninguna" && (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#475569] bg-[#F1F5F9] border border-[#CBD5E1] rounded-full px-2.5 py-1">
-                        Sin nómina local · descárgala para trabajar sin red
-                    </span>
-                )}
-
-                <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                        type="button"
-                        onClick={() => objCtx.fnDescargar(examen.idExamen, {
-                            materia: examen.nombreExamen,
-                            tipo: "",
-                            aula: examen.aula,
-                            contador: { habilitados: examen.totalInscritos, ingresaron: examen.ingresados },
-                        })}
-                        disabled={boolOffline || boolDescargando}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#267BC2] hover:bg-[#124B83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-semibold px-2.5 py-1.5 transition-colors cursor-pointer"
-                    >
-                        <Download className="w-3.5 h-3.5" /> Descargar nómina
-                    </button>
-
-                    {!boolOffline ? (
-                        <button
-                            type="button"
-                            onClick={() => objCtx.fnActualizar(examen.idExamen)}
-                            disabled={strEstadoNomi !== "listo" || objNomi?.actualizando}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#4A97D3]/40 text-[#4A97D3] hover:bg-[#4A97D3]/10 disabled:opacity-40 disabled:cursor-not-allowed text-[11px] font-semibold px-2.5 py-1.5 transition-colors cursor-pointer"
-                        >
-                            <RefreshCw className={"w-3.5 h-3.5 " + (objNomi?.actualizando ? "animate-spin" : "")} />
-                            {objNomi?.actualizando ? "Actualizando…" : "Actualizar nómina"}
-                        </button>
-                    ) : (
-                        <span className="inline-flex items-center text-[10px] font-semibold text-[#475569] bg-[#F1F5F9] border border-[#CBD5E1] rounded-full px-2.5 py-1.5">
-                            Requiere conexión
-                        </span>
-                    )}
                 </div>
             </div>
 
@@ -215,11 +100,6 @@ function TarjetaExamenDocente({ examen, boolResaltado = false }) {
             </div>
         </div>
     );
-}
-
-function PieSincronizacionDocente() {
-    const { fnDoForzar } = useOperador();
-    return <PieSincronizacion onForzar={() => fnDoForzar()} />;
 }
 
 export default function HomeDocente() {
@@ -548,9 +428,8 @@ export default function HomeDocente() {
                         </div>
                     </aside>
 
-                    {/* CONTENIDO CENTRAL — demo HU7 (mismo provider que el operador) */}
-                    <OperadorProvider>
-                        <main className="flex-1 min-w-0 space-y-6">
+                    {/* CONTENIDO CENTRAL */}
+                    <main className="flex-1 min-w-0 space-y-6">
                             {strMenuActivo === "incidencias" ? (
                                 <SeccionIncidencias rol="DOCENTE" />
                             ) : strMenuActivo === "monitoreo" ? (
@@ -595,8 +474,6 @@ export default function HomeDocente() {
                                 <SeccionControlIngresosDocente examenes={examenes} boolCargando={boolCargando} onAsignarOperadores={fnAbrirOperadores} />
                             ) : (
                                 <>
-                                    <FilaConexionDocente />
-
                                     <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>
                                         <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
                                             ¡HOLA, {strNombre.toUpperCase()}!
@@ -668,12 +545,9 @@ export default function HomeDocente() {
 
                                     </div>
 
-                                    <PieSincronizacionDocente />
                                 </>
                             )}
                         </main>
-                        <ToastOperador />
-                    </OperadorProvider>
                 </div>
             </div>
 

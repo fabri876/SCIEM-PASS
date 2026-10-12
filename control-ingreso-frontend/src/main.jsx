@@ -8,3 +8,13 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+
+if (import.meta.env.PROD) {
+  const registrar = () =>
+    import('./offline/swRegister.js')
+      .then(({ registrarSW }) => registrarSW())
+      .catch((e) => console.error('[SW] No se pudo cargar el registro:', e));
+
+  if (document.readyState === 'complete') registrar();
+  else window.addEventListener('load', registrar, { once: true });
+}

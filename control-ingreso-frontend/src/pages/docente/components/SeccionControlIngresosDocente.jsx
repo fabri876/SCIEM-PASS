@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, CalendarDays, Clock, ScanLine, Users } from "lucide-react";
+import { BookOpen, CalendarDays, Clock, Users, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { obtenerAsignacionIngreso } from "../../../services/asignacionOperadoresService";
 
@@ -68,6 +68,15 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
   const listExamenes = (examenes || []).filter((ex) => ex.esExamenReal !== false);
   const numDisponibles = listExamenes.length;
 
+  const [objNomina, setObjNomina] = useState({});
+
+  const fnDescargar = (id) => {
+    setObjNomina((prev) => ({ ...prev, [id]: "descargando" }));
+    setTimeout(() => {
+      setObjNomina((prev) => ({ ...prev, [id]: "listo" }));
+    }, 1600);
+  };
+
   // Asignación de operadores de cada examen: { [idExamen]: { cargada, responsables } }
   const [objAsignaciones, setObjAsignaciones] = useState({});
   const strIdsExamenes = listExamenes.map((ex) => ex.idExamen).join(",");
@@ -86,21 +95,11 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
 
   return (
     <div className="space-y-6">
-      <div
-        className="w-full text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex items-center gap-5 min-h-[130px]"
-        style={{ backgroundImage: "linear-gradient(to right, #1A365D, #2563EB, #DC2626)" }}
-      >
-        <span className="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
-          <ScanLine className="w-7 h-7" />
-        </span>
-        <div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-1">
-            Control de ingreso
-          </h1>
-          <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
-            Selecciona el examen para gestionar el ingreso de los estudiantes.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-black text-[#1A365D]">Control de ingreso</h1>
+        <p className="text-xs text-slate-500 font-medium mt-1">
+          Selecciona el examen para gestionar el ingreso de los estudiantes.
+        </p>
       </div>
 
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
@@ -135,6 +134,9 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
               const objAsig = objAsignaciones[examen.idExamen];
               const boolBloqueada = estado === "EN_CURSO" || estado === "FINALIZADO";
               const boolHayAsignacion = Boolean(objAsig?.hay);
+              const strEstadoNomi = objNomina[examen.idExamen] || "ninguna";
+              const boolDescargando = strEstadoNomi === "descargando";
+              const boolListo = strEstadoNomi === "listo";
 
               return (
                 <article
@@ -186,25 +188,32 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
                         <button
                           type="button"
                           onClick={() => onAsignarOperadores(examen.idExamen)}
-                          className={`font-bold text-sm py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap ${
-                            boolHayAsignacion || boolBloqueada
-                              ? "bg-white border border-slate-300 hover:bg-slate-50 text-[#003770]"
-                              : "bg-[#003770] hover:bg-[#002a55] text-white"
-                          }`}
+                          className={`font-bold text-sm py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap ${boolHayAsignacion || boolBloqueada
+                            ? "bg-white border border-slate-300 hover:bg-slate-50 text-[#003770]"
+                            : "bg-[#003770] hover:bg-[#002a55] text-white"
+                            }`}
                         >
                           {boolBloqueada ? "Ver operadores" : boolHayAsignacion ? "Editar operadores" : "Asignar operadores"}
                         </button>
                       )}
                       <button
                         type="button"
-                        onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`)}
-                        className={`font-bold text-sm py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap ${
-                          onAsignarOperadores && !boolHayAsignacion && !boolBloqueada
-                            ? "bg-white border border-slate-300 hover:bg-slate-50 text-[#003770]"
-                            : "bg-[#003770] hover:bg-[#002a55] text-white"
-                        }`}
+                        onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "control-ingresos", examen } })}
+                        className={`font-bold text-sm py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap ${onAsignarOperadores && !boolHayAsignacion && !boolBloqueada
+                          ? "bg-white border border-slate-300 hover:bg-slate-50 text-[#003770]"
+                          : "bg-[#003770] hover:bg-[#002a55] text-white"
+                          }`}
                       >
                         Control de ingreso →
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fnDescargar(examen.idExamen)}
+                        disabled={boolDescargando || boolListo}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#267BC2] hover:bg-[#124B83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold px-4 py-2.5 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        <Download className="w-4 h-4" />
+                        {boolDescargando ? "Descargando…" : boolListo ? "Nómina descargada" : "Descargar nómina"}
                       </button>
                     </div>
                   </div>

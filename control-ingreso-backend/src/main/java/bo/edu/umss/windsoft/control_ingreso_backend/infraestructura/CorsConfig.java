@@ -22,7 +22,9 @@ public class CorsConfig {
         configuration.setAllowedOrigins(List.of(allowedOrigin));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Requested-With", "Accept"));
-        configuration.setExposedHeaders(List.of("Idempotency-Key"));
+        // Date se expone para que el cliente pueda calcular desfases de reloj
+        // durante la precarga y sincronización offline (HU7).
+        configuration.setExposedHeaders(List.of("Idempotency-Key", "Date"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

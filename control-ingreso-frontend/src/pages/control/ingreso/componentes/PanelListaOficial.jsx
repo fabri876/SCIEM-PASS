@@ -1,4 +1,4 @@
-// Lista oficial del aula (panel lateral, solo DOCENTE)
+// Lista oficial del aula (panel lateral). Sin onRegistrar es solo lectura (vista del administrador)
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { obtenerListaOficial } from "../../../../services/ingresoService";
@@ -80,7 +80,7 @@ export default function PanelListaOficial({ boolAbierto, onCerrar, idExamen, num
                     Ingresó <span className="font-mono">{f.horaIngreso}</span>
                   </span>
                 )}
-                {f.estado === "PENDIENTE" && (
+                {f.estado === "PENDIENTE" && (onRegistrar ? (
                   <button
                     type="button"
                     onClick={() => onRegistrar(f.ci)}
@@ -88,7 +88,9 @@ export default function PanelListaOficial({ boolAbierto, onCerrar, idExamen, num
                   >
                     Registrar ingreso
                   </button>
-                )}
+                ) : (
+                  <span className="justify-self-end px-2.5 py-1 rounded-full text-xs font-semibold bg-[#F1F5F9] text-[#475569]">Pendiente</span>
+                ))}
               </li>
             ))}
           </ul>

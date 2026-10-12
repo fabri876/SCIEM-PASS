@@ -215,11 +215,15 @@ public class ControlIngresoAyudanteService {
 
                     String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
 
+                    Usuario operador = ing.getIdUsuarioRegistra() != null ? usuarioRepository.findById(ing.getIdUsuarioRegistra()).orElse(null) : null;
+                    String registradoPor = operador != null ? (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim() : null;
+
                     return new UltimoIngresoDTO(
                             ing.getIdIngreso(),
                             ing.getHoraIngreso(),
                             metodo,
-                            estDto
+                            estDto,
+                            registradoPor
                     );
                 })
                 .toList();
@@ -227,6 +231,13 @@ public class ControlIngresoAyudanteService {
 
     @Transactional
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador) {
+        return registrarIngreso(dto, idOperador, null, null);
+    }
+
+    /** Variante HU7: conserva la hora declarada por el dispositivo offline. */
+    @Transactional
+    public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
+                                                                 LocalDateTime horaMarcacion, String clientUuid) {
         String query = dto.identificador() != null ? dto.identificador().trim() : "";
 
         // 1. Detección de Ingreso por QR (formato: SCIEMPASS:1:TOKEN)
@@ -250,7 +261,7 @@ public class ControlIngresoAyudanteService {
             var credencial = credOpt.get();
 
             // Verificar ventana de tiempo
-            java.time.LocalDateTime ahora = java.time.LocalDateTime.now(ZONA_HORARIA);
+            java.time.LocalDateTime ahora = horaMarcacion != null ? horaMarcacion : java.time.LocalDateTime.now(ZONA_HORARIA);
             if (ahora.isBefore(credencial.getValidoDesde()) || ahora.isAfter(credencial.getValidoHasta())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
                         "QR_INVALIDO",
@@ -408,7 +419,8 @@ public class ControlIngresoAyudanteService {
         nuevoIngreso.setIdAmbiente(dto.idambiente());
         nuevoIngreso.setIdUsuarioRegistra(idOperador);
         nuevoIngreso.setFechaIngreso(LocalDate.now(ZONA_HORARIA));
-        nuevoIngreso.setHoraIngreso(LocalDateTime.now(ZONA_HORARIA));
+        nuevoIngreso.setHoraIngreso(horaMarcacion != null ? horaMarcacion : LocalDateTime.now(ZONA_HORARIA));
+        nuevoIngreso.setClientUuid(clientUuid);
         nuevoIngreso.setTipoIngreso(TipoIngreso.NORMAL);
         nuevoIngreso.setMetodoIngreso(dto.metodoIngreso() != null ? dto.metodoIngreso() : MetodoIngreso.MANUAL);
 
