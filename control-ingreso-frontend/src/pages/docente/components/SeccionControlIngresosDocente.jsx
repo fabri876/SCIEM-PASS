@@ -198,7 +198,7 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
                       )}
                       <button
                         type="button"
-                        onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "control-ingresos" } })}
+                        onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "control-ingresos", examen } })}
                         className={`font-bold text-sm py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap ${onAsignarOperadores && !boolHayAsignacion && !boolBloqueada
                           ? "bg-white border border-slate-300 hover:bg-slate-50 text-[#003770]"
                           : "bg-[#003770] hover:bg-[#002a55] text-white"

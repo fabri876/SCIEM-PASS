@@ -14,7 +14,8 @@ const LIMITE_ULTIMOS = 5;
 // objConfig.boolSoloMios = la tabla muestra solo los ingresos que registró el usuario (operador)
 export default function useControlIngreso(idExamenInicial = null, objConfig = {}) {
   const boolSoloMios = Boolean(objConfig.boolSoloMios);
-  const [listExamenes, setListExamenes] = useState([]);
+  const objExamenInicial = objConfig.examenInicial || null;
+  const [listExamenes, setListExamenes] = useState(() => objExamenInicial ? [objExamenInicial] : []);
   const [boolCargandoExamenes, setBoolCargandoExamenes] = useState(true);
   const [idExamen, setIdExamen] = useState(idExamenInicial);
   const [objContador, setObjContador] = useState(null);
@@ -35,7 +36,10 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   // Exámenes asignados (con su resumen)
   const fnCargarExamenes = useCallback(async () => {
     try {
-      setListExamenes(await obtenerExamenesAsignados());
+      const listCargada = await obtenerExamenesAsignados();
+      // En la vista docente la ruta de delegados puede no devolver datos;
+      // conservar el examen recibido desde Mis exámenes.
+      setListExamenes(listCargada.length ? listCargada : (objExamenInicial ? [objExamenInicial] : []));
     } catch (e) {
       setStrError(e.message);
     } finally {
