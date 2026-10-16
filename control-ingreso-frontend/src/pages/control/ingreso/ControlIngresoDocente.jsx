@@ -107,6 +107,8 @@ export default function ControlIngresoDocente() {
           strTextoVolver={strTextoVolver}
           net={estadoRed.net}
           pend={estadoRed.pend}
+          enviados={estadoRed.enviados}
+          spacePrc={estadoRed.spacePrc}
         >
           <button
             type="button"
