@@ -87,11 +87,12 @@ function mapearResultadoOffline(r, strValor, strMetodo) {
   switch (r.resultado) {
     case "PERMITIDO":
       return {
-        ...baseResultado("PERMITIDO", strValor, metodo),
+        ...baseResultado("REGISTRADO_OFFLINE", strValor, metodo),
         estudiante: e,
         horaIngreso: horaDeIso(r.marcadoEn),
         fechaIngreso: fechaDeIso(r.marcadoEn),
         registradoPor: r.marcadoPor || null,
+        modoOffline: true,
       };
     case "YA_MARCADO":
       return {
@@ -301,7 +302,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       const mapeado = mapearResultadoOffline(rReg, strValor, strMetodo);
       setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
 
-      if (mapeado.resultado === "PERMITIDO") {
+      if (mapeado.resultado === "PERMITIDO" || mapeado.resultado === "REGISTRADO_OFFLINE") {
         setStrUltimoRegistrado(mapeado.estudiante?.ci ?? null);
         setNumVersion((v) => v + 1);
         setObjLocales((prev) => ({

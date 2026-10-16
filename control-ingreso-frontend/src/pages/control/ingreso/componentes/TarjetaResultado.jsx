@@ -50,6 +50,12 @@ function configurar(r, strRol) {
         objSello: { strEtiqueta: "Ingreso registrado", strHora: r.horaIngreso, strDetalle: [r.fechaIngreso, r.metodo].filter(Boolean).join(" · "), strRegistro: r.registradoPor },
         notas: e?.normaParticular ? <Nota strTipo="azul"><b className="font-semibold">Norma particular:</b> {e.normaParticular}</Nota> : null,
       };
+    case "REGISTRADO_OFFLINE":
+      return {
+        strTono: "ok", Icono: Check, strTitulo: "REGISTRADO OFFLINE", strSub: "INGRESO REGISTRADO · PENDIENTE DE SINCRONIZACIÓN",
+        objSello: { strEtiqueta: "Ingreso registrado (offline)", strHora: r.horaIngreso, strDetalle: [r.fechaIngreso, r.metodo].filter(Boolean).join(" · "), strRegistro: r.registradoPor },
+        notas: e?.normaParticular ? <Nota strTipo="azul"><b className="font-semibold">Norma particular:</b> {e.normaParticular}</Nota> : null,
+      };
     case "YA_REGISTRADO":
       return {
         strTono: "bad", Icono: Clock, strTitulo: "YA REGISTRADO", strSub: "INGRESO DENEGADO · YA MARCÓ SU INGRESO A ESTE EXAMEN",
