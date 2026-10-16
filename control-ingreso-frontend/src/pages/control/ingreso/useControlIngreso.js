@@ -21,7 +21,7 @@ import {
   obtenerClockOffsetMs,
 } from "../../../offline";
 
-const INTERVALO_TIEMPO_REAL_MS = 5000;
+const INTERVALO_TIEMPO_REAL_MS = 2000;
 const LIMITE_ULTIMOS = 5;
 
 /* ---------- Mapeo del resultado del motor local al formato de la tarjeta ---------- */

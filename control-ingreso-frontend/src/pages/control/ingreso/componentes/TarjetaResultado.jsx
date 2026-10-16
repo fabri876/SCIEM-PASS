@@ -109,7 +109,7 @@ function configurar(r, strRol) {
         strTono: "bad", Icono: UserX, strTitulo: "NO INSCRITO EN ESTE EXAMEN", strSub: "INGRESO DENEGADO · PERTENECE A OTRO EXAMEN",
         notas: r.otroExamen ? (
           <Nota strTipo="rojo">
-            Está inscrito en <b className="font-semibold">{r.otroExamen.nombre}</b> · Aula {r.otroExamen.aula} · {r.otroExamen.hora}.
+            Está inscrito en <b className="font-semibold">{r.otroExamen.asignatura}</b> · <b className="font-semibold">{r.otroExamen.nombre}</b> · Aula {r.otroExamen.aula} · {r.otroExamen.hora}.
             No se registró el ingreso en este examen.
           </Nota>
         ) : null,

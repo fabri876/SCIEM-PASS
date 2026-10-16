@@ -40,6 +40,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -186,6 +187,9 @@ public class ControlIngresoAyudanteService {
     public JornadaActivaDTO obtenerExamenSeleccionado(Integer idUsuario, Integer idAsignatura, Integer idExamen, Integer idAmbiente) {
         bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId id =
                 new bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId(idUsuario, idAsignatura, idExamen, idAmbiente);
+        // Pendiente: permitir al docente consultar sus propias aulas sin exigir
+        // una fila en ayudante_examen. Se conserva temporalmente la validación
+        // original hasta definir el contrato completo para esta pantalla.
         AyudanteExamen asignacion = ayudanteExamenRepository.findById(id)
                 .orElseThrow(() -> new AsignacionNoActivaException("No tiene asignado el examen/aula seleccionada."));
 
@@ -239,11 +243,23 @@ public class ControlIngresoAyudanteService {
     @Transactional
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
                                                                  LocalDateTime horaMarcacion, String clientUuid) {
+        validarAsignacionDeControl(dto, idOperador);
         String query = dto.identificador() != null ? dto.identificador().trim() : "";
+
+        // Cuando la lectura proviene de la cámara, cualquier contenido que no
+        // sea una credencial SCIEM-PASS debe rechazarse como QR inválido. No
+        // debe caer al flujo de búsqueda manual por CI/SIS.
+        if (dto.metodoIngreso() == MetodoIngreso.ESCANEO && !query.startsWith(PREFIJO_QR)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
+                    "QR_INVALIDO",
+                    "QR INVÁLIDO - El código leído no corresponde a una credencial SCIEM-PASS.",
+                    null, null, null, null));
+        }
 
         // 1. Detección de Ingreso por QR (formato: SCIEMPASS:1:TOKEN)
         Estudiante estudiante = null;
         Usuario usuario = null;
+        boolean qrDeOtroExamen = false;
 
         if (query.startsWith(PREFIJO_QR)) {
             // --- Flujo QR ---
@@ -273,11 +289,7 @@ public class ControlIngresoAyudanteService {
 
             // Verificar que el QR corresponde al examen que se está controlando
             if (credencial.getIdExamen() != null && !credencial.getIdExamen().equals(dto.idexamen())) {
-                return ResponseEntity.status(HttpStatus.OK).body(new ResultadoIngresoDTO(
-                        "NO_INSCRITO",
-                        "QR DE OTRO EXAMEN - Este QR no corresponde al examen que se está controlando.",
-                        null, null, null, null
-                ));
+                qrDeOtroExamen = true;
             }
 
             // Token válido: resolver el estudiante por idUsuario de la credencial
@@ -327,6 +339,15 @@ public class ControlIngresoAyudanteService {
                 "Carrera no asignada",
                 null
         );
+
+        if (qrDeOtroExamen) {
+            OtroExamenDTO otro = encontrarOtroExamen(estudiante.getCodsisestudiante(), dto.idexamen())
+                    .orElse(null);
+            return ResponseEntity.ok(new ResultadoIngresoDTO(
+                    "NO_INSCRITO",
+                    "QR DE OTRO EXAMEN - Este QR no corresponde al examen que se está controlando.",
+                    estudianteResumen, null, null, null, otro));
+        }
 
         // 2. Verificación de Ingreso Previo (Duplicado).
         // Debe ejecutarse antes de la habilitación: un ingreso excepcional
@@ -453,6 +474,21 @@ public class ControlIngresoAyudanteService {
         return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
     }
 
+    private void validarAsignacionDeControl(VerificarIngresoRequestDTO dto, Integer idUsuario) {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean autorizadoGlobal = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()) || "ROLE_DOCENTE".equals(a.getAuthority()));
+        if (autorizadoGlobal) return;
+
+        boolean asignado = ayudanteExamenRepository
+                .existsByIdIdayudanteAndIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
+                        idUsuario, dto.idasignatura(), dto.idexamen(), dto.idambiente(), "ACTIVO");
+        if (!asignado) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "El operador no tiene asignada esta aula para el examen.");
+        }
+    }
+
     private Optional<OtroExamenDTO> encontrarOtroExamen(Integer codSis, Integer examenActual) {
         return habilitacionRepository.findByEstudianteCodsisestudiante(codSis).stream()
                 .filter(h -> Boolean.TRUE.equals(h.getEstadohabilitacion()))
@@ -465,7 +501,9 @@ public class ControlIngresoAyudanteService {
                     String hora = ambienteRepository.findByIdExamen(examen.getIdExamen()).stream().findFirst()
                             .map(a -> String.valueOf(a.getHoraInicio()).substring(0, 5) + " - " + String.valueOf(a.getHoraFin()).substring(0, 5))
                             .orElse("Horario no disponible");
-                    return Optional.of(new OtroExamenDTO(resolverNombreExamen(examen), aula, hora));
+                    String asignatura = asignaturaRepository.findById(examen.getIdAsignatura())
+                            .map(a -> a.getNombreAsignatura()).orElse("Asignatura no disponible");
+                    return Optional.of(new OtroExamenDTO(asignatura, resolverNombreExamen(examen), aula, hora));
                 }));
     }
 
