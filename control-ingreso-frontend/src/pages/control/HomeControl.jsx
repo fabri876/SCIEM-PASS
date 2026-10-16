@@ -2,15 +2,14 @@ import { Outlet } from "react-router-dom";
 import Header from "../../components/layout/Header";
 import OperadorProvider from "./OperadorProvider";
 import { useOperador } from "./operadorContexto";
-import ModalPin from "./components/ModalPin";
 import ModalCierreSesion from "./components/ModalCierreSesion";
 import ToastOperador from "./components/ToastOperador";
 
 function ContenidoOperador() {
   const {
-    pinVisible, pinMensaje, pinApertura, fnConfirmarPin, fnCerrarSesion,
+    fnCerrarSesion,
     logoutConfirmVisible, logoutMensaje, fnCancelarLogout,
-    sesionCerradaVisible, resumenSesion, fnResetDemo,
+    sesionCerradaVisible, resumenSesion,
     estadoRed, fnCambiarRed,
   } = useOperador();
 
@@ -59,7 +58,6 @@ function ContenidoOperador() {
         <Outlet />
       </main>
 
-      <ModalPin key={pinApertura} visible={pinVisible} mensaje={pinMensaje} fnConfirmar={fnConfirmarPin} fnCancelar={() => fnCerrarSesion("")} />
       <ModalCierreSesion
         visibleConfirm={logoutConfirmVisible}
         mensajeConfirm={logoutMensaje}
@@ -67,7 +65,6 @@ function ContenidoOperador() {
         resumen={resumenSesion}
         onConfirmar={fnCerrarSesion}
         onCancelar={fnCancelarLogout}
-        onReiniciar={fnResetDemo}
       />
       <ToastOperador />
     </div>
