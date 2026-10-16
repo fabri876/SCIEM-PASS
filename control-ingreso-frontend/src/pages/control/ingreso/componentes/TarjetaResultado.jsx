@@ -110,7 +110,7 @@ function configurar(r, strRol) {
         notas: r.otroExamen ? (
           <Nota strTipo="rojo">
             Está inscrito en <b className="font-semibold">{r.otroExamen.nombre}</b> · Aula {r.otroExamen.aula} · {r.otroExamen.hora}.
-            El intento de ingreso quedó registrado.
+            No se registró el ingreso en este examen.
           </Nota>
         ) : null,
       };

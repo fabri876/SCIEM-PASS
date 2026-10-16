@@ -245,6 +245,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
       }
       : null,
     motivos: objData.motivoInhabilitacion ? [objData.motivoInhabilitacion] : objData.motivos || [],
+    otroExamen: objData.otroExamen || null,
     filaCorrecta: objData.filaCorrecta
       ? {
         desde: objData.filaCorrecta.letraDesde || objData.filaCorrecta.desde,

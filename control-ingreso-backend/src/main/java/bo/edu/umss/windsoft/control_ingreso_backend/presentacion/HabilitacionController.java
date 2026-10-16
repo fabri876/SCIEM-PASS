@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import java.util.List;
 
@@ -68,6 +69,12 @@ public class HabilitacionController {
     public ResponseEntity<HabilitacionResponseDto> asociarEstudiante(
             @Valid @RequestBody AsociarEstudianteExamenRequest request) {
         return ResponseEntity.ok(habilitacionService.asociarEstudiante(request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminarAsociacion(@PathVariable Integer id) {
+        habilitacionService.eliminarAsociacion(id);
+        return ResponseEntity.noContent().build();
     }
 }
 

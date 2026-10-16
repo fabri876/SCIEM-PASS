@@ -80,6 +80,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/incidencias/**", "/api/ingresos-excepcionales/**",
                                 "/api/monitoreo/**")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/admin/usuarios").hasAnyRole("ADMINISTRADOR", "DOCENTE")
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.GET, "/api/grupos/vinculaciones").hasRole("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.POST, "/api/grupos", "/api/grupos/docentes/asignar")
