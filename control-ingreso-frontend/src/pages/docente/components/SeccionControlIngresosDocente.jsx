@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { BookOpen, CalendarDays, Clock, Users, Download } from "lucide-react";
 import { obtenerAsignacionIngreso } from "../../../services/asignacionOperadoresService";
 import { useNominaLocal } from "../../../offline";
