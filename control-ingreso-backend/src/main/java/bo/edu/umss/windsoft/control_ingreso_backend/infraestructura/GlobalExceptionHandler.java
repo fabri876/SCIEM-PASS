@@ -158,7 +158,7 @@ public class GlobalExceptionHandler {
         ErrorResponseDto errorDto = new ErrorResponseDto(
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
-                "El archivo es demasiado grande."
+                "El archivo supera el tamaño máximo permitido de 10 MB."
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }
@@ -208,7 +208,7 @@ public class GlobalExceptionHandler {
         ErrorResponseDto errorDto = new ErrorResponseDto(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",
-                "Ha ocurrido un error inesperado en el servidor: " + ex.getMessage()
+                "No se pudo completar la operación. Intenta nuevamente en unos minutos."
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
     }

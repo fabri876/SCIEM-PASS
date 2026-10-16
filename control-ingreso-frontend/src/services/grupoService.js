@@ -13,13 +13,13 @@ async function academico(ruta, opciones = {}) {
   const multipart = opciones.body instanceof FormData;
   const headers = construirHeaders();
   if (multipart) delete headers["Content-Type"];
-  const response = await fetch(`${strApiBaseUrl}${ruta}`, { ...opciones, headers });
+  const response = await fetch(`${strApiBaseUrl}${ruta}`, { ...opciones, headers }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
   if (response.status === 401) {
     cerrarSesion();
     throw new Error("La sesión expiró. Inicie sesión nuevamente.");
   }
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(data?.mensaje || "No se pudo guardar la información académica.");
+  if (!response.ok) throw new Error(response.status >= 500 ? "No se pudo completar la operación. Intenta nuevamente en unos minutos." : data?.mensaje || "No se pudo guardar la información académica.");
   return data;
 }
 
@@ -51,7 +51,7 @@ export function confirmarHorario(archivo) {
 export async function obtenerAsignaturas() {
   const response = await fetch(`${strApiBaseUrl}/api/grupos/catalogo`, {
     headers: construirHeaders(),
-  });
+  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
   if (!response.ok) {
     throw new Error("No se pudieron obtener las asignaturas.");
   }
@@ -68,7 +68,7 @@ export async function obtenerDocentesPorAsignatura(idAsignatura) {
   if (!idAsignatura) return [];
   const response = await fetch(`${strApiBaseUrl}/api/grupos/asignaturas/${idAsignatura}/docentes`, {
     headers: construirHeaders(),
-  });
+  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
   if (!response.ok) {
     throw new Error("No se pudieron obtener los docentes de la asignatura.");
   }
@@ -100,7 +100,7 @@ export async function obtenerGruposPorAsignatura(idAsignatura) {
   if (!idAsignatura) return [];
   const response = await fetch(`${strApiBaseUrl}/api/grupos/asignaturas/${idAsignatura}`, {
     headers: construirHeaders(),
-  });
+  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
   if (!response.ok) {
     throw new Error("No se pudieron obtener los grupos de la asignatura.");
   }
@@ -114,7 +114,7 @@ export async function obtenerGruposAyudante(idUsuario) {
   if (!idUsuario) return [];
   const response = await fetch(`${strApiBaseUrl}/api/grupos/ayudante/${idUsuario}`, {
     headers: construirHeaders(),
-  });
+  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
   if (!response.ok) {
     throw new Error("No se pudieron obtener las asignaciones del ayudante.");
   }
@@ -129,7 +129,7 @@ export async function crearGrupo({ idAsignatura, nombreGrupo, horarios }) {
     method: "POST",
     headers: construirHeaders(),
     body: JSON.stringify({ idAsignatura, nombreGrupo, horarios }),
-  });
+  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.mensaje || "Error al crear el grupo.");
@@ -145,7 +145,7 @@ export async function asignarDocenteAGrupo({ idUsuario, codSisDocente, idGrupo }
     method: "POST",
     headers: construirHeaders(),
     body: JSON.stringify({ idUsuario, codSisDocente, idGrupo }),
-  });
+  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.mensaje || "Error al asignar docente al grupo.");
@@ -161,7 +161,7 @@ export async function inscribirEstudianteAGrupo({ idUsuario, codSisEstudiante, i
     method: "POST",
     headers: construirHeaders(),
     body: JSON.stringify({ idUsuario, codSisEstudiante, idGrupo }),
-  });
+  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.mensaje || "Error al inscribir estudiante en el grupo.");
@@ -177,7 +177,7 @@ export async function asignarAyudanteAGrupo({ idUsuario, idGrupo }) {
     method: "POST",
     headers: construirHeaders(),
     body: JSON.stringify({ idUsuario, idGrupo }),
-  });
+  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.mensaje || "Error al asignar ayudante al grupo.");

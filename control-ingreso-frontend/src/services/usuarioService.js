@@ -21,7 +21,7 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
       ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
       ...(objOpciones.headers || {}),
     },
-  });
+  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
 
   if (response.status === 401) {
     cerrarSesion();
@@ -35,7 +35,7 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
 
   if (!response.ok) {
     const objError = await response.json().catch(() => null);
-    throw new Error(objError?.mensaje || "Ocurrió un error al comunicarse con el servidor.");
+    throw new Error(response.status >= 500 ? "No se pudo completar la operación. Intenta nuevamente en unos minutos." : objError?.mensaje || "Ocurrió un error al comunicarse con el servidor.");
   }
 
   if (response.status === 204) {
@@ -67,7 +67,7 @@ export async function cargarUsuariosMasivo(file, strRol = "ESTUDIANTE", idGrupo 
       ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
     },
     body: formData,
-  });
+  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
 
   if (response.status === 401) {
     cerrarSesion();
@@ -81,7 +81,7 @@ export async function cargarUsuariosMasivo(file, strRol = "ESTUDIANTE", idGrupo 
 
   if (!response.ok) {
     const objError = await response.json().catch(() => null);
-    throw new Error(objError?.mensaje || "Error al procesar la carga masiva.");
+    throw new Error(response.status >= 500 ? "No se pudo completar la operación. Intenta nuevamente en unos minutos." : objError?.mensaje || "Error al procesar la carga masiva.");
   }
 
   return response.json();

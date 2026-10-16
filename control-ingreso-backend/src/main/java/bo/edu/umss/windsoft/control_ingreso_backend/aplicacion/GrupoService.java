@@ -266,19 +266,23 @@ public class GrupoService {
     }
 
     @Transactional
-    public void vincularUsuario(Integer idUsuario, String rol, List<Integer> idsGrupos) {
+    public String vincularUsuario(Integer idUsuario, String rol, List<Integer> idsGrupos) {
         if (idUsuario == null || rol == null || idsGrupos == null || idsGrupos.isEmpty() || idsGrupos.size() > 100) {
             throw new ValidacionNegocioException("Seleccione una persona y entre 1 y 100 grupos.");
         }
         validarAccesoRegistro(idsGrupos, rol);
+        int existentes = 0;
         for (Integer idGrupo : new java.util.LinkedHashSet<>(idsGrupos)) {
             switch (rol) {
-                case TipoUsuarioResolver.DOCENTE -> asignarDocenteAGrupo(idUsuario, null, idGrupo);
+                case TipoUsuarioResolver.DOCENTE -> { if (docenteTieneGrupo(idUsuario, idGrupo)) existentes++; asignarDocenteAGrupo(idUsuario, null, idGrupo); }
                 case TipoUsuarioResolver.ESTUDIANTE -> inscribirEstudianteAGrupo(idUsuario, null, idGrupo);
                 case TipoUsuarioResolver.OPERADOR -> asignarAyudanteAGrupo(idUsuario, idGrupo);
                 default -> throw new ValidacionNegocioException("Rol no válido para vinculación académica.");
             }
         }
+        return existentes == idsGrupos.stream().distinct().count()
+                ? "El docente ya estaba asignado a los grupos seleccionados. No se crearon duplicados."
+                : "Vinculaciones guardadas. " + existentes + " asignación(es) ya existían; se conservaron sin duplicarlas.";
     }
 
     /** Quita únicamente la relación académica; conserva la cuenta y los registros de exámenes. */

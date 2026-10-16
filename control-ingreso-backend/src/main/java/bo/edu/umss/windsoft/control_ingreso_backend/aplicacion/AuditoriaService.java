@@ -36,6 +36,17 @@ public class AuditoriaService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registrar(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
                            String detalles, String ipOrigen) {
+        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen);
+    }
+
+    @Transactional
+    public void registrarEnTransaccion(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
+                                       String detalles, String ipOrigen) {
+        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen);
+    }
+
+    private void guardarRegistro(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
+                                 String detalles, String ipOrigen) {
         try {
             Integer idUsuario = resolverIdUsuario(usuarioAfectado);
             if (idUsuario == null) {
