@@ -1,7 +1,7 @@
 import BadgeEstado from './BadgeEstado';
 import Icono from './Icono';
 
-export default function TarjetaEstudiante({ est, numeroFila, onGestionar }) {
+export default function TarjetaEstudiante({ est, numeroFila, onGestionar, onEliminar }) {
     const iniciales = `${est.nombreEstudiante?.[0] || ''}${est.apellidoEstudiante?.[0] || ''}`.toUpperCase();
     return (
         <div className="p-4 border-b border-slate-100 last:border-0">
@@ -39,6 +39,7 @@ export default function TarjetaEstudiante({ est, numeroFila, onGestionar }) {
             <button onClick={() => onGestionar(est)} className="w-full bg-[#003770] hover:bg-blue-700 text-white font-bold text-[13px] py-2.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center justify-center gap-1.5">
                 <Icono nombre="lapiz" className="w-[15px] h-[15px]" /> Modificar estado
             </button>
+            <button onClick={() => onEliminar(est)} className="w-full mt-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-[13px] py-2.5 rounded-xl transition cursor-pointer inline-flex items-center justify-center gap-1.5"><Icono nombre="basurero" className="w-[15px] h-[15px]" /> Eliminar asociación</button>
         </div>
     );
 }

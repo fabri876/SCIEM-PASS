@@ -136,7 +136,7 @@ export default function ControlIngresoDocente() {
       <PanelListaOficial
         boolAbierto={boolListaAbierta}
         onCerrar={fnCerrarLista}
-        idExamen={ctrl.idExamen}
+        idExamen={Number(idExamen)}
         numVersion={ctrl.numVersion}
         onRegistrar={fnRegistrarDesdeLista}
         strUltimoRegistrado={ctrl.strUltimoRegistrado}

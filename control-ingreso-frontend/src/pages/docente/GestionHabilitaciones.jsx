@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { obtenerHabilitaciones, actualizarHabilitacion, exportarListaOficial, asociarEstudianteAExamen } from "../../services/habilitacionService";
+import { obtenerHabilitaciones, actualizarHabilitacion, exportarListaOficial, asociarEstudianteAExamen, eliminarAsociacionExamen } from "../../services/habilitacionService";
 import { obtenerExamenPorId } from "../../services/examenService";
 import { obtenerExamenPorAsignatura } from "../../services/asignaturaService";
+import { listarUsuarios } from "../../services/adminService";
 import Icono from "./components/Icono";
 import Toast from "./components/Toast";
 import DocenteHeader from "./components/DocenteHeader";
@@ -70,6 +71,11 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     const [toast, setToast] = useState(null);
     const [codigoNuevo, setCodigoNuevo] = useState('');
     const [asociando, setAsociando] = useState(false);
+    const [mostrarPanelAsociar, setMostrarPanelAsociar] = useState(false);
+    const [codigosMasivos, setCodigosMasivos] = useState('');
+    const [estudiantesDisponibles, setEstudiantesDisponibles] = useState([]);
+    const [seleccionados, setSeleccionados] = useState([]);
+    const [cargandoDisponibles, setCargandoDisponibles] = useState(false);
     const toastTimer = useRef(null);
 
     const mostrarToast = (type, message) => {
@@ -82,6 +88,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
                 if (mostrarModalConfirmacion) setMostrarModalConfirmacion(false);
+                else if (mostrarPanelAsociar) setMostrarPanelAsociar(false);
                 else if (estudianteSeleccionado) setEstudianteSeleccionado(null);
             }
         };
@@ -296,6 +303,62 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
         } finally { setAsociando(false); }
     };
 
+    const asociarEstudiantesMasivos = async (e, codigosEntrada = codigosMasivos) => {
+        e.preventDefault();
+        const codigos = [...new Set(codigosEntrada.split(/[\s,;]+/).map((v) => v.trim()).filter(Boolean))];
+        if (!codigos.length || codigos.some((codigo) => !/^\d+$/.test(codigo))) {
+            mostrarToast('error', 'Ingresa únicamente Códigos SIS numéricos, separados por espacios, comas o saltos de línea.');
+            return;
+        }
+        try {
+            setAsociando(true);
+            const resultados = await Promise.allSettled(codigos.map((codigoSis) => asociarEstudianteAExamen({
+                codigoSis,
+                idAsignatura: infoExamen.idAsignatura,
+                idExamen: Number(examenIdActivo),
+            })));
+            const nuevos = resultados.filter((r) => r.status === 'fulfilled').map((r) => normalizarHabilitaciones([r.value])[0]);
+            if (nuevos.length) setEstudiantes((prev) => [...prev, ...nuevos]);
+            const fallidos = resultados.length - nuevos.length;
+            setCodigosMasivos('');
+            mostrarToast(fallidos ? 'info' : 'success', fallidos
+                ? `${nuevos.length} estudiante(s) asociado(s); ${fallidos} no se pudieron asociar.`
+                : `${nuevos.length} estudiante(s) asociado(s) al examen.`);
+        } finally {
+            setAsociando(false);
+        }
+    };
+
+    const asociarSeleccionados = async (e) => {
+        e.preventDefault();
+        if (!seleccionados.length) { mostrarToast('error', 'Selecciona al menos un estudiante.'); return; }
+        await asociarEstudiantesMasivos({ preventDefault: () => {} }, seleccionados.join('\n'));
+        setSeleccionados([]);
+    };
+
+    const eliminarEstudiante = async (est) => {
+        if (!window.confirm(`¿Quitar a ${est.nombreEstudiante} ${est.apellidoEstudiante} de este examen?`)) return;
+        try {
+            await eliminarAsociacionExamen(est.idHabilitacion);
+            setEstudiantes((prev) => prev.filter((item) => item.idHabilitacion !== est.idHabilitacion));
+            mostrarToast('success', 'Estudiante quitado de la lista del examen.');
+        } catch (err) { mostrarToast('error', err.message || 'No se pudo quitar la asociación.'); }
+    };
+
+    useEffect(() => {
+        if (!mostrarPanelAsociar) return;
+        let vivo = true;
+        setCargandoDisponibles(true);
+        listarUsuarios({ rol: 'ESTUDIANTE', estado: true })
+            .then((usuarios) => vivo && setEstudiantesDisponibles(Array.isArray(usuarios) ? usuarios : []))
+            .catch((err) => vivo && mostrarToast('error', err.message || 'No se pudo cargar la tabla de estudiantes.'))
+            .finally(() => vivo && setCargandoDisponibles(false));
+        return () => { vivo = false; };
+    }, [mostrarPanelAsociar]);
+
+    const codigosAsociados = new Set(estudiantes.map((e) => String(e.codSisEstudiante)));
+    const disponiblesSeleccionables = estudiantesDisponibles.filter((e) => e.codigoSis != null && !codigosAsociados.has(String(e.codigoSis)));
+
     const totalEstudiantes = estudiantes.length;
     const totalHabilitados = estudiantes.filter((e) => e.estadoHabilitacion).length;
     const totalInhabilitados = estudiantes.filter((e) => !e.estadoHabilitacion).length;
@@ -399,14 +462,13 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         }}
                     />
 
-                    <form onSubmit={asociarNuevoEstudiante} className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col sm:flex-row gap-3 sm:items-center">
-                        <div className="flex-1">
-                            <p className="text-sm font-extrabold text-[#003770]">Asociar estudiante al examen</p>
-                            <p className="text-xs text-slate-500">Ingresa el Código SIS del estudiante.</p>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-sm font-extrabold text-[#003770]">Asociación de estudiantes</p>
+                            <p className="text-xs text-slate-500">Agrega uno o varios estudiantes a este examen.</p>
                         </div>
-                        <input value={codigoNuevo} onChange={(e) => setCodigoNuevo(e.target.value)} inputMode="numeric" placeholder="Código SIS" className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm" />
-                        <button disabled={asociando} className="bg-[#003770] text-white rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50">{asociando ? 'Asociando…' : 'Asociar estudiante'}</button>
-                    </form>
+                        <button type="button" onClick={() => setMostrarPanelAsociar(true)} className="bg-[#003770] text-white rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-blue-800 transition">Asociar estudiante</button>
+                    </div>
 
                     {/* Los separadores van con border-l explicito en "lg" y no con
                         divide-x: las clases divide-* de Tailwind v4 no pintaban
@@ -485,6 +547,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                                     est={est}
                                                     numeroFila={(paginaActual - 1) * ELEMENTOS_POR_PAGINA + index + 1}
                                                     onGestionar={abrirDrawer}
+                                                    onEliminar={eliminarEstudiante}
                                                 />
                                             ))}
                                         </tbody>
@@ -499,6 +562,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                             est={est}
                                             numeroFila={(paginaActual - 1) * ELEMENTOS_POR_PAGINA + index + 1}
                                             onGestionar={abrirDrawer}
+                                            onEliminar={eliminarEstudiante}
                                         />
                                     ))}
                                 </div>
@@ -508,6 +572,48 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         )}
                     </div>
                 </main>
+            </div>
+
+            <div
+                onClick={(e) => { if (e.target === e.currentTarget) setMostrarPanelAsociar(false); }}
+                className={`fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-300 ${mostrarPanelAsociar ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+            >
+                <aside className={`w-full max-w-md bg-white h-full shadow-2xl border-l border-slate-200 p-5 overflow-y-auto transition-transform duration-300 ${mostrarPanelAsociar ? 'translate-x-0' : 'translate-x-full'}`}>
+                    <div className="flex items-start justify-between border-b border-slate-100 pb-4 mb-5">
+                        <div>
+                            <span className="text-[11px] font-black uppercase tracking-wider text-[#003770]">GESTIÓN DE HABILITACIONES</span>
+                            <h2 className="text-lg font-black text-[#003770] mt-1">Asociar estudiantes</h2>
+                            <p className="text-xs text-slate-500 mt-1">Examen: {infoExamen.nombreExamen}</p>
+                        </div>
+                        <button type="button" onClick={() => setMostrarPanelAsociar(false)} className="text-slate-400 hover:text-[#003770] text-xl font-bold">✕</button>
+                    </div>
+
+                    <form onSubmit={asociarNuevoEstudiante} className="space-y-3 border-b border-slate-100 pb-6 mb-6">
+                        <h3 className="text-sm font-extrabold text-[#003770]">Asociación individual</h3>
+                        <p className="text-xs text-slate-500">Ingresa un Código SIS.</p>
+                        <input value={codigoNuevo} onChange={(e) => setCodigoNuevo(e.target.value)} inputMode="numeric" placeholder="Código SIS" className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm" />
+                        <button disabled={asociando} className="w-full bg-[#003770] text-white rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50">{asociando ? 'Asociando…' : 'Asociar estudiante'}</button>
+                    </form>
+
+                    <form onSubmit={asociarSeleccionados} className="space-y-3">
+                        <h3 className="text-sm font-extrabold text-[#003770]">Asociación masiva</h3>
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                            <span>{seleccionados.length} seleccionado(s)</span>
+                            <button type="button" onClick={() => setSeleccionados(seleccionados.length === disponiblesSeleccionables.length ? [] : disponiblesSeleccionables.map((e) => String(e.codigoSis)))} className="font-bold text-[#003770]">{seleccionados.length === disponiblesSeleccionables.length && disponiblesSeleccionables.length ? 'Quitar todos' : 'Seleccionar todos'}</button>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
+                            {cargandoDisponibles ? <p className="p-4 text-xs text-slate-500">Cargando estudiantes…</p> : estudiantesDisponibles.map((est) => {
+                                const codigo = String(est.codigoSis ?? '');
+                                const bloqueado = !codigo || codigosAsociados.has(codigo);
+                                return <label key={est.idUsuario} className={`flex items-center gap-3 px-3 py-2.5 text-sm ${bloqueado ? 'opacity-50 bg-slate-50' : 'cursor-pointer hover:bg-blue-50'}`}>
+                                    <input type="checkbox" disabled={bloqueado} checked={!bloqueado && seleccionados.includes(codigo)} onChange={() => setSeleccionados((prev) => prev.includes(codigo) ? prev.filter((v) => v !== codigo) : [...prev, codigo])} />
+                                    <span className="min-w-0 flex-1"><b>{est.apellido}, {est.nombre}</b><small className="block text-xs text-slate-500">SIS {codigo}{bloqueado ? ' · Ya asociado' : ''}</small></span>
+                                </label>;
+                            })}
+                        </div>
+                        <button disabled={asociando || !seleccionados.length} className="w-full border border-[#003770] text-[#003770] rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-blue-50 disabled:opacity-50">{asociando ? 'Asociando…' : 'Asociar seleccionados'}</button>
+                    </form>
+                </aside>
             </div>
 
             <div

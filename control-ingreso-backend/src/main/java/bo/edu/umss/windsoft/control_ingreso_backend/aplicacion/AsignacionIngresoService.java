@@ -35,10 +35,12 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -367,7 +369,7 @@ public class AsignacionIngresoService {
                 usuarioRepository.findAllById(idsOperadoresRegistran).stream()
                         .collect(Collectors.toMap(Usuario::getIdusuario, Function.identity(), (u1, u2) -> u1));
 
-        String filtro = buscar != null ? buscar.trim().toLowerCase() : "";
+        String filtro = normalizarBusqueda(buscar);
 
         List<EstudianteListaOficialDTO> resultado = new ArrayList<>();
 
@@ -385,9 +387,9 @@ public class AsignacionIngresoService {
 
             // Filtro de búsqueda (por apellido, nombre, ci o sis)
             if (!filtro.isEmpty()) {
-                boolean coincide = apellidos.toLowerCase().contains(filtro)
-                        || nombres.toLowerCase().contains(filtro)
-                        || ci.toLowerCase().contains(filtro)
+                boolean coincide = normalizarBusqueda(apellidos).contains(filtro)
+                        || normalizarBusqueda(nombres).contains(filtro)
+                        || normalizarBusqueda(ci).contains(filtro)
                         || String.valueOf(codSis).contains(filtro);
                 if (!coincide) continue;
             }
@@ -448,5 +450,13 @@ public class AsignacionIngresoService {
                 .thenComparing(EstudianteListaOficialDTO::getNombres, String.CASE_INSENSITIVE_ORDER));
 
         return resultado;
+    }
+
+    /** Normaliza búsquedas humanas: ignora mayúsculas, tildes y ñ/n. */
+    private String normalizarBusqueda(String valor) {
+        if (valor == null) return "";
+        String sinMarcas = Normalizer.normalize(valor.trim().toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+        return sinMarcas.replace('ñ', 'n');
     }
 }
