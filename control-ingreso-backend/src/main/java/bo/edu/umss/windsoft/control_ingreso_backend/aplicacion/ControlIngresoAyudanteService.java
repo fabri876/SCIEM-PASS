@@ -9,6 +9,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MetodoIngreso;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoIntento;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
@@ -68,6 +69,9 @@ public class ControlIngresoAyudanteService {
     private final EstudianteRepository estudianteRepository;
     private final GrupoRepository grupoRepository;
     private final CredencialRepository credencialRepository;
+    // HU10: aula asignada (reparto por apellido) e intentos bloqueados para el dashboard
+    private final AsignacionAulaService asignacionAulaService;
+    private final IntentoIngresoService intentoIngresoService;
 
     // Prefijo de seguridad para identificar escaneos QR del sistema
     private static final String PREFIJO_QR = "SCIEMPASS:1:";
@@ -83,7 +87,11 @@ public class ControlIngresoAyudanteService {
                                          UsuarioRepository usuarioRepository,
                                          EstudianteRepository estudianteRepository,
                                          GrupoRepository grupoRepository,
-                                         CredencialRepository credencialRepository) {
+                                         CredencialRepository credencialRepository,
+                                         AsignacionAulaService asignacionAulaService,
+                                         IntentoIngresoService intentoIngresoService) {
+        this.asignacionAulaService = asignacionAulaService;
+        this.intentoIngresoService = intentoIngresoService;
         this.ayudanteExamenRepository = ayudanteExamenRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.examenRepository = examenRepository;
@@ -207,11 +215,15 @@ public class ControlIngresoAyudanteService {
 
                     String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
 
+                    Usuario operador = ing.getIdUsuarioRegistra() != null ? usuarioRepository.findById(ing.getIdUsuarioRegistra()).orElse(null) : null;
+                    String registradoPor = operador != null ? (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim() : null;
+
                     return new UltimoIngresoDTO(
                             ing.getIdIngreso(),
                             ing.getHoraIngreso(),
                             metodo,
-                            estDto
+                            estDto,
+                            registradoPor
                     );
                 })
                 .toList();
@@ -219,6 +231,13 @@ public class ControlIngresoAyudanteService {
 
     @Transactional
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador) {
+        return registrarIngreso(dto, idOperador, null, null);
+    }
+
+    /** Variante HU7: conserva la hora declarada por el dispositivo offline. */
+    @Transactional
+    public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
+                                                                 LocalDateTime horaMarcacion, String clientUuid) {
         String query = dto.identificador() != null ? dto.identificador().trim() : "";
 
         // 1. Detección de Ingreso por QR (formato: SCIEMPASS:1:TOKEN)
@@ -242,7 +261,7 @@ public class ControlIngresoAyudanteService {
             var credencial = credOpt.get();
 
             // Verificar ventana de tiempo
-            java.time.LocalDateTime ahora = java.time.LocalDateTime.now(ZONA_HORARIA);
+            java.time.LocalDateTime ahora = horaMarcacion != null ? horaMarcacion : java.time.LocalDateTime.now(ZONA_HORARIA);
             if (ahora.isBefore(credencial.getValidoDesde()) || ahora.isAfter(credencial.getValidoHasta())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
                         "QR_INVALIDO",
@@ -319,6 +338,9 @@ public class ControlIngresoAyudanteService {
         if (habOpt.isEmpty() || !Boolean.TRUE.equals(habOpt.get().getEstadohabilitacion())) {
             String motivo = habOpt.map(Habilitacion::getObservacionhabilitacion)
                     .orElse("Estudiante no figura como HABILITADO para este examen.");
+            // HU10: el intento bloqueado queda registrado
+            intentoIngresoService.registrar(MotivoIntento.INHABILITADO, dto.idasignatura(), dto.idexamen(),
+                    dto.idambiente(), null, usuario.getIdusuario(), estudiante.getCodsisestudiante(), idOperador);
             ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
                     "INHABILITADO",
                     "INGRESO DENEGADO - ESTUDIANTE INHABILITADO",
@@ -349,6 +371,10 @@ public class ControlIngresoAyudanteService {
                     ubicacionAula
             );
 
+            // HU10: cuenta para el indicador "Duplicados Bloqueados"
+            intentoIngresoService.registrar(MotivoIntento.DUPLICADO, dto.idasignatura(), dto.idexamen(),
+                    dto.idambiente(), null, usuario.getIdusuario(), estudiante.getCodsisestudiante(), idOperador);
+
             ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
                     "DUPLICADO",
                     "INGRESO DENEGADO - DUPLICADO DETECTADO",
@@ -360,6 +386,30 @@ public class ControlIngresoAyudanteService {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(resultado);
         }
 
+        // 3.1 (HU10) Aula asignada: si se presenta en otra aula del examen, no se
+        // registra; el docente puede "Reubicar y Autorizar" desde el dashboard.
+        // primerIngreso lleva el aula ASIGNADA (no hay ingreso previo): así no se
+        // cambia el formato de ResultadoIngresoDTO.
+        Optional<AsignacionAulaService.AulaExamen> aulaAsignada = asignacionAulaService.aulaAsignada(
+                dto.idasignatura(), dto.idexamen(), estudiante.getCodsisestudiante());
+        if (aulaAsignada.isPresent() && dto.idambiente() != null
+                && !aulaAsignada.get().idAmbiente().equals(dto.idambiente())) {
+            AsignacionAulaService.AulaExamen asignada = aulaAsignada.get();
+            intentoIngresoService.registrar(MotivoIntento.AMBIENTE_DIFERENTE, dto.idasignatura(), dto.idexamen(),
+                    dto.idambiente(), asignada.idAmbiente(), usuario.getIdusuario(),
+                    estudiante.getCodsisestudiante(), idOperador);
+            String ubicacion = asignada.ubicacion() == null || asignada.ubicacion().isBlank()
+                    ? "" : " (" + asignada.ubicacion() + ")";
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ResultadoIngresoDTO(
+                    "AMBIENTE_DIFERENTE",
+                    "INGRESO A UN AMBIENTE DIFERENTE - El estudiante debe dirigirse al " + asignada.nombre() + ubicacion + ".",
+                    estudianteResumen,
+                    null,
+                    new PrimerIngresoDTO(null, asignada.nombre(), asignada.ubicacion()),
+                    null
+            ));
+        }
+
         // 4. Registro Exitoso del Ingreso
         Ingreso nuevoIngreso = new Ingreso();
         nuevoIngreso.setIdUsuarioEstudiante(usuario.getIdusuario());
@@ -369,7 +419,8 @@ public class ControlIngresoAyudanteService {
         nuevoIngreso.setIdAmbiente(dto.idambiente());
         nuevoIngreso.setIdUsuarioRegistra(idOperador);
         nuevoIngreso.setFechaIngreso(LocalDate.now(ZONA_HORARIA));
-        nuevoIngreso.setHoraIngreso(LocalDateTime.now(ZONA_HORARIA));
+        nuevoIngreso.setHoraIngreso(horaMarcacion != null ? horaMarcacion : LocalDateTime.now(ZONA_HORARIA));
+        nuevoIngreso.setClientUuid(clientUuid);
         nuevoIngreso.setTipoIngreso(TipoIngreso.NORMAL);
         nuevoIngreso.setMetodoIngreso(dto.metodoIngreso() != null ? dto.metodoIngreso() : MetodoIngreso.MANUAL);
 

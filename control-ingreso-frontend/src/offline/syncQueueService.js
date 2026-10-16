@@ -53,6 +53,8 @@ export function construirPayload({ batchId, deviceId, items }) {
     items: items.map((item) => ({
       clientUuid: item.clientUuid,
       examenId: item.examenId,
+      asignaturaId: item.asignaturaId || null,
+      ambienteId: item.ambienteId || null,
       codigoSis: item.codigoSis,
       metodo: item.metodo === 'QR' ? 'QR' : 'MANUAL',
       marcadoEn: item.timestampLocal,

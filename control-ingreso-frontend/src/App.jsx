@@ -20,6 +20,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import HomeDocente from "./pages/docente/HomeDocente";
 import GestionHabilitaciones from "./pages/docente/GestionHabilitaciones";
 import ControlIngresoDocente from "./pages/control/ingreso/ControlIngresoDocente";
+import OperadorProvider from "./pages/control/OperadorProvider";
 
 // Páginas de Estudiante
 import HomeEstudiante from "./pages/estudiante/HomeEstudiante";
@@ -145,6 +146,18 @@ function App() {
           }
         />
 
+        {/* Control de ingreso de un examen visto por el Administrador */}
+        <Route
+          path="/admin/examenes/:idExamen/control-ingreso"
+          element={
+            <RutaProtegida listRolesPermitidos={["ADMINISTRADOR"]}>
+              <OperadorProvider>
+                <ControlIngresoDocente />
+              </OperadorProvider>
+            </RutaProtegida>
+          }
+        />
+
         {/* Rutas del Docente */}
         <Route
           path="/home/docente"
@@ -167,7 +180,9 @@ function App() {
           path="/home/docente/examenes/:idExamen/control-ingreso"
           element={
             <RutaProtegida listRolesPermitidos={["DOCENTE"]}>
-              <ControlIngresoDocente />
+              <OperadorProvider>
+                <ControlIngresoDocente />
+              </OperadorProvider>
             </RutaProtegida>
           }
         />

@@ -24,6 +24,10 @@ public class ExamenRespuestaDto {
     private String detalleTipoExamen;
     private String nombreDocente;
 
+    // Grupo asociado al examen (via HorarioRegular → EstudianteGrupo)
+    private Integer numeroGrupo;
+    private String  nombreGrupo;
+
     private List<AmbienteRespuestaDto> ambientes;
 
     public ExamenRespuestaDto() {}
@@ -74,6 +78,12 @@ public class ExamenRespuestaDto {
 
     public String getNombreDocente() { return nombreDocente; }
     public void setNombreDocente(String nombreDocente) { this.nombreDocente = nombreDocente; }
+
+    public Integer getNumeroGrupo() { return numeroGrupo; }
+    public void setNumeroGrupo(Integer numeroGrupo) { this.numeroGrupo = numeroGrupo; }
+
+    public String getNombreGrupo() { return nombreGrupo; }
+    public void setNombreGrupo(String nombreGrupo) { this.nombreGrupo = nombreGrupo; }
 
     public List<AmbienteRespuestaDto> getAmbientes() { return ambientes; }
     public void setAmbientes(List<AmbienteRespuestaDto> ambientes) { this.ambientes = ambientes; }

@@ -29,11 +29,24 @@ public interface HabilitacionRepository extends JpaRepository<Habilitacion, Inte
     long countByIdAsignatura(Integer idAsignatura);
 
     long countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(Integer idAsignatura, Integer idExamen);
+
+    /** HU10: habilitados de un examen con su estudiante (para el reparto por aulas). */
+    @Query("SELECT h FROM Habilitacion h JOIN FETCH h.estudiante " +
+           "WHERE h.idAsignatura = :idAsignatura AND h.idExamen = :idExamen AND h.estadohabilitacion = true")
+    List<Habilitacion> findHabilitadosConEstudiante(@Param("idAsignatura") Integer idAsignatura,
+                                                    @Param("idExamen") Integer idExamen);
     long countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(Integer idAsignatura, Integer idExamen);
     long countByIdAsignaturaAndIdExamen(Integer idAsignatura, Integer idExamen);
 
     Optional<Habilitacion> findByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(Integer idAsignatura, Integer idExamen, Integer codsisestudiante);
     Optional<Habilitacion> findByIdAsignaturaAndIdExamenAndIdUsuario(Integer idAsignatura, Integer idExamen, Integer idUsuario);
+
+    boolean existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(Integer idAsignatura, Integer idExamen, Integer codsisestudiante);
+
+    @Query("SELECT h FROM Habilitacion h JOIN FETCH h.estudiante " +
+           "WHERE h.idAsignatura = :idAsignatura AND h.idExamen = :idExamen")
+    List<Habilitacion> findHabilitacionesConEstudiante(@Param("idAsignatura") Integer idAsignatura,
+                                                        @Param("idExamen") Integer idExamen);
 
     @Query("SELECT h.idAsignatura, h.estadohabilitacion, COUNT(h) FROM Habilitacion h WHERE h.idAsignatura IS NOT NULL GROUP BY h.idAsignatura, h.estadohabilitacion")
     List<Object[]> countHabilitacionesGroupedByAsignatura();

@@ -40,7 +40,8 @@ public class ExamenService {
     private final DocenteRepository docenteRepository;
     private final AsignaturaRepository asignaturaRepository;
     private final UsuarioRepository usuarioRepository;
-    private final NormaGeneralRepository normaGeneralRepository; // <-- NUEVO
+    private final NormaGeneralRepository normaGeneralRepository;
+    private final GrupoRepository         grupoRepository;
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -54,7 +55,9 @@ public class ExamenService {
             DocenteRepository docenteRepository,
             AsignaturaRepository asignaturaRepository,
             UsuarioRepository usuarioRepository,
-            NormaGeneralRepository normaGeneralRepository, CambioExamenService cambiosExamen) { // <-- NUEVO
+            NormaGeneralRepository normaGeneralRepository,
+            GrupoRepository grupoRepository,
+            CambioExamenService cambiosExamen) {
 
         this.cambiosExamen = cambiosExamen;
         this.examenRepository = examenRepository;
@@ -68,7 +71,8 @@ public class ExamenService {
         this.docenteRepository = docenteRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.usuarioRepository = usuarioRepository;
-        this.normaGeneralRepository = normaGeneralRepository; // <-- NUEVO
+        this.normaGeneralRepository = normaGeneralRepository;
+        this.grupoRepository         = grupoRepository;
     }
 
     // -------------------------------------------------------------------------
@@ -355,6 +359,13 @@ public class ExamenService {
                 .collect(Collectors.groupingBy(rel -> rel.getId().getIdExamen()));
         // --- FIN NUEVO ---
 
+        // Grupos por asignatura
+        Map<Integer, List<Grupo>> gruposPorAsignatura = asignaturasPorId.keySet().isEmpty()
+                ? Map.of()
+                : grupoRepository.findByIdAsignaturaIn(idsAsignatura)
+                        .stream()
+                        .collect(Collectors.groupingBy(Grupo::getIdAsignatura));
+
         return examenes.stream().map(examen -> {
             ExamenRespuestaDto dto = new ExamenRespuestaDto();
             dto.setIdExamen(examen.getIdExamen());
@@ -382,6 +393,17 @@ public class ExamenService {
             Usuario usuario = usuariosPorId.get(examen.getIdUsuario());
             if (usuario != null) {
                 dto.setNombreDocente(usuario.getNombreusuario() + " " + usuario.getApellidousuario());
+            }
+
+            List<Grupo> grupos = gruposPorAsignatura.getOrDefault(examen.getIdAsignatura(), List.of());
+            if (!grupos.isEmpty()) {
+                String nombresGrupos = grupos.stream().map(Grupo::getNombreGrupo).collect(Collectors.joining(", "));
+                dto.setNombreGrupo(nombresGrupos);
+                try {
+                    dto.setNumeroGrupo(Integer.valueOf(grupos.get(0).getNombreGrupo().replaceAll("\\D", "")));
+                } catch (Exception ignored) {
+                    dto.setNumeroGrupo(grupos.get(0).getIdGrupo());
+                }
             }
 
             List<Ambiente> ambientesDeEsteExamen = ambientesPorExamen.getOrDefault(examen.getIdExamen(), List.of());

@@ -13,6 +13,8 @@ export const asistenciaRepo = {
    */
   async registrarMarca({
     examenId,
+    asignaturaId = null,
+    ambienteId = null,
     codigoSis,
     metodo,
     operadorId,
@@ -71,6 +73,8 @@ export const asistenciaRepo = {
       const nuevaAsistencia = {
         clientUuid,
         examenId: exId,
+      asignaturaId: asignaturaId ? Number(asignaturaId) : null,
+      ambienteId: ambienteId ? Number(ambienteId) : null,
         codigoSis: sis,
         metodo,
         operadorId,

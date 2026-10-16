@@ -152,6 +152,8 @@ async function resolverPorCi(examenId, lectura) {
  */
 export async function registrarIngreso({
   examenId,
+  asignaturaId = null,
+  ambienteId = null,
   codigoSis,
   metodo,
   operadorId,
@@ -168,6 +170,8 @@ export async function registrarIngreso({
   try {
     const registro = await asistenciaRepo.registrarMarca({
       examenId: exId,
+      asignaturaId,
+      ambienteId,
       codigoSis,
       metodo: metodo || 'CODIGO',
       operadorId,
@@ -273,6 +277,8 @@ export async function registrarIngreso({
  */
 export async function validarIngreso({
   examenId,
+  asignaturaId = null,
+  ambienteId = null,
   lectura,
   metodo,
   operadorId,
@@ -547,6 +553,8 @@ export async function validarIngreso({
   // 5. Registro formal preservando coincidenciaParcial y fueraDeRango
   const resRegistro = await registrarIngreso({
     examenId: exId,
+    asignaturaId,
+    ambienteId,
     codigoSis: estudiante.codigoSis,
     metodo: metodoUsado,
     operadorId,

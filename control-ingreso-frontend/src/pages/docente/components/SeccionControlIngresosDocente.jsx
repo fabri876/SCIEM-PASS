@@ -1,8 +1,10 @@
-import { BookOpen, CalendarDays, Clock, ScanLine } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BookOpen, CalendarDays, Clock, Users, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { obtenerAsignacionIngreso } from "../../../services/asignacionOperadoresService";
 
 const ESTADOS = {
-  EN_CURSO: { texto: "En curso", clase: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  EN_CURSO: { texto: "En curso", clase: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]" },
   PROXIMO: { texto: "Próximo", clase: "bg-slate-100 text-slate-600 border-slate-200" },
   FINALIZADO: { texto: "Finalizado", clase: "bg-slate-100 text-slate-500 border-slate-200" },
 };
@@ -61,28 +63,43 @@ function horaCorta(hora) {
   return String(hora).substring(0, 5);
 }
 
-export default function SeccionControlIngresosDocente({ examenes = [], boolCargando = false }) {
+export default function SeccionControlIngresosDocente({ examenes = [], boolCargando = false, onAsignarOperadores }) {
   const navigate = useNavigate();
   const listExamenes = (examenes || []).filter((ex) => ex.esExamenReal !== false);
   const numDisponibles = listExamenes.length;
 
+  const [objNomina, setObjNomina] = useState({});
+
+  const fnDescargar = (id) => {
+    setObjNomina((prev) => ({ ...prev, [id]: "descargando" }));
+    setTimeout(() => {
+      setObjNomina((prev) => ({ ...prev, [id]: "listo" }));
+    }, 1600);
+  };
+
+  // Asignación de operadores de cada examen: { [idExamen]: { cargada, responsables } }
+  const [objAsignaciones, setObjAsignaciones] = useState({});
+  const strIdsExamenes = listExamenes.map((ex) => ex.idExamen).join(",");
+  useEffect(() => {
+    let cancel = false;
+    Promise.all(
+      listExamenes.map((ex) =>
+        obtenerAsignacionIngreso(ex.idExamen)
+          .then((a) => [ex.idExamen, { cargada: true, responsables: a ? (a.responsables || []).length : 0, hay: Boolean(a) }])
+          .catch(() => [ex.idExamen, { cargada: true, responsables: 0, hay: false }])
+      )
+    ).then((pares) => { if (!cancel) setObjAsignaciones(Object.fromEntries(pares)); });
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [strIdsExamenes]);
+
   return (
     <div className="space-y-6">
-      <div
-        className="w-full text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex items-center gap-5 min-h-[130px]"
-        style={{ backgroundImage: "linear-gradient(to right, #1A365D, #2563EB, #DC2626)" }}
-      >
-        <span className="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
-          <ScanLine className="w-7 h-7" />
-        </span>
-        <div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-1">
-            Control de ingreso
-          </h1>
-          <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
-            Selecciona el examen para gestionar el ingreso de los estudiantes.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-black text-[#1A365D]">Control de ingreso</h1>
+        <p className="text-xs text-slate-500 font-medium mt-1">
+          Selecciona el examen para gestionar el ingreso de los estudiantes.
+        </p>
       </div>
 
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
@@ -114,6 +131,12 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
               const porcentaje = total > 0 ? Math.round((ingresados / total) * 100) : 0;
               const aula = examen.aulaNombre || examen.aula || "Aula por definir";
               const bloque = examen.bloque ? ` · ${examen.bloque}` : "";
+              const objAsig = objAsignaciones[examen.idExamen];
+              const boolBloqueada = estado === "EN_CURSO" || estado === "FINALIZADO";
+              const boolHayAsignacion = Boolean(objAsig?.hay);
+              const strEstadoNomi = objNomina[examen.idExamen] || "ninguna";
+              const boolDescargando = strEstadoNomi === "descargando";
+              const boolListo = strEstadoNomi === "listo";
 
               return (
                 <article
@@ -147,16 +170,52 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
                             {horaCorta(examen.horaInicio)}
                           </span>
                         </p>
+                        <p className="text-sm text-slate-600 font-medium mt-2 flex items-center gap-2">
+                          <Users className="w-4 h-4 text-slate-500" />
+                          {boolHayAsignacion ? (
+                            <span><b>{objAsig.responsables} {objAsig.responsables === 1 ? "responsable asignado" : "responsables asignados"}</b></span>
+                          ) : boolBloqueada ? (
+                            <span>Sin operadores asignados · el docente atendió el ingreso</span>
+                          ) : (
+                            <span><b className="text-[#B91C1C]">Sin operadores asignados</b> · si no asignas, tú registras los ingresos</span>
+                          )}
+                        </p>
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`)}
-                      className="bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer self-start lg:self-center whitespace-nowrap"
-                    >
-                      Control de ingreso →
-                    </button>
+                    <div className="flex flex-col gap-2 self-start lg:self-center lg:min-w-48">
+                      {onAsignarOperadores && (
+                        <button
+                          type="button"
+                          onClick={() => onAsignarOperadores(examen.idExamen)}
+                          className={`font-bold text-sm py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap ${boolHayAsignacion || boolBloqueada
+                            ? "bg-white border border-slate-300 hover:bg-slate-50 text-[#003770]"
+                            : "bg-[#003770] hover:bg-[#002a55] text-white"
+                            }`}
+                        >
+                          {boolBloqueada ? "Ver operadores" : boolHayAsignacion ? "Editar operadores" : "Asignar operadores"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "control-ingresos", examen } })}
+                        className={`font-bold text-sm py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap ${onAsignarOperadores && !boolHayAsignacion && !boolBloqueada
+                          ? "bg-white border border-slate-300 hover:bg-slate-50 text-[#003770]"
+                          : "bg-[#003770] hover:bg-[#002a55] text-white"
+                          }`}
+                      >
+                        Control de ingreso →
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fnDescargar(examen.idExamen)}
+                        disabled={boolDescargando || boolListo}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#267BC2] hover:bg-[#124B83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold px-4 py-2.5 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        <Download className="w-4 h-4" />
+                        {boolDescargando ? "Descargando…" : boolListo ? "Nómina descargada" : "Descargar nómina"}
+                      </button>
+                    </div>
                   </div>
 
                   <div>
