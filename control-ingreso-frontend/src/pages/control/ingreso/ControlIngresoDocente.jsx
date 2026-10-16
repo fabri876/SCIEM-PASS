@@ -10,6 +10,7 @@ import useControlIngreso from "./useControlIngreso";
 import SeccionControlIngreso from "./SeccionControlIngreso";
 import EncabezadoControl from "./componentes/EncabezadoControl";
 import PanelListaOficial from "./componentes/PanelListaOficial";
+import ToastSyncConfirmacion from "../components/ToastSyncConfirmacion";
 import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilidadesExamenDocente";
 
 export default function ControlIngresoDocente() {
@@ -143,6 +144,7 @@ export default function ControlIngresoDocente() {
         onRegistrar={fnRegistrarDesdeLista}
         strUltimoRegistrado={ctrl.strUltimoRegistrado}
       />
+      <ToastSyncConfirmacion />
     </div>
   );
 }

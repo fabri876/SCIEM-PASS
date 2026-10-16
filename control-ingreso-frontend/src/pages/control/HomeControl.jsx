@@ -4,6 +4,7 @@ import OperadorProvider from "./OperadorProvider";
 import { useOperador } from "./operadorContexto";
 import ModalCierreSesion from "./components/ModalCierreSesion";
 import ToastOperador from "./components/ToastOperador";
+import ToastSyncConfirmacion from "./components/ToastSyncConfirmacion";
 
 function ContenidoOperador() {
   const {
@@ -67,6 +68,7 @@ function ContenidoOperador() {
         onCancelar={fnCancelarLogout}
       />
       <ToastOperador />
+      <ToastSyncConfirmacion />
     </div>
   );
 }
