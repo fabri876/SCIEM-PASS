@@ -10,6 +10,10 @@ import { obtenerToken } from '../services/authService.js';
 
 export const URL_BATCH_SYNC = '/api/v1/asistencias/batch-sync';
 
+// Estados devueltos por el backend en batch-sync que NO deben reintentarse
+// (datos invalidos o peticion no autorizada: reintentar no cambiaria el resultado).
+const ESTADOS_NO_REINTENTABLES = new Set(['NO_AUTORIZADO', 'ERROR_VALIDACION']);
+
 // Suscriptores desacoplados de React
 const suscriptores = new Set();
 let envioEnCursoLocal = false;
@@ -403,9 +407,12 @@ export async function sincronizarPendientes({
           break;
         }
 
-        // 5. Procesamiento de respuesta 200 con resultados por ítem
+        // 5. Procesamiento de respuesta 200 con resultados por ítem.
+        // El backend responde: { batchId, items: [{ clientUuid, estado, resultado?, mensaje? }] },
+        // donde estado ∈ { PROCESADO, DUPLICADO, NO_AUTORIZADO, ERROR_VALIDACION, ERROR }.
+        // Se acepta 'resultados'/'status' por compatibilidad, pero 'items'/'estado' es el contrato real.
         const mapaResultados = new Map(
-          (respuesta?.resultados || []).map((r) => [r.clientUuid, r])
+          (respuesta?.items || respuesta?.resultados || []).map((r) => [r.clientUuid, r])
         );
 
         let exitososLote = 0;
@@ -428,20 +435,27 @@ export async function sincronizarPendientes({
             continue;
           }
 
-          if (resItem.status === STATUS_ITEM_SYNC.PROCESADO) {
+          // Normaliza el estado del servidor al catalogo interno de la cola.
+          const estadoServidor = resItem.estado ?? resItem.status;
+          const reintentable = resItem.reintentable !== undefined
+            ? resItem.reintentable !== false
+            : !ESTADOS_NO_REINTENTABLES.has(estadoServidor);
+
+          if (estadoServidor === STATUS_ITEM_SYNC.PROCESADO) {
             exitososLote++;
             procesadosTotal++;
             await asistenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.SINCRONIZADO);
-          } else if (resItem.status === STATUS_ITEM_SYNC.DUPLICADO) {
+          } else if (estadoServidor === STATUS_ITEM_SYNC.DUPLICADO) {
             duplicadosLote++;
             duplicadosTotal++;
             await asistenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.DUPLICADO);
           } else {
             fallidosLote++;
             erroresTotal++;
-            if (resItem.reintentable === false) {
+            const strCausa = resItem.mensaje || resItem.codigo || estadoServidor || 'ERROR';
+            if (!reintentable) {
               await asistenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.ERROR, {
-                ultimoError: resItem.codigo || resItem.mensaje || 'ERROR_NO_REINTENTABLE'
+                ultimoError: strCausa
               });
             } else {
               const intentos = (item.intentos || 0) + 1;
@@ -449,7 +463,7 @@ export async function sincronizarPendientes({
               await asistenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.PENDIENTE, {
                 intentos,
                 nextRetryAt: Date.now() + backoff,
-                ultimoError: resItem.codigo || resItem.mensaje || 'ERROR_REINTENTABLE'
+                ultimoError: strCausa
               });
             }
           }
