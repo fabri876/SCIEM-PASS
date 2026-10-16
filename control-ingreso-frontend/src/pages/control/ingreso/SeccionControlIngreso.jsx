@@ -10,8 +10,8 @@ import TablaUltimosIngresos from "./componentes/TablaUltimosIngresos";
 
 export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true }) {
   const {
-    listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado,
-    boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista,
+    listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
+    boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
   } = ctrl;
 
   if (idExamen == null) {
@@ -51,6 +51,34 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         )}
         <TarjetaExamen examen={examenActual} objContador={objContador} boolMostrarFila={boolOperador} />
       </div>
+
+      {objNomina && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-xl bg-[#F0F6FC] border border-[#D9E8F7] text-xs font-bold">
+          <span className="mr-2">Nómina local:</span>
+          {objNomina.descargando ? (
+            <>
+              <span>Descargando…</span>
+              <span className="text-[#003770]">{objNomina.porcentaje ?? 0}%</span>
+            </>
+          ) : objNomina.estado === "lista" ? (
+            <>
+              <span>Descargada</span>
+              <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes)</span>
+            </>
+          ) : (
+            <>
+              <span>Sin descargar</span>
+              <button
+                type="button"
+                onClick={fnDescargarNomina}
+                className="px-3 py-1 rounded-xl text-[11px] font-bold bg-[#003770] text-white hover:bg-[#124B83] transition-colors cursor-pointer"
+              >
+                Descargar nómina
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <section aria-labelledby="ci-t-verificacion">
         <h2 id="ci-t-verificacion" className="m-0 mb-3 text-base font-bold text-[#08264A]">Verificación de ingreso</h2>
