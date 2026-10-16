@@ -1,7 +1,8 @@
 // "Mis exámenes": los 3 más relevantes como tarjetas + "Ver todos" con la lista completa
 import { useMemo, useState } from "react";
-import { GraduationCap, Clock, ArrowLeft, Search, Check, Download, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
+import { GraduationCap, Clock, ArrowLeft, Search, Download, RefreshCw, CheckCircle } from "lucide-react";
 import PildoraFila from "./PildoraFila";
+import { useNominaLocal, useConectividad, sincronizarAhora } from "../../../../offline";
 
 const ESTADOS = {
   EN_CURSO: { strTexto: "En curso", strClase: "bg-[#F0F6FC] text-[#1860A3]", strPunto: "bg-[#267BC2] animate-pulse" },
@@ -46,10 +47,8 @@ function Chip({ strClase, numValor, strEtiqueta }) {
 
 // Tarjeta rectangular de un examen (mismo estilo que la tarjeta del examen elegido)
 /* ---------- Modo sin conexión: nómina de cada examen ----------
-   El estado y la descarga los conecta el modo offline (HU07) mediante props:
-   - fnObtenerNomina(examen) → { estado: "lista" | "descargando" | "ninguna", total?, porcentaje? } | null
-   - fnDescargarNomina(examen) → inicia la descarga
-   Mientras no estén conectados, el botón se muestra desactivado. */
+   El estado y la descarga vienen del motor offline (HU07) mediante useNominaLocal,
+   que lee la nómina descargada en el dispositivo y expone el progreso de descarga. */
 function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
   const [toast, setToast] = useState(null);
   const [forzando, setForzando] = useState(false);
@@ -59,15 +58,20 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleForzar = () => {
+  const handleForzar = async () => {
     if (forzando) return;
     setForzando(true);
     mostrarToast("Iniciando sincronización forzada…", "info");
-    // Simula sync: 2s "enviando", luego éxito
-    setTimeout(() => {
-      mostrarToast("Sincronización completada: 3 marcas enviadas", "ok");
+    try {
+      const res = await sincronizarAhora();
+      if (res?.sinConexion) mostrarToast("No se pudo sincronizar: sin conexión", "info");
+      else if (res?.omitido) mostrarToast("Ya hay una sincronización en curso", "info");
+      else mostrarToast(`Sincronización completada: ${res?.enviados ?? 0} marcas enviadas`, "ok");
+    } catch (e) {
+      mostrarToast("Error al sincronizar: " + (e?.message || "desconocido"), "info");
+    } finally {
       setForzando(false);
-    }, 2000);
+    }
   };
 
   const strEstado = objNomina?.estado || "ninguna";
@@ -169,7 +173,19 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
   );
 }
 
-function TarjetaExamenHoy({ examen, onElegir, fnObtenerNomina, fnDescargarNomina, boolSinRed }) {
+function TarjetaExamenHoy({ examen, onElegir, boolSinRed }) {
+  const nomina = useNominaLocal(examen.idexamen);
+  const objNomina = {
+    estado: nomina.descargando ? "descargando" : (nomina.estado.lista ? "lista" : "ninguna"),
+    total: nomina.estado.totalLocal || 0,
+    porcentaje: nomina.descargando
+      ? (nomina.progreso?.porcentaje ?? 0)
+      : (nomina.estado.lista ? 100 : 0),
+  };
+  const fnDescargarNomina = () => {
+    nomina.descargar({ incluirFotos: false }).catch(() => {});
+  };
+
   const c = examen.contador || {};
   const numIng = c.ingresaron ?? 0;
   const numHab = c.habilitados ?? 0;
@@ -248,7 +264,7 @@ function TarjetaExamenHoy({ examen, onElegir, fnObtenerNomina, fnDescargarNomina
               <span className="font-semibold text-[#475569]">Modo sin conexión:</span>
               <EstadoNomina
                 examen={examen}
-                objNomina={fnObtenerNomina ? fnObtenerNomina(examen) : null}
+                objNomina={objNomina}
                 boolSinRed={boolSinRed}
                 fnDescargarNomina={fnDescargarNomina}
               />
@@ -313,9 +329,11 @@ function GrupoFilas({ strTitulo, list, onElegir }) {
   );
 }
 
-export default function ListaExamenesHoy({ listExamenes, boolCargando, onElegir, fnObtenerNomina, fnDescargarNomina, boolSinRed = false }) {
+export default function ListaExamenesHoy({ listExamenes, boolCargando, onElegir, boolSinRed }) {
   const [boolVerTodos, setBoolVerTodos] = useState(false);
   const [strBuscar, setStrBuscar] = useState("");
+  const conn = useConectividad();
+  const boolSinRedReal = boolSinRed ?? (conn.estado === "offline");
 
   const objOrden = useMemo(() => ordenarPorRelevancia(listExamenes), [listExamenes]);
   const listDestacados = objOrden.todos.slice(0, NUM_DESTACADOS);
@@ -405,9 +423,7 @@ export default function ListaExamenesHoy({ listExamenes, boolCargando, onElegir,
               key={ex.id}
               examen={ex}
               onElegir={onElegir}
-              fnObtenerNomina={fnObtenerNomina}
-              fnDescargarNomina={fnDescargarNomina}
-              boolSinRed={boolSinRed}
+              boolSinRed={boolSinRedReal}
             />
           ))}
         </div>

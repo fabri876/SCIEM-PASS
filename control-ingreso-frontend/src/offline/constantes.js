@@ -42,8 +42,8 @@ export const INACTIVIDAD_CONFIG = {
   EVENTOS: ["click", "keydown", "touchstart", "mousemove", "scroll"],
 };
 
-export const URL_NOMINA = '/api/v1/control/examenes/:id/lista-oficial';
-export const URL_FOTOS = '/api/v1/control/examenes/:id/fotos';
+export const URL_NOMINA = '/api/v1/examenes/:id/nomina';
+export const URL_FOTOS = '/api/v1/examenes/:id/fotos';
 
 export const PRIMERA_PAGINA = 0;
 export const MAX_PAGINAS = 200;

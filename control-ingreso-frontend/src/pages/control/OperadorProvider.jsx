@@ -1,23 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  PIN_DEMO, CANTIDAD_LOTES, INTERVALO_SYNC_MS, INTERVALO_LENTA_MS, SCAN_CI,
+  PIN_DEMO, SCAN_CI,
   clonarExamenes, clonarNomina, crearEstadoInicial, evaluar, horaActual,
   obtenerExamen, textoPendientes,
 } from "./datosMockOperador";
 import { ContextoOperador } from "./operadorContexto";
-// Importaciones del motor offline real
+// Motor offline real
 import {
-  validarIngreso,
-  registrarIngreso,
-  obtenerClockOffsetMs,
-  iniciarSincronizacionAutomatica,
-  detenerSincronizacionAutomatica,
-  reanudarSync,
-  establecerModoOfflineForzado,
-  suscribirConectividad,
   useConectividad,
   useEstadoSync,
+  usePendientesCount,
+  establecerModoOfflineForzado,
+  verificarAlmacenamiento,
 } from "../../offline";
+import { useArranqueOffline } from "../../offline/useArranqueOffline";
 
 const RESULTADO_INICIAL = {
   kind: "ok", titulo: "Permitido", nombre: "Andrea Mamani Quispe",
@@ -26,12 +22,26 @@ const RESULTADO_INICIAL = {
 };
 
 export default function OperadorProvider({ children }) {
+  // Arranca conectividad + sincronizacion automatica + purga periodica.
+  useArranqueOffline();
+
+  const conn = useConectividad();
+  const pendReal = usePendientesCount();
+  const {
+    estadoSync,
+    ultimaSync,
+    ultimoResultado,
+    sincronizarAhora: fnSincronizarAhora,
+  } = useEstadoSync();
+
   const [estadoRed, setEstadoRed] = useState(crearEstadoInicial);
   const [listExamenes, setListExamenes] = useState(() => clonarExamenes());
   const [listNomina, setListNomina] = useState(() => clonarNomina());
   const [listLogs, setListLogs] = useState([]);
   const [objResultado, setObjResultado] = useState(RESULTADO_INICIAL);
   const [objToast, setObjToast] = useState(null);
+  const [numEnviados, setNumEnviados] = useState(0);
+  const [numSpacePrc, setNumSpacePrc] = useState(100);
 
   const [pinVisible, setPinVisible] = useState(false);
   const [pinMensaje, setPinMensaje] = useState("PIN de la demo: 1234 · 3 intentos fallidos cierran la sesión.");
@@ -45,16 +55,24 @@ export default function OperadorProvider({ children }) {
   useEffect(() => { refEstado.current = estadoRed; }, [estadoRed]);
   const refExamenes = useRef(listExamenes);
   useEffect(() => { refExamenes.current = listExamenes; }, [listExamenes]);
-  const refSync = useRef(null);
-  const refSlow = useRef(null);
   const refDownload = useRef(null);
   const refScanIdx = useRef(0);
 
-  const fnDetenerTimers = useCallback(() => {
-    clearInterval(refSync.current);
-    clearInterval(refSlow.current);
-    refSync.current = null;
-    refSlow.current = null;
+  // Acumula los envios confirmados por el scheduler para el contador de la UI.
+  useEffect(() => {
+    const n = ultimoResultado?.enviados ?? ultimoResultado?.procesados ?? 0;
+    if (n) setNumEnviados((prev) => prev + n);
+  }, [ultimoResultado]);
+
+  // Espacio libre estimado del dispositivo (control de cuota).
+  useEffect(() => {
+    let vivo = true;
+    verificarAlmacenamiento().then((info) => {
+      if (!vivo || !info?.disponible || !info.cuotaMB) return;
+      const pct = Math.max(0, Math.min(100, Math.round((info.libreMB / info.cuotaMB) * 100)));
+      setNumSpacePrc(pct);
+    }).catch(() => {});
+    return () => { vivo = false; };
   }, []);
 
   const fnMostrarToast = useCallback((mensaje) => {
@@ -67,75 +85,49 @@ export default function OperadorProvider({ children }) {
     return () => clearTimeout(t);
   }, [objToast]);
 
-
   const fnAgregarLog = useCallback((clase, mensaje) => {
     setListLogs((prev) => [{ hora: horaActual(), clase, mensaje }, ...prev].slice(0, 30));
   }, []);
 
-  const fnSyncTick = useCallback(() => {
-    const s = refEstado.current;
-    const batch = Math.max(1, Math.ceil(s.syncTotal / CANTIDAD_LOTES));
-    const n = Math.min(batch, s.pend);
-    const next = { ...s, pend: s.pend - n, enviados: s.enviados + n, lote: s.lote + 1 };
-    if (next.pend === 0) {
-      fnDetenerTimers();
-      next.net = "online";
-      next.lastSend = horaActual();
-      fnAgregarLog("ok", "Lote " + next.lote + " enviado · cola vacía (" + n + " marcas confirmadas)");
-      fnMostrarToast("Todo enviado. Sin marcas pendientes.");
+  // Conmutador Online/Offline real: fuerza el modo offline del motor o lo libera.
+  const fnCambiarRed = useCallback(async (net) => {
+    try {
+      if (net === "offline") {
+        await establecerModoOfflineForzado(true);
+      } else if (net === "online") {
+        await establecerModoOfflineForzado(false);
+      } else if (net === "syncing") {
+        await fnSincronizarAhora();
+      }
+    } catch (err) {
+      console.warn("[OperadorProvider] Error al cambiar el estado de red:", err);
     }
-    setEstadoRed(next);
-  }, [fnDetenerTimers, fnAgregarLog, fnMostrarToast]);
+  }, [fnSincronizarAhora]);
 
-  const fnCambiarRed = useCallback((net) => {
-    const s = refEstado.current;
-    if (net === "syncing" && s.pend === 0) {
-      fnMostrarToast("No hay marcas pendientes. Valida un ingreso sin red para probar el envío.");
-      return;
-    }
-    if (net === "online" && s.pend > 0) net = "syncing";
-    if (net === s.net) return;
-    fnDetenerTimers();
-    const next = { ...s, net };
-    if (net === "syncing") {
-      next.syncTotal = s.pend;
-      next.lote = 0;
-      fnAgregarLog("info", "Sync automático iniciado · " + s.pend + " pendientes");
-      refSync.current = setInterval(fnSyncTick, INTERVALO_SYNC_MS);
-    }
-    if (net === "slow") {
-      refSlow.current = setInterval(() => {
-        const cur = refEstado.current;
-        if (cur.pend > 0) setEstadoRed({ ...cur, pend: cur.pend - 1, enviados: cur.enviados + 1, lastSend: horaActual() });
-      }, INTERVALO_LENTA_MS);
-    }
-    setEstadoRed(next);
-  }, [fnDetenerTimers, fnAgregarLog, fnMostrarToast, fnSyncTick]);
-
-  // La red se actualiza con eventos reales del navegador (online/offline)
-  useEffect(() => {
-    const fnOnline = () => fnCambiarRed("online");
-    const fnOffline = () => fnCambiarRed("offline");
-    window.addEventListener("online", fnOnline);
-    window.addEventListener("offline", fnOffline);
-    return () => {
-      window.removeEventListener("online", fnOnline);
-      window.removeEventListener("offline", fnOffline);
-    };
-  }, [fnCambiarRed]);
-
-  const fnDoForzar = useCallback(() => {
-    const s = refEstado.current;
-    if (s.pend === 0) {
+  const fnDoForzar = useCallback(async () => {
+    if (pendReal === 0) {
       fnMostrarToast("No existen operaciones pendientes. No se generan registros.");
       return;
     }
-    if (s.net === "offline") {
+    if (conn.estado === "offline") {
       fnMostrarToast("No es posible sincronizar sin conexión. Los pendientes se conservan.");
       return;
     }
-    fnCambiarRed("syncing");
-  }, [fnCambiarRed, fnMostrarToast]);
+    fnAgregarLog("info", "Sincronización manual solicitada · " + pendReal + " pendientes");
+    try {
+      const res = await fnSincronizarAhora();
+      if (res?.sinConexion) {
+        fnMostrarToast("No es posible sincronizar sin conexión. Los pendientes se conservan.");
+      } else if (res?.omitido) {
+        fnMostrarToast("Ya hay un envío de sincronización en curso.");
+      } else {
+        fnAgregarLog("ok", "Sync manual · " + (res?.enviados ?? 0) + " enviadas · " + (res?.errores ?? 0) + " errores");
+        fnMostrarToast("Sincronización completada · " + (res?.pendientesRestantes ?? 0) + " pendientes restantes.");
+      }
+    } catch (err) {
+      fnMostrarToast("Error al sincronizar: " + err.message);
+    }
+  }, [pendReal, conn.estado, fnSincronizarAhora, fnMostrarToast, fnAgregarLog]);
 
   const fnValidar = useCallback((q) => {
     if (!q || !q.trim()) {
@@ -192,9 +184,6 @@ export default function OperadorProvider({ children }) {
     }
   }, []);
 
-  // Descarga la nómina de un examen. Si el examen viene del backend (no está en la
-  // demo mock), lo crea en la lista para que su barra de descarga y su estado local
-  // se comporten igual que los demás.
   const fnDescargar = useCallback((id, objDatos) => {
     const s = refEstado.current;
     if (s.net === "offline") {
@@ -286,6 +275,7 @@ export default function OperadorProvider({ children }) {
   }, [fnAgregarLog, fnMostrarToast]);
 
   const fnStorageLleno = useCallback(() => {
+    setNumSpacePrc(5);
     setEstadoRed((prev) => ({ ...prev, spacePrc: 5 }));
     fnMostrarToast("Cuota crítica: 5 % de espacio libre. El registro offline será bloqueado.");
   }, [fnMostrarToast]);
@@ -300,17 +290,15 @@ export default function OperadorProvider({ children }) {
   const fnCerrarSesion = useCallback((resumenExtra) => {
     setPinVisible(false);
     setLogoutConfirmVisible(false);
-    fnDetenerTimers();
-    const s = refEstado.current;
-    if (s.pend > 0) {
-      fnAgregarLog("off", "Sesión cerrada con " + s.pend + " pendientes · nómina conservada");
-      setResumenSesion(resumenExtra || "Sesión cerrada con " + s.pend + " marcas sin sincronizar. La nómina se conservó en el dispositivo. Regresa más tarde para sincronizar.");
+    if (pendReal > 0) {
+      fnAgregarLog("off", "Sesión cerrada con " + pendReal + " pendientes · nómina conservada");
+      setResumenSesion(resumenExtra || "Sesión cerrada con " + pendReal + " marcas sin sincronizar. La nómina se conservó en el dispositivo. Regresa más tarde para sincronizar.");
     } else {
       fnAgregarLog("off", "Sesión cerrada · nómina y cola eliminadas del dispositivo");
       setResumenSesion(resumenExtra || "Sesión cerrada sin pendientes. Datos locales eliminados, nómina y cola purgadas. En el próximo inicio se descarga la nómina del examen.");
     }
     setSesionCerradaVisible(true);
-  }, [fnDetenerTimers, fnAgregarLog]);
+  }, [pendReal, fnAgregarLog]);
 
   const fnConfirmarPin = useCallback((pin) => {
     if (pin !== PIN_DEMO) {
@@ -330,19 +318,17 @@ export default function OperadorProvider({ children }) {
   }, [fnMostrarToast, fnCerrarSesion]);
 
   const fnConfirmarLogout = useCallback(() => {
-    const s = refEstado.current;
-    if (s.pend > 0) {
-      setLogoutMensaje("Hay " + s.pend + " marcas sin sincronizar. Si cierras ahora, la nómina NO se borra y las marcas se conservan para el próximo inicio.");
+    if (pendReal > 0) {
+      setLogoutMensaje("Hay " + pendReal + " marcas sin sincronizar. Si cierras ahora, la nómina NO se borra y las marcas se conservan para el próximo inicio.");
       setLogoutConfirmVisible(true);
       return;
     }
     fnCerrarSesion("");
-  }, [fnCerrarSesion]);
+  }, [pendReal, fnCerrarSesion]);
 
   const fnCancelarLogout = useCallback(() => setLogoutConfirmVisible(false), []);
 
   const fnResetDemo = useCallback(() => {
-    fnDetenerTimers();
     setEstadoRed(crearEstadoInicial());
     setListExamenes(() => clonarExamenes());
     setListNomina(() => clonarNomina());
@@ -352,7 +338,28 @@ export default function OperadorProvider({ children }) {
     setLogoutConfirmVisible(false);
     setSesionCerradaVisible(false);
     fnAgregarLog("info", "Demo reiniciada · rol operador");
-  }, [fnDetenerTimers, fnAgregarLog]);
+  }, [fnAgregarLog]);
+
+  // Estado de red derivado del motor real de conectividad + sincronizacion.
+  const netReal = estadoSync === "enviando"
+    ? "syncing"
+    : conn.estado === "offline"
+      ? "offline"
+      : conn.estado === "degraded"
+        ? "slow"
+        : "online";
+  const lastSendReal = ultimaSync
+    ? new Date(ultimaSync).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })
+    : estadoRed.lastSend;
+
+  const estadoRedReal = useMemo(() => ({
+    ...estadoRed,
+    net: netReal,
+    pend: pendReal,
+    enviados: numEnviados,
+    spacePrc: numSpacePrc,
+    lastSend: lastSendReal,
+  }), [estadoRed, netReal, pendReal, numEnviados, numSpacePrc, lastSendReal]);
 
   const examenActual = obtenerExamen(listExamenes, estadoRed.examen);
   const listaAsignados = ["calculo", "fisica"]
@@ -360,7 +367,7 @@ export default function OperadorProvider({ children }) {
     .filter(Boolean);
 
   const valor = {
-    estadoRed, listExamenes, listNomina, objResultado, listLogs, objToast,
+    estadoRed: estadoRedReal, listExamenes, listNomina, objResultado, listLogs, objToast,
     examenActual, listaAsignados, textoPendientes,
     fnValidar, fnDemo, fnEscaneoCamara, fnCambiarExamen, fnCambiarRed, fnDoForzar,
     fnDescargar, fnActualizar, fnAlternarNomina, fnStorageLleno,

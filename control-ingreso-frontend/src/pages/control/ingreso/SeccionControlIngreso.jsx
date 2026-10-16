@@ -8,7 +8,7 @@ import EstacionVerificacion from "./componentes/EstacionVerificacion";
 import TarjetaResultado from "./componentes/TarjetaResultado";
 import TablaUltimosIngresos from "./componentes/TablaUltimosIngresos";
 
-export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true, objModoSinConexion = {} }) {
+export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true }) {
   const {
     listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado,
     boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista,
@@ -24,9 +24,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
           listExamenes={listExamenes}
           boolCargando={boolCargandoExamenes}
           onElegir={fnElegirExamen}
-          fnObtenerNomina={objModoSinConexion.fnObtenerNomina}
-          fnDescargarNomina={objModoSinConexion.fnDescargarNomina}
-          boolSinRed={objModoSinConexion.boolSinRed}
+          boolSinRed={ctrl.boolOffline}
         />
       </div>
     );

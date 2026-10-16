@@ -208,9 +208,12 @@ export const nominaRepo = {
           marcadoPor = remoto.marcadoPor || null;
         }
 
-        const nombreDirecto = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.nombre);
+        const nombresDirecto = extraerPrimerValor(remoto, ['nombres', 'nombreEstudiante']);
         const apellidosDirecto = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.apellidos) || '';
-        const nombreCompleto = [nombreDirecto, apellidosDirecto].filter(Boolean).join(' ');
+        const nombreCompletoDirecto = extraerPrimerValor(remoto, ['nombre']);
+        const nombreCompleto = nombresDirecto
+          ? [nombresDirecto, apellidosDirecto].filter(Boolean).join(' ')
+          : (nombreCompletoDirecto || apellidosDirecto || '');
 
         let apePaterno = extraerPrimerValor(remoto, CAMPOS_SERVIDOR.apellidoPaterno);
         if (!apePaterno && apellidosDirecto) {

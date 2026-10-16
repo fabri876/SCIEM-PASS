@@ -32,7 +32,7 @@ const INACTIVIDAD_DEFAULTS = {
  * @param {Function} opciones.onBloquear - Callback al bloquear (ej. abrir modal PIN)
  * @returns {{ resetear: Function, bloquearAhora: Function, destruir: Function }}
  */
-export function useInactividad(opciones = {}) {
+export function crearInactividad(opciones = {}) {
   const config = { ...INACTIVIDAD_DEFAULTS, ...opciones };
   const { tiempoMaximoMs, advertenciaMs, eventos, onAdvertencia, onBloquear } =
     config;
@@ -155,8 +155,8 @@ export function useInactividad(opciones = {}) {
  * @param {Object} config - Mismos parámetros que useInactividad
  * @returns {Object} Misma API que useInactividad
  */
-export function crearInactividad(config) {
-  return useInactividad(config);
+export function useInactividad(opciones = {}) {
+  return crearInactividad(opciones);
 }
 
 export default { useInactividad, crearInactividad };
