@@ -21,7 +21,13 @@ globalThis.localStorage = {
   removeItem: key => valores.delete(key),
 };
 
-const server = await createServer({ root, configFile: false, server: { middlewareMode: true, watch: null }, appType: "custom" });
+// El chequeo SSR no registra service workers ni activa herramientas de navegador.
+const pwaSsr = {
+  name: "pwa-ssr-render-check",
+  resolveId(id) { if (id === "virtual:pwa-register") return "\0pwa-ssr-render-check"; },
+  load(id) { if (id === "\0pwa-ssr-render-check") return "export const registerSW = () => async () => {};"; },
+};
+const server = await createServer({ root, configFile: false, define: { "import.meta.env.DEV": false }, plugins: [pwaSsr], server: { middlewareMode: true, watch: null }, appType: "custom" });
 try {
   const { default: Tabla } = await server.ssrLoadModule("/src/pages/admin/components/UserTableCard.jsx");
   for (const usuarios of [[], [{ idUsuario: 4, nombre: "Estudiante", apellido: "Prueba", rol: "ESTUDIANTE", estado: true }]]) {

@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, registrarActividad, estaSesionExpirada, cerrarSesion } from "./services/authService";
 
 // Páginas comunes
-import RegistroPage from "./pages/RegistroPage";
+
 import LoginPage from "./pages/LoginPage";
 import RegistroExamenPage from "./pages/RegistroExamenPage";
 import HomePage from "./pages/HomePage";
@@ -11,7 +11,7 @@ import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
 // Páginas de Exámenes (próximos y pasados)
 import Examenes from "./pages/examenesHome/Examenes";
-import ExamenesPasados from "./pages/examenesHome/ExamenesPasados";
+
 
 // Páginas de Administrador
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -113,7 +113,7 @@ function App() {
           path="/registro"
           element={
             <RutaPublica>
-              <RegistroPage />
+              <Navigate to="/login" replace />
             </RutaPublica>
           }
         />
@@ -133,7 +133,7 @@ function App() {
             Notificaciones va a una página en blanco por ahora. */}
         <Route path="/inicio" element={<HomePage />} />
         <Route path="/examenes" element={<Examenes />} />
-        <Route path="/examenes/pasados" element={<ExamenesPasados />} />
+        <Route path="/examenes/pasados" element={<Navigate to="/examenes" replace />} />
         <Route path="/notificaciones" element={<PaginaEnConstruccion />} />
 
         {/* Ruta de Administrador */}

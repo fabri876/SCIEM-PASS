@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import VentanaEmergente from "./VentanaEmergente";
 import CambiarContrasenaModal from "./CambiarContrasenaModal";
 
 /**
@@ -12,6 +14,7 @@ import CambiarContrasenaModal from "./CambiarContrasenaModal";
 export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvatar = "bg-primary-navy" }) {
   const [boolMenuAbierto, setBoolMenuAbierto] = useState(false);
   const [boolModalContrasenaAbierto, setBoolModalContrasenaAbierto] = useState(false);
+  const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const refMenu = useRef(null);
 
   useEffect(() => {
@@ -30,19 +33,20 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
   const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`;
 
   return (
-    <div className="relative" ref={refMenu}>
+    <div className="relative min-w-0 w-full md:w-auto" ref={refMenu}>
       <button
         onClick={() => setBoolMenuAbierto((prev) => !prev)}
-        className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+        aria-label="Abrir menú de cuenta" aria-expanded={boolMenuAbierto}
+        className="flex max-w-full items-center gap-3 pl-2 pr-1 py-1 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
       >
         <div className={`w-10 h-10 rounded-full ${strClaseAvatar} text-white font-bold text-sm flex items-center justify-center shadow shrink-0`}>
           {strIniciales}
         </div>
-        <div className="flex flex-col text-left hidden sm:flex">
-          <span className="text-xs font-bold text-slate-800 leading-tight whitespace-nowrap">
+        <div className="min-w-0 max-w-40 lg:max-w-48 flex flex-col text-left">
+          <span className="text-xs font-bold text-slate-800 leading-tight truncate">
             {strNombre} {strApellido}
           </span>
-          <span className="text-[11px] text-primary-blue font-semibold leading-tight whitespace-nowrap">
+          <span className="text-[11px] text-primary-blue font-semibold leading-tight truncate">
             {usuario?.rol || ""}
           </span>
         </div>
@@ -52,12 +56,13 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
       </button>
 
       {boolMenuAbierto && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-lg z-50 overflow-hidden">
+        <div className="relative md:absolute md:right-0 md:top-full mt-2 w-full md:w-64 bg-white rounded-2xl border border-slate-200 shadow-lg z-50 overflow-hidden">
           <div className="p-4 border-b border-slate-100">
             <p className="font-bold text-sm text-slate-800 truncate">{strNombre} {strApellido}</p>
             <p className="text-xs text-slate-500 truncate mt-0.5">{usuario?.correo || ""}</p>
           </div>
 
+          <button type="button" onClick={() => { setBoolMenuAbierto(false); setCuentaAbierta(true); }} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50">Mi Cuenta</button>
           <button
             onClick={() => {
               setBoolMenuAbierto(false);
@@ -79,6 +84,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
         </div>
       )}
 
+      {cuentaAbierta && createPortal(<VentanaEmergente boolAbierto onCerrar={() => setCuentaAbierta(false)}><section role="dialog" aria-label="Mi Cuenta" className="p-6 space-y-4"><h2 className="font-bold text-xl">Mi Cuenta</h2><dl><dt>Nombre</dt><dd>{strNombre} {strApellido}</dd><dt>Correo</dt><dd className="break-all">{usuario?.correo}</dd><dt>Rol</dt><dd>{usuario?.rol}</dd></dl><p>Para corregir sus datos personales, contacte al administrador.</p><button type="button" onClick={() => { setCuentaAbierta(false); setBoolModalContrasenaAbierto(true); }}>Cambiar contraseña</button><button type="button" onClick={() => setCuentaAbierta(false)} className="ml-4">Cerrar</button></section></VentanaEmergente>, document.body)}
       <CambiarContrasenaModal
         boolAbierto={boolModalContrasenaAbierto}
         onCerrar={() => setBoolModalContrasenaAbierto(false)}

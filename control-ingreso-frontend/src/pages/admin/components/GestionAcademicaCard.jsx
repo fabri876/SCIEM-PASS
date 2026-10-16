@@ -31,7 +31,7 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
     if (!preview) return;
     const overflowAnterior = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const cerrarConEscape = e => { if (e.key === "Escape" && !ocupado) setPreview(null); };
+    const cerrarConEscape = e => { if (e.key === "Escape" && !ocupado) quitarArchivo(); };
     document.addEventListener("keydown", cerrarConEscape);
     return () => { document.body.style.overflow = overflowAnterior; document.removeEventListener("keydown", cerrarConEscape); };
   }, [preview, ocupado]);
@@ -76,7 +76,7 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
         {archivo ? <FileText className="text-primary-blue" size={30} /> : <UploadCloud className="text-primary-blue" size={30} />}
         <span className="font-bold text-primary-navy">{archivo ? archivo.name : "Seleccionar horario PDF"}</span>
         <span className="text-secondary">{archivo ? `${(archivo.size / 1024 / 1024).toFixed(2)} MB · Pulse para cambiar el archivo` : "Pulse aquí para elegir un archivo · PDF hasta 10 MB"}</span>
-        <input ref={inputArchivo} className="sr-only" type="file" accept=".pdf" aria-label="Seleccionar horario PDF" onChange={e => { setArchivo(e.target.files?.[0] || null); setPreview(null); setError(""); }} />
+        <input ref={inputArchivo} className="sr-only" type="file" accept=".pdf" aria-label="Seleccionar horario PDF" onChange={e => { const f = e.target.files?.[0]; quitarArchivo(); setError(""); if (!f) return; if (!f.name.toLowerCase().endsWith(".pdf") || f.size > 10 * 1024 * 1024) { setError("Seleccione un horario PDF de hasta 10 MB."); return; } setArchivo(f); }} />
       </label>
       {archivo && <button type="button" disabled={ocupado} onClick={quitarArchivo} className="inline-flex items-center gap-2 text-accent-red font-bold"><X size={16} />Quitar archivo</button>}
       <p className="text-secondary">1. Seleccione el PDF. 2. Revise asignaturas y grupos. 3. Confirme la carga.</p>
@@ -127,8 +127,8 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
       </form>
     </div>
     <form className="rounded-xl border border-border p-4 space-y-4" onSubmit={e => { e.preventDefault(); ejecutar(async () => {
-      await vincularUsuario({ idUsuario: Number(idDocente), rol: "DOCENTE", idGrupos: [grupoDocente.idGrupo] });
-      setMensaje("Docente asignado al grupo. Sus asignaciones anteriores se conservan.");
+      const resultado = await vincularUsuario({ idUsuario: Number(idDocente), rol: "DOCENTE", idGrupos: [grupoDocente.idGrupo] });
+      setMensaje(resultado.mensaje);
       setGrupoDocente(null); actualizarCatalogo();
     }); }}>
       <h3 className="font-bold text-primary-navy">Asignar un docente registrado</h3>

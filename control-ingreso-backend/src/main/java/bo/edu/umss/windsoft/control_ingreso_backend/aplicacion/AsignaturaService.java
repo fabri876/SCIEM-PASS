@@ -44,6 +44,16 @@ public class AsignaturaService {
     // para varios docentes — perdía filas para 19 de 33. idusuario solo ya
     // identifica al docente sin ambigüedad (es la FK real hacia "docente").
     public List<AsignaturaResponseDto> obtenerPorDocente(Integer idUsuario, Integer codsisDocente) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) throw new org.springframework.security.access.AccessDeniedException("Inicie sesión.");
+        boolean admin = auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
+        boolean docente = auth.getAuthorities().stream().anyMatch(a -> "ROLE_DOCENTE".equals(a.getAuthority()));
+        if (!admin) {
+            if (!docente || !(auth.getDetails() instanceof Integer propio) || (idUsuario != null && !propio.equals(idUsuario)))
+                throw new org.springframework.security.access.AccessDeniedException("Solo puede consultar sus propias asignaturas.");
+            idUsuario = (Integer) auth.getDetails();
+        }
+        if (idUsuario == null) throw new IllegalArgumentException("Seleccione un docente.");
         List<Integer> ids = docenteAsignaturaRepository
                 .findByIdIdusuario(idUsuario)
                 .stream()
