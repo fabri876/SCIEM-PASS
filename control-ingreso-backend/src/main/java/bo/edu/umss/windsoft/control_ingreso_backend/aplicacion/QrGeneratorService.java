@@ -4,6 +4,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Credencial;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CredencialRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,10 +23,13 @@ public class QrGeneratorService {
 
     private final CredencialRepository credencialRepository;
     private final ExamenRepository examenRepository;
+    private final AmbienteRepository ambienteRepository;
 
-    public QrGeneratorService(CredencialRepository credencialRepository, ExamenRepository examenRepository) {
+    public QrGeneratorService(CredencialRepository credencialRepository, ExamenRepository examenRepository,
+                              AmbienteRepository ambienteRepository) {
         this.credencialRepository = credencialRepository;
         this.examenRepository = examenRepository;
+        this.ambienteRepository = ambienteRepository;
     }
 
     /**
@@ -54,9 +58,14 @@ public class QrGeneratorService {
             throw new IllegalStateException("El examen no tiene una fecha definida.");
         }
 
-        // Validez: desde las 00:00 del día anterior hasta las 23:59 del día del examen.
-        // Nota: Si el ambiente/aula tiene hora exacta, se podría ajustar, pero con esto abarcamos la ventana de 24h.
-        LocalDateTime validoDesde = fechaEx.minusDays(1).atStartOfDay();
+        // Validez exacta: 24 horas antes del inicio del examen.
+        LocalTime horaInicio = ambienteRepository.findByIdExamen(idExamen).stream()
+                .map(a -> a.getHoraInicio())
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(LocalTime.MIDNIGHT);
+        LocalDateTime inicioExamen = fechaEx.atTime(horaInicio);
+        LocalDateTime validoDesde = inicioExamen.minusHours(24);
         LocalDateTime validoHasta = fechaEx.atTime(LocalTime.MAX);
 
         // Si ya existe una credencial, la actualizamos para que sea válida nuevamente si estaba anulada

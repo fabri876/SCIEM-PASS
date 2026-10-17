@@ -68,6 +68,20 @@ export default function HomeEstudiante() {
     refMain.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const fnSeleccionarMenu = (nombre) => {
+    setActiveMenu(nombre);
+    if (nombre === "Mi QR") {
+      const examen = examenDestacado || proximos[0] || listExamenes[0];
+      if (examen) fnVerQr(examen.id);
+    } else if (nombre === "Mis exámenes") {
+      setIdExamenQr(null);
+      refMain.current?.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (nombre === "Mi Información") {
+      setIdExamenQr(null);
+      refMain.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   return (
     <div className="h-screen w-screen bg-[var(--color-bg-app)] font-[var(--font-nunito)] text-[var(--color-text-body)] overflow-hidden flex flex-col">
 
@@ -135,7 +149,7 @@ export default function HomeEstudiante() {
               ].map((item) => (
                 <button
                   key={item.name}
-                  onClick={() => setActiveMenu(item.name)}
+                  onClick={() => fnSeleccionarMenu(item.name)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${activeMenu === item.name
                     ? "bg-primary-navy text-white shadow-md shadow-slate-950/20"
                     : "text-[var(--color-secondary-data)] hover:bg-[var(--color-bg-app)] hover:text-[var(--color-text-title)]"
@@ -226,3 +240,4 @@ export default function HomeEstudiante() {
     </div>
   );
 }
+
