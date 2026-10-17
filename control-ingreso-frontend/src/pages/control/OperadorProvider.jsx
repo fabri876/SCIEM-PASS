@@ -69,16 +69,35 @@ export default function OperadorProvider({ children }) {
   }, [fnSincronizarAhora]);
 
   const fnDoForzar = useCallback(async () => {
-    if (pendReal === 0) return;
-    if (conn.estado === "offline") return;
+    if (pendReal === 0) {
+      fnMostrarToast("No hay ingresos pendientes para sincronizar.");
+      return;
+    }
+    if (conn.estado === "offline") {
+      fnMostrarToast("Sin conexión a internet. Los ingresos quedan pendientes hasta que haya red.");
+      return;
+    }
+    fnMostrarToast("Sincronizando ingresos pendientes...");
     try {
       const res = await fnSincronizarAhora();
-      if (res?.sinConexion) return;
-      if (res?.omitido) return;
+      if (res?.sinConexion) {
+        fnMostrarToast("Sin conexión al servidor. Los ingresos quedan pendientes.");
+        return;
+      }
+      if (res?.omitido) {
+        fnMostrarToast("Ya hay una sincronización en curso.");
+        return;
+      }
+      if (res?.errores > 0 || res?.itemsConFalloDeLote > 0) {
+        fnMostrarToast("Sincronización completada con errores. Algunos ingresos quedan pendientes.");
+        return;
+      }
+      fnMostrarToast("Sincronización completada. " + (res?.procesados ?? 0) + " ingreso(s) enviado(s).");
     } catch (err) {
+      fnMostrarToast("Error al sincronizar: " + (err?.message || "intenta nuevamente."));
       console.warn("[OperadorProvider] Error al forzar sincronizacion:", err);
     }
-  }, [pendReal, conn.estado, fnSincronizarAhora]);
+  }, [pendReal, conn.estado, fnSincronizarAhora, fnMostrarToast]);
 
   const fnStorageLleno = useCallback(() => {
     setNumSpacePrc(5);
