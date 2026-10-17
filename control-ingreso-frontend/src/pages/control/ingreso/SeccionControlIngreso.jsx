@@ -2,6 +2,7 @@
 // Sin examen elegido → "Mis exámenes". Con examen elegido → verificación.
 import "./controlIngreso.css";
 import { ArrowLeft, Info } from "lucide-react";
+import { useOperador } from "../operadorContexto";
 import ListaExamenesHoy from "./componentes/ListaExamenesHoy";
 import TarjetaExamen from "./componentes/TarjetaExamen";
 import EstacionVerificacion from "./componentes/EstacionVerificacion";
@@ -9,6 +10,7 @@ import TarjetaResultado from "./componentes/TarjetaResultado";
 import TablaUltimosIngresos from "./componentes/TablaUltimosIngresos";
 
 export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true }) {
+  const { fnMostrarToast } = useOperador();
   const {
     listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
     boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
@@ -63,14 +65,22 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
           ) : objNomina.estado === "lista" ? (
             <>
               <span>Descargada</span>
-              <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes)</span>
+              {objNomina.descargadaEn ? (
+                <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes · {new Date(objNomina.descargadaEn).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+              ) : (
+                <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes)</span>
+              )}
             </>
           ) : (
             <>
               <span>Sin descargar</span>
               <button
                 type="button"
-                onClick={fnDescargarNomina}
+                onClick={() => {
+                  fnDescargarNomina().catch((err) => {
+                    fnMostrarToast("Error al descargar la nómina: " + (err?.message || "intenta nuevamente con conexión a internet."));
+                  });
+                }}
                 className="px-3 py-1 rounded-xl text-[11px] font-bold bg-[#003770] text-white hover:bg-[#124B83] transition-colors cursor-pointer"
               >
                 Descargar nómina
