@@ -19,6 +19,7 @@ import {
   validarIngreso as motorValidar,
   registrarIngreso as motorRegistrar,
   obtenerClockOffsetMs,
+  verificarAlmacenamiento,
 } from "../../../offline";
 
 const INTERVALO_TIEMPO_REAL_MS = 2000;
@@ -288,6 +289,14 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         return mapeado;
       }
 
+      // Chequeo proactivo de espacio antes de escribir en IndexedDB
+      const almacenamiento = await verificarAlmacenamiento();
+      if (almacenamiento.disponible && almacenamiento.critico) {
+        setStrError("Espacio de almacenamiento local insuficiente para registrar el ingreso. Libera espacio en el navegador.");
+        setObjResultado(null);
+        return null;
+      }
+
       const rReg = await motorRegistrar({
         examenId: exId,
         asignaturaId: ex?.idasignatura ?? null,
@@ -321,7 +330,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       return mapeado;
     } catch (e) {
       setObjResultado(null);
-      setStrError(e.message || "No se pudo validar el ingreso sin conexión.");
+      setStrError(e.message || "El registro del ingreso no se completó. Si hubo conexión previa, el intento queda pendiente para sincronizar.");
       return null;
     } finally {
       setBoolValidando(false);
@@ -397,6 +406,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const objNomina = {
     estado: nomina.descargando ? "descargando" : (nomina.estado.lista ? "lista" : "ninguna"),
     total: nomina.estado.totalLocal || 0,
+    descargadaEn: nomina.estado.descargadaEn || null,
     porcentaje: nomina.descargando
       ? (nomina.progreso?.porcentaje ?? 0)
       : (nomina.estado.lista ? 100 : 0),
