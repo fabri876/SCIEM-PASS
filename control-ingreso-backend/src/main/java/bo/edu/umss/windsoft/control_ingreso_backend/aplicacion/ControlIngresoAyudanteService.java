@@ -34,6 +34,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ResultadoIn
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.OtroExamenDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UltimoIngresoDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.VerificarIngresoRequestDTO;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -460,7 +461,24 @@ public class ControlIngresoAyudanteService {
         nuevoIngreso.setTipoIngreso(TipoIngreso.NORMAL);
         nuevoIngreso.setMetodoIngreso(dto.metodoIngreso() != null ? dto.metodoIngreso() : MetodoIngreso.MANUAL);
 
-        ingresoRepository.save(nuevoIngreso);
+        try {
+            ingresoRepository.saveAndFlush(nuevoIngreso);
+        } catch (DataIntegrityViolationException ex) {
+            // Condición de carrera: otro operador registró primero. La restricción
+            // única protege la BD y devolvemos el resultado informativo de duplicado.
+            Optional<Ingreso> concurrente = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
+                    estudiante.getCodsisestudiante(), dto.idasignatura(), dto.idexamen());
+            if (concurrente.isPresent()) {
+                Ingreso prev = concurrente.get();
+                ResultadoIngresoDTO duplicado = new ResultadoIngresoDTO(
+                        "DUPLICADO",
+                        "YA REGISTRADO - El estudiante ya registró su ingreso.",
+                        estudianteResumen, null,
+                        new PrimerIngresoDTO(prev.getHoraIngreso(), "Aula registrada", ""), null);
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(duplicado);
+            }
+            throw ex;
+        }
 
         ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
                 "PERMITIDO",
