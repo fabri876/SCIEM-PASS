@@ -483,3 +483,14 @@ export function suscribirConectividad(callback) {
     suscriptores.delete(callback);
   };
 }
+
+/**
+ * Devuelve true si el dispositivo está sin conexión real.
+ * Considera el estado interno del monitor y navigator.onLine como fallback.
+ */
+export function estaSinRed() {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return true;
+  }
+  return estadoConexion.estado === 'offline';
+}

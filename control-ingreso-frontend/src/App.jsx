@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, registrarActividad, estaSesionExpirada, cerrarSesion } from "./services/authService";
+import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, registrarActividad, estaSesionExpirada, cerrarSesion, setModoOfflineForzado } from "./services/authService";
+import { configRepo } from "./offline/configRepo.js";
 
 // Páginas comunes
 
@@ -81,7 +82,17 @@ function App() {
     window.addEventListener("click", manejarActividad);
     window.addEventListener("scroll", manejarActividad);
 
-    const intervaloVerificacion = setInterval(() => {
+    const intervaloVerificacion = setInterval(async () => {
+      // No cerrar sesión por inactividad si está en modo offline forzado:
+      // el operador debe seguir operando aunque no haya red.
+      try {
+        const modoOffline = await configRepo.obtenerConfig("modoOfflineForzado", false);
+        setModoOfflineForzado(modoOffline);
+        if (modoOffline) return;
+      } catch {
+        // Si no se puede leer la config, continuar con la verificación normal
+      }
+
       if (estaSesionExpirada() && localStorage.getItem("token")) {
         cerrarSesion();
         // TC-211/TC-215 (QA): antes no se guardaba este mensaje acá, solo en
