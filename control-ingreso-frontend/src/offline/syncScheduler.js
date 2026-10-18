@@ -125,35 +125,22 @@ async function dispararSincronizacion(motivo) {
  * - Si res.omitido es true: devuelve con motivo: 'envio_en_curso' sin actualizar ultimaSync ni ultimoResultado.
  */
 export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
-  const conn = obtenerEstadoConexion();
   const pendientesRestantes = await asistenciaRepo.contarPendientes();
 
-  if (conn.forzado) {
-    const redReal = await probarConexionReal();
-    if (!redReal.ok) {
-      return {
-        sinConexion: true,
-        pendientesRestantes,
-        enviados: 0,
-        procesados: 0,
-        duplicados: 0,
-        errores: 0,
-        itemsConFalloDeLote: 0
-      };
-    }
-  } else {
-    const estadoActualizado = await verificarAhora();
-    if (estadoActualizado.estado === 'offline') {
-      return {
-        sinConexion: true,
-        pendientesRestantes,
-        enviados: 0,
-        procesados: 0,
-        duplicados: 0,
-        errores: 0,
-        itemsConFalloDeLote: 0
-      };
-    }
+  // Verificación real de conexión: no confiar solo en el estado cached.
+  // Si el usuario vuelve a internet pero el ping aún no se ha disparado,
+  // estadoConexion.estado puede seguir siendo 'offline' y bloquear el envío.
+  const redReal = await probarConexionReal();
+  if (!redReal.ok) {
+    return {
+      sinConexion: true,
+      pendientesRestantes,
+      enviados: 0,
+      procesados: 0,
+      duplicados: 0,
+      errores: 0,
+      itemsConFalloDeLote: 0
+    };
   }
 
   pausadoPorAuth = false;

@@ -3,6 +3,7 @@
 import "./controlIngreso.css";
 import { ArrowLeft, Info } from "lucide-react";
 import { useOperador } from "../operadorContexto";
+import { db } from "../../../offline/db.js";
 import ListaExamenesHoy from "./componentes/ListaExamenesHoy";
 import TarjetaExamen from "./componentes/TarjetaExamen";
 import EstacionVerificacion from "./componentes/EstacionVerificacion";
@@ -15,6 +16,24 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
     boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
   } = ctrl;
+
+  const fnResetearNomina = async () => {
+    const exId = Number(examenActual?.idexamen);
+    if (!Number.isInteger(exId) || exId <= 0) {
+      fnMostrarToast("No hay un examen válido seleccionado.");
+      return;
+    }
+    if (!window.confirm("¿Resetear la nómina local y las marcas pendientes de este examen? Se borrarán los registros offline no sincronizados.")) return;
+    try {
+      await db.transaction('rw', db.nominas, db.asistencias_pendientes, async () => {
+        await db.nominas.where('examenId').equals(exId).delete();
+        await db.asistencias_pendientes.where('examenId').equals(exId).delete();
+      });
+      fnMostrarToast("Nómina local y marcas pendientes eliminadas. Puedes volver a descargar.");
+    } catch (err) {
+      fnMostrarToast("Error al resetear: " + (err?.message || ""));
+    }
+  };
 
   if (idExamen == null) {
     return (
@@ -70,6 +89,13 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               ) : (
                 <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes)</span>
               )}
+              <button
+                type="button"
+                onClick={fnResetearNomina}
+                className="ml-3 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#B91C1C] text-white hover:bg-[#991B1B] transition-colors cursor-pointer"
+              >
+                Resetear nómina local
+              </button>
             </>
           ) : (
             <>
