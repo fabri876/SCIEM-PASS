@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "../common/Logo";
 import UserAccountMenu from "../common/UserAccountMenu";
@@ -44,6 +44,12 @@ import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, cerrarSesion } f
  * + sesión) debajo del header, controlado con el estado local
  * "boolMenuAbierto". El logo siempre queda visible a la izquierda, tanto
  * en desktop como en mobile.
+ *
+ * CAMBIO (card "Notificaciones" del Inicio): InfoHighlights dispara el
+ * evento global "abrir-notificaciones". En desktop, NotificationsMenu lo
+ * escucha y se abre solo. En mobile, el NotificationsMenu solo existe
+ * con el menú hamburguesa abierto, así que acá el Header abre el menú y
+ * le pasa "boolAbiertoInicial" para que nazca desplegado.
  */
 const arrNavItems = [
   {
@@ -101,6 +107,7 @@ export default function Header() {
   const usuarioActual = obtenerUsuarioActual();
   const boolAutenticado = Boolean(obtenerToken() && usuarioActual);
   const [boolMenuAbierto, setBoolMenuAbierto] = useState(false);
+  const [boolAbrirNotifMobile, setBoolAbrirNotifMobile] = useState(false);
 
   const fnCerrarSesion = () => {
     cerrarSesion();
@@ -110,6 +117,24 @@ export default function Header() {
 
   const fnAlternarMenu = () => setBoolMenuAbierto((boolPrev) => !boolPrev);
   const fnCerrarMenu = () => setBoolMenuAbierto(false);
+
+  // Pedido desde la card "Notificaciones" del Inicio (solo mobile: en desktop
+  // el propio NotificationsMenu escucha el evento y se abre)
+  useEffect(() => {
+    const fnAbrirNotif = () => {
+      if (window.matchMedia("(min-width: 768px)").matches) return;
+      setBoolAbrirNotifMobile(true);
+      setBoolMenuAbierto(true);
+    };
+    window.addEventListener("abrir-notificaciones", fnAbrirNotif);
+    return () => window.removeEventListener("abrir-notificaciones", fnAbrirNotif);
+  }, []);
+
+  // Al cerrarse el menú mobile, la próxima vez que se abra no debe nacer
+  // con las notificaciones desplegadas
+  useEffect(() => {
+    if (!boolMenuAbierto) setBoolAbrirNotifMobile(false);
+  }, [boolMenuAbierto]);
 
   const navItems = arrNavItems.map(item => item.strTexto === "Inicio" && boolAutenticado
     ? { ...item, strRuta: obtenerRutaPorRol(usuarioActual.rol) } : item);
@@ -192,7 +217,7 @@ export default function Header() {
           ))}
 
           {/* Notificaciones: en mobile la lista se expande en línea */}
-          <NotificationsMenu boolVersionMobile />
+          <NotificationsMenu boolVersionMobile boolAbiertoInicial={boolAbrirNotifMobile} />
 
           <div className="mt-3 pt-3 border-t border-[#E2E8F0]">
             {boolAutenticado ? (
