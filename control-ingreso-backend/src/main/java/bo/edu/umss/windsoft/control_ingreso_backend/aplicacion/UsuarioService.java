@@ -129,7 +129,7 @@ public class UsuarioService {
             }
         }
 
-        auditoriaService.registrar("CREACION_USUARIO", executorCorreo, dto.getCorreo(),
+        auditoriaService.registrarEnTransaccion("CREACION_USUARIO", executorCorreo, dto.getCorreo(),
                 "Registro de cuenta con rol " + rolNormalizado + " realizada por " + executorCorreo + ".", ip);
 
         return usuarioRespuestaMapper.mapear(usuario);
@@ -177,7 +177,7 @@ public class UsuarioService {
         // Crear nueva fila en tabla hija
         crearFilaTablaHija(rolNuevoNormalizado, id, codigoSis);
 
-        auditoriaService.registrar("CAMBIO_ROL_USUARIO", executorCorreo, usuario.getCorreousuario(),
+        auditoriaService.registrarEnTransaccion("CAMBIO_ROL_USUARIO", executorCorreo, usuario.getCorreousuario(),
                 "Cambio de rol de " + rolOriginal + " a " + rolNuevoNormalizado + " para ID " + id + ".", ip);
 
         return usuarioRespuestaMapper.mapear(usuario);
@@ -203,7 +203,7 @@ public class UsuarioService {
 
         usuario = usuarioRepository.save(usuario);
 
-        auditoriaService.registrar("EDICION_USUARIO", executorCorreo, usuario.getCorreousuario(),
+        auditoriaService.registrarEnTransaccion("EDICION_USUARIO", executorCorreo, usuario.getCorreousuario(),
                 "Actualización de datos personales para ID " + id + ".", ip);
 
         return usuarioRespuestaMapper.mapear(usuario);
@@ -216,7 +216,7 @@ public class UsuarioService {
         usuario = usuarioRepository.save(usuario);
 
         String accion = activo ? "ACTIVACION_USUARIO" : "DESACTIVACION_USUARIO";
-        auditoriaService.registrar(accion, executorCorreo, usuario.getCorreousuario(),
+        auditoriaService.registrarEnTransaccion(accion, executorCorreo, usuario.getCorreousuario(),
                 "Estado de cuenta cambiado a " + (activo ? "ACTIVO" : "INACTIVO") + " para ID " + id + ".", ip);
 
         return usuarioRespuestaMapper.mapear(usuario);

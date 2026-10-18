@@ -38,7 +38,7 @@ class CargaMasivaAcademicaTest {
         try(var w = new XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
             var s = w.createSheet(); var encabezados = s.createRow(0); var fila = s.createRow(1);
             String[] nombres = {"CODSIS", "CORREO", "CI", "APELLIDO", "NOMBRE", encabezadoMateria, "GRUPO"};
-            String[] valores = {"98765", "persona@example.test", "1234567", "Apellido", "Nombre", materia, grupo};
+            String[] valores = {"987000065", "persona@example.test", "1234567", "Apellido", "Nombre", materia, grupo};
             for(int i = 0; i < nombres.length; i++) { encabezados.createCell(i).setCellValue(nombres[i]); fila.createCell(i).setCellValue(valores[i]); }
             w.write(out); return new MockMultipartFile("archivo", "personas.xlsx", "application/octet-stream", out.toByteArray());
         }
@@ -56,8 +56,8 @@ class CargaMasivaAcademicaTest {
         var resultado = servicio.procesarCargaMasiva(archivo("CALCULO I; ALGEBRA I; CALCULO I", "2; 3; 2"), "DOCENTE", "admin@example.test", "127.0.0.1", null);
         assertEquals(1, resultado.getExitosos());
         verify(docentes, times(1)).save(any());
-        verify(grupoService, times(1)).asignarDocenteAGrupo(5, 98765, 7);
-        verify(grupoService, times(1)).asignarDocenteAGrupo(5, 98765, 8);
+        verify(grupoService, times(1)).asignarDocenteAGrupo(5, 987000065, 7);
+        verify(grupoService, times(1)).asignarDocenteAGrupo(5, 987000065, 8);
         verify(asignaturas, times(1)).findByNombreAsignaturaIgnoreCase("CALCULO I");
         verify(grupos, times(1)).findByIdAsignaturaAndNombreGrupoIgnoreCase(10, "2");
         verify(usuarios, never()).existsByCiusuario(any());
@@ -74,7 +74,7 @@ class CargaMasivaAcademicaTest {
         verify(asignaturas,times(1)).findById(10);
         verify(asignaturas,never()).findByNombreAsignaturaIgnoreCase(any());
         verify(asignaturas,never()).findByCodigoOficial(any());
-        verify(grupoService).asignarDocenteAGrupo(5,98765,7);
+        verify(grupoService).asignarDocenteAGrupo(5,987000065,7);
     }
     @Test void codigoOficialTienePrioridadSobreElNombre() throws Exception {
         ejecutor(); when(passwords.encode(any())).thenReturn("hash");
@@ -86,7 +86,7 @@ class CargaMasivaAcademicaTest {
         var resultado=servicio.procesarCargaMasiva(archivo("2001","2","CODIGO_ASIGNATURA"),"DOCENTE","admin@example.test","127.0.0.1",null);
         assertEquals(1,resultado.getExitosos());
         verify(asignaturas,never()).findByNombreAsignaturaIgnoreCase(any());
-        verify(grupoService).asignarDocenteAGrupo(5,98765,7);
+        verify(grupoService).asignarDocenteAGrupo(5,987000065,7);
     }
     @Test void duplicadosExistentesSeRechazanConConsultaDeLote() throws Exception {
         ejecutor(); when(usuarios.buscarCisExistentes(anyList())).thenReturn(List.of("1234567"));
@@ -110,7 +110,7 @@ class CargaMasivaAcademicaTest {
         Usuario persona = new Usuario("1234567", "Nombre", "Apellido", null, "persona@example.test", "hash-original", true);
         persona.setIdusuario(5);
         when(usuarios.findByCiusuario("1234567")).thenReturn(Optional.of(persona));
-        when(docentes.findByCodsisdocente(98765)).thenReturn(Optional.of(new Docente(5, 98765)));
+        when(docentes.findByCodsisdocente(987000065)).thenReturn(Optional.of(new Docente(5, 987000065)));
     }
     @Test void docenteExistenteRecibeSoloNuevasAsignacionesSinCrearCuenta() throws Exception {
         ejecutor(); docenteExistente();
@@ -118,7 +118,7 @@ class CargaMasivaAcademicaTest {
         assertEquals(0, resultado.getExitosos()); assertEquals(0, resultado.getFallidos());
         assertEquals(1, resultado.getExistentes());
         assertTrue(resultado.getAvisos().getFirst().contains("Se añadieron 1"));
-        verify(grupoService).asignarDocenteAGrupo(5, 98765, 7);
+        verify(grupoService).asignarDocenteAGrupo(5, 987000065, 7);
         verify(usuarios, never()).save(any()); verifyNoInteractions(passwords);
     }
     @Test void reimportarDocenteConGrupoExistenteInformaSinDuplicarlo() throws Exception {
@@ -133,7 +133,7 @@ class CargaMasivaAcademicaTest {
         when(usuarios.buscarCisExistentes(anyList())).thenReturn(List.of("1234567"));
         Usuario persona = new Usuario(); persona.setIdusuario(5);
         when(usuarios.findByCiusuario("1234567")).thenReturn(Optional.of(persona));
-        when(docentes.findByCodsisdocente(98765)).thenReturn(Optional.of(new Docente(6, 98765)));
+        when(docentes.findByCodsisdocente(987000065)).thenReturn(Optional.of(new Docente(6, 987000065)));
         var resultado = servicio.procesarCargaMasiva(archivo(false), "DOCENTE", "admin@example.test", "127.0.0.1", 7);
         assertEquals(1, resultado.getFallidos()); assertEquals(0, resultado.getExistentes());
         verify(grupoService, never()).asignarDocenteAGrupo(any(), any(), any());
@@ -158,8 +158,8 @@ class CargaMasivaAcademicaTest {
         var resultado = servicio.procesarCargaMasiva(lote, "DOCENTE", "admin@example.test", "127.0.0.1", null);
         assertEquals(1, resultado.getExitosos()); assertEquals(1, resultado.getExistentes()); assertEquals(0, resultado.getFallidos());
         verify(usuarios, times(1)).save(any()); verify(passwords, times(1)).encode(any());
-        verify(grupoService).asignarDocenteAGrupo(5, 98765, 7);
-        verify(grupoService).asignarDocenteAGrupo(5, 98765, 8);
+        verify(grupoService).asignarDocenteAGrupo(5, 987000065, 7);
+        verify(grupoService).asignarDocenteAGrupo(5, 987000065, 8);
     }
     @Test void loteSinGrupoRechazaLasFilasAntesDeCrearPersonas() throws Exception {
         ejecutor();
@@ -172,7 +172,7 @@ class CargaMasivaAcademicaTest {
         var preview = servicio.previsualizar(archivo("CALCULO I; ALGEBRA I", "2; 3"), "DOCENTE", "admin@example.test", null);
         assertEquals(1, preview.filas().size());
         var fila = preview.filas().getFirst();
-        assertEquals("1234567", fila.ci()); assertEquals(98765, fila.codigoSis());
+        assertEquals("1234567", fila.ci()); assertEquals(987000065, fila.codigoSis());
         assertEquals("DOCENTE", fila.rol()); assertEquals("CALCULO I; ALGEBRA I", fila.asignatura());
         assertEquals("2; 3", fila.grupo());
         verify(usuarios, never()).save(any()); verifyNoInteractions(passwords, auditoria, docentes, estudiantes);
@@ -248,6 +248,6 @@ class CargaMasivaAcademicaTest {
         when(usuarios.save(any())).thenAnswer(i -> { Usuario u = i.getArgument(0); u.setIdusuario(5); return u; });
         var resultado = servicio.procesarCargaMasiva(archivo(false), "ESTUDIANTE", "admin@example.test", "127.0.0.1", 7);
         assertEquals(1, resultado.getExitosos()); assertEquals(0, resultado.getFallidos());
-        verify(grupoService).inscribirEstudianteAGrupo(5, 98765, 7);
+        verify(grupoService).inscribirEstudianteAGrupo(5, 987000065, 7);
     }
 }

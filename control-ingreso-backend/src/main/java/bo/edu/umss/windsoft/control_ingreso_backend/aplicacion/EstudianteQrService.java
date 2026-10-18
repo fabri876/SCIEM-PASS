@@ -129,6 +129,15 @@ public class EstudianteQrService {
         );
     }
 
+    /** Regenera el token existente para este estudiante y examen, sin borrar la fila. */
+    @Transactional
+    public QrCredencialDTO regenerarQrParaEstudiante(Integer idUsuario, Integer idExamen) {
+        QrCredencialDTO actual = obtenerQrParaEstudiante(idUsuario, idExamen);
+        if (actual.contenidoQr() == null) return actual;
+        qrGeneratorService.generarCredencialParaEstudiante(idUsuario, idExamen);
+        return obtenerQrParaEstudiante(idUsuario, idExamen);
+    }
+
     // ─── helpers ──────────────────────────────────────────────────────────────
 
     private QrCredencialDTO sinQr(String mensaje, Examen examen, Credencial credencial) {

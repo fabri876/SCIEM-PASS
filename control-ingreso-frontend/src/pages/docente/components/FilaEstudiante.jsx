@@ -1,7 +1,7 @@
 import BadgeEstado from './BadgeEstado';
 import Icono from './Icono';
 
-export default function FilaEstudiante({ est, numeroFila, onGestionar }) {
+export default function FilaEstudiante({ est, numeroFila, onGestionar, onEliminar }) {
     const iniciales = `${est.nombreEstudiante?.[0] || ''}${est.apellidoEstudiante?.[0] || ''}`.toUpperCase();
     return (
         <tr className="hover:bg-[#F8FAFC] transition">
@@ -27,6 +27,7 @@ export default function FilaEstudiante({ est, numeroFila, onGestionar }) {
                 <button onClick={() => onGestionar(est)} className="bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl transition shadow-xs cursor-pointer inline-flex items-center gap-1.5">
                     <Icono nombre="lapiz" className="w-[15px] h-[15px]" /> Modificar estado
                 </button>
+                <button onClick={() => onEliminar(est)} title="Eliminar asociación" className="ml-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs p-2 rounded-xl transition cursor-pointer"><Icono nombre="basurero" className="w-[15px] h-[15px]" /></button>
             </td>
         </tr>
     );

@@ -312,8 +312,10 @@ export default function HomeDocente() {
         return cargarUsuariosMasivo(file, "ESTUDIANTE", grupo ? Number(grupo) : null);
     };
 
+    const [mensajeRegistro, setMensajeRegistro] = useState("");
     const fnRegistrarIndividual = async (datos) => {
         await registrarUsuarioIndividual(datos);
+        setMensajeRegistro("Usuario registrado correctamente.");
         setBoolModalRegistroAbierto(false);
         // Si se registró un operador, la pantalla de asignación vuelve a pedir la lista
         setNumRecargaOperadores((n) => n + 1);
@@ -328,6 +330,7 @@ export default function HomeDocente() {
                 <Header strRutaActiva="Inicio" />
             </div>
 
+            {mensajeRegistro && <p role="status" className="fixed bottom-4 left-4 z-50 rounded-xl bg-green-100 text-green-800 p-4 shadow">{mensajeRegistro}</p>}
             {/* CONTENEDOR PRINCIPAL */}
             <div className="flex-1 w-full">
                 <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-6 gap-6">

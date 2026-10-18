@@ -8,6 +8,12 @@ public record ResultadoIngresoDTO(
         EstudianteResumenDTO estudiante,
         LocalDateTime horaIngreso,
         PrimerIngresoDTO primerIngreso,
-        String motivoInhabilitacion
+        String motivoInhabilitacion,
+        OtroExamenDTO otroExamen
 ) {
+    public ResultadoIngresoDTO(String estado, String mensaje, EstudianteResumenDTO estudiante,
+                               LocalDateTime horaIngreso, PrimerIngresoDTO primerIngreso,
+                               String motivoInhabilitacion) {
+        this(estado, mensaje, estudiante, horaIngreso, primerIngreso, motivoInhabilitacion, null);
+    }
 }

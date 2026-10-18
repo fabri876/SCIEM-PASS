@@ -124,6 +124,14 @@ public class HabilitacionService {
         return mapearADto(guardada);
     }
 
+    @Transactional
+    public void eliminarAsociacion(Integer idHabilitacion) {
+        if (!habilitacionRepository.existsById(idHabilitacion)) {
+            throw new RecursoNoEncontradoException("No se encontró la habilitación con ID: " + idHabilitacion);
+        }
+        habilitacionRepository.deleteById(idHabilitacion);
+    }
+
     // BUG-007 (QA): "Exportar lista oficial" era 100% decorativo, no había
     // ningún endpoint detrás. Reusa Apache POI, ya en el classpath (lo usa
     // CargaMasivaService para LEER Excel; acá se usa para escribirlo).

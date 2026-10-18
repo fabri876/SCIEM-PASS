@@ -41,7 +41,8 @@ public class ExamenService {
     private final AsignaturaRepository asignaturaRepository;
     private final UsuarioRepository usuarioRepository;
     private final NormaGeneralRepository normaGeneralRepository;
-    private final GrupoRepository         grupoRepository;
+    private final GrupoRepository grupoRepository;
+    private final HabilitacionRepository habilitacionRepository;
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -57,6 +58,7 @@ public class ExamenService {
             UsuarioRepository usuarioRepository,
             NormaGeneralRepository normaGeneralRepository,
             GrupoRepository grupoRepository,
+            HabilitacionRepository habilitacionRepository,
             CambioExamenService cambiosExamen) {
 
         this.cambiosExamen = cambiosExamen;
@@ -72,7 +74,8 @@ public class ExamenService {
         this.asignaturaRepository = asignaturaRepository;
         this.usuarioRepository = usuarioRepository;
         this.normaGeneralRepository = normaGeneralRepository;
-        this.grupoRepository         = grupoRepository;
+        this.grupoRepository = grupoRepository;
+        this.habilitacionRepository = habilitacionRepository;
     }
 
     // -------------------------------------------------------------------------
@@ -99,7 +102,7 @@ public class ExamenService {
     }
 
     // -------------------------------------------------------------------------
-    // ACTUALIZAR EXAMEN  (PUT /api/examenes/{id})
+    // ACTUALIZAR EXAMEN (PUT /api/examenes/{id})
     // -------------------------------------------------------------------------
 
     @Transactional
@@ -135,7 +138,8 @@ public class ExamenService {
 
         Examen actualizado = crearOActualizarExamen(examenExistente, request);
         ambienteRepository.flush();
-        cambiosExamen.registrar(idExamen, antes, cambiosExamen.estado(actualizado.getFechaExamen(), ambienteRepository.findByIdExamen(idExamen)));
+        cambiosExamen.registrar(idExamen, antes,
+                cambiosExamen.estado(actualizado.getFechaExamen(), ambienteRepository.findByIdExamen(idExamen)));
         return enriquecerExamen(actualizado);
     }
 
@@ -159,7 +163,7 @@ public class ExamenService {
 
         if (Boolean.TRUE.equals(tipoExamen.getRequiereDescripcion())
                 && (request.getDetalleTipoExamen() == null
-                    || request.getDetalleTipoExamen().isBlank())) {
+                        || request.getDetalleTipoExamen().isBlank())) {
             throw new IllegalArgumentException(
                     "Debe especificar el detalle del tipo de examen.");
         }
@@ -186,8 +190,7 @@ public class ExamenService {
                     .orElseThrow(() -> new IllegalArgumentException(
                             "Horario regular no encontrado."));
 
-            boolean perteneceAlDocente =
-                    hr.getIdUsuario().equals(request.getIdUsuario())
+            boolean perteneceAlDocente = hr.getIdUsuario().equals(request.getIdUsuario())
                     && hr.getCodsisDocente().equals(request.getCodsisDocente())
                     && hr.getIdAsignatura().equals(request.getIdAsignatura());
 
@@ -261,7 +264,8 @@ public class ExamenService {
 
         if (aulasAdicionales != null) {
             for (Integer idAulaAdicional : aulasAdicionales) {
-                guardarAmbiente(examenGuardado, idAulaAdicional, idHorarioRegularUsado, horaInicio, horaFin, request.getTipoHorario());
+                guardarAmbiente(examenGuardado, idAulaAdicional, idHorarioRegularUsado, horaInicio, horaFin,
+                        request.getTipoHorario());
             }
         }
 
@@ -304,6 +308,20 @@ public class ExamenService {
         return obtenerExamenesDocenteEnriquecidos(idUsuarioAutenticado, docente.getCodsisdocente());
     }
 
+    /** Exámenes en los que el estudiante autenticado tiene habilitación. */
+    public List<ExamenRespuestaDto> obtenerExamenesEstudiante(Integer idUsuario) {
+        List<Integer> ids = habilitacionRepository.findAllConDetalles().stream()
+                .filter(h -> h.getEstudiante() != null
+                        && idUsuario.equals(h.getEstudiante().getIdusuario()))
+                .map(Habilitacion::getIdExamen)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty())
+            return List.of();
+        return enriquecerLote(examenRepository.findAllById(ids));
+    }
+
     public List<ExamenRespuestaDto> obtenerExamenesDocenteEnriquecidos(
             Integer idUsuario, Integer codsisDocente) {
         return enriquecerLote(examenRepository.findByIdUsuarioAndCodsisDocente(idUsuario, codsisDocente));
@@ -313,9 +331,11 @@ public class ExamenService {
         return enriquecerLote(List.of(examen)).get(0);
     }
 
-    /** Enriquece una lista de exámenes con UNA consulta por tipo de dato relacionado
-     *  (asignaturas, tipos, docentes, ambientes, aulas, normas generales), en vez de
-     *  una consulta por examen. Evita el patrón N+1. */
+    /**
+     * Enriquece una lista de exámenes con UNA consulta por tipo de dato relacionado
+     * (asignaturas, tipos, docentes, ambientes, aulas, normas generales), en vez de
+     * una consulta por examen. Evita el patrón N+1.
+     */
     private List<ExamenRespuestaDto> enriquecerLote(List<Examen> examenes) {
         if (examenes.isEmpty()) {
             return List.of();
@@ -411,7 +431,7 @@ public class ExamenService {
                 AmbienteRespuestaDto amb = new AmbienteRespuestaDto();
                 amb.setIdAmbiente(a.getIdAmbiente());
                 amb.setIdAula(a.getIdAula());
-                amb.setIdHorarioRegular(a.getIdHorarioRegular());   // <-- NUEVO
+                amb.setIdHorarioRegular(a.getIdHorarioRegular()); // <-- NUEVO
                 amb.setTipoHorario(a.getTipoHorario() != null ? a.getTipoHorario().name() : null);
                 amb.setHoraInicio(a.getHoraInicio() != null ? a.getHoraInicio().toString() : null);
                 amb.setHoraFin(a.getHoraFin() != null ? a.getHoraFin().toString() : null);
@@ -427,8 +447,8 @@ public class ExamenService {
             dto.setAmbientes(ambientesDto);
 
             // --- NUEVO: poblar normasGenerales del DTO ---
-            List<ExamenNormaGeneral> relacionesDeEsteExamen =
-                    relacionesPorExamen.getOrDefault(examen.getIdExamen(), List.of());
+            List<ExamenNormaGeneral> relacionesDeEsteExamen = relacionesPorExamen.getOrDefault(examen.getIdExamen(),
+                    List.of());
             List<NormaGeneralRespuestaDto> normasGeneralesDto = relacionesDeEsteExamen.stream().map(rel -> {
                 NormaGeneralRespuestaDto ng = new NormaGeneralRespuestaDto();
                 NormaGeneral norma = normasGeneralesPorId.get(rel.getId().getIdNormaGeneral());
@@ -471,7 +491,7 @@ public class ExamenService {
     // -------------------------------------------------------------------------
 
     public List<AmbienteRespuestaDto> obtenerAmbientesDeExamen(Integer idExamen) {
-    List<Ambiente> ambientes = ambienteRepository.findByIdExamen(idExamen);
+        List<Ambiente> ambientes = ambienteRepository.findByIdExamen(idExamen);
         if (ambientes.isEmpty()) {
             return List.of();
         }
@@ -483,7 +503,7 @@ public class ExamenService {
             AmbienteRespuestaDto amb = new AmbienteRespuestaDto();
             amb.setIdAmbiente(a.getIdAmbiente());
             amb.setIdAula(a.getIdAula());
-            amb.setIdHorarioRegular(a.getIdHorarioRegular());   // <-- NUEVO
+            amb.setIdHorarioRegular(a.getIdHorarioRegular()); // <-- NUEVO
             amb.setTipoHorario(a.getTipoHorario() != null ? a.getTipoHorario().name() : null);
             amb.setHoraInicio(a.getHoraInicio() != null ? a.getHoraInicio().toString() : null);
             amb.setHoraFin(a.getHoraFin() != null ? a.getHoraFin().toString() : null);
@@ -547,7 +567,7 @@ public class ExamenService {
     // -------------------------------------------------------------------------
 
     private void guardarAmbiente(Examen examen, Integer idAula, Integer idHorarioRegular,
-                                  LocalTime horaInicio, LocalTime horaFin, TipoHorario tipoHorario) {
+            LocalTime horaInicio, LocalTime horaFin, TipoHorario tipoHorario) {
         Ambiente ambiente = new Ambiente();
         ambiente.setIdAsignatura(examen.getIdAsignatura());
         ambiente.setIdExamen(examen.getIdExamen());
@@ -569,8 +589,8 @@ public class ExamenService {
     }
 
     private void validarSinSolapamiento(Integer idAula, LocalDate fecha,
-                                         LocalTime horaInicio, LocalTime horaFin,
-                                         Integer idExamenAExcluir) {
+            LocalTime horaInicio, LocalTime horaFin,
+            Integer idExamenAExcluir) {
         List<Ambiente> ambientesExistentes = ambienteRepository.findByIdAulaYFecha(idAula, fecha);
 
         for (Ambiente existente : ambientesExistentes) {
@@ -618,8 +638,8 @@ public class ExamenService {
         }
         if (request.getTipoHorario() == TipoHorario.EVENTUAL
                 && (request.getIdAula() == null
-                    || request.getHoraInicio() == null
-                    || request.getHoraFin() == null)) {
+                        || request.getHoraInicio() == null
+                        || request.getHoraFin() == null)) {
             throw new IllegalArgumentException(
                     "Un horario eventual requiere aula, hora de inicio y hora de fin.");
         }
@@ -670,7 +690,10 @@ public class ExamenService {
             if (amb.getIdAula() != null) {
                 Aula aula = aulaRepository.findById(amb.getIdAula()).orElse(null);
                 if (aula != null) {
-                    ambienteNombre = aula.getNombreAula() + (aula.getUbicacionAula() != null && !aula.getUbicacionAula().isBlank() ? " · " + aula.getUbicacionAula() : "");
+                    ambienteNombre = aula.getNombreAula()
+                            + (aula.getUbicacionAula() != null && !aula.getUbicacionAula().isBlank()
+                                    ? " · " + aula.getUbicacionAula()
+                                    : "");
                 }
             }
         }
@@ -680,14 +703,19 @@ public class ExamenService {
             if (!horarios.isEmpty()) {
                 HorarioRegular hr = horarios.get(0);
                 if ("---".equals(hora) && hr.getHoraInicio() != null && hr.getHoraFin() != null) {
-                    if (hInicio == null) hInicio = hr.getHoraInicio();
-                    if (hFin == null) hFin = hr.getHoraFin();
+                    if (hInicio == null)
+                        hInicio = hr.getHoraInicio();
+                    if (hFin == null)
+                        hFin = hr.getHoraFin();
                     hora = hr.getHoraInicio() + " - " + hr.getHoraFin();
                 }
                 if ("---".equals(ambienteNombre) && hr.getIdAula() != null) {
                     Aula aula = aulaRepository.findById(hr.getIdAula()).orElse(null);
                     if (aula != null) {
-                        ambienteNombre = aula.getNombreAula() + (aula.getUbicacionAula() != null && !aula.getUbicacionAula().isBlank() ? " · " + aula.getUbicacionAula() : "");
+                        ambienteNombre = aula.getNombreAula()
+                                + (aula.getUbicacionAula() != null && !aula.getUbicacionAula().isBlank()
+                                        ? " · " + aula.getUbicacionAula()
+                                        : "");
                     }
                 }
             }
@@ -716,7 +744,8 @@ public class ExamenService {
         if (examen.getIdUsuario() != null) {
             Usuario u = usuarioRepository.findById(examen.getIdUsuario()).orElse(null);
             if (u != null) {
-                String n = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
+                String n = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " "
+                        + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
                 if (!n.isEmpty()) {
                     nombreDocente = n;
                 }
@@ -728,7 +757,8 @@ public class ExamenService {
                 Integer idU = docentesAsig.get(0).getId().getIdusuario();
                 Usuario u = usuarioRepository.findById(idU).orElse(null);
                 if (u != null) {
-                    String n = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
+                    String n = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " "
+                            + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
                     if (!n.isEmpty()) {
                         nombreDocente = n;
                     }
@@ -753,8 +783,7 @@ public class ExamenService {
                 hora,
                 ambienteNombre,
                 idAsignatura,
-                nombreDocente
-        );
+                nombreDocente);
         dto.setDuracion(duracionExamen);
         dto.setSiglaAsignatura(siglaAsignatura);
         dto.setNombreAsignatura(nombreAsignaturaStr);

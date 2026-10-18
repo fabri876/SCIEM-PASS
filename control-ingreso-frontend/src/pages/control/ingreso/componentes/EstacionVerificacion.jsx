@@ -165,7 +165,10 @@ function PanelManual({ onValidar, boolValidando }) {
           onChange={fnCambiar}
           onKeyDown={fnTecla}
           inputMode="numeric"
-          maxLength={9}
+          // El límite visible no puede ser 9: el navegador cuenta espacios
+          // antes de ejecutar onChange y truncaría códigos pegados como
+          // "2023 012 45". onChange normaliza y limita a 9 dígitos.
+          maxLength={32}
           placeholder="Ej. 8765432 o 202301245"
           aria-describedby="ci-ayuda"
           className={

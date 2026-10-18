@@ -3,9 +3,10 @@
 import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken, cerrarSesion } from "./authService";
 
-async function pedir(strRuta) {
+async function pedir(strRuta, opciones = {}) {
     const strToken = obtenerToken();
     const resp = await fetch(`${strApiBaseUrl}${strRuta}`, {
+        ...opciones,
         headers: {
             "Content-Type": "application/json",
             ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
@@ -47,15 +48,15 @@ function calcularEstadoQr(objQr) {
 export async function obtenerMisExamenesEstudiante() {
     const datos = await pedir("/api/v1/estudiante/examenes");
     return (datos || []).map((e) => ({
-        id: e.idexamen,
+        id: e.idexamen ?? e.idExamen,
         materia: e.nombreAsignatura,
-        tipo: e.nombreExamen,
-        grupo: e.grupo,
-        aula: e.nombreAmbiente,
-        edificio: e.ubicacionAmbiente || "",
+        tipo: e.nombreTipoExamen || e.detalleTipoExamen || "Examen",
+        grupo: e.nombreGrupo || e.numeroGrupo || "",
+        aula: e.ambientes?.[0]?.nombreAmbiente || "Aula no asignada",
+        edificio: e.ambientes?.[0]?.ubicacionAmbiente || "",
         fecha: soloFecha(e.fechaExamen),
-        horaInicio: hhmm(e.horaInicio),
-        horaFin: hhmm(e.horaFin),
+        horaInicio: hhmm(e.ambientes?.[0]?.horaInicio),
+        horaFin: hhmm(e.ambientes?.[0]?.horaFin),
         habilitado: e.habilitado !== false,
         motivo: e.motivoInhabilitacion || "",
     }));
@@ -83,14 +84,19 @@ export async function obtenerQrExamen(idExamen) {
     return { ...objQr, estado: calcularEstadoQr(objQr) };
 }
 
+export async function regenerarQrExamen(idExamen) {
+    const d = await pedir(`/api/v1/estudiante/examenes/${idExamen}/qr/regenerar`, { method: "POST" });
+    return { ...d, contenidoQr: d?.contenidoQr || null, estado: calcularEstadoQr(d || {}) };
+}
+
 // Estado aproximado del QR para la lista (sin pedir el QR de cada examen):
 // misma regla que el backend (desde el día anterior 00:00 hasta el fin del día del examen)
-export function estadoQrPorFecha(strFecha, boolHabilitado = true) {
+export function estadoQrPorFecha(strFecha, strHoraInicio = "00:00", boolHabilitado = true) {
     if (!boolHabilitado) return { estado: "INHABILITADO" };
     if (!strFecha) return { estado: "NO_DISPONIBLE" };
     const fin = new Date(`${strFecha}T23:59:59`);
-    const ini = new Date(`${strFecha}T00:00:00`);
-    ini.setDate(ini.getDate() - 1);
+    const inicioExamen = new Date(`${strFecha}T${strHoraInicio || "00:00"}:00`);
+    const ini = new Date(inicioExamen.getTime() - 24 * 60 * 60 * 1000);
     const ahora = new Date();
     if (ahora < ini) return { estado: "PENDIENTE", desde: ini };
     if (ahora > fin) return { estado: "VENCIDO" };

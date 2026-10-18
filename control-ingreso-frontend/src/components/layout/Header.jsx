@@ -124,7 +124,7 @@ export default function Header() {
 
       {/* Nav principal: solo visible desde "md" hacia arriba */}
       <nav
-        className="hidden md:flex ml-auto items-center gap-[38px] h-full"
+        className="hidden md:flex ml-auto items-center gap-4 lg:gap-8 h-full"
         aria-label="Navegación principal"
       >
         {navItems.map((item) => (
@@ -140,7 +140,7 @@ export default function Header() {
       </nav>
 
       {/* Bloque de sesión: solo visible desde "md" hacia arriba */}
-      <div className="hidden md:flex ml-10 pl-10 h-full items-center border-l border-[#CBD5E1]">
+      <div className="hidden md:flex min-w-0 ml-4 pl-4 lg:ml-8 lg:pl-8 h-full items-center border-l border-[#CBD5E1]">
         {boolAutenticado ? (
           <UserAccountMenu usuario={usuarioActual} onCerrarSesion={fnCerrarSesion} />
         ) : (

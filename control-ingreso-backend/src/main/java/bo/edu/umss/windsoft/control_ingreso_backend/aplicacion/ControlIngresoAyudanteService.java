@@ -31,14 +31,17 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.EstudianteR
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.JornadaActivaDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.PrimerIngresoDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ResultadoIngresoDTO;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.OtroExamenDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UltimoIngresoDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.VerificarIngresoRequestDTO;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -185,6 +188,9 @@ public class ControlIngresoAyudanteService {
     public JornadaActivaDTO obtenerExamenSeleccionado(Integer idUsuario, Integer idAsignatura, Integer idExamen, Integer idAmbiente) {
         bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId id =
                 new bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId(idUsuario, idAsignatura, idExamen, idAmbiente);
+        // Pendiente: permitir al docente consultar sus propias aulas sin exigir
+        // una fila en ayudante_examen. Se conserva temporalmente la validación
+        // original hasta definir el contrato completo para esta pantalla.
         AyudanteExamen asignacion = ayudanteExamenRepository.findById(id)
                 .orElseThrow(() -> new AsignacionNoActivaException("No tiene asignado el examen/aula seleccionada."));
 
@@ -238,11 +244,23 @@ public class ControlIngresoAyudanteService {
     @Transactional
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
                                                                  LocalDateTime horaMarcacion, String clientUuid) {
+        validarAsignacionDeControl(dto, idOperador);
         String query = dto.identificador() != null ? dto.identificador().trim() : "";
+
+        // Cuando la lectura proviene de la cámara, cualquier contenido que no
+        // sea una credencial SCIEM-PASS debe rechazarse como QR inválido. No
+        // debe caer al flujo de búsqueda manual por CI/SIS.
+        if (dto.metodoIngreso() == MetodoIngreso.ESCANEO && !query.startsWith(PREFIJO_QR)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
+                    "QR_INVALIDO",
+                    "QR INVÁLIDO - El código leído no corresponde a una credencial SCIEM-PASS.",
+                    null, null, null, null));
+        }
 
         // 1. Detección de Ingreso por QR (formato: SCIEMPASS:1:TOKEN)
         Estudiante estudiante = null;
         Usuario usuario = null;
+        boolean qrDeOtroExamen = false;
 
         if (query.startsWith(PREFIJO_QR)) {
             // --- Flujo QR ---
@@ -272,11 +290,7 @@ public class ControlIngresoAyudanteService {
 
             // Verificar que el QR corresponde al examen que se está controlando
             if (credencial.getIdExamen() != null && !credencial.getIdExamen().equals(dto.idexamen())) {
-                return ResponseEntity.status(HttpStatus.OK).body(new ResultadoIngresoDTO(
-                        "NO_INSCRITO",
-                        "QR DE OTRO EXAMEN - Este QR no corresponde al examen que se está controlando.",
-                        null, null, null, null
-                ));
+                qrDeOtroExamen = true;
             }
 
             // Token válido: resolver el estudiante por idUsuario de la credencial
@@ -327,32 +341,19 @@ public class ControlIngresoAyudanteService {
                 null
         );
 
-        // 2. Verificación de Habilitación Académica
-        Optional<Habilitacion> habOpt = habilitacionRepository
-                .findByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(dto.idasignatura(), dto.idexamen(), estudiante.getCodsisestudiante());
-
-        if (habOpt.isEmpty()) {
-            habOpt = habilitacionRepository.findByIdAsignaturaAndIdExamenAndIdUsuario(dto.idasignatura(), dto.idexamen(), usuario.getIdusuario());
+        if (qrDeOtroExamen) {
+            OtroExamenDTO otro = encontrarOtroExamen(estudiante.getCodsisestudiante(), dto.idexamen())
+                    .orElse(null);
+            return ResponseEntity.ok(new ResultadoIngresoDTO(
+                    "NO_INSCRITO",
+                    "QR DE OTRO EXAMEN - Este QR no corresponde al examen que se está controlando.",
+                    estudianteResumen, null, null, null, otro));
         }
 
-        if (habOpt.isEmpty() || !Boolean.TRUE.equals(habOpt.get().getEstadohabilitacion())) {
-            String motivo = habOpt.map(Habilitacion::getObservacionhabilitacion)
-                    .orElse("Estudiante no figura como HABILITADO para este examen.");
-            // HU10: el intento bloqueado queda registrado
-            intentoIngresoService.registrar(MotivoIntento.INHABILITADO, dto.idasignatura(), dto.idexamen(),
-                    dto.idambiente(), null, usuario.getIdusuario(), estudiante.getCodsisestudiante(), idOperador);
-            ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
-                    "INHABILITADO",
-                    "INGRESO DENEGADO - ESTUDIANTE INHABILITADO",
-                    estudianteResumen,
-                    null,
-                    null,
-                    motivo
-            );
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(resultado);
-        }
-
-        // 3. Verificación de Ingreso Previo (Duplicado)
+        // 2. Verificación de Ingreso Previo (Duplicado).
+        // Debe ejecutarse antes de la habilitación: un ingreso excepcional
+        // también cuenta como ingreso previo aunque el estudiante esté
+        // actualmente marcado como inhabilitado.
         Optional<Ingreso> ingresoPrevio = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
                 estudiante.getCodsisestudiante(), dto.idasignatura(), dto.idexamen()
         );
@@ -386,7 +387,43 @@ public class ControlIngresoAyudanteService {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(resultado);
         }
 
-        // 3.1 (HU10) Aula asignada: si se presenta en otra aula del examen, no se
+        // 3. Verificación de Habilitación Académica
+        Optional<Habilitacion> habOpt = habilitacionRepository
+                .findByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(dto.idasignatura(), dto.idexamen(), estudiante.getCodsisestudiante());
+
+        if (habOpt.isEmpty()) {
+            habOpt = habilitacionRepository.findByIdAsignaturaAndIdExamenAndIdUsuario(dto.idasignatura(), dto.idexamen(), usuario.getIdusuario());
+        }
+
+        // Si no está inscrito en el examen actual, orientar al estudiante hacia
+        // otro examen donde sí figura como habilitado. No se crea ingreso ni
+        // intento de inhabilitación para este caso.
+        Optional<OtroExamenDTO> otroExamen = encontrarOtroExamen(estudiante.getCodsisestudiante(), dto.idexamen());
+        if (habOpt.isEmpty() && otroExamen.isPresent()) {
+            return ResponseEntity.ok(new ResultadoIngresoDTO(
+                    "NO_INSCRITO",
+                    "ESTUDIANTE NO INSCRITO EN ESTE EXAMEN",
+                    estudianteResumen, null, null, null, otroExamen.get()));
+        }
+
+        if (habOpt.isEmpty() || !Boolean.TRUE.equals(habOpt.get().getEstadohabilitacion())) {
+            String motivo = habOpt.map(Habilitacion::getObservacionhabilitacion)
+                    .orElse("Estudiante no figura como HABILITADO para este examen.");
+            // HU10: el intento bloqueado queda registrado
+            intentoIngresoService.registrar(MotivoIntento.INHABILITADO, dto.idasignatura(), dto.idexamen(),
+                    dto.idambiente(), null, usuario.getIdusuario(), estudiante.getCodsisestudiante(), idOperador);
+            ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
+                    "INHABILITADO",
+                    "INGRESO DENEGADO - ESTUDIANTE INHABILITADO",
+                    estudianteResumen,
+                    null,
+                    null,
+                    motivo
+            );
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(resultado);
+        }
+
+        // 4.1 (HU10) Aula asignada: si se presenta en otra aula del examen, no se
         // registra; el docente puede "Reubicar y Autorizar" desde el dashboard.
         // primerIngreso lleva el aula ASIGNADA (no hay ingreso previo): así no se
         // cambia el formato de ResultadoIngresoDTO.
@@ -410,7 +447,7 @@ public class ControlIngresoAyudanteService {
             ));
         }
 
-        // 4. Registro Exitoso del Ingreso
+        // 5. Registro Exitoso del Ingreso
         Ingreso nuevoIngreso = new Ingreso();
         nuevoIngreso.setIdUsuarioEstudiante(usuario.getIdusuario());
         nuevoIngreso.setCodsisEstudiante(estudiante.getCodsisestudiante());
@@ -424,7 +461,24 @@ public class ControlIngresoAyudanteService {
         nuevoIngreso.setTipoIngreso(TipoIngreso.NORMAL);
         nuevoIngreso.setMetodoIngreso(dto.metodoIngreso() != null ? dto.metodoIngreso() : MetodoIngreso.MANUAL);
 
-        ingresoRepository.save(nuevoIngreso);
+        try {
+            ingresoRepository.saveAndFlush(nuevoIngreso);
+        } catch (DataIntegrityViolationException ex) {
+            // Condición de carrera: otro operador registró primero. La restricción
+            // única protege la BD y devolvemos el resultado informativo de duplicado.
+            Optional<Ingreso> concurrente = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
+                    estudiante.getCodsisestudiante(), dto.idasignatura(), dto.idexamen());
+            if (concurrente.isPresent()) {
+                Ingreso prev = concurrente.get();
+                ResultadoIngresoDTO duplicado = new ResultadoIngresoDTO(
+                        "DUPLICADO",
+                        "YA REGISTRADO - El estudiante ya registró su ingreso.",
+                        estudianteResumen, null,
+                        new PrimerIngresoDTO(prev.getHoraIngreso(), "Aula registrada", ""), null);
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(duplicado);
+            }
+            throw ex;
+        }
 
         ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
                 "PERMITIDO",
@@ -436,6 +490,39 @@ public class ControlIngresoAyudanteService {
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
+    }
+
+    private void validarAsignacionDeControl(VerificarIngresoRequestDTO dto, Integer idUsuario) {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean autorizadoGlobal = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()) || "ROLE_DOCENTE".equals(a.getAuthority()));
+        if (autorizadoGlobal) return;
+
+        boolean asignado = ayudanteExamenRepository
+                .existsByIdIdayudanteAndIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
+                        idUsuario, dto.idasignatura(), dto.idexamen(), dto.idambiente(), "ACTIVO");
+        if (!asignado) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "El operador no tiene asignada esta aula para el examen.");
+        }
+    }
+
+    private Optional<OtroExamenDTO> encontrarOtroExamen(Integer codSis, Integer examenActual) {
+        return habilitacionRepository.findByEstudianteCodsisestudiante(codSis).stream()
+                .filter(h -> Boolean.TRUE.equals(h.getEstadohabilitacion()))
+                .filter(h -> h.getIdExamen() != null && !h.getIdExamen().equals(examenActual))
+                .findFirst()
+                .flatMap(h -> examenRepository.findById(h.getIdExamen()).flatMap(examen -> {
+                    String aula = ambienteRepository.findByIdExamen(examen.getIdExamen()).stream().findFirst()
+                            .flatMap(a -> aulaRepository.findById(a.getIdAula()).map(Aula::getNombreAula))
+                            .orElse("Aula asignada");
+                    String hora = ambienteRepository.findByIdExamen(examen.getIdExamen()).stream().findFirst()
+                            .map(a -> String.valueOf(a.getHoraInicio()).substring(0, 5) + " - " + String.valueOf(a.getHoraFin()).substring(0, 5))
+                            .orElse("Horario no disponible");
+                    String asignatura = asignaturaRepository.findById(examen.getIdAsignatura())
+                            .map(a -> a.getNombreAsignatura()).orElse("Asignatura no disponible");
+                    return Optional.of(new OtroExamenDTO(asignatura, resolverNombreExamen(examen), aula, hora));
+                }));
     }
 
     private DelegadoExamenDTO mapearADelegadoDTO(AyudanteExamen ae) {

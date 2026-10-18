@@ -38,6 +38,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
   const [modalUsuario, setModalUsuario] = useState(null);
   const [usuarioParaCambiarEstado, setUsuarioParaCambiarEstado] = useState(null);
   const [usuarioParaEliminar, setUsuarioParaEliminar] = useState(null);
+  const [mensajeExito, setMensajeExito] = useState("");
   const [errorAccion, setErrorAccion] = useState("");
   const [boolProcesando, setBoolProcesando] = useState(false);
 
@@ -65,6 +66,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
       }
     } else {
       await onCrear(datos);
+      setMensajeExito("Usuario registrado correctamente.");
     }
     setModalUsuario(null);
   };
@@ -132,7 +134,8 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
             </button>)}
         </div>
 
-        {/* Buscador */}
+        {mensajeExito && <p role="status" className="text-green-700 font-semibold mb-3">{mensajeExito}</p>}
+      {/* Buscador */}
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-body/60" />
@@ -194,7 +197,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
                       <td className="py-3 px-4 text-text-body/80">{user.correo}</td>
                       <td className="py-3 px-4">
                         <span className="bg-bg-app border border-border text-primary-navy font-semibold px-3 py-1.5 rounded-xl text-secondary">
-                          {PESTANAS.find(tab => tab.id === user.rol)?.nombre || user.rol || "PENDIENTE"}
+                          {({ ESTUDIANTE: "Estudiante", DOCENTE: "Docente", OPERADOR: "Ayudante", ADMINISTRADOR: "Administrador" })[user.rol] || user.rol || "PENDIENTE"}
                         </span>
                       </td>
                       <td className="py-3 px-4">

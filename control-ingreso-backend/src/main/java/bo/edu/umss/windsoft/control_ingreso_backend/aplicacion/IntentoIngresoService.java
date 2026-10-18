@@ -7,9 +7,6 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IntentoNoAutori
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Guarda los ingresos bloqueados en el punto de control (HU05) para el
@@ -25,33 +22,27 @@ public class IntentoIngresoService {
     private static final Logger logger = LoggerFactory.getLogger(IntentoIngresoService.class);
 
     private final IntentoNoAutorizadoRepository intentoRepository;
-    private final TransactionTemplate transaccionPropia;
 
-    public IntentoIngresoService(IntentoNoAutorizadoRepository intentoRepository,
-                                 PlatformTransactionManager transactionManager) {
+    public IntentoIngresoService(IntentoNoAutorizadoRepository intentoRepository) {
         this.intentoRepository = intentoRepository;
-        this.transaccionPropia = new TransactionTemplate(transactionManager);
-        this.transaccionPropia.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     public void registrar(MotivoIntento motivo, Integer idAsignatura, Integer idExamen, Integer idAmbiente,
                           Integer idAmbienteAsignado, Integer idUsuarioEstudiante, Integer codSis,
                           Integer idUsuarioRegistra) {
         try {
-            transaccionPropia.executeWithoutResult(estado -> {
-                IntentoNoAutorizado intento = new IntentoNoAutorizado();
-                intento.setMotivo(motivo);
-                intento.setIdAsignatura(idAsignatura);
-                intento.setIdExamen(idExamen);
-                intento.setIdAmbiente(idAmbiente);
-                intento.setIdAmbienteAsignado(idAmbienteAsignado);
-                intento.setIdUsuarioEstudiante(idUsuarioEstudiante);
-                intento.setCodsisEstudiante(codSis);
-                intento.setIdUsuarioRegistra(idUsuarioRegistra);
-                intento.setFechaIntento(HoraOficial.hoy());
-                intento.setHoraIntento(HoraOficial.ahora());
-                intentoRepository.save(intento);
-            });
+            IntentoNoAutorizado intento = new IntentoNoAutorizado();
+            intento.setMotivo(motivo);
+            intento.setIdAsignatura(idAsignatura);
+            intento.setIdExamen(idExamen);
+            intento.setIdAmbiente(idAmbiente);
+            intento.setIdAmbienteAsignado(idAmbienteAsignado);
+            intento.setIdUsuarioEstudiante(idUsuarioEstudiante);
+            intento.setCodsisEstudiante(codSis);
+            intento.setIdUsuarioRegistra(idUsuarioRegistra);
+            intento.setFechaIntento(HoraOficial.hoy());
+            intento.setHoraIntento(HoraOficial.ahora());
+            intentoRepository.save(intento);
         } catch (Exception e) {
             logger.error("No se pudo guardar el intento {} del SIS {}: {}", motivo, codSis, e.getMessage());
         }

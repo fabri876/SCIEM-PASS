@@ -50,6 +50,12 @@ function configurar(r, strRol) {
         objSello: { strEtiqueta: "Ingreso registrado", strHora: r.horaIngreso, strDetalle: [r.fechaIngreso, r.metodo].filter(Boolean).join(" · "), strRegistro: r.registradoPor },
         notas: e?.normaParticular ? <Nota strTipo="azul"><b className="font-semibold">Norma particular:</b> {e.normaParticular}</Nota> : null,
       };
+    case "REGISTRADO_OFFLINE":
+      return {
+        strTono: "ok", Icono: Check, strTitulo: "REGISTRADO OFFLINE", strSub: "INGRESO REGISTRADO · PENDIENTE DE SINCRONIZACIÓN",
+        objSello: { strEtiqueta: "Ingreso registrado (offline)", strHora: r.horaIngreso, strDetalle: [r.fechaIngreso, r.metodo].filter(Boolean).join(" · "), strRegistro: r.registradoPor },
+        notas: e?.normaParticular ? <Nota strTipo="azul"><b className="font-semibold">Norma particular:</b> {e.normaParticular}</Nota> : null,
+      };
     case "YA_REGISTRADO":
       return {
         strTono: "bad", Icono: Clock, strTitulo: "YA REGISTRADO", strSub: "INGRESO DENEGADO · YA MARCÓ SU INGRESO A ESTE EXAMEN",
@@ -109,8 +115,8 @@ function configurar(r, strRol) {
         strTono: "bad", Icono: UserX, strTitulo: "NO INSCRITO EN ESTE EXAMEN", strSub: "INGRESO DENEGADO · PERTENECE A OTRO EXAMEN",
         notas: r.otroExamen ? (
           <Nota strTipo="rojo">
-            Está inscrito en <b className="font-semibold">{r.otroExamen.nombre}</b> · Aula {r.otroExamen.aula} · {r.otroExamen.hora}.
-            El intento de ingreso quedó registrado.
+            Está inscrito en <b className="font-semibold">{r.otroExamen.asignatura}</b> · <b className="font-semibold">{r.otroExamen.nombre}</b> · Aula {r.otroExamen.aula} · {r.otroExamen.hora}.
+            No se registró el ingreso en este examen.
           </Nota>
         ) : null,
       };

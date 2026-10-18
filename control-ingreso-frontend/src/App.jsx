@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, registrarActividad, estaSesionExpirada, cerrarSesion } from "./services/authService";
+import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, registrarActividad, estaSesionExpirada, cerrarSesion, setModoOfflineForzado } from "./services/authService";
+import { configRepo } from "./offline/configRepo.js";
 
 // Páginas comunes
-import RegistroPage from "./pages/RegistroPage";
+
 import LoginPage from "./pages/LoginPage";
 import RegistroExamenPage from "./pages/RegistroExamenPage";
 import HomePage from "./pages/HomePage";
@@ -11,7 +12,7 @@ import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
 // Páginas de Exámenes (próximos y pasados)
 import Examenes from "./pages/examenesHome/Examenes";
-import ExamenesPasados from "./pages/examenesHome/ExamenesPasados";
+
 
 // Páginas de Administrador
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -28,8 +29,7 @@ import HomeEstudiante from "./pages/estudiante/HomeEstudiante";
 // Páginas de Personal de Control (Operador)
 import HomeControl from "./pages/control/HomeControl";
 import ConectadoOperador from "./pages/control/conectado/ConectadoOperador";
-import OffLineOperador from "./pages/control/offline/OffLineOperador";
-import ForzarSincronizacionOperador from "./pages/control/forzar/ForzarSincronizacionOperador";
+
 
 /**
  * Componente Guard para Rutas Públicas (Login / Registro).
@@ -82,7 +82,17 @@ function App() {
     window.addEventListener("click", manejarActividad);
     window.addEventListener("scroll", manejarActividad);
 
-    const intervaloVerificacion = setInterval(() => {
+    const intervaloVerificacion = setInterval(async () => {
+      // No cerrar sesión por inactividad si está en modo offline forzado:
+      // el operador debe seguir operando aunque no haya red.
+      try {
+        const modoOffline = await configRepo.obtenerConfig("modoOfflineForzado", false);
+        setModoOfflineForzado(modoOffline);
+        if (modoOffline) return;
+      } catch {
+        // Si no se puede leer la config, continuar con la verificación normal
+      }
+
       if (estaSesionExpirada() && localStorage.getItem("token")) {
         cerrarSesion();
         // TC-211/TC-215 (QA): antes no se guardaba este mensaje acá, solo en
@@ -113,7 +123,7 @@ function App() {
           path="/registro"
           element={
             <RutaPublica>
-              <RegistroPage />
+              <Navigate to="/login" replace />
             </RutaPublica>
           }
         />
@@ -133,7 +143,7 @@ function App() {
             Notificaciones va a una página en blanco por ahora. */}
         <Route path="/inicio" element={<HomePage />} />
         <Route path="/examenes" element={<Examenes />} />
-        <Route path="/examenes/pasados" element={<ExamenesPasados />} />
+        <Route path="/examenes/pasados" element={<Navigate to="/examenes" replace />} />
         <Route path="/notificaciones" element={<PaginaEnConstruccion />} />
 
         {/* Ruta de Administrador */}
@@ -209,8 +219,6 @@ function App() {
         >
           <Route index element={<Navigate to="conectado" replace />} />
           <Route path="conectado" element={<ConectadoOperador />} />
-          <Route path="offline" element={<OffLineOperador />} />
-          <Route path="forzar" element={<ForzarSincronizacionOperador />} />
         </Route>
         <Route path="/home/control" element={<Navigate to="/control" replace />} />
 

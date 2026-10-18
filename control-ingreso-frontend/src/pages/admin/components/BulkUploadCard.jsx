@@ -73,6 +73,7 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
         setError("");
         setResultado(null);
         setFile(archivo);
+        if (!esCargaDocentes && !grupoLote) setError("Seleccione la asignatura y el grupo del lote.");
         if (esCargaDocentes || grupoLote) handleRevisarArchivo(archivo);
     };
 
@@ -146,6 +147,7 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
     return (
         <div className="lg:col-span-5 bg-bg-card rounded-2xl p-6 shadow-sm border border-border flex flex-col justify-between relative">
             <div>
+                <p className="text-sm text-secondary mb-2">Máximo 10 MB y 2000 filas por archivo. Divida listas mayores.</p>
                 {/* Cabecera Tarjeta */}
                 <div className="flex items-center justify-between gap-3 mb-2">
                     <div className="flex items-center gap-3">

@@ -12,6 +12,9 @@ public interface AyudanteExamenRepository extends JpaRepository<AyudanteExamen, 
 
     List<AyudanteExamen> findByIdIdayudanteAndEstadoAsignacion(Integer idayudante, String estadoAsignacion);
 
+    boolean existsByIdIdayudanteAndIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
+            Integer idayudante, Integer idasignatura, Integer idexamen, Integer idambiente, String estadoAsignacion);
+
     List<AyudanteExamen> findByIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
             Integer idasignatura, Integer idexamen, Integer idambiente, String estadoAsignacion);
 

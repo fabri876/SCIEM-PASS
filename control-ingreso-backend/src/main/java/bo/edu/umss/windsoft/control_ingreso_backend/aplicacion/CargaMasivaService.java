@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 @Service
 public class CargaMasivaService {
 
+    private static final int MAX_FILAS = 2000;
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
     private final UsuarioRepository usuarioRepository;
@@ -79,10 +80,11 @@ public class CargaMasivaService {
     private List<FilaUsuarioData> leerFilas(MultipartFile archivo) {
         try (InputStream is = archivo.getInputStream()) {
             var filas = obtenerExtension(archivo.getOriginalFilename()).equalsIgnoreCase(".pdf") ? extraerFilasDePdf(is) : extraerFilasDeExcel(is);
+            if (filas.size() > MAX_FILAS) throw new SolicitudInvalidaException("El archivo supera el máximo de 2000 filas. Divida la lista en varios archivos.");
             if (filas.isEmpty()) throw new SolicitudInvalidaException("El archivo no contiene filas procesables.");
             return filas;
         } catch (SolicitudInvalidaException e) { throw e; }
-        catch (Exception e) { throw new SolicitudInvalidaException("No se pudo leer el archivo. Revise su formato y columnas."); }
+        catch (Exception e) { throw new SolicitudInvalidaException("No se pudo leer el archivo. Use la plantilla y un máximo de 2000 filas; si el Excel es muy grande, divídalo en archivos menores."); }
     }
 
     @Transactional
@@ -105,21 +107,7 @@ public class CargaMasivaService {
             grupoService.validarAccesoRegistro(List.of(idGrupoSeleccionado), normalizarRol(targetRol));
         }
 
-        String extension = obtenerExtension(archivo.getOriginalFilename());
-        List<FilaUsuarioData> filas;
-        try (InputStream is = archivo.getInputStream()) {
-            if (extension.equalsIgnoreCase(".pdf")) {
-                filas = extraerFilasDePdf(is);
-            } else {
-                filas = extraerFilasDeExcel(is);
-            }
-        } catch (Exception e) {
-            throw new SolicitudInvalidaException("Error al leer el archivo: " + e.getMessage());
-        }
-
-        if (filas.isEmpty()) {
-            throw new SolicitudInvalidaException("El archivo no contiene filas o datos procesables.");
-        }
+        List<FilaUsuarioData> filas = leerFilas(archivo);
 
         List<CargaMasivaErrorFilaDto> errores = new ArrayList<>();
         Set<String> cisEnArchivo = new HashSet<>();
@@ -168,6 +156,8 @@ public class CargaMasivaService {
             if (ci.isBlank()) {
                 erroresFila.add("El Carnet de Identidad (CI) es obligatorio.");
             }
+            if (!ci.isBlank() && !ci.matches("[0-9]{6,8}([0-9][A-Z]|[A-Z])?")) erroresFila.add("El CI debe tener de 6 a 8 dígitos y, si corresponde, un complemento válido.");
+            if (fila.telefonoTexto != null && !fila.telefonoTexto.isBlank() && !fila.telefonoTexto.matches("[0-9]{7,8}")) erroresFila.add("El teléfono debe contener 7 u 8 dígitos, sin letras.");
             if (nombre.isBlank()) {
                 erroresFila.add("El nombre es obligatorio.");
             }
@@ -176,12 +166,13 @@ public class CargaMasivaService {
             }
             if (correo.isBlank()) {
                 erroresFila.add("El correo electrónico es obligatorio.");
-            } else if (!correo.contains("@")) {
+            } else if (!correo.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) {
                 erroresFila.add("El formato de correo no es válido.");
             }
 
             // Validar código SIS
             Integer codSis = fila.codigoSis;
+            if (fila.codigoSisTexto != null && !fila.codigoSisTexto.matches("[0-9]{9}")) erroresFila.add("El Código SIS debe tener exactamente 9 dígitos.");
             if (TipoUsuarioResolver.ESTUDIANTE.equals(rolFila) || TipoUsuarioResolver.DOCENTE.equals(rolFila)) {
                 if (codSis == null) {
                     erroresFila.add("El Código SIS es obligatorio para el rol " + rolFila + ".");
@@ -348,7 +339,7 @@ public class CargaMasivaService {
             }
         }
 
-        auditoriaService.registrar("CARGA_MASIVA_USUARIOS", executorCorreo, executorCorreo,
+        auditoriaService.registrarEnTransaccion("CARGA_MASIVA_USUARIOS", executorCorreo, executorCorreo,
                 "Carga masiva procesada: " + exitosos + " nuevos, " + existentes + " existentes, " + fallidos + " fallidos de " + filas.size() + " filas.", ip);
 
         String resumenMensaje = exitosos + " usuario(s) nuevos, " + existentes + " fila(s) de docentes existentes y " + fallidos + " fila(s) con errores.";
@@ -377,8 +368,8 @@ public class CargaMasivaService {
             throw new SolicitudInvalidaException("El archivo supera el tamaño máximo permitido de 10 MB.");
         }
         String ext = obtenerExtension(archivo.getOriginalFilename());
-        if (!ext.equals(".xlsx") && !ext.equals(".xls") && !ext.equals(".pdf")) {
-            throw new SolicitudInvalidaException("Formato no permitido. Solo se aceptan archivos Excel (.xlsx, .xls) o PDF.");
+        if (!ext.equals(".xlsx") && !ext.equals(".pdf")) {
+            throw new SolicitudInvalidaException("Formato no permitido. Solo se aceptan archivos Excel (.xlsx) o PDF.");
         }
     }
 
@@ -400,7 +391,7 @@ public class CargaMasivaService {
 
     private List<FilaUsuarioData> extraerFilasDeExcel(InputStream is) throws Exception {
         List<FilaUsuarioData> resultado = new ArrayList<>();
-        Workbook workbook = WorkbookFactory.create(is);
+        try (Workbook workbook = WorkbookFactory.create(is)) {
         Sheet sheet = workbook.getSheetAt(0);
 
         if (sheet == null || sheet.getPhysicalNumberOfRows() < 2) {
@@ -411,6 +402,7 @@ public class CargaMasivaService {
         Row headerRow = sheet.getRow(0);
         Map<String, Integer> colIndices = parsearEncabezadosExcel(headerRow);
 
+        if (sheet.getLastRowNum() > MAX_FILAS) throw new SolicitudInvalidaException("El archivo supera el máximo de 2000 filas. Divida la lista en varios archivos.");
         for (int i = 1; i <= sheet.getLastRowNum(); i++) {
             Row row = sheet.getRow(i);
             if (row == null || esFilaVacia(row)) {
@@ -426,17 +418,19 @@ public class CargaMasivaService {
             data.correo = getValorCeldaString(row, colIndices.getOrDefault("correo", 1));
 
             String codSisStr = getValorCeldaString(row, colIndices.getOrDefault("codsis", 0));
+            data.codigoSisTexto = codSisStr;
             if (!codSisStr.isBlank()) {
                 try {
-                    data.codigoSis = Integer.parseInt(codSisStr.replaceAll("[^0-9]", ""));
+                    data.codigoSis = Integer.parseInt(codSisStr);
                 } catch (Exception ignored) {
                 }
             }
 
             String telStr = getValorCeldaString(row, colIndices.getOrDefault("telefono", -1));
+            data.telefonoTexto = telStr;
             if (!telStr.isBlank()) {
                 try {
-                    data.telefono = Integer.parseInt(telStr.replaceAll("[^0-9]", ""));
+                    data.telefono = Integer.parseInt(telStr);
                 } catch (Exception ignored) {
                 }
             }
@@ -451,8 +445,8 @@ public class CargaMasivaService {
 
             resultado.add(data);
         }
-        workbook.close();
         return resultado;
+        }
     }
 
     private Map<String, Integer> parsearEncabezadosExcel(Row headerRow) {
@@ -494,71 +488,22 @@ public class CargaMasivaService {
         List<FilaUsuarioData> resultado = new ArrayList<>();
         byte[] bytes = is.readAllBytes();
         try (PDDocument document = org.apache.pdfbox.Loader.loadPDF(bytes)) {
-            PDFTextStripper stripper = new PDFTextStripper();
-            String text = stripper.getText(document);
-            String[] lineas = text.split("\\r?\\n");
-
-            int numFila = 1;
-            for (String linea : lineas) {
-                linea = linea.trim();
-                if (linea.isBlank() || linea.toLowerCase().startsWith("codsis") || linea.toLowerCase().startsWith("ci")) {
-                    continue;
-                }
-
-                FilaUsuarioData data = parsearLineaPdf(linea, numFila++);
-                if (data != null) {
-                    resultado.add(data);
-                }
+            for (var fila : LectorTablaUsuariosPdf.leer(document)) {
+                var valores = fila.datos();
+                FilaUsuarioData data = new FilaUsuarioData();
+                data.numeroFila = fila.numero(); data.nombre = valores.getOrDefault("NOMBRES", "");
+                data.apellido = valores.getOrDefault("APELLIDOS", ""); data.ci = valores.getOrDefault("CI", "");
+                data.correo = valores.getOrDefault("CORREO", ""); data.telefonoTexto = valores.getOrDefault("TELEFONO", "");
+                data.codigoSisTexto = valores.getOrDefault("CODSIS", "");
+                try { data.codigoSis = Integer.valueOf(data.codigoSisTexto); } catch (NumberFormatException ignored) {}
+                try { data.telefono = Integer.valueOf(data.telefonoTexto); } catch (NumberFormatException ignored) {}
+                data.asignatura = valores.getOrDefault("ID_ASIGNATURA", valores.getOrDefault("CODIGO_ASIGNATURA", valores.getOrDefault("ASIGNATURA", "")));
+                if (valores.containsKey("ID_ASIGNATURA")) data.asignatura = Arrays.stream(data.asignatura.split(";", -1)).map(v -> "ID:" + v.trim()).collect(java.util.stream.Collectors.joining(";"));
+                data.nombreGrupo = valores.getOrDefault("GRUPO", "");
+                resultado.add(data);
             }
         }
         return resultado;
-    }
-
-    private FilaUsuarioData parsearLineaPdf(String linea, int numFila) {
-        Pattern emailPattern = Pattern.compile("([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})");
-        Matcher emailMatcher = emailPattern.matcher(linea);
-
-        if (!emailMatcher.find()) {
-            return null;
-        }
-
-        String correo = emailMatcher.group(1);
-        String resto = linea.replace(correo, " ");
-
-        Pattern numPattern = Pattern.compile("\\b\\d{5,10}\\b");
-        Matcher numMatcher = numPattern.matcher(resto);
-        List<String> numeros = new ArrayList<>();
-        while (numMatcher.find()) {
-            numeros.add(numMatcher.group());
-        }
-
-        if (numeros.isEmpty()) {
-            return null;
-        }
-
-        FilaUsuarioData data = new FilaUsuarioData();
-        data.numeroFila = numFila;
-        data.correo = correo;
-
-        if (numeros.size() >= 2) {
-            data.codigoSis = Integer.parseInt(numeros.get(0));
-            data.ci = numeros.get(1);
-        } else {
-            data.ci = numeros.get(0);
-            data.codigoSis = Integer.parseInt(numeros.get(0));
-        }
-
-        String textoSinNumeros = resto.replaceAll("\\b\\d{5,10}\\b", " ").replaceAll("\\s+", " ").trim();
-        String[] partes = textoSinNumeros.split(",");
-        if (partes.length >= 2) {
-            data.apellido = partes[0].trim();
-            data.nombre = partes[1].trim();
-        } else {
-            data.nombre = textoSinNumeros;
-            data.apellido = "";
-        }
-
-        return data;
     }
 
     private void crearFilaTablaHija(String rol, Integer idUsuario, Integer codigoSis, Integer idGrupo) {
@@ -642,6 +587,8 @@ public class CargaMasivaService {
         String nombre;
         String apellido;
         String correo;
+        String telefonoTexto;
+        String codigoSisTexto;
         Integer telefono;
         Integer codigoSis;
         String rol;

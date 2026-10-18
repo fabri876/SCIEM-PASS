@@ -64,6 +64,10 @@ export async function obtenerMotivosInhabilitacion() {
     return fetchAutenticado(`/api/motivos-inhabilitacion`);
 }
 
+export async function eliminarAsociacionExamen(idHabilitacion) {
+    return fetchAutenticado(`/api/habilitaciones/${idHabilitacion}`, { method: "DELETE" });
+}
+
 /**
  * Registra un nuevo motivo de inhabilitación en el backend.
  */

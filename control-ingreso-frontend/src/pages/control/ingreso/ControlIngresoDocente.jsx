@@ -10,6 +10,7 @@ import useControlIngreso from "./useControlIngreso";
 import SeccionControlIngreso from "./SeccionControlIngreso";
 import EncabezadoControl from "./componentes/EncabezadoControl";
 import PanelListaOficial from "./componentes/PanelListaOficial";
+import ToastSyncConfirmacion from "../components/ToastSyncConfirmacion";
 import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilidadesExamenDocente";
 
 export default function ControlIngresoDocente() {
@@ -107,6 +108,8 @@ export default function ControlIngresoDocente() {
           strTextoVolver={strTextoVolver}
           net={estadoRed.net}
           pend={estadoRed.pend}
+          enviados={estadoRed.enviados}
+          spacePrc={estadoRed.spacePrc}
         >
           <button
             type="button"
@@ -136,11 +139,12 @@ export default function ControlIngresoDocente() {
       <PanelListaOficial
         boolAbierto={boolListaAbierta}
         onCerrar={fnCerrarLista}
-        idExamen={ctrl.idExamen}
+        idExamen={Number(idExamen)}
         numVersion={ctrl.numVersion}
         onRegistrar={fnRegistrarDesdeLista}
         strUltimoRegistrado={ctrl.strUltimoRegistrado}
       />
+      <ToastSyncConfirmacion />
     </div>
   );
 }

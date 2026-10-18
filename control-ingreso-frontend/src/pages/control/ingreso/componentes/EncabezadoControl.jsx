@@ -1,39 +1,9 @@
 // Título de la página (saludo / "Control de ingreso") + acciones a la derecha
-import { useState, useEffect } from "react";
-import { ArrowLeft, AlertCircle, HardDrive } from "lucide-react";
+import { ArrowLeft, HardDrive } from "lucide-react";
 
 function fechaDeHoy() {
   const str = new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-// Mock: simula estados de conexión para demo
-function useMockConnection() {
-  const [net, setNet] = useState("online"); // online | syncing | slow | offline
-  const [pend, setPend] = useState(0);
-  const [enviados, setEnviados] = useState(12);
-  const [spacePrc, setSpacePrc] = useState(85);
-  const [lastSend, setLastSend] = useState("Hoy 14:32");
-
-  // Demo: cambia estado cada 10s para mostrar todos los estados
-  useEffect(() => {
-    const estados = ["online", "syncing", "slow", "offline"];
-    let i = 0;
-    const timer = setInterval(() => {
-      i = (i + 1) % estados.length;
-      setNet(estados[i]);
-      if (estados[i] !== "online") {
-        setPend(Math.floor(Math.random() * 20) + 1);
-      } else {
-        setPend(0);
-        setEnviados(e => e + Math.floor(Math.random() * 5) + 1);
-        setLastSend(new Date().toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" }));
-      }
-    }, 10000);
-    return () => clearInterval(timer);
-  }, []);
-
-  return { net, pend, enviados, spacePrc, lastSend };
 }
 
 function BadgeConexion({ net, pend }) {
@@ -91,15 +61,15 @@ function SyncProgress({ net, pend, syncTotal, lote, enviados }) {
 
   let ancho = 0;
   let etiqueta = "";
-  if (net === "online" && pend === 0) {
-    ancho = 100; etiqueta = "Todo sincronizado";
-  } else if (net === "syncing") {
+  if (net === "syncing") {
     const prog = syncTotal ? Math.max(0, Math.min(1, (syncTotal - pend) / syncTotal)) : 1;
     ancho = prog * 100;
     etiqueta = `Enviando lote ${lote} de ${Math.ceil(syncTotal / 10)}…`;
   } else if (net === "slow") {
     ancho = pend > 0 ? 10 : 100;
     etiqueta = pend > 0 ? "Enviando en segundo plano…" : "Todo sincronizado";
+  } else if (net === "online") {
+    ancho = 100; etiqueta = "Todo sincronizado";
   } else {
     etiqueta = pend > 0 ? "Esperando señal…" : "Todo sincronizado";
   }
@@ -120,14 +90,10 @@ function SyncProgress({ net, pend, syncTotal, lote, enviados }) {
   );
 }
 
-export default function EncabezadoControl({ strTitulo, strDetalle = "Control de ingreso", onVolver, strTextoVolver = "Mis exámenes", children, net: netProp, pend: pendProp }) {
-  const { net: autoNet, pend: autoPend, enviados, spacePrc, lastSend } = useMockConnection();
-  const [showSync, setShowSync] = useState(false);
-
-  // Si vienen props (vista real conectada), usarlas; sino mock auto
-  const net = netProp ?? autoNet;
-  const pend = pendProp ?? autoPend;
-
+export default function EncabezadoControl({
+  strTitulo, strDetalle = "Control de ingreso", onVolver, strTextoVolver = "Mis exámenes", children,
+  net = "online", pend = 0, enviados = 0, spacePrc = 100,
+}) {
   const syncTotal = 30;
   const lote = Math.ceil((syncTotal - pend) / 10) || 1;
 

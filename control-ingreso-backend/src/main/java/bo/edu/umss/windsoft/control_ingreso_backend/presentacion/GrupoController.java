@@ -109,8 +109,8 @@ public class GrupoController {
 
     @PostMapping("/vinculaciones")
     public ResponseEntity<Map<String, String>> vincular(@RequestBody VincularRequest body) {
-        grupoService.vincularUsuario(body.idUsuario(), body.rol(), body.idGrupos());
-        return ResponseEntity.ok(Map.of("mensaje", "Vinculaciones guardadas sin duplicados."));
+        String mensaje = grupoService.vincularUsuario(body.idUsuario(), body.rol(), body.idGrupos());
+        return ResponseEntity.ok(Map.of("mensaje", mensaje));
     }
 
     @DeleteMapping("/vinculaciones/{rol}/{idUsuario}/{idGrupo}")
