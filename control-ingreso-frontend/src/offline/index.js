@@ -59,6 +59,7 @@ export {
   obtenerClockOffsetMs,
   suscribirConectividad,
   establecerModoOfflineForzado,
+  estaSinRed,
 } from "./connectivityService.js";
 export {
   iniciarSincronizacionAutomatica,

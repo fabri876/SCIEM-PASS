@@ -1,12 +1,21 @@
 import { strApiBaseUrl } from "./apiConfig";
+import { estaSinRed } from "../offline/connectivityService.js";
 
 const TIEMPO_INACTIVIDAD_MAXIMO_MS = 30 * 60 * 1000; // 30 minutos
+
+let boolModoOfflineForzado = false;
+
+export function setModoOfflineForzado(valor) {
+  boolModoOfflineForzado = Boolean(valor);
+}
 
 export function registrarActividad() {
   localStorage.setItem("ultimaActividad", Date.now().toString());
 }
 
 export function estaSesionExpirada() {
+  if (boolModoOfflineForzado || estaSinRed()) return false;
+
   const token = localStorage.getItem("token");
   if (!token) return true;
 
