@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Clock, Info, Ban, Download } from "lucide-react";
-import { obtenerQrExamen } from "../../../services/credencialService";
+import { obtenerQrExamen, regenerarQrExamen } from "../../../services/credencialService";
 import { fechaCorta, fechaHora, cuentaRegresiva } from "./formato";
 
 function Dato({ strEtiqueta, children, boolMono = false }) {
@@ -88,6 +88,7 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
   const [objQr, setObjQr] = useState(null);
   const [boolCargando, setBoolCargando] = useState(true);
   const [strError, setStrError] = useState("");
+  const [boolRegenerando, setBoolRegenerando] = useState(false);
 
   useEffect(() => {
     let boolVigente = true;
@@ -99,6 +100,19 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
       .finally(() => { if (boolVigente) setBoolCargando(false); });
     return () => { boolVigente = false; };
   }, [examen.id]);
+
+  const fnRegenerarQr = async () => {
+    setBoolRegenerando(true);
+    setStrError("");
+    try {
+      const nuevo = await regenerarQrExamen(examen.id);
+      setObjQr(nuevo);
+    } catch (e) {
+      setStrError(e.message || "No se pudo regenerar el QR.");
+    } finally {
+      setBoolRegenerando(false);
+    }
+  };
 
   const boolDisponible = objQr?.estado === "DISPONIBLE";
   const boolInhabilitado = examen.habilitado === false;
@@ -147,6 +161,10 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
             )}
             {boolDisponible && (
               <>
+                <div className="w-full max-w-[240px] rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-2 text-center">
+                  <span className="block text-[10px] font-semibold uppercase tracking-[.4px] text-[#64748B]">Código de credencial</span>
+                  <strong className="block mt-1 break-all font-mono text-xs text-[#08264A]">{objQr.contenidoQr}</strong>
+                </div>
                 <span className="text-xs text-[#64748B] text-center">
                   Válido hasta <b className="font-semibold text-[#08264A]">{fechaHora(objQr.validoHasta)}</b>
                 </span>
@@ -156,6 +174,14 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
                   className="w-full min-h-[42px] px-4 rounded-lg border border-[#CBD5E1] bg-white text-[#003770] text-sm font-semibold inline-flex items-center justify-center gap-2 hover:border-[#003770] cursor-pointer"
                 >
                   <Download className="w-4 h-4" /> Descargar QR
+                </button>
+                <button
+                  type="button"
+                  onClick={fnRegenerarQr}
+                  disabled={boolRegenerando}
+                  className="w-full min-h-[42px] px-4 rounded-lg border border-[#CBD5E1] bg-white text-[#003770] text-sm font-semibold hover:border-[#003770] disabled:opacity-60 cursor-pointer"
+                >
+                  {boolRegenerando ? "Regenerando..." : "Volver a generar QR"}
                 </button>
               </>
             )}

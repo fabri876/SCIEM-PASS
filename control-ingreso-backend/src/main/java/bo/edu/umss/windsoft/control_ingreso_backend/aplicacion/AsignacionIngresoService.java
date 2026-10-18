@@ -369,6 +369,11 @@ public class AsignacionIngresoService {
                 usuarioRepository.findAllById(idsOperadoresRegistran).stream()
                         .collect(Collectors.toMap(Usuario::getIdusuario, Function.identity(), (u1, u2) -> u1));
 
+        // Precarga todas las credenciales del examen en una sola consulta.
+        // Evita una consulta por estudiante al construir la lista oficial.
+        Map<Integer, Credencial> credencialesPorUsuario = credencialRepository.findAllByIdExamen(idExamen).stream()
+                .collect(Collectors.toMap(Credencial::getIdUsuario, Function.identity(), (c1, c2) -> c1));
+
         String filtro = normalizarBusqueda(buscar);
 
         List<EstudianteListaOficialDTO> resultado = new ArrayList<>();
@@ -430,11 +435,10 @@ public class AsignacionIngresoService {
                 dto.setEstado("PENDIENTE");
             }
 
-            // Credencial QR (si el estudiante ya tiene credencial generada para el examen)
+            // Credencial QR precargada (sin consulta adicional por estudiante)
             if (u != null) {
-                Optional<Credencial> credOpt = credencialRepository.findByIdUsuarioAndIdExamen(u.getIdusuario(), idExamen);
-                if (credOpt.isPresent()) {
-                    Credencial cred = credOpt.get();
+                Credencial cred = credencialesPorUsuario.get(u.getIdusuario());
+                if (cred != null) {
                     dto.setQr(cred.getToken());
                     dto.setQrEstado(cred.getEstado());
                     if (cred.getValidoDesde() != null) dto.setQrDesde(cred.getValidoDesde().toString());

@@ -369,7 +369,8 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       }
       return r;
     } catch (e) {
-      // Si el servidor no responde por caída de red, se intenta el motor local.
+      // Pendiente HU7: ante un fallo de red con navigator.onLine=true,
+      // el flujo aún debe derivar explícitamente al motor offline.
       if (typeof navigator !== "undefined" && navigator.onLine === false) {
         return await fnValidarOffline(strValor, strMetodo, objOpciones, ex);
       }
@@ -419,3 +420,6 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnRefrescar,
   };
 }
+
+
+
