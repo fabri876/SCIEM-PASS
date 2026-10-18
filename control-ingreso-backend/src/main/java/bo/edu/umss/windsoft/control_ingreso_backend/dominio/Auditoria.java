@@ -28,7 +28,7 @@ public class Auditoria {
     @Column(name = "idusuario")
     private Integer idUsuario;
 
-    @Column(name = "accion")
+    @Column(name = "accion", columnDefinition = "TEXT")
     private String accion;
 
     // Ampliada de DATE a TIMESTAMP (ver instrucciones SQL) para poder cumplir
