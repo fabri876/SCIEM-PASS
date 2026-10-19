@@ -64,12 +64,14 @@ export default function CurvaLlegada({ estado, datos, strHoraInicio, boolEnCurso
             {estado === "ok" && datos.length === 0 && <p className="text-xs text-slate-400 font-semibold py-8 text-center">Todavía no hay ingresos registrados.</p>}
 
             {estado === "ok" && datos.length > 0 && boolTabla && (
-                <div className="max-h-56 overflow-y-auto">
+                <div className="max-h-56 overflow-y-auto pr-4 [scrollbar-gutter:stable]">
+
                     <table className="w-full text-xs">
-                        <thead><tr className="text-left text-slate-500"><th className="py-1 font-bold">Hora</th><th className="py-1 font-bold text-right">Ingresos</th></tr></thead>
+                        <thead><tr className="text-left text-slate-500"><th className="py-1 pr-3 font-bold">Hora</th><th className="py-1 pr-3 font-bold text-right">Ingresos</th></tr></thead>
+
                         <tbody>
                             {datos.map((d) => (
-                                <tr key={d.etiqueta} className="border-t border-slate-100"><td className="py-1 tabular-nums">{d.etiqueta}</td><td className="py-1 text-right tabular-nums font-bold">{d.cantidad}</td></tr>
+                                <tr key={d.etiqueta} className="border-t border-slate-100"><td className="py-1 pr-3 tabular-nums">{d.etiqueta}</td><td className="py-1 pr-3 text-right tabular-nums font-bold">{d.cantidad}</td></tr>
                             ))}
                         </tbody>
                     </table>

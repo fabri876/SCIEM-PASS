@@ -6,8 +6,10 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioReposito
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 
@@ -27,43 +29,71 @@ public class AuditoriaService {
 
     private final AuditoriaRepository auditoriaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final TransactionTemplate transaccionPropia;
 
-    public AuditoriaService(AuditoriaRepository auditoriaRepository, UsuarioRepository usuarioRepository) {
+    public AuditoriaService(AuditoriaRepository auditoriaRepository, UsuarioRepository usuarioRepository,
+                            PlatformTransactionManager transactionManager) {
         this.auditoriaRepository = auditoriaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.transaccionPropia = new TransactionTemplate(transactionManager);
+        this.transaccionPropia.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    /**
+     * Guarda la auditoría en una transacción PROPIA (REQUIRES_NEW) y NUNCA lanza.
+     *
+     * Antes el método era @Transactional(REQUIRES_NEW) y el try/catch estaba DENTRO:
+     * si el insert (o la búsqueda del usuario) fallaba, la excepción se tragaba pero
+     * Spring ya había marcado esa transacción como "rollback-only", y al hacer commit
+     * lanzaba UnexpectedRollbackException ("Transaction silently rolled back because
+     * it has been marked as rollback-only"): el flujo que estaba auditando terminaba
+     * en HTTP 500 y la fila se perdía (BUG-038). Con TransactionTemplate el commit
+     * queda dentro del try/catch, igual que en IntentoIngresoService.
+     */
     public void registrar(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
                            String detalles, String ipOrigen) {
-        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen);
+        try {
+            transaccionPropia.executeWithoutResult(estado ->
+                    guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen));
+        } catch (Exception e) {
+            // Con la traza completa para ver la causa real si la auditoría no se guarda
+            logger.error("No se pudo registrar la auditoría [{}]: {}", tipoOperacion, e.getMessage(), e);
+        }
     }
 
+    /** Se une a la transacción de quien la llama (la auditoría es parte de su misma operación). */
     @Transactional
     public void registrarEnTransaccion(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
                                        String detalles, String ipOrigen) {
-        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen);
+        try {
+            guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen);
+        } catch (Exception e) {
+            logger.error("Error al registrar auditoría: {}", e.getMessage());
+        }
     }
 
     private void guardarRegistro(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
                                  String detalles, String ipOrigen) {
-        try {
-            Integer idUsuario = resolverIdUsuario(usuarioAfectado);
-            if (idUsuario == null) {
-                idUsuario = resolverIdUsuario(usuarioEjecutor);
-            }
-
-            String accion = "[" + tipoOperacion + "] ejecutor=" + valorOr(usuarioEjecutor)
-                    + " | afectado=" + valorOr(usuarioAfectado)
-                    + " | ip=" + valorOr(ipOrigen)
-                    + " | " + valorOr(detalles);
-
-            // El id lo genera PostgreSQL (columna IDENTITY, ver Auditoria.java).
-            Auditoria auditoria = new Auditoria(idUsuario, accion);
-            auditoriaRepository.save(auditoria);
-        } catch (Exception e) {
-            logger.error("Error al registrar auditoría: {}", e.getMessage());
+        Integer idUsuario = resolverIdUsuario(usuarioAfectado);
+        if (idUsuario == null) {
+            idUsuario = resolverIdUsuario(usuarioEjecutor);
         }
+
+        String accion = "[" + tipoOperacion + "] ejecutor=" + valorOr(usuarioEjecutor)
+                + " | afectado=" + valorOr(usuarioAfectado)
+                + " | ip=" + valorOr(ipOrigen)
+                + " | " + valorOr(detalles);
+
+        // La columna 'accion' en PostgreSQL es varchar(255) (BUG-030 y BUG-038).
+        // Si el texto supera los 255 caracteres, PostgreSQL rechaza el insert.
+        // Se trunca a 255 para garantizar que el registro de auditoría siempre se guarde.
+        if (accion.length() > 255) {
+            accion = accion.substring(0, 255);
+        }
+
+        // El id lo genera PostgreSQL (columna IDENTITY, ver Auditoria.java).
+        Auditoria auditoria = new Auditoria(idUsuario, accion);
+        auditoriaRepository.save(auditoria);
     }
 
     public List<Auditoria> listar() {

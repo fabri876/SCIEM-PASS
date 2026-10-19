@@ -37,6 +37,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -45,6 +46,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -87,14 +90,20 @@ class MonitoreoServiceTest {
     @Mock private DocenteAsignaturaRepository docenteAsignaturaRepository;
     @Mock private AyudanteExamenRepository ayudanteExamenRepository;
     @Mock private AuditoriaService auditoriaService;
+    @Mock private PlatformTransactionManager transactionManager;
 
     private MonitoreoService service;
     private AsignacionAulaService asignacion;
+    private TransactionStatus estadoTransaccion;
     private final List<Ingreso> ingresos = new ArrayList<>();
     private final List<CambioAmbiente> cambios = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
+        // La reubicación corre dentro de un TransactionTemplate: se simula el manejador de transacciones
+        estadoTransaccion = mock(TransactionStatus.class);
+        when(transactionManager.getTransaction(any())).thenReturn(estadoTransaccion);
+
         ContextoUsuarioService contexto = new ContextoUsuarioService(docenteAsignaturaRepository, examenRepository,
                 ayudanteExamenRepository, auditoriaService);
         AmbienteExamenService ambientes = new AmbienteExamenService(ambienteRepository, aulaRepository,
@@ -102,7 +111,7 @@ class MonitoreoServiceTest {
         asignacion = new AsignacionAulaService(ambienteRepository, aulaRepository, habilitacionRepository,
                 usuarioRepository, cambioAmbienteRepository);
         service = new MonitoreoService(asignacion, ambientes, contexto, ingresoRepository, intentoRepository,
-                cambioAmbienteRepository, usuarioRepository, examenRepository, auditoriaService);
+                cambioAmbienteRepository, usuarioRepository, examenRepository, auditoriaService, transactionManager);
 
         Ambiente a601 = ambiente(AMB_601, 10);
         Ambiente a604 = ambiente(AMB_604, 11);
@@ -296,6 +305,19 @@ class MonitoreoServiceTest {
     }
 
     @Test
+    @DisplayName("Reubicar y Autorizar: al terminar bien, la auditoría se escribe DESPUÉS del commit")
+    void reubicar_ok_auditaDespuesDelCommit() {
+        when(intentoRepository.findById(77)).thenReturn(Optional.of(intentoAulaDiferente()));
+
+        service.reubicarYAutorizar(77, "ip");
+
+        InOrder orden = inOrder(transactionManager, auditoriaService);
+        orden.verify(transactionManager).commit(estadoTransaccion);
+        orden.verify(auditoriaService).registrar(eq("REUBICACION_EXPRESS"), anyString(), anyString(), anyString(), eq("ip"));
+        verify(transactionManager, never()).rollback(any());
+    }
+
+    @Test
     @DisplayName("Reubicar y Autorizar: sin pupitres libres se rechaza y se mantiene la asignación original")
     void reubicar_sinCupo() {
         when(intentoRepository.findById(77)).thenReturn(Optional.of(intentoAulaDiferente()));
@@ -310,6 +332,22 @@ class MonitoreoServiceTest {
         verify(cambioAmbienteRepository, never()).save(any());
         verify(ingresoRepository, never()).saveAndFlush(any());
         verify(auditoriaService).registrar(eq("REUBICACION_RECHAZADA"), anyString(), anyString(), contains("pupitres"), eq("ip"));
+    }
+
+    @Test
+    @DisplayName("BUG-038: sin cupo, la transacción hace rollback y la auditoría del rechazo se escribe DESPUÉS")
+    void reubicar_sinCupo_auditaDespuesDelRollback() {
+        when(intentoRepository.findById(77)).thenReturn(Optional.of(intentoAulaDiferente()));
+        ingresos.add(ingreso(9101, AMB_601));
+        ingresos.add(ingreso(9102, AMB_601));
+
+        assertThrows(ConflictoEstadoException.class, () -> service.reubicarYAutorizar(77, "ip"));
+
+        InOrder orden = inOrder(transactionManager, auditoriaService);
+        orden.verify(transactionManager).rollback(estadoTransaccion);
+        orden.verify(auditoriaService).registrar(eq("REUBICACION_RECHAZADA"), anyString(), anyString(),
+                contains("pupitres"), eq("ip"));
+        verify(transactionManager, never()).commit(any());
     }
 
     @Test
