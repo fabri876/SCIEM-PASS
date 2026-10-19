@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.List;
 
 @Repository
 public interface CredencialRepository extends JpaRepository<Credencial, Integer> {
@@ -14,4 +15,8 @@ public interface CredencialRepository extends JpaRepository<Credencial, Integer>
 
     // Verifica si ya existe una credencial para un usuario y examen específico (para no duplicar)
     Optional<Credencial> findByIdUsuarioAndIdExamen(Integer idUsuario, Integer idExamen);
+
+    List<Credencial> findAllByIdExamen(Integer idExamen);
 }
+
+

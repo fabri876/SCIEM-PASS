@@ -3,9 +3,13 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ContextoUsuarioService;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.EstudianteQrService;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.QrCredencialDTO;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenRespuestaDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ExamenService;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,11 +24,21 @@ public class EstudianteQrController {
 
     private final EstudianteQrService estudianteQrService;
     private final ContextoUsuarioService contextoUsuarioService;
+    private final ExamenService examenService;
 
     public EstudianteQrController(EstudianteQrService estudianteQrService,
-                                  ContextoUsuarioService contextoUsuarioService) {
+                                  ContextoUsuarioService contextoUsuarioService,
+                                  ExamenService examenService) {
         this.estudianteQrService = estudianteQrService;
         this.contextoUsuarioService = contextoUsuarioService;
+        this.examenService = examenService;
+    }
+
+    @GetMapping("/examenes")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public ResponseEntity<List<ExamenRespuestaDto>> obtenerExamenes() {
+        return ResponseEntity.ok(examenService.obtenerExamenesEstudiante(
+                contextoUsuarioService.actual().idUsuario()));
     }
 
     /**
@@ -41,5 +55,12 @@ public class EstudianteQrController {
         Integer idUsuario = contextoUsuarioService.actual().idUsuario();
         QrCredencialDTO respuesta = estudianteQrService.obtenerQrParaEstudiante(idUsuario, idExamen);
         return ResponseEntity.ok(respuesta);
+    }
+
+    @PostMapping("/examenes/{idExamen}/qr/regenerar")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public ResponseEntity<QrCredencialDTO> regenerarQr(@PathVariable Integer idExamen) {
+        Integer idUsuario = contextoUsuarioService.actual().idUsuario();
+        return ResponseEntity.ok(estudianteQrService.regenerarQrParaEstudiante(idUsuario, idExamen));
     }
 }
