@@ -106,7 +106,7 @@ function mapearFilas(e) {
    GET /api/v1/examenes/delegados
    ============================================================ */
 export async function obtenerExamenesAsignados() {
-  const datos = await pedir("/api/v1/examenes/delegados");
+  const datos = await pedir(`/api/v1/examenes/delegados?_t=${Date.now()}`, { cache: "no-store" });
   return (datos || []).map((e) => {
     const horaInicio = e.horaInicio ? String(e.horaInicio).substring(0, 5) : "";
     const horaFin = e.horaFin ? String(e.horaFin).substring(0, 5) : "";
