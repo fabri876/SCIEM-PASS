@@ -38,7 +38,7 @@ public class BatchSyncController {
     public ResponseEntity<Map<String, Object>> sincronizar(@RequestBody BatchSyncRequestDTO request) {
         Integer usuario = contexto.actual().idUsuario();
         List<Map<String, Object>> resultados = new ArrayList<>();
-        Set<Integer> codsisYaEnLote = new HashSet<>();
+        Set<String> codsisYaEnLote = new HashSet<>();
         if (request == null || request.items() == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "El lote debe contener items"));
         }
