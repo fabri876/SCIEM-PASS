@@ -35,7 +35,9 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.Reubicacion
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.TableroMonitoreoDto;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -76,13 +78,14 @@ public class MonitoreoService {
     private final UsuarioRepository usuarioRepository;
     private final ExamenRepository examenRepository;
     private final AuditoriaService auditoriaService;
+    private final TransactionTemplate transaccion;
 
     public MonitoreoService(AsignacionAulaService asignacionAulaService, AmbienteExamenService ambienteExamenService,
                             ContextoUsuarioService contextoUsuarioService, IngresoRepository ingresoRepository,
                             IntentoNoAutorizadoRepository intentoRepository,
                             CambioAmbienteRepository cambioAmbienteRepository, UsuarioRepository usuarioRepository,
                             ExamenRepository examenRepository,
-                            AuditoriaService auditoriaService) {
+                            AuditoriaService auditoriaService, PlatformTransactionManager transactionManager) {
         this.asignacionAulaService = asignacionAulaService;
         this.ambienteExamenService = ambienteExamenService;
         this.contextoUsuarioService = contextoUsuarioService;
@@ -92,6 +95,7 @@ public class MonitoreoService {
         this.usuarioRepository = usuarioRepository;
         this.examenRepository = examenRepository;
         this.auditoriaService = auditoriaService;
+        this.transaccion = new TransactionTemplate(transactionManager);
     }
 
     // -------------------------------------------------------------------------
@@ -351,7 +355,7 @@ public class MonitoreoService {
     @Transactional(readOnly = true)
     public byte[] asistentesCsv(Integer idAmbiente, String ip) {
         AsistentesAulaDto lista = asistentes(idAmbiente, ip);
-        StringBuilder csv = new StringBuilder("﻿");
+        StringBuilder csv = new StringBuilder("\uFEFF");
         csv.append("Código SIS;Estudiante;CI;Estado;Hora;Método;Observación\r\n");
         for (AsistenteAulaDto a : lista.asistentes()) {
             csv.append(celda(a.codSis())).append(';')
@@ -415,8 +419,13 @@ public class MonitoreoService {
      * Reubica al estudiante de la alerta al aula donde se presentó y registra
      * su ingreso, todo en una transacción: si algo falla, no cambia la
      * asignación ni se descuenta el cupo.
+     *
+     * Este método NO es @Transactional a propósito (BUG-038): la transacción se abre
+     * con TransactionTemplate dentro de {@link #ejecutarReubicacion}. Así la auditoría
+     * (REUBICACION_RECHAZADA / REUBICACION_EXPRESS) se escribe DESPUÉS del rollback o
+     * del commit, cuando el bloqueo FOR UPDATE del aula ya se liberó, y un fallo al
+     * auditar nunca convierte el 409 en un 500.
      */
-    @Transactional
     public ReubicacionDto reubicarYAutorizar(Integer idIntento, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         if (!usuario.esDocente()) {
@@ -425,6 +434,24 @@ public class MonitoreoService {
             throw new AccesoDenegadoException(mensaje);
         }
 
+        ResultadoReubicacion resultado;
+        try {
+            resultado = transaccion.execute(estado -> ejecutarReubicacion(usuario, idIntento, ip));
+        } catch (ReubicacionRechazada rechazo) {
+            // La transacción ya hizo rollback: se audita el rechazo y se responde 409
+            auditoriaService.registrar("REUBICACION_RECHAZADA", usuario.correo(), rechazo.correoEstudiante,
+                    rechazo.contexto + " · " + rechazo.getMessage(), ip);
+            throw rechazo;
+        }
+
+        // La transacción ya hizo commit
+        auditoriaService.registrar("REUBICACION_EXPRESS", usuario.correo(), resultado.correoEstudiante(),
+                resultado.contexto() + " · ingreso #" + resultado.idIngreso(), ip);
+        return resultado.dto();
+    }
+
+    /** Cuerpo transaccional de la reubicación. No audita: lo hace el método público al terminar. */
+    private ResultadoReubicacion ejecutarReubicacion(UsuarioActual usuario, Integer idIntento, String ip) {
         IntentoNoAutorizado intento = intentoRepository.findById(idIntento)
                 .filter(i -> i.getMotivo() == MotivoIntento.AMBIENTE_DIFERENTE)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No existe la alerta de aula diferente " + idIntento + "."));
@@ -448,14 +475,14 @@ public class MonitoreoService {
         Optional<Ingreso> previo = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(codSis, idAsignatura, idExamen);
         if (previo.isPresent()) {
             String hora = previo.get().getHoraIngreso() == null ? "" : " a las " + previo.get().getHoraIngreso().format(FORMATO_HORA);
-            throw rechazar(usuario, correoEstudiante, contexto, "El estudiante ya registró su ingreso" + hora + ".", ip);
+            throw new ReubicacionRechazada(correoEstudiante, contexto, "El estudiante ya registró su ingreso" + hora + ".");
         }
         if (!reparto.habilitados().containsKey(codSis)) {
-            throw rechazar(usuario, correoEstudiante, contexto, "El estudiante no está habilitado para este examen.", ip);
+            throw new ReubicacionRechazada(correoEstudiante, contexto, "El estudiante no está habilitado para este examen.");
         }
         EstadoIngresoAula estadoAula = ambienteExamenService.estadoIngreso(infoDestino);
         if (estadoAula.cerrado()) {
-            throw rechazar(usuario, correoEstudiante, contexto, estadoAula.motivo(), ip);
+            throw new ReubicacionRechazada(correoEstudiante, contexto, estadoAula.motivo());
         }
 
         // Nadie más puede ocupar este cupo hasta que termine la transacción
@@ -463,8 +490,9 @@ public class MonitoreoService {
         long ocupados = ingresoRepository.countByIdAmbienteAndIdExpulsionIsNull(destino.getIdAmbiente());
         Integer capacidad = ingresoRepository.obtenerCapacidadAmbiente(destino.getIdAmbiente());
         if (capacidad != null && capacidad > 0 && ocupados >= capacidad) {
-            throw rechazar(usuario, correoEstudiante, contexto, "El " + infoDestino.aula() + " no tiene pupitres libres ("
-                    + ocupados + "/" + capacidad + "): se mantiene su asignación en el " + aulaOrigen + ".", ip);
+            throw new ReubicacionRechazada(correoEstudiante, contexto, "El " + infoDestino.aula()
+                    + " no tiene pupitres libres (" + ocupados + "/" + capacidad + "): se mantiene su asignación en el "
+                    + aulaOrigen + ".");
         }
 
         LocalDateTime ahora = HoraOficial.ahora();
@@ -496,20 +524,35 @@ public class MonitoreoService {
             ingreso = ingresoRepository.saveAndFlush(ingreso);
         } catch (DataIntegrityViolationException e) {
             // Otro punto de control registró su ingreso en el mismo instante: se deshace todo
-            throw rechazar(usuario, correoEstudiante, contexto, "El estudiante ya registró su ingreso.", ip);
+            throw new ReubicacionRechazada(correoEstudiante, contexto, "El estudiante ya registró su ingreso.");
         }
 
-        auditoriaService.registrar("REUBICACION_EXPRESS", usuario.correo(), correoEstudiante,
-                contexto + " · ingreso #" + ingreso.getIdIngreso(), ip);
-        return new ReubicacionDto(codSis, nombreEstudiante, aulaOrigen, infoDestino.aula(), ingreso.getHoraIngreso(),
+        ReubicacionDto dto = new ReubicacionDto(codSis, nombreEstudiante, aulaOrigen, infoDestino.aula(),
+                ingreso.getHoraIngreso(),
                 nombreEstudiante + " quedó reubicado en el " + infoDestino.aula() + " y su ingreso fue registrado.");
+        return new ResultadoReubicacion(dto, correoEstudiante, contexto, ingreso.getIdIngreso());
     }
 
-    private ConflictoEstadoException rechazar(UsuarioActual usuario, String correoEstudiante, String contexto,
-                                              String mensaje, String ip) {
-        auditoriaService.registrar("REUBICACION_RECHAZADA", usuario.correo(), correoEstudiante,
-                contexto + " · " + mensaje, ip);
-        return new ConflictoEstadoException(mensaje);
+    /** Resultado de la transacción de reubicación, con lo necesario para auditar tras el commit. */
+    private record ResultadoReubicacion(ReubicacionDto dto, String correoEstudiante, String contexto,
+                                        Integer idIngreso) {
+    }
+
+    /**
+     * Rechazo de negocio (HTTP 409). Se lanza dentro de la transacción para que haga
+     * rollback; el método público lo captura, audita y lo vuelve a lanzar.
+     */
+    private static final class ReubicacionRechazada extends ConflictoEstadoException {
+        private static final long serialVersionUID = 1L;
+
+        private final String correoEstudiante;
+        private final String contexto;
+
+        ReubicacionRechazada(String correoEstudiante, String contexto, String mensaje) {
+            super(mensaje);
+            this.correoEstudiante = correoEstudiante;
+            this.contexto = contexto;
+        }
     }
 
     private static double redondear(double valor) {
