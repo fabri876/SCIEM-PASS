@@ -142,30 +142,22 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
     }
   }, []);
 
-  // 3. Incidencias e ingresos excepcionales según los filtros
-  const fnRecargarDatos = useCallback(async () => {
+  // 3a. Incidencias según todos los filtros
+  const fnRecargarIncidencias = useCallback(async () => {
     setBoolCargando(true);
     setStrErrorCarga("");
 
-    const filtros = {
-      idExamen: strIdExamen !== TODOS ? strIdExamen : null,
-      idAmbiente: filtroAula !== TODOS ? filtroAula : null,
-    };
-
     try {
-      const [resIncidencias, resExcepcionales] = await Promise.all([
-        listarIncidencias({
-          ...filtros,
-          tipo: filtroTipo !== TODOS ? filtroTipo : null,
-          estado: filtroEstado !== TODOS ? filtroEstado : null,
-        }),
-        listarIngresosExcepcionales(filtros),
-      ]);
+      const resIncidencias = await listarIncidencias({
+        idExamen: strIdExamen !== TODOS ? strIdExamen : null,
+        idAmbiente: filtroAula !== TODOS ? filtroAula : null,
+        tipo: filtroTipo !== TODOS ? filtroTipo : null,
+        estado: filtroEstado !== TODOS ? filtroEstado : null,
+      });
 
       setTotalesIncidencias(resIncidencias?.totales || { abiertas: 0, enRevision: 0, cerradas: 0 });
       const lista = resIncidencias?.incidencias || [];
       setIncidencias(lista);
-      setIngresosExcepcionales(Array.isArray(resExcepcionales) ? resExcepcionales : []);
 
       if (lista.length === 0) {
         setIncidenciaSeleccionada(null);
@@ -180,13 +172,31 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
     }
   }, [strIdExamen, filtroAula, filtroTipo, filtroEstado, fnCargarDetalle]);
 
+  // 3b. Ingresos excepcionales: solo depende de examen y aula (no de tipo/estado)
+  const fnRecargarExcepcionales = useCallback(async () => {
+    try {
+      const resExcepcionales = await listarIngresosExcepcionales({
+        idExamen: strIdExamen !== TODOS ? strIdExamen : null,
+        idAmbiente: filtroAula !== TODOS ? filtroAula : null,
+      });
+      setIngresosExcepcionales(Array.isArray(resExcepcionales) ? resExcepcionales : []);
+    } catch {
+      // El error de incidencias ya se muestra; no duplicar mensajes.
+    }
+  }, [strIdExamen, filtroAula]);
+
   useEffect(() => {
-    fnRecargarDatos();
-  }, [fnRecargarDatos]);
+    fnRecargarIncidencias();
+  }, [fnRecargarIncidencias]);
+
+  useEffect(() => {
+    fnRecargarExcepcionales();
+  }, [fnRecargarExcepcionales]);
 
   // Después de registrar algo: recargar lista, aforos y el contador del menú
   const fnTrasRegistrar = () => {
-    fnRecargarDatos();
+    fnRecargarIncidencias();
+    fnRecargarExcepcionales();
     fnCargarAulas();
   };
 
@@ -199,7 +209,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       setIncidenciaSeleccionada(res);
       setStrMensajeFeedback("Incidencia marcada en revisión.");
       notificarCambioIncidencias();
-      fnRecargarDatos();
+      fnRecargarIncidencias();
     } catch (err) {
       setStrMensajeFeedback(err.message || "No se pudo cambiar el estado a revisión.");
     } finally {
@@ -220,7 +230,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       setIncidenciaSeleccionada(res);
       setStrMensajeFeedback("Incidencia cerrada exitosamente.");
       notificarCambioIncidencias();
-      fnRecargarDatos();
+      fnRecargarIncidencias();
     } catch (err) {
       setStrMensajeFeedback(err.message || "No se pudo cerrar la incidencia.");
     } finally {

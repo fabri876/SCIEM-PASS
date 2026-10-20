@@ -192,7 +192,20 @@ public class ControlIngresoAyudanteService {
         // una fila en ayudante_examen. Se conserva temporalmente la validación
         // original hasta definir el contrato completo para esta pantalla.
         AyudanteExamen asignacion = ayudanteExamenRepository.findById(id)
-                .orElseThrow(() -> new AsignacionNoActivaException("No tiene asignado el examen/aula seleccionada."));
+                .orElse(null);
+
+        if (asignacion == null) {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            boolean puedeConsultarSinAsignacion = auth != null && auth.getAuthorities().stream()
+                    .anyMatch(a -> "ROLE_DOCENTE".equals(a.getAuthority())
+                            || "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
+            if (!puedeConsultarSinAsignacion) {
+                throw new AsignacionNoActivaException("No tiene asignado el examen/aula seleccionada.");
+            }
+            // Docente/admin pueden consultar el resumen de un aula aunque no
+            // exista una fila de ayudante_examen para ellos.
+            asignacion = new AyudanteExamen(id, "ACTIVO");
+        }
 
         return mapearAJornadaActivaDTO(asignacion);
     }

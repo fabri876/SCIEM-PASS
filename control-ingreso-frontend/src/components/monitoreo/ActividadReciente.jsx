@@ -47,7 +47,7 @@ export default function ActividadReciente({ incidencias, alertas }) {
             {eventos.length === 0 ? (
                 <p className="text-xs text-slate-400 font-semibold py-6 text-center">Sin incidencias ni alertas por ahora.</p>
             ) : (
-                <ul className="space-y-2.5 max-h-80 overflow-y-auto pr-0.5">
+                <ul className="space-y-2.5 max-h-80 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
                     {eventos.map((e) => (
                         <li key={e.clave} className="flex items-start gap-2.5 text-xs">
                             <span className="w-10 shrink-0 font-black text-slate-500 tabular-nums pt-0.5">{formatearHora(e.fecha)}</span>

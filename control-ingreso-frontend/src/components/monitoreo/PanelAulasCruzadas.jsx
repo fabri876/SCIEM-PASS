@@ -51,7 +51,7 @@ export default function PanelAulasCruzadas({ alertas, rol, onReubicar }) {
             ) : alertasFiltradas.length === 0 ? (
                 <p className="text-xs text-slate-400 font-semibold py-6 text-center">Sin resultados para «{strBusqueda}».</p>
             ) : (
-                <ul className="space-y-2.5 max-h-[34rem] overflow-y-auto pr-0.5">
+                <ul className="space-y-2.5 max-h-[34rem] overflow-y-auto pr-3 [scrollbar-gutter:stable]">
                     {alertasFiltradas.map((alerta) => (
                         <li key={alerta.idIntento} className="border border-rose-200 bg-rose-50/40 rounded-2xl p-3.5 space-y-2.5 text-xs break-words">
                             <div className="flex items-start justify-between gap-2">

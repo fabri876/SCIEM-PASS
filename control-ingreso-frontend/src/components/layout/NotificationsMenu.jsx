@@ -25,17 +25,29 @@ function IconoTipo({ strTipo }) {
   );
 }
 
-export default function NotificationsMenu({ boolVersionMobile = false }) {
+export default function NotificationsMenu({ boolVersionMobile = false, boolAbiertoInicial = false }) {
   const [arrNotificaciones, setArrNotificaciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
-  const [boolAbierto, setBoolAbierto] = useState(false);
+  const [boolAbierto, setBoolAbierto] = useState(boolAbiertoInicial);
   const refContenedor = useRef(null);
 
   const intAvisos = arrNotificaciones.length;
 
   const fnAlternar = () => setBoolAbierto((boolPrev) => !boolPrev);
+
+  // Abrir cuando la card "Notificaciones" del Inicio lo pide (evento global).
+  // La instancia desktop también existe (oculta) en celular: ahí se ignora,
+  // porque en mobile es el Header quien abre el menú y la instancia mobile.
+  useEffect(() => {
+    const fnAbrir = () => {
+      if (!boolVersionMobile && !window.matchMedia("(min-width: 768px)").matches) return;
+      setBoolAbierto(true);
+    };
+    window.addEventListener("abrir-notificaciones", fnAbrir);
+    return () => window.removeEventListener("abrir-notificaciones", fnAbrir);
+  }, [boolVersionMobile]);
 
   useEffect(() => {
     let activo = true;

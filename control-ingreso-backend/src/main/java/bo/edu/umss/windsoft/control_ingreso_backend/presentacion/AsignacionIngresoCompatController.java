@@ -60,16 +60,27 @@ public class AsignacionIngresoCompatController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','DOCENTE')")
     public ResponseEntity<?> guardar(@PathVariable Integer idExamen, @RequestBody Map<String, Object> body) {
         Examen examen = examenRepository.findById(idExamen).orElseThrow();
-        List<AsignacionIngresoRequestDTO.ItemAsignacion> items = new ArrayList<>();
+        Map<Integer, Integer> operadoresPorAmbiente = new LinkedHashMap<>();
+        // Inicializar todas las aulas con null permite desactivar el operador
+        // anterior cuando el docente vuelve a atender esa aula.
+        service.leerAsignacion(idExamen, contexto.actual()).forEach(a ->
+                operadoresPorAmbiente.put(a.idAmbiente(), null));
         Object responsables = body.get("responsables");
         if (responsables instanceof List<?> lista) for (Object valor : lista) {
             if (!(valor instanceof Map<?, ?> r)) continue;
+            Object rol = r.get("rol");
+            // El docente no es un registro de ayudante: queda como responsable
+            // por defecto y no debe enviarse a la tabla de asignaciones.
+            if ("DOCENTE".equalsIgnoreCase(String.valueOf(rol))) continue;
             Object ambiente = r.get("idAmbiente");
             Object usuario = r.get("idUsuario");
-            items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(
-                    ambiente instanceof Number n ? n.intValue() : Integer.valueOf(String.valueOf(ambiente)),
-                    usuario instanceof Number n ? n.intValue() : usuario == null ? null : Integer.valueOf(String.valueOf(usuario))));
+            Integer idAmbiente = ambiente instanceof Number n ? n.intValue() : Integer.valueOf(String.valueOf(ambiente));
+            Integer idUsuario = usuario instanceof Number n ? n.intValue() : usuario == null ? null : Integer.valueOf(String.valueOf(usuario));
+            operadoresPorAmbiente.put(idAmbiente, idUsuario);
         }
+        List<AsignacionIngresoRequestDTO.ItemAsignacion> items = operadoresPorAmbiente.entrySet().stream()
+                .map(e -> new AsignacionIngresoRequestDTO.ItemAsignacion(e.getKey(), e.getValue()))
+                .toList();
         var request = new AsignacionIngresoRequestDTO(examen.getIdAsignatura(), items);
         return ResponseEntity.ok(service.guardarAsignacion(idExamen, request, contexto.actual()));
     }

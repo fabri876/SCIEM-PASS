@@ -7,13 +7,14 @@ import ProximoExamen from "../credencial/componentes/ProximoExamen";
 import TarjetaExamenEstudiante from "../credencial/componentes/TarjetaExamenEstudiante";
 import VistaCredencialQr from "../credencial/componentes/VistaCredencialQr";
 import CalendarioExamenes from "../credencial/componentes/CalendarioExamenes";
-import { diasHasta } from "../credencial/componentes/formato";
 
 // Próximos (el más cercano primero) y pasados (el más reciente primero)
 function ordenarExamenes(list) {
-  const clave = (e) => `${e.fecha}T${e.horaInicio}`;
-  const proximos = list.filter((e) => (diasHasta(e.fecha) ?? 0) >= 0).sort((a, b) => clave(a).localeCompare(clave(b)));
-  const pasados = list.filter((e) => (diasHasta(e.fecha) ?? 0) < 0).sort((a, b) => clave(b).localeCompare(clave(a)));
+  const inicio = (e) => new Date(`${e.fecha}T${e.horaInicio || "00:00"}:00`).getTime();
+  const fin = (e) => new Date(`${e.fecha}T${e.horaFin || e.horaInicio || "23:59"}:00`).getTime();
+  const ahora = Date.now();
+  const proximos = list.filter((e) => fin(e) >= ahora).sort((a, b) => inicio(a) - inicio(b));
+  const pasados = list.filter((e) => fin(e) < ahora).sort((a, b) => inicio(b) - inicio(a));
   return { proximos, pasados };
 }
 
@@ -168,7 +169,7 @@ export default function HomeEstudiante() {
 
         {/* Área Central de Contenido */}
         <main ref={refMain} className="flex-1 h-[calc(100vh-98px)] overflow-y-auto px-6 lg:px-10 py-8">
-          <div className="max-w-[1100px] flex flex-col gap-6 text-[#08264A]">
+          <div className={(activeMenu === "Mi Información" ? "hidden " : "") + "max-w-[1100px] flex flex-col gap-6 text-[#08264A]"}>
             {/* El saludo solo va en la pantalla principal, no en el detalle del QR */}
             {!examenQr && (
               <div>
@@ -234,9 +235,33 @@ export default function HomeEstudiante() {
             )}
           </div>
 
+          {activeMenu === "Mi Información" && (
+            <section aria-label="Información del estudiante" className="max-w-[1100px] bg-white border border-[#CBD5E1] rounded-xl p-6 text-[#08264A]">
+              <h1 className="m-0 text-[22px] font-bold">Mi información</h1>
+              <p className="mt-1 text-[13px] text-[#64748B]">Datos de tu cuenta de estudiante.</p>
+              <div className="mt-6 grid grid-cols-2 max-md:grid-cols-1 gap-4">
+                <DatoInformacion etiqueta="Nombre completo" valor={`${usuario?.nombre || ""} ${usuario?.apellido || ""}`.trim()} />
+                <DatoInformacion etiqueta="C.I." valor={usuario?.ci} />
+                <DatoInformacion etiqueta="Código SIS" valor={usuario?.codigoSis} />
+                <DatoInformacion etiqueta="Carrera" valor={usuario?.carrera} />
+                <DatoInformacion etiqueta="Facultad" valor={usuario?.facultad} />
+                <DatoInformacion etiqueta="Correo" valor={usuario?.correo} />
+              </div>
+            </section>
+          )}
+
         </main>
       </div>
 
+    </div>
+  );
+}
+
+function DatoInformacion({ etiqueta, valor }) {
+  return (
+    <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+      <span className="block text-[11px] font-semibold uppercase tracking-[.4px] text-[#64748B]">{etiqueta}</span>
+      <strong className="block mt-1 text-sm text-[#08264A]">{valor || "No registrado"}</strong>
     </div>
   );
 }
