@@ -391,7 +391,12 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     setObjContador(null);
     setStrUltimoRegistrado(null);
     setStrError("");
-  }, []);
+    if (id == null) {
+      // Al volver a la lista, actualizar inmediatamente los contadores del
+      // examen para reflejar los ingresos registrados en el control.
+      fnCargarExamenes();
+    }
+  }, [fnCargarExamenes]);
 
   const fnVolverALista = useCallback(() => fnElegirExamen(null), [fnElegirExamen]);
 

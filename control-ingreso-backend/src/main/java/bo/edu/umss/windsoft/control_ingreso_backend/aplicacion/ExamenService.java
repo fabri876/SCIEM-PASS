@@ -43,6 +43,7 @@ public class ExamenService {
     private final NormaGeneralRepository normaGeneralRepository;
     private final GrupoRepository grupoRepository;
     private final HabilitacionRepository habilitacionRepository;
+    private final IngresoRepository ingresoRepository;
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -59,6 +60,7 @@ public class ExamenService {
             NormaGeneralRepository normaGeneralRepository,
             GrupoRepository grupoRepository,
             HabilitacionRepository habilitacionRepository,
+            IngresoRepository ingresoRepository,
             CambioExamenService cambiosExamen) {
 
         this.cambiosExamen = cambiosExamen;
@@ -76,6 +78,7 @@ public class ExamenService {
         this.normaGeneralRepository = normaGeneralRepository;
         this.grupoRepository = grupoRepository;
         this.habilitacionRepository = habilitacionRepository;
+        this.ingresoRepository = ingresoRepository;
     }
 
     // -------------------------------------------------------------------------
@@ -445,6 +448,17 @@ public class ExamenService {
                 return amb;
             }).collect(Collectors.toList());
             dto.setAmbientes(ambientesDto);
+
+            int totalHabilitados = (int) habilitacionRepository
+                    .countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(examen.getIdAsignatura(), examen.getIdExamen());
+            int inhabilitados = (int) habilitacionRepository
+                    .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(examen.getIdAsignatura(), examen.getIdExamen());
+            int ingresados = (int) ingresoRepository
+                    .countByIdAsignaturaAndIdExamenAndIdExpulsionIsNull(examen.getIdAsignatura(), examen.getIdExamen());
+            dto.setIngresados(ingresados);
+            dto.setInhabilitados(inhabilitados);
+            dto.setTotalInscritos(totalHabilitados);
+            dto.setNoLlegan(Math.max(0, totalHabilitados - ingresados));
 
             // --- NUEVO: poblar normasGenerales del DTO ---
             List<ExamenNormaGeneral> relacionesDeEsteExamen = relacionesPorExamen.getOrDefault(examen.getIdExamen(),
