@@ -7,6 +7,10 @@ import java.time.LocalTime;
 @Entity
 @Table(name = "examen")
 public class Examen {
+    @Column(name="idsemestre", insertable=false, updatable=false)
+    private Integer idSemestre;
+    public Integer getIdSemestre() { return idSemestre; }
+
 
     // Sin IDENTITY/sequence en la base real (ver Usuario.java) — se usa una
     // sequence propia creada a mano.

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import Header from "../../components/layout/Header";
+import HistorialSemestres from "./components/HistorialSemestres";
 import AdminSidebar from "./components/AdminSidebar";
 import AdminMetricsCards from "./components/AdminMetricsCards";
 import BulkUploadCard from "./components/BulkUploadCard";
@@ -246,6 +247,7 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     {/* =================================================
                         HISTORIAL DE AUDITORÍA
                         ================================================= */}
+                    {activeMenu === "Historial de Semestres" && <HistorialSemestres onCambio={() => { setRevisionAcademica(v => v + 1); void fnCargarUsuarios(); }} />}
                     {activeMenu === "Historial de Auditoría" && (
                         <AuditoriaTable
                             registros={auditoria}

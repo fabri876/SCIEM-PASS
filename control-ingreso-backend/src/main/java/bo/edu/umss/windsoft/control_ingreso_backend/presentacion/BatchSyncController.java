@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -36,6 +38,7 @@ public class BatchSyncController {
     public ResponseEntity<Map<String, Object>> sincronizar(@RequestBody BatchSyncRequestDTO request) {
         Integer usuario = contexto.actual().idUsuario();
         List<Map<String, Object>> resultados = new ArrayList<>();
+        Set<String> codsisYaEnLote = new HashSet<>();
         if (request == null || request.items() == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "El lote debe contener items"));
         }
@@ -56,6 +59,13 @@ public class BatchSyncController {
                     resultados.add(salida);
                     continue;
                 }
+                // Evitar duplicados dentro del mismo lote de sincronización
+                if (codsisYaEnLote.contains(item.codigoSis())) {
+                    salida.put("estado", "DUPLICADO");
+                    salida.put("mensaje", "Estudiante ya registrado en este lote de sincronización");
+                    resultados.add(salida);
+                    continue;
+                }
                 MetodoIngreso metodo = "QR".equalsIgnoreCase(item.metodo())
                         ? MetodoIngreso.ESCANEO : MetodoIngreso.MANUAL;
                 var dto = new bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.VerificarIngresoRequestDTO(
@@ -70,6 +80,9 @@ public class BatchSyncController {
                         : respuesta.getStatusCode().is2xxSuccessful() ? "PROCESADO" : "ERROR";
                 salida.put("estado", estado);
                 salida.put("resultado", cuerpo);
+                if ("PROCESADO".equals(estado)) {
+                    codsisYaEnLote.add(item.codigoSis());
+                }
             } catch (IllegalArgumentException ex) {
                 salida.put("estado", "ERROR_VALIDACION");
                 salida.put("mensaje", ex.getMessage());
