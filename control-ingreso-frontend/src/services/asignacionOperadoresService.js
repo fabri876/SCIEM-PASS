@@ -43,7 +43,7 @@ export async function obtenerOperadoresDisponibles(idExamen) {
         headers: construirHeaders(),
     });
     if (!response.ok) {
-        throw new Error("No se pudieron obtener tus operadores.");
+        throw new Error("No se pudieron obtener tus ayudantes.");
     }
     const data = await response.json();
     return Array.isArray(data) ? data : [];
@@ -56,7 +56,7 @@ export async function obtenerAsignacionIngreso(idExamen) {
     });
     if (response.status === 404 || response.status === 204) return null;
     if (!response.ok) {
-        throw new Error("No se pudo obtener la asignación de operadores.");
+        throw new Error("No se pudo obtener la asignación de ayudantes.");
     }
     return response.json();
 }
@@ -72,7 +72,7 @@ export async function guardarAsignacionIngreso(idExamen, objAsignacion) {
         throw new Error(
             err.mensaje ||
             (response.status === 404
-                ? "El servidor aún no tiene habilitado el guardado de operadores."
+                ? "El servidor aún no tiene habilitado el guardado de ayudantes."
                 : "No se pudo guardar la asignación.")
         );
     }
