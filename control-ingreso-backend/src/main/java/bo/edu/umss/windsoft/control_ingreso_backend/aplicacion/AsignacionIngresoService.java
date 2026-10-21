@@ -169,18 +169,14 @@ public class AsignacionIngresoService {
                     "No se encontraron aulas para el examen " + idExamen);
         }
 
-        // Asignaciones ACTIVAS por idambiente → primer operador encontrado
-        Map<Integer, AyudanteExamen> asignacionPorAmbiente =
+        // Puede haber varios operadores activos en una misma aula, cada uno
+        // atendiendo un rango distinto de estudiantes.
+        Map<Integer, List<AyudanteExamen>> asignacionesPorAmbiente =
                 ayudanteExamenRepository.findByIdIdexamenAndEstadoAsignacion(idExamen, ESTADO_ACTIVO)
-                        .stream()
-                        .collect(Collectors.toMap(
-                                ae -> ae.getId().getIdambiente(),
-                                Function.identity(),
-                                (a, b) -> a  // en caso de duplicado, conservar el primero
-                        ));
+                        .stream().collect(Collectors.groupingBy(ae -> ae.getId().getIdambiente()));
 
         // Precarga de usuarios asignados
-        Set<Integer> idsOperadores = asignacionPorAmbiente.values().stream()
+        Set<Integer> idsOperadores = asignacionesPorAmbiente.values().stream().flatMap(List::stream)
                 .map(ae -> ae.getId().getIdayudante())
                 .collect(Collectors.toSet());
         Map<Integer, Usuario> usuariosMap = usuarioRepository.findAllById(idsOperadores)
@@ -193,21 +189,22 @@ public class AsignacionIngresoService {
                 .stream()
                 .collect(Collectors.toMap(Aula::getIdAula, Function.identity()));
 
-        return ambientes.stream().map(amb -> {
+        return ambientes.stream().flatMap(amb -> {
             Aula aula    = aulasMap.get(amb.getIdAula());
-            AyudanteExamen ae = asignacionPorAmbiente.get(amb.getIdAmbiente());
-            Usuario operador  = ae != null ? usuariosMap.get(ae.getId().getIdayudante()) : null;
-
-            return new AulaAsignacionDTO(
-                    amb.getIdAmbiente(),
-                    amb.getIdAula(),
-                    aula != null ? aula.getNombreAula()    : "Aula " + amb.getIdAula(),
-                    aula != null ? aula.getUbicacionAula() : null,
-                    aula != null ? aula.getCapacidadAula() : null,
-                    operador != null ? operador.getIdusuario()      : null,
-                    operador != null ? operador.getNombreusuario()   : null,
-                    operador != null ? operador.getApellidousuario() : null
-            );
+            List<AyudanteExamen> asignaciones = asignacionesPorAmbiente
+                    .getOrDefault(amb.getIdAmbiente(), List.of());
+            if (asignaciones.isEmpty()) asignaciones = List.of((AyudanteExamen) null);
+            final List<AyudanteExamen> filas = asignaciones;
+            return filas.stream().map(ae -> {
+                Usuario operador = ae != null ? usuariosMap.get(ae.getId().getIdayudante()) : null;
+                return new AulaAsignacionDTO(amb.getIdAmbiente(), amb.getIdAula(),
+                        aula != null ? aula.getNombreAula() : "Aula " + amb.getIdAula(),
+                        aula != null ? aula.getUbicacionAula() : null,
+                        aula != null ? aula.getCapacidadAula() : null,
+                        operador != null ? operador.getIdusuario() : null,
+                        operador != null ? operador.getNombreusuario() : null,
+                        operador != null ? operador.getApellidousuario() : null);
+            });
         }).toList();
     }
 
@@ -268,6 +265,7 @@ public class AsignacionIngresoService {
                 .map(Ambiente::getIdAmbiente).collect(Collectors.toSet());
         Set<Integer> operadoresEnSolicitud = new java.util.HashSet<>();
 
+        Set<Integer> ambientesProcesados = new java.util.HashSet<>();
         for (AsignacionIngresoRequestDTO.ItemAsignacion item : request.asignaciones()) {
             Integer idAmbiente = item.idAmbiente();
             Integer idOperador = item.idOperador();
@@ -281,12 +279,13 @@ public class AsignacionIngresoService {
                         "El operador " + idOperador + " no puede asignarse a dos aulas.");
             }
 
-            // Desactivar asignaciones anteriores en este ambiente que NO sean el operador nuevo
-            List<AyudanteExamen> existentes = ayudanteExamenRepository
-                    .findByIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
-                            idAsignatura, idExamen, idAmbiente, ESTADO_ACTIVO);
-            for (AyudanteExamen ae : existentes) {
-                if (idOperador == null || !ae.getId().getIdayudante().equals(idOperador)) {
+            // Se desactivan las asignaciones anteriores una sola vez por aula.
+            // Las filas siguientes del mismo ambiente representan varios operadores.
+            if (ambientesProcesados.add(idAmbiente)) {
+                List<AyudanteExamen> existentes = ayudanteExamenRepository
+                        .findByIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
+                                idAsignatura, idExamen, idAmbiente, ESTADO_ACTIVO);
+                for (AyudanteExamen ae : existentes) {
                     ae.setEstadoAsignacion(ESTADO_INACTIVO);
                     ayudanteExamenRepository.save(ae);
                 }
