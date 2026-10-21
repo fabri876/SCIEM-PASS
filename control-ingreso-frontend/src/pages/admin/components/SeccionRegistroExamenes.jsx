@@ -387,7 +387,10 @@ export default function SeccionRegistroExamenes() {
 
     function handleAbrirControl(ex) {
         navigate(`/admin/examenes/${ex.idExamen}/control-ingreso`, {
-            state: { nombreDocente: ex._docente },
+            // El control necesita asignatura y ambiente para cargar el examen
+            // seleccionado. Antes solo se enviaba el nombre del docente y la
+            // vista intentaba buscarlo como si fuera un examen delegado.
+            state: { nombreDocente: ex._docente, examen: ex },
         });
     }
 
