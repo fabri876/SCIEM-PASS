@@ -97,8 +97,7 @@ public class UsuarioService {
         }
 
         String ciNormalizado = CiNormalizador.normalizar(dto.getCi());
-        validarUnicidad(ciNormalizado, dto.getCorreo());
-        validarCodigoDisponible(rolNormalizado, dto.getCodigoSis());
+
         java.util.Set<Integer> grupos = new java.util.LinkedHashSet<>();
         if (dto.getIdGrupo() != null) grupos.add(dto.getIdGrupo());
         if (dto.getIdGrupos() != null) grupos.addAll(dto.getIdGrupos());
@@ -106,6 +105,20 @@ public class UsuarioService {
         if ((TipoUsuarioResolver.DOCENTE.equals(rolNormalizado) || TipoUsuarioResolver.ESTUDIANTE.equals(rolNormalizado) || TipoUsuarioResolver.OPERADOR.equals(rolNormalizado)) && grupos.isEmpty())
             throw new SolicitudInvalidaException("Debe asignar al menos una asignatura y grupo al registrar docentes, estudiantes o ayudantes.");
         grupoService.validarAccesoRegistro(new java.util.ArrayList<>(grupos), rolNormalizado);
+
+        var existente = usuarioRepository.findByCiusuario(ciNormalizado);
+        if (existente.isPresent() && TipoUsuarioResolver.ESTUDIANTE.equals(rolNormalizado)) {
+            var cuenta = existente.get();
+            var estudiante = estudianteRepository.findByIdusuario(cuenta.getIdusuario());
+            if (Boolean.TRUE.equals(cuenta.getEstadousuario()) && dto.getCorreo().equalsIgnoreCase(cuenta.getCorreousuario())
+                    && estudiante.isPresent() && java.util.Objects.equals(dto.getCodigoSis(), estudiante.get().getCodsisestudiante())) {
+                grupoService.validarUnGrupoPorAsignatura(new java.util.ArrayList<>(grupos));
+                for (Integer idGrupo : grupos) grupoService.inscribirEstudianteAGrupo(cuenta.getIdusuario(), dto.getCodigoSis(), idGrupo);
+                return usuarioRespuestaMapper.mapear(cuenta);
+            }
+        }
+        validarUnicidad(ciNormalizado, dto.getCorreo());
+        validarCodigoDisponible(rolNormalizado, dto.getCodigoSis());
 
         // Si no se proporciona contraseña, se usa automáticamente el CI (normalizado) como contraseña inicial
         String rawPassword = (dto.getContrasena() == null || dto.getContrasena().trim().isEmpty())

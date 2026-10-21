@@ -7,6 +7,10 @@ import java.time.LocalTime;
 @Entity
 @Table(name = "horarioregular")
 public class HorarioRegular {
+    @Column(name="idsemestre", insertable=false, updatable=false)
+    private Integer idSemestre;
+    public Integer getIdSemestre() { return idSemestre; }
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "horarioregular_seq")

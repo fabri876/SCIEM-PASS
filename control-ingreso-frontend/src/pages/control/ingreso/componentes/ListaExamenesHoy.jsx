@@ -92,9 +92,8 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
           <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
         </button>
         {toast && (
-          <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${
-            toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
-          }`}>
+          <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
+            }`}>
             {toast.msg}
           </div>
         )}
@@ -163,9 +162,8 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
         <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
       </button>
       {toast && (
-        <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${
-          toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
-        }`}>
+        <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
+          }`}>
           {toast.msg}
         </div>
       )}
@@ -183,7 +181,7 @@ function TarjetaExamenHoy({ examen, onElegir, boolSinRed }) {
       : (nomina.estado.lista ? 100 : 0),
   };
   const fnDescargarNomina = () => {
-    nomina.descargar({ incluirFotos: false }).catch(() => {});
+    nomina.descargar({ incluirFotos: false }).catch(() => { });
   };
 
   const c = examen.contador || {};
@@ -255,7 +253,7 @@ function TarjetaExamenHoy({ examen, onElegir, boolSinRed }) {
               <PildoraFila objFila={objFila} />
               <span className="text-[#475569]">
                 <b className="font-bold text-[#08264A]">{objFila.ingresaron ?? 0}</b> de {objFila.total ?? 0} de tu fila ya ingresaron
-                {numOperadores > 1 && <span className="text-[#64748B]"> · {numOperadores} operadores en este examen</span>}
+                {numOperadores > 1 && <span className="text-[#64748B]"> · {numOperadores} ayudantes en este examen</span>}
               </span>
             </div>
           ) : <span />}

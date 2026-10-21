@@ -152,6 +152,17 @@ public class GrupoService {
         return docenteGrupoRepository.existsByIdUsuarioAndIdGrupo(idUsuario, idGrupo);
     }
 
+    public void validarInscripcionesEstudiante(Integer idUsuario, List<Integer> idsGrupos) {
+        estudianteRepository.bloquearParaInscripcion(idUsuario)
+                .orElseThrow(() -> new ValidacionNegocioException("El usuario no es estudiante."));
+        validarUnGrupoPorAsignatura(idsGrupos);
+        for (Integer idGrupo : idsGrupos) {
+            Grupo grupo = grupoRepository.findById(idGrupo).orElseThrow(() -> new ValidacionNegocioException("El grupo no pertenece al semestre actual."));
+            if (estudianteGrupoRepository.existeOtroGrupoEnAsignatura(idUsuario, grupo.getIdAsignatura(), idGrupo))
+                throw new ValidacionNegocioException("El estudiante ya pertenece a otro grupo de esta asignatura en el semestre actual.");
+        }
+    }
+
     @Transactional
     public void inscribirEstudianteAGrupo(Integer idUsuarioEstudiante, Integer codSisEstudiante, Integer idGrupo) {
         Grupo grupo = grupoRepository.findById(idGrupo)

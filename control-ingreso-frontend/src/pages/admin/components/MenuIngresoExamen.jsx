@@ -102,7 +102,7 @@ export default function MenuIngresoExamen({
                 >
                     <Opcion
                         Icono={UserPlus}
-                        strTexto={boolSoloLectura ? "Ver operadores" : "Asignar operadores"}
+                        strTexto={boolSoloLectura ? "Ver ayudantes" : "Asignar ayudantes"}
                         onClick={() => elegir(onAsignar)}
                     />
                     <Opcion
