@@ -84,9 +84,9 @@ export default function DetalleExamenAdmin({
                             .filter(Boolean)
                     ),
                 ];
-                setStrOperadores(arrNombres.length ? arrNombres.join(", ") : "Aún sin operadores");
+                setStrOperadores(arrNombres.length ? arrNombres.join(", ") : "Aún sin ayudantes");
             })
-            .catch(() => boolVivo && setStrOperadores("Aún sin operadores"));
+            .catch(() => boolVivo && setStrOperadores("Aún sin ayudantes"));
         return () => { boolVivo = false; };
     }, [examen.idExamen]);
 
@@ -153,8 +153,8 @@ export default function DetalleExamenAdmin({
             </Tarjeta>
 
             <Tarjeta strTitulo="Ingreso">
-                <Campo strEtiqueta="Operadores">
-                    <span className={strOperadores === "Aún sin operadores" || strOperadores === "Cargando…" ? "text-slate-500" : ""}>
+                <Campo strEtiqueta="Ayudantes">
+                    <span className={strOperadores === "Aún sin ayudantes" || strOperadores === "Cargando…" ? "text-slate-500" : ""}>
                         {strOperadores}
                     </span>
                 </Campo>

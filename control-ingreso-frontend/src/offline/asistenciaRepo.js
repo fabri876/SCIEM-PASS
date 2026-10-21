@@ -55,7 +55,7 @@ export const asistenciaRepo = {
 
       // 3. Verificar duplicado local
       if (estudiante.marcadoLocal === 1) {
-        const error = new Error(`El estudiante ya registró su ingreso a las ${estudiante.marcadoEn} (operador: ${estudiante.marcadoPor || 'Desconocido'}).`);
+        const error = new Error(`El estudiante ya registró su ingreso a las ${estudiante.marcadoEn} (ayudante: ${estudiante.marcadoPor || 'Desconocido'}).`);
         error.codigo = ERROR_ASISTENCIA.YA_MARCADO;
         error.marcadoEn = estudiante.marcadoEn;
         error.marcadoPor = estudiante.marcadoPor;
@@ -73,8 +73,8 @@ export const asistenciaRepo = {
       const nuevaAsistencia = {
         clientUuid,
         examenId: exId,
-      asignaturaId: asignaturaId ? Number(asignaturaId) : null,
-      ambienteId: ambienteId ? Number(ambienteId) : null,
+        asignaturaId: asignaturaId ? Number(asignaturaId) : null,
+        ambienteId: ambienteId ? Number(ambienteId) : null,
         codigoSis: sis,
         metodo,
         operadorId,
