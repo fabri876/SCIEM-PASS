@@ -19,12 +19,24 @@ export function estaSesionExpirada() {
   const token = localStorage.getItem("token");
   if (!token) return true;
 
+  // Si no hay registro de actividad previa, no considerar expirado (primer inicio)
   const strUltimaActividad = localStorage.getItem("ultimaActividad");
   if (!strUltimaActividad) return false;
 
   const intUltimaActividad = parseInt(strUltimaActividad, 10);
   return (Date.now() - intUltimaActividad) > TIEMPO_INACTIVIDAD_MAXIMO_MS;
 }
+
+function iniciarRegistroActividadGlobal() {
+  if (typeof window === "undefined") return;
+  const eventos = ["click", "keydown", "scroll", "mousemove", "touchstart"];
+  eventos.forEach((evt) =>
+    window.addEventListener(evt, registrarActividad, { passive: true })
+  );
+}
+
+// Iniciar monitoreo de actividad al cargar el módulo
+iniciarRegistroActividadGlobal();
 
 export async function registrarUsuario(objDatosRegistro) {
   const response = await fetch(`${strApiBaseUrl}/api/auth/registro`, {

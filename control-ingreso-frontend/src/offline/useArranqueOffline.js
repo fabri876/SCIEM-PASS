@@ -28,7 +28,9 @@ export function useArranqueOffline() {
       }
       if (!vivo) return;
       try {
-        cancelarPurga = programarPurgaPeriodica({ intervaloHoras: 6, ejecutarAlInicio: true });
+        // ejecutarAlInicio: false para evitar que la purga corra al arrancar y
+      // potencialmente interfiera con el motor offline mientras se estabiliza la DB
+      cancelarPurga = programarPurgaPeriodica({ intervaloHoras: 6, ejecutarAlInicio: false });
       } catch (err) {
         console.warn("[useArranqueOffline] Error al programar la purga periodica:", err);
       }

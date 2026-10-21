@@ -401,7 +401,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const fnVolverALista = useCallback(() => fnElegirExamen(null), [fnElegirExamen]);
 
   const fnDescargarNomina = useCallback(() => {
-    nomina.descargar({ incluirFotos: false }).catch(() => {});
+    return nomina.descargar({ incluirFotos: false });
   }, [nomina.descargar]);
 
   // Si el backend ya devuelve los últimos ingresos, se usan; si no, los de esta sesión
