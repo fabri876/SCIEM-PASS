@@ -60,6 +60,10 @@ try {
   const { default: Panel } = await server.ssrLoadModule("/src/pages/admin/AdminDashboard.jsx");
   const html = renderToString(React.createElement(MemoryRouter, null, React.createElement(Panel)));
   assert.ok(html.includes("Administración de Usuarios y Roles"));
+  const { default: Historial } = await server.ssrLoadModule("/src/pages/admin/components/HistorialSemestres.jsx");
+  const htmlHistorial = renderToString(React.createElement(Historial));
+  assert.ok(htmlHistorial.includes("Historial de Semestres"));
+  assert.ok(htmlHistorial.includes("Cambiar semestre"));
   console.log("OK: tabla vacía, tabla con estudiantes y panel administrador renderizan sin errores.");
 } finally {
   await server.close();
