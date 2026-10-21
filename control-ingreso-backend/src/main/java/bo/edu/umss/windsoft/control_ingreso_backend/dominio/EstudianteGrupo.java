@@ -21,7 +21,7 @@ public class EstudianteGrupo {
     @Column(name = "idgrupo", nullable = false)
     private Integer idGrupo;
 
-    // PostgreSQL deriva esta columna del grupo y exige UNIQUE (idusuario, idasignatura).
+    // PostgreSQL deriva esta columna del grupo y exige UNIQUE (idusuario, idasignatura, idsemestre).
     @Column(name = "idasignatura", nullable = false, insertable = false, updatable = false)
     private Integer idAsignatura;
 

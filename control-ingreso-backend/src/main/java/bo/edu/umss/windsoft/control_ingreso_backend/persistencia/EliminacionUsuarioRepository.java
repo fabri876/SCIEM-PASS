@@ -15,7 +15,8 @@ public class EliminacionUsuarioRepository {
 
     public boolean tieneHistorial(Integer id) {
         return Boolean.TRUE.equals(jdbc.queryForObject("""
-                SELECT EXISTS(SELECT 1 FROM examen WHERE idusuario = ?)
+                SELECT EXISTS(SELECT 1 FROM (SELECT idusuario,idgrupo FROM docentegrupo UNION ALL SELECT idusuario,idgrupo FROM estudiantegrupo UNION ALL SELECT idusuario,idgrupo FROM ayudantegrupo) v JOIN grupo g ON g.idgrupo=v.idgrupo JOIN semestre s ON s.idsemestre=g.idsemestre WHERE v.idusuario=? AND s.estado='FINALIZADO')
+                    OR EXISTS(SELECT 1 FROM examen WHERE idusuario = ?)
                     OR EXISTS(SELECT 1 FROM ingreso WHERE idusuario = ? OR est_idusuario = ?)
                     OR EXISTS(SELECT 1 FROM incidencia WHERE idusuarioreporta = ? OR idusuariorevisa = ?
                         OR idusuarioresuelve = ? OR est_idusuario = ?)
@@ -27,7 +28,7 @@ public class EliminacionUsuarioRepository {
                     OR EXISTS(SELECT 1 FROM ayudante_examen WHERE idayudante = ?)
                     OR EXISTS(SELECT 1 FROM horarioregular WHERE idusuario = ?)
                     OR EXISTS(SELECT 1 FROM credencial WHERE idusuario = ? AND idexamen IS NOT NULL)
-                """, Boolean.class, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id));
+                """, Boolean.class, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id));
     }
 
     public void eliminar(Integer id, Integer idAdministrador, String accion) {

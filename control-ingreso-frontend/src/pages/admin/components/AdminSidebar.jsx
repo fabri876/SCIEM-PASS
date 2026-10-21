@@ -5,6 +5,7 @@ import { cerrarSesion } from "../../../services/authService";
 import { obtenerTotalIncidenciasAbiertas } from "../../../services/incidenciaService";
 
 const baseMenuItems = [
+    { id: "Historial de Semestres", label: "Historial de Semestres", icon: Calendar },
     { id: "Gestión de Usuarios", label: "Gestión de Usuarios", icon: Users },
     { id: "Gestión de Asignaturas y Grupos", label: "Gestión de Asignaturas y Grupos", icon: BookOpen },
     { id: "Roles y Permisos", label: "Roles y Permisos", icon: Shield },

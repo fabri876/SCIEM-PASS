@@ -5,6 +5,10 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "grupo")
 public class Grupo {
+    @Column(name="idsemestre", insertable=false, updatable=false)
+    private Integer idSemestre;
+    public Integer getIdSemestre() { return idSemestre; }
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

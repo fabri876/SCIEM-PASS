@@ -16,7 +16,7 @@ public class CambioExamenRepository {
    SELECT c.id,a.nombreasignatura,c.tipo,c.anterior,c.actual,c.fecha
    FROM cambio_examen c JOIN examen e ON e.idexamen=c.idexamen
    JOIN asignatura a ON a.idasignatura=e.idasignatura
-   WHERE e.estadoexamen=true
+   WHERE e.idsemestre=(SELECT idsemestre FROM semestre WHERE estado='ACTUAL') AND e.estadoexamen=true
    AND e.fechaexamen >= (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz')::date
    AND c.fecha >= CURRENT_TIMESTAMP - INTERVAL '7 days'
    ORDER BY c.fecha DESC,c.id DESC LIMIT 100
