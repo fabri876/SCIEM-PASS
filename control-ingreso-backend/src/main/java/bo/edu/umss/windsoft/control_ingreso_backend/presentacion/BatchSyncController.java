@@ -2,6 +2,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ContextoUsuarioService;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ControlIngresoAyudanteService;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MetodoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.BatchSyncRequestDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ResultadoIngresoDTO;
@@ -15,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -63,6 +65,22 @@ public class BatchSyncController {
                 if (codsisYaEnLote.contains(item.codigoSis())) {
                     salida.put("estado", "DUPLICADO");
                     salida.put("mensaje", "Estudiante ya registrado en este lote de sincronización");
+                    resultados.add(salida);
+                    continue;
+                }
+
+                // Defensa en profundidad: verificar si ya existe un ingreso para este
+                // estudiante+asignatura+examen en la BD, independientemente del clientUuid.
+                // Esto evita duplicados cuando un ingreso offline se sincroniza y luego
+                // se intenta registrar el mismo estudiante por otra vía (online/manual).
+                Integer codsis = Integer.valueOf(item.codigoSis());
+                Optional<Ingreso> ingresoExistente = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
+                        codsis, item.asignaturaId(), item.examenId());
+                if (ingresoExistente.isPresent()) {
+                    Ingreso prev = ingresoExistente.get();
+                    salida.put("estado", "DUPLICADO");
+                    salida.put("mensaje", "El estudiante ya tiene un ingreso registrado en este examen");
+                    salida.put("horaIngreso", prev.getHoraIngreso() != null ? prev.getHoraIngreso().toString() : null);
                     resultados.add(salida);
                     continue;
                 }

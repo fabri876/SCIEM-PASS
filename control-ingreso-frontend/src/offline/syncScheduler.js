@@ -6,7 +6,6 @@ import {
   iniciarConectividad,
   detenerConectividad,
   verificarAhora,
-  probarConexionReal,
   obtenerEstadoConexion,
   suscribirConectividad
 } from './connectivityService.js';
@@ -82,11 +81,13 @@ async function dispararSincronizacion(motivo) {
     return;
   }
 
-  const conn = obtenerEstadoConexion();
-  if (conn.estado === 'offline') {
+  // Comprobación rápida: si el navegador dice que no hay internet, saltar.
+  // Si dice que sí, intentamos sincronizar y deja que el servidor responda.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return;
   }
 
+  const conn = obtenerEstadoConexion();
   const tamano =
     conn.estado === 'degraded'
       ? configActual.tamanoLoteLento
@@ -127,25 +128,10 @@ async function dispararSincronizacion(motivo) {
 export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
   const pendientesRestantes = await asistenciaRepo.contarPendientes();
 
-  // Verificación real de conexión: no confiar solo en el estado cached.
-  // Si el usuario vuelve a internet pero el ping aún no se ha disparado,
-  // estadoConexion.estado puede seguir siendo 'offline' y bloquear el envío.
-  const redReal = await probarConexionReal();
-  if (!redReal.ok) {
-    return {
-      sinConexion: true,
-      pendientesRestantes,
-      enviados: 0,
-      procesados: 0,
-      duplicados: 0,
-      errores: 0,
-      itemsConFalloDeLote: 0
-    };
-  }
-
   pausadoPorAuth = false;
   notificarCambioScheduler();
 
+  const conn = obtenerEstadoConexion();
   const loteSize =
     tamanoLote ||
     (conn.estado === 'degraded'
@@ -191,9 +177,8 @@ function programarCicloPeriodico() {
     if (!activo || generacion !== genAlProgramar) return;
 
     const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
-    const conn = obtenerEstadoConexion();
 
-    if (visible && (conn.estado === 'online' || conn.estado === 'degraded') && !pausadoPorAuth) {
+    if (visible && !pausadoPorAuth && !(typeof navigator !== 'undefined' && navigator.onLine === false)) {
       const pendientes = await asistenciaRepo.pendientes(1);
 
       // Comprobar de nuevo tras el await

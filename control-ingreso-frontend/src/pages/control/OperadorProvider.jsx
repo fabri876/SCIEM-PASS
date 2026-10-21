@@ -60,6 +60,8 @@ export default function OperadorProvider({ children }) {
         await establecerModoOfflineForzado(true);
       } else if (net === "online") {
         await establecerModoOfflineForzado(false);
+        // Al recuperar internet, sincronizar inmediatamente los ingresos pendientes
+        await fnSincronizarAhora();
       } else if (net === "syncing") {
         await fnSincronizarAhora();
       }
@@ -71,10 +73,6 @@ export default function OperadorProvider({ children }) {
   const fnDoForzar = useCallback(async () => {
     if (pendReal === 0) {
       fnMostrarToast("No hay ingresos pendientes para sincronizar.");
-      return;
-    }
-    if (conn.estado === "offline") {
-      fnMostrarToast("Sin conexión a internet. Los ingresos quedan pendientes hasta que haya red.");
       return;
     }
     fnMostrarToast("Sincronizando ingresos pendientes...");
@@ -97,7 +95,7 @@ export default function OperadorProvider({ children }) {
       fnMostrarToast("Error al sincronizar: " + (err?.message || "intenta nuevamente."));
       console.warn("[OperadorProvider] Error al forzar sincronizacion:", err);
     }
-  }, [pendReal, conn.estado, fnSincronizarAhora, fnMostrarToast]);
+  }, [pendReal, fnSincronizarAhora, fnMostrarToast]);
 
   const fnStorageLleno = useCallback(() => {
     setNumSpacePrc(5);
