@@ -263,11 +263,17 @@ public class ControlIngresoAyudanteService {
         // Cuando la lectura proviene de la cámara, cualquier contenido que no
         // sea una credencial SCIEM-PASS debe rechazarse como QR inválido. No
         // debe caer al flujo de búsqueda manual por CI/SIS.
+        // Excepción: sincronización offline (clientUuid presente). El frontend
+        // puede haber marcado una lectura de código SIS numérico como "QR" sin
+        // tener un token QR real; en ese caso se trata como lectura manual.
         if (dto.metodoIngreso() == MetodoIngreso.ESCANEO && !query.startsWith(PREFIJO_QR)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
-                    "QR_INVALIDO",
-                    "QR INVÁLIDO - El código leído no corresponde a una credencial SCIEM-PASS.",
-                    null, null, null, null));
+            if (clientUuid == null || !query.matches("^\\d+$")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
+                        "QR_INVALIDO",
+                        "QR INVÁLIDO - El código leído no corresponde a una credencial SCIEM-PASS.",
+                        null, null, null, null));
+            }
+            // clientUuid + código numérico: continuar al flujo manual por SIS abajo.
         }
 
         // 1. Detección de Ingreso por QR (formato: SCIEMPASS:1:TOKEN)

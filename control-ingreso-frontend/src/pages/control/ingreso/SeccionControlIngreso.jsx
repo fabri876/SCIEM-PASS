@@ -11,7 +11,7 @@ import TarjetaResultado from "./componentes/TarjetaResultado";
 import TablaUltimosIngresos from "./componentes/TablaUltimosIngresos";
 
 export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true }) {
-  const { fnMostrarToast } = useOperador();
+  const { fnMostrarToast, fnDoForzar, setConfigurandoPin } = useOperador();
   const {
     listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
     boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
@@ -96,20 +96,54 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               >
                 Resetear nómina local
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  fnDoForzar();
+                }}
+                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer"
+              >
+                Forzar sincronización
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfigurandoPin(true)}
+                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer"
+              >
+                Configurar PIN
+              </button>
             </>
           ) : (
             <>
               <span>Sin descargar</span>
               <button
                 type="button"
-                onClick={() => {
-                  fnDescargarNomina().catch((err) => {
+                onClick={async () => {
+                  try {
+                    await fnDescargarNomina();
+                  } catch (err) {
                     fnMostrarToast("Error al descargar la nómina: " + (err?.message || "intenta nuevamente con conexión a internet."));
-                  });
+                  }
                 }}
                 className="px-3 py-1 rounded-xl text-[11px] font-bold bg-[#003770] text-white hover:bg-[#124B83] transition-colors cursor-pointer"
               >
                 Descargar nómina
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  fnDoForzar();
+                }}
+                className="px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer ml-2"
+              >
+                Forzar sincronización
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfigurandoPin(true)}
+                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer"
+              >
+                Configurar PIN
               </button>
             </>
           )}

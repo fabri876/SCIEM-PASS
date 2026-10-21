@@ -48,9 +48,8 @@ public class BatchSyncController {
             Map<String, Object> salida = new LinkedHashMap<>();
             salida.put("clientUuid", item == null ? null : item.clientUuid());
             try {
-                if (item == null || item.examenId() == null || item.asignaturaId() == null
-                        || item.ambienteId() == null || item.codigoSis() == null) {
-                    throw new IllegalArgumentException("Faltan examenId, asignaturaId, ambienteId o codigoSis");
+                if (item == null || item.examenId() == null || item.codigoSis() == null) {
+                    throw new IllegalArgumentException("Faltan examenId o codigoSis");
                 }
                 if (item.clockOffsetMs() != null && Math.abs(item.clockOffsetMs()) > 600_000L) {
                     throw new IllegalArgumentException("El desfase del reloj supera el límite permitido de 10 minutos");
@@ -98,6 +97,10 @@ public class BatchSyncController {
                         : respuesta.getStatusCode().is2xxSuccessful() ? "PROCESADO" : "ERROR";
                 salida.put("estado", estado);
                 salida.put("resultado", cuerpo);
+                if ("ERROR".equals(estado)) {
+                    salida.put("mensaje", "El servidor devolvió error " + respuesta.getStatusCode().value()
+                            + " al registrar el ingreso para " + item.codigoSis());
+                }
                 if ("PROCESADO".equals(estado)) {
                     codsisYaEnLote.add(item.codigoSis());
                 }
@@ -106,7 +109,9 @@ public class BatchSyncController {
                 salida.put("mensaje", ex.getMessage());
             } catch (Exception ex) {
                 salida.put("estado", "ERROR");
-                salida.put("mensaje", "No se pudo procesar la marcación");
+                salida.put("mensaje", ex.getMessage() != null ? ex.getMessage() : ex.toString());
+                System.err.println("[BatchSyncController] Error procesando item " + item.clientUuid() + ": " + ex.getMessage());
+                ex.printStackTrace();
             }
             resultados.add(salida);
         }

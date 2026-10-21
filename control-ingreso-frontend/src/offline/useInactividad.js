@@ -1,162 +1,104 @@
-/**
- * HOOK DE INACTIVIDAD — F3-05
- *
- * Detecta inactividad del usuario y dispara callback de bloqueo.
- * No depende de React Context; recibe callbacks como parámetros.
- *
- * Eventos que reinician el timer: click, keydown, touchstart, mousemove, scroll
- */
-
-const EVENTOS_POR_DEFECTO = [
-  "click",
-  "keydown",
-  "touchstart",
-  "mousemove",
-  "scroll",
-];
-
-const INACTIVIDAD_DEFAULTS = {
-  tiempoMaximoMs: 5 * 60 * 1000, // 5 minutos
-  advertenciaMs: 60 * 1000, // 1 minuto antes
-  eventos: EVENTOS_POR_DEFECTO,
-};
+import { useState, useCallback, useEffect } from 'react';
+import { pinService } from './pinService';
 
 /**
- * Hook de inactividad (sin dependencias de React Context).
+ * Hook para bloqueo por inactividad y desbloqueo con PIN offline.
  *
  * @param {Object} opciones
- * @param {number} opciones.tiempoMaximoMs - Tiempo sin actividad antes de bloquear (default: 5 min)
- * @param {number} opciones.advertenciaMs - Cuánto antes mostrar advertencia (default: 1 min)
- * @param {string[]} opciones.eventos - Eventos DOM que reinician el timer
- * @param {Function} opciones.onAdvertencia - Callback cuando falta 1 min (ej. toast)
- * @param {Function} opciones.onBloquear - Callback al bloquear (ej. abrir modal PIN)
- * @returns {{ resetear: Function, bloquearAhora: Function, destruir: Function }}
+ * @param {number} opciones.minutos - Minutos de inactividad para bloquear (default 5)
+ * @param {number|string} opciones.idUsuario - ID del usuario actual
+ * @param {Function} opciones.onBloquear - Callback cuando se bloquea por inactividad
+ * @param {Function} opciones.onDesbloquear - Callback cuando se desbloquea correctamente
+ *
+ * @returns {Object}
+ *   {boolean} bloqueada - true si la sesión está bloqueada por inactividad
+ *   {number} ultimaInteraccion - timestamp de la última interacción
+ *   {Function} fnRegistrarInteraccion - llamar en cada clic/scroll/tecla para resetear temporizador
+ *   {Function} fnDesbloquear(pin) - valida PIN y desbloquea si coincide
+ *   {boolean} pinInvalido - true si el último intento de PIN fue incorrecto
  */
-export function crearInactividad(opciones = {}) {
-  const config = { ...INACTIVIDAD_DEFAULTS, ...opciones };
-  const { tiempoMaximoMs, advertenciaMs, eventos, onAdvertencia, onBloquear } =
-    config;
+export function useInactividad({ minutos = 5, idUsuario, onBloquear, onDesbloquear }) {
+  const [bloqueada, setBloqueada] = useState(false);
+  const [pinInvalido, setPinInvalido] = useState(false);
+  const [ultimaInteraccion, setUltimaInteraccion] = useState(Date.now());
 
-  let timerId = null;
-  let advertenciaId = null;
-  let destruido = false;
-
-  const limpiarTimers = () => {
-    if (timerId) {
-      clearTimeout(timerId);
-      timerId = null;
+  const fnRegistrarInteraccion = useCallback(() => {
+    const ahora = Date.now();
+    setUltimaInteraccion(ahora);
+    if (idUsuario) {
+      pinService.actualizarInteraccion(idUsuario).catch(() => {});
     }
-    if (advertenciaId) {
-      clearTimeout(advertenciaId);
-      advertenciaId = null;
-    }
-  };
+  }, [idUsuario]);
 
-  const dispararAdvertencia = () => {
-    if (typeof onAdvertencia === "function") {
-      try {
-        onAdvertencia();
-      } catch (e) {
-        console.warn("[useInactividad] error en onAdvertencia:", e);
+  useEffect(() => {
+    if (!idUsuario) return;
+
+    const timer = setInterval(() => {
+      const ahora = Date.now();
+      const diff = ahora - ultimaInteraccion;
+      if (diff >= minutos * 60 * 1000 && !bloqueada) {
+        setBloqueada(true);
+        if (onBloquear) onBloquear();
+        pinService.bloquearSesion(idUsuario).catch(() => {});
       }
-    }
-  };
+    }, 10000);
 
-  const dispararBloqueo = () => {
-    if (typeof onBloquear === "function") {
-      try {
-        onBloquear();
-      } catch (e) {
-        console.warn("[useInactividad] error en onBloquear:", e);
+    return () => clearInterval(timer);
+  }, [idUsuario, minutos, ultimaInteraccion, bloqueada, onBloquear]);
+
+  const fnDesbloquear = useCallback(async (pin) => {
+    if (!pin || pin.length !== 4) {
+      setPinInvalido(true);
+      return false;
+    }
+
+    try {
+      const row = await pinService.obtenerConfig(idUsuario);
+      if (!row || !row.pinHash) {
+        setPinInvalido(true);
+        return false;
       }
-    }
-  };
 
-  const programar = () => {
-    limpiarTimers();
-    if (destruido) return;
+      const coincide = await compararHash(pin, row.pinHash);
 
-    const tiempoAdvertencia = Math.max(
-      0,
-      config.tiempoMaximoMs - config.advertenciaMs,
-    );
-
-    if (tiempoAdvertencia > 0) {
-      advertenciaId = setTimeout(dispararAdvertencia, tiempoAdvertencia);
-    }
-
-    timerId = setTimeout(dispararBloqueo, config.tiempoMaximoMs);
-  };
-
-  const handlerActividad = () => {
-    if (!destruido) programar();
-  };
-
-  // Iniciar
-  if (typeof window !== "undefined") {
-    config.eventos.forEach((evt) =>
-      window.addEventListener(evt, handlerActividad, { passive: true }),
-    );
-    programar();
-  }
-
-  // API pública
-  const api = {
-    /**
-     * Reinicia el timer manualmente (útil tras desbloquear con PIN correcto)
-     */
-    resetear() {
-      if (!destruido) programar();
-    },
-
-    /**
-     * Fuerza el bloqueo inmediato (útil para logout manual)
-     */
-    bloquearAhora() {
-      limpiarTimers();
-      dispararBloqueo();
-    },
-
-    /**
-     * Limpia listeners y timers. Llamar en cleanup de useEffect o al desmontar.
-     */
-    destruir() {
-      if (destruido) return;
-      destruido = true;
-      limpiarTimers();
-      if (typeof window !== "undefined") {
-        config.eventos.forEach((evt) =>
-          window.removeEventListener(evt, handlerActividad),
-        );
+      if (coincide) {
+        setBloqueada(false);
+        setPinInvalido(false);
+        await pinService.desbloquearSesion(idUsuario);
+        if (onDesbloquear) onDesbloquear();
+        return true;
+      } else {
+        const bloqueado = await pinService.registrarIntentoFallido(idUsuario);
+        setPinInvalido(true);
+        if (bloqueado) {
+          // Ya bloqueado por intentos, la UI puede mostrar mensaje adicional
+        }
+        return false;
       }
-    },
+    } catch (err) {
+      console.warn('[useInactividad] Error validando PIN:', err);
+      setPinInvalido(true);
+      return false;
+    }
+  }, [idUsuario, pinService]);
 
-    /** Tiempo restante en ms (útil para mostrar countdown en UI) */
-    obtenerTiempoRestante() {
-      if (!timerId) return 0;
-      // No hay forma nativa de saber tiempo restante de un timeout,
-      // pero se puede aproximar guardando timestamp de inicio.
-      return -1; // no implementado
-    },
-
-    /** Si el sistema está destruido */
-    estaDestruido() {
-      return destruido;
-    },
+  return {
+    bloqueada,
+    ultimaInteraccion,
+    fnRegistrarInteraccion,
+    fnDesbloquear,
+    pinInvalido
   };
-
-  return api;
 }
 
 /**
- * Versión standalone (sin hook de React) para usar en vanilla JS o fuera de React.
- * Útil si se quiere usar en OperadorProvider sin hook o en main.tsx.
- *
- * @param {Object} config - Mismos parámetros que useInactividad
- * @returns {Object} Misma API que useInactividad
+ * Compara un texto plano contra un hash SHA-256 hexadecimal.
  */
-export function useInactividad(opciones = {}) {
-  return crearInactividad(opciones);
+async function compararHash(textoPlano, hashHex) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(textoPlano);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashCalculado = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return hashCalculado === hashHex;
 }
-
-export default { useInactividad, crearInactividad };

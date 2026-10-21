@@ -7,10 +7,20 @@ import {
   establecerModoOfflineForzado,
   verificarAlmacenamiento,
 } from "../../offline";
+import { pinService } from "../../offline/pinService.js";
 import { useArranqueOffline } from "../../offline/useArranqueOffline";
+import { useInactividad } from "../../offline/useInactividad";
+import { obtenerUsuarioActual } from "../../services/authService";
+import ModalPin from "./componentes/ModalPin";
+import ConfigurarPin from "./componentes/ConfigurarPin";
 
 export default function OperadorProvider({ children }) {
   useArranqueOffline();
+
+  const usuario = obtenerUsuarioActual();
+  const idUsuario = usuario?.idUsuario ?? usuario?.idusuario ?? usuario?.id ?? null;
+
+  const [configurandoPin, setConfigurandoPin] = useState(false);
 
   const conn = useConectividad();
   const pendReal = usePendientesCount();
@@ -20,6 +30,26 @@ export default function OperadorProvider({ children }) {
     ultimoResultado,
     sincronizarAhora: fnSincronizarAhora,
   } = useEstadoSync();
+
+  const [pinVisible, setPinVisible] = useState(false);
+  const [pinMensaje, setPinMensaje] = useState("");
+
+  const {
+    bloqueada,
+    fnRegistrarInteraccion,
+    fnDesbloquear,
+    pinInvalido
+  } = useInactividad({
+    minutos: 5,
+    idUsuario,
+    onBloquear: () => setPinVisible(true),
+    onDesbloquear: () => setPinVisible(false)
+  });
+
+  // Sincronizar pinVisible con bloqueada cuando cambia por inactividad
+  useEffect(() => {
+    if (bloqueada) setPinVisible(true);
+  }, [bloqueada]);
 
   const [numEnviados, setNumEnviados] = useState(0);
   const [numSpacePrc, setNumSpacePrc] = useState(100);
@@ -53,6 +83,11 @@ export default function OperadorProvider({ children }) {
   const fnMostrarToast = useCallback((mensaje) => {
     setObjToast({ clave: Date.now(), mensaje });
   }, []);
+
+  const fnConfigurarPin = useCallback(async (pinHash) => {
+    setConfigurandoPin(false);
+    fnMostrarToast("PIN configurado correctamente.");
+  }, [fnMostrarToast]);
 
   const fnCambiarRed = useCallback(async (net) => {
     try {
@@ -150,14 +185,38 @@ export default function OperadorProvider({ children }) {
     fnCerrarSesion,
     fnConfirmarLogout,
     fnCancelarLogout,
-    pinVisible: false,
-    pinMensaje: "",
-    fnConfirmarPin: () => false,
+    pinVisible: bloqueada,
+    pinMensaje: pinInvalido ? "PIN incorrecto" : "",
+    fnConfirmarPin: fnDesbloquear,
+    fnRegistrarInteraccion,
+    configurandoPin,
+    setConfigurandoPin,
+    fnConfigurarPin,
     sesionCerradaVisible,
     resumenSesion,
     logoutConfirmVisible,
     logoutMensaje,
   };
 
-  return <ContextoOperador.Provider value={valor}>{children}</ContextoOperador.Provider>;
+  return (
+    <ContextoOperador.Provider value={valor}>
+      {children}
+      {pinVisible && idUsuario && (
+        <ModalPin
+          visible={pinVisible}
+          idUsuario={idUsuario}
+          onDesbloquear={() => setPinVisible(false)}
+          onCancelar={() => setPinVisible(false)}
+        />
+      )}
+      {configurandoPin && idUsuario && (
+        <ConfigurarPin
+          visible={configurandoPin}
+          idUsuario={idUsuario}
+          onGuardar={fnConfigurarPin}
+          onCancelar={() => setConfigurandoPin(false)}
+        />
+      )}
+    </ContextoOperador.Provider>
+  );
 }

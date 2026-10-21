@@ -128,6 +128,7 @@ async function dispararSincronizacion(motivo) {
 export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
   const pendientesRestantes = await asistenciaRepo.contarPendientes();
 
+  console.log('[syncScheduler] sincronizarAhora llamado. Pendientes:', pendientesRestantes);
   pausadoPorAuth = false;
   notificarCambioScheduler();
 
@@ -138,11 +139,13 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
       ? configActual.tamanoLoteLento
       : configActual.tamanoLote);
 
+  console.log('[syncScheduler] Llamando a sincronizarPendientes con origen manual');
   const res = await sincronizarPendientes({
     enviarLote: enviarLote || configActual.enviarLote,
     tamanoLote: loteSize,
     origen: 'manual'
   });
+  console.log('[syncScheduler] Resultado sincronizarPendientes:', res);
 
   if (res?.omitido) {
     return {
