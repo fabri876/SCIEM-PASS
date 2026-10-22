@@ -132,6 +132,7 @@ export default function AsignarOperadoresDocente({
 
     const [paso, setPaso] = useState(1);
     const [modo, setModo] = useState("EQUILIBRADO");
+    const [modoAsignacion, setModoAsignacion] = useState("SUBDIVISION");
     const [cantidades, setCantidades] = useState([]);
     const [responsables, setResponsables] = useState({});
     const [base, setBase] = useState("");
@@ -173,6 +174,7 @@ export default function AsignarOperadoresDocente({
                 if (previa && Array.isArray(previa.aulas) && previa.aulas.length > 0) {
                     const cants = aulas.map((a) => previa.aulas.find((x) => x.idAmbiente === a.idAmbiente)?.cantidad || 0);
                     setModo(previa.modoReparto === "MANUAL" ? "MANUAL" : "EQUILIBRADO");
+                    setModoAsignacion(previa.modoAsignacion === "ONLINE" ? "ONLINE" : "SUBDIVISION");
                     setCantidades(cants);
                     const porAula = {};
                     aulas.forEach((a) => {
@@ -229,6 +231,7 @@ export default function AsignarOperadoresDocente({
 
     function subBloques(idx) {
         const lista = responsablesDe(idx);
+        if (modoAsignacion === "ONLINE") return lista.map(() => bloques[idx] || []);
         return partirPorLetras(bloques[idx], lista.slice(0, -1).map((r) => r.hasta));
     }
 
@@ -239,6 +242,14 @@ export default function AsignarOperadoresDocente({
     function fijarResponsables(idx, lista) {
         const id = aulas[idx].idAmbiente;
         const k = lista.length;
+        if (modoAsignacion === "ONLINE") {
+            setAvisoDivision("");
+            setResponsables((prev) => ({
+                ...prev,
+                [id]: lista.map((r) => ({ ...r, hasta: null })),
+            }));
+            return true;
+        }
         const cortes = cortesEquitativos(bloques[idx], k);
         if (cortes === null) {
             setAvisoDivision(`En el ${aulas[idx].nombre} no hay suficientes apellidos distintos para dividirla entre ${k} responsables.`);
@@ -280,6 +291,7 @@ export default function AsignarOperadoresDocente({
     }
 
     function cambiarHasta(idx, iResp, letra) {
+        if (modoAsignacion === "ONLINE") return;
         const id = aulas[idx].idAmbiente;
         const letras = letrasDeBloque(bloques[idx]);
         const lista = responsablesDe(idx).map((r) => ({ ...r }));
@@ -292,6 +304,7 @@ export default function AsignarOperadoresDocente({
     }
 
     function dividirTodasEnPartesIguales() {
+        if (modoAsignacion === "ONLINE") return;
         let ok = true;
         aulas.forEach((_, idx) => {
             const lista = responsablesDe(idx);
@@ -303,6 +316,23 @@ export default function AsignarOperadoresDocente({
     function elegirModo(nuevo) {
         setModo(nuevo);
         if (nuevo === "EQUILIBRADO") setCantidades(repartoEquilibrado(estudiantes.length, capacidades));
+    }
+
+    function elegirModoAsignacion(nuevo) {
+        setModoAsignacion(nuevo);
+        setAvisoDivision("");
+        if (nuevo === "ONLINE") {
+            setResponsables((prev) => Object.fromEntries(Object.entries(prev).map(([id, lista]) => [
+                id,
+                lista.map((r) => ({ ...r, hasta: null })),
+            ])));
+        } else {
+            setResponsables((prev) => Object.fromEntries(Object.entries(prev).map(([id, lista]) => {
+                const idx = aulas.findIndex((a) => String(a.idAmbiente) === String(id));
+                const cortes = idx >= 0 ? cortesEquitativos(bloques[idx], lista.length) : null;
+                return [id, cortes === null ? lista : lista.map((r, i) => ({ ...r, hasta: i < lista.length - 1 ? cortes[i] : null }))];
+            })));
+        }
     }
 
     function irAPaso2() {
@@ -333,14 +363,15 @@ export default function AsignarOperadoresDocente({
         try {
             await guardarAsignacionIngreso(examen.idExamen, {
                 modoReparto: modo,
+                modoAsignacion,
                 aulas: aulas.map((a, i) => ({ idAmbiente: a.idAmbiente, cantidad: Number(cantidades[i]) || 0 })),
                 responsables: filasResumen.map((f) => ({
                     idAmbiente: f.idAmbiente,
                     idUsuario: f.responsable.idUsuario,
                     rol: f.responsable.rol,
                     nombreResponsable: f.responsable.nombre,
-                    apellidoDesde: f.estudiantes.length ? inicialApellido(f.estudiantes[0]) : null,
-                    apellidoHasta: f.estudiantes.length ? inicialApellido(f.estudiantes[f.estudiantes.length - 1]) : null,
+                    apellidoDesde: modoAsignacion === "ONLINE" ? null : (f.estudiantes.length ? inicialApellido(f.estudiantes[0]) : null),
+                    apellidoHasta: modoAsignacion === "ONLINE" ? null : (f.estudiantes.length ? inicialApellido(f.estudiantes[f.estudiantes.length - 1]) : null),
                     codSisEstudiantes: f.estudiantes.map((e) => e.codSisEstudiante),
                 })),
             });
@@ -503,11 +534,34 @@ export default function AsignarOperadoresDocente({
                                 <h2 className="text-xl font-black text-[#1A365D]">¿Quién atiende cada aula?</h2>
                                 <p className="text-[15px] text-slate-500 mt-1">
                                     {hayOperadores
-                                        ? "Un responsable atiende toda el aula. Con dos o más, el rango de apellidos se divide entre ellos."
+                                        ? modoAsignacion === "ONLINE"
+                                            ? "Todos los operadores seleccionados podrán gestionar cualquier estudiante del aula."
+                                            : "Un responsable atiende toda el aula. Con dos o más, el rango de apellidos se divide entre ellos."
                                         : (boolVistaAdmin ? "Con los ayudantes del docente podrás dividir el rango de cada aula entre ellos." : "Con tus ayudantes registrados podrás dividir el rango de cada aula entre ellos.")}
                                 </p>
                             </div>
-                            {hayOperadores && <BotonSecundario onClick={dividirTodasEnPartesIguales}>Dividir en partes iguales</BotonSecundario>}
+                            {hayOperadores && modoAsignacion === "SUBDIVISION" && <BotonSecundario onClick={dividirTodasEnPartesIguales}>Dividir en partes iguales</BotonSecundario>}
+                        </div>
+                        <div className="px-6 pb-4">
+                            <div className="grid sm:grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5" role="tablist" aria-label="Tipo de asignación">
+                                {[
+                                    { id: "ONLINE", t: "Lista completa", d: "Todos atienden a cualquier estudiante del aula." },
+                                    { id: "SUBDIVISION", t: "Subdivisión por apellido", d: "Cada operador atiende un rango de apellidos." },
+                                ].map((op) => (
+                                    <button
+                                        key={op.id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={modoAsignacion === op.id}
+                                        onClick={() => elegirModoAsignacion(op.id)}
+                                        className={`text-left rounded-xl px-4 py-3 transition ${modoAsignacion === op.id ? "bg-white shadow-sm ring-1 ring-[#003770]" : "text-slate-600 hover:bg-white/70"}`}
+                                    >
+                                        <span className="block font-black text-[15px] text-[#1A365D]">{op.t}</span>
+                                        <span className="block text-[13px] mt-0.5">{op.d}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[13px] text-slate-500 mt-2">Solo puedes guardar una modalidad para este examen.</p>
                         </div>
                         {avisoDivision && <div className="px-6 pb-3 text-[14px] font-bold text-[#B91C1C]">{avisoDivision}</div>}
 
@@ -527,7 +581,7 @@ export default function AsignarOperadoresDocente({
                                         <p className="flex-1 min-w-40 font-black text-[17px] text-[#1A365D]">
                                             {aula.nombre} <span className="font-medium text-[15px] text-slate-500">{aula.ubicacion ? `· ${aula.ubicacion}` : ""}</span>
                                         </p>
-                                        <Pildora>Apellidos {rangoLetras(bloques[idx])}</Pildora>
+                                        <Pildora>{modoAsignacion === "ONLINE" ? "Lista completa" : `Apellidos ${rangoLetras(bloques[idx])}`}</Pildora>
                                         <b className="text-[15px] text-slate-600">{cantidades[idx]} estudiantes</b>
                                     </div>
                                     {lista.map((r, i) => {
@@ -545,7 +599,11 @@ export default function AsignarOperadoresDocente({
                                                     <p className="font-black text-base text-[#1A365D] leading-tight">{r.rol === "DOCENTE" && !boolVistaAdmin ? `Yo (${r.nombre})` : r.nombre}</p>
                                                     <p className="text-[13px] text-slate-500">{r.rol === "DOCENTE" ? "Docente" : "Ayudante"}</p>
                                                 </div>
-                                                {lista.length === 1 ? (
+                                                {modoAsignacion === "ONLINE" ? (
+                                                    <span className="flex items-center gap-2 text-[15px] text-slate-500">
+                                                        Atiende toda el aula <Pildora tipo="gris">{cantidades[idx]} estudiantes</Pildora>
+                                                    </span>
+                                                ) : lista.length === 1 ? (
                                                     <span className="flex items-center gap-2 text-[15px] text-slate-500">
                                                         Atiende toda el aula <Pildora tipo="gris">{rangoLetras(bloques[idx])}</Pildora>
                                                     </span>

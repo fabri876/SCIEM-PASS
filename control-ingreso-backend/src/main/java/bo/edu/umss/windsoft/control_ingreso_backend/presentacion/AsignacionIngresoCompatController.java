@@ -53,7 +53,11 @@ public class AsignacionIngresoCompatController {
                 responsables.add(r);
             }
         }
-        return ResponseEntity.ok(Map.of("modoReparto", "MANUAL", "aulas", aulas, "responsables", responsables));
+        String modoAsignacion = actuales.stream()
+                .map(a -> service.modoAsignacion(idExamen, a.idAmbiente()))
+                .filter(java.util.Objects::nonNull)
+                .findFirst().orElse("SUBDIVISION");
+        return ResponseEntity.ok(Map.of("modoReparto", "MANUAL", "modoAsignacion", modoAsignacion, "aulas", aulas, "responsables", responsables));
     }
 
     @PutMapping("/asignacion-ingreso")
@@ -81,7 +85,9 @@ public class AsignacionIngresoCompatController {
             if (items.stream().noneMatch(i -> i.idAmbiente().equals(idAmbiente)))
                 items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, null));
         });
-        var request = new AsignacionIngresoRequestDTO(examen.getIdAsignatura(), items);
+        String modoAsignacion = "ONLINE".equalsIgnoreCase(String.valueOf(body.get("modoAsignacion")))
+                ? "ONLINE" : "SUBDIVISION";
+        var request = new AsignacionIngresoRequestDTO(examen.getIdAsignatura(), items, modoAsignacion);
         return ResponseEntity.ok(service.guardarAsignacion(idExamen, request, contexto.actual()));
     }
 }
