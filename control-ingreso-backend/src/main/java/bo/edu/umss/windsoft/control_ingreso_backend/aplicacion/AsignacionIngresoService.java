@@ -193,7 +193,7 @@ public class AsignacionIngresoService {
             Aula aula    = aulasMap.get(amb.getIdAula());
             List<AyudanteExamen> asignaciones = asignacionesPorAmbiente
                     .getOrDefault(amb.getIdAmbiente(), List.of());
-            if (asignaciones.isEmpty()) asignaciones = List.of((AyudanteExamen) null);
+            if (asignaciones.isEmpty()) asignaciones = java.util.Collections.singletonList(null);
             final List<AyudanteExamen> filas = asignaciones;
             return filas.stream().map(ae -> {
                 Usuario operador = ae != null ? usuariosMap.get(ae.getId().getIdayudante()) : null;
@@ -206,6 +206,15 @@ public class AsignacionIngresoService {
                         operador != null ? operador.getApellidousuario() : null);
             });
         }).toList();
+    }
+
+    public String modoAsignacion(Integer idExamen, Integer idAmbiente) {
+        return ayudanteExamenRepository.findByIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
+                        examenRepository.findById(idExamen).map(Examen::getIdAsignatura).orElse(null),
+                        idExamen, idAmbiente, ESTADO_ACTIVO).stream()
+                .map(AyudanteExamen::getModoAsignacion)
+                .filter(Objects::nonNull)
+                .findFirst().orElse("SUBDIVISION");
     }
 
     /** Consulta compatible con validación de propietario para DOCENTE. */
@@ -261,6 +270,8 @@ public class AsignacionIngresoService {
                     "La asignatura no corresponde al examen seleccionado.");
         }
 
+        String modoAsignacion = "ONLINE".equalsIgnoreCase(request.modoAsignacion()) ? "ONLINE" : "SUBDIVISION";
+
         Set<Integer> ambientesDelExamen = ambienteRepository.findByIdExamen(idExamen).stream()
                 .map(Ambiente::getIdAmbiente).collect(Collectors.toSet());
         Set<Integer> operadoresEnSolicitud = new java.util.HashSet<>();
@@ -307,6 +318,7 @@ public class AsignacionIngresoService {
 
             if (!yaExisteActiva) {
                 AyudanteExamen nueva = new AyudanteExamen(nuevoId, ESTADO_ACTIVO);
+                nueva.setModoAsignacion(modoAsignacion);
                 ayudanteExamenRepository.save(nueva);
             }
         }

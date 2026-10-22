@@ -23,6 +23,9 @@ public class AyudanteExamen {
     @Column(name = "estado_asignacion", nullable = false, length = 10)
     private String estadoAsignacion = "ACTIVO";
 
+    @Column(name = "modo_asignacion", nullable = false, length = 15)
+    private String modoAsignacion = "SUBDIVISION";
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idayudante", insertable = false, updatable = false)
     private Usuario ayudante;
@@ -72,6 +75,14 @@ public class AyudanteExamen {
 
     public void setEstadoAsignacion(String estadoAsignacion) {
         this.estadoAsignacion = estadoAsignacion;
+    }
+
+    public String getModoAsignacion() {
+        return modoAsignacion;
+    }
+
+    public void setModoAsignacion(String modoAsignacion) {
+        this.modoAsignacion = modoAsignacion;
     }
 
     public Usuario getAyudante() {

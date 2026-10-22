@@ -10,7 +10,8 @@ import java.util.List;
  */
 public record AsignacionIngresoRequestDTO(
         @NotNull Integer idAsignatura,
-        @NotNull @Valid List<ItemAsignacion> asignaciones
+        @NotNull @Valid List<ItemAsignacion> asignaciones,
+        String modoAsignacion
 ) {
     public record ItemAsignacion(
             /** idambiente de la tabla ambiente */
