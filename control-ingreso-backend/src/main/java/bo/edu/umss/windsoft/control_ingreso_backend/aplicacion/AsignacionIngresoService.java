@@ -193,7 +193,7 @@ public class AsignacionIngresoService {
             Aula aula    = aulasMap.get(amb.getIdAula());
             List<AyudanteExamen> asignaciones = asignacionesPorAmbiente
                     .getOrDefault(amb.getIdAmbiente(), List.of());
-            if (asignaciones.isEmpty()) asignaciones = List.of((AyudanteExamen) null);
+            if (asignaciones.isEmpty()) asignaciones = java.util.Collections.singletonList(null);
             final List<AyudanteExamen> filas = asignaciones;
             return filas.stream().map(ae -> {
                 Usuario operador = ae != null ? usuariosMap.get(ae.getId().getIdayudante()) : null;
