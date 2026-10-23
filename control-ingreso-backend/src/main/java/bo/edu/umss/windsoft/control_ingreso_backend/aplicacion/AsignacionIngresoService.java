@@ -57,6 +57,11 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class AsignacionIngresoService {
 
+    private static String normalizarLetra(String valor) {
+        if (valor == null || valor.isBlank()) return null;
+        return valor.trim().substring(0, 1).toUpperCase(java.util.Locale.ROOT);
+    }
+
     private static final String ESTADO_ACTIVO   = "ACTIVO";
     private static final String ESTADO_INACTIVO = "INACTIVO";
     private static final DateTimeFormatter HORA_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -203,7 +208,9 @@ public class AsignacionIngresoService {
                         aula != null ? aula.getCapacidadAula() : null,
                         operador != null ? operador.getIdusuario() : null,
                         operador != null ? operador.getNombreusuario() : null,
-                        operador != null ? operador.getApellidousuario() : null);
+                        operador != null ? operador.getApellidousuario() : null,
+                        ae != null ? ae.getApellidoDesde() : null,
+                        ae != null ? ae.getApellidoHasta() : null);
             });
         }).toList();
     }
@@ -319,6 +326,8 @@ public class AsignacionIngresoService {
             if (!yaExisteActiva) {
                 AyudanteExamen nueva = new AyudanteExamen(nuevoId, ESTADO_ACTIVO);
                 nueva.setModoAsignacion(modoAsignacion);
+                nueva.setApellidoDesde("ONLINE".equals(modoAsignacion) ? null : normalizarLetra(item.apellidoDesde()));
+                nueva.setApellidoHasta("ONLINE".equals(modoAsignacion) ? null : normalizarLetra(item.apellidoHasta()));
                 ayudanteExamenRepository.save(nueva);
             }
         }

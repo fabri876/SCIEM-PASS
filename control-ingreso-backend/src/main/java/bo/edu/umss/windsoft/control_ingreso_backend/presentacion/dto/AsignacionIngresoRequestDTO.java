@@ -20,6 +20,8 @@ public record AsignacionIngresoRequestDTO(
              * idUsuario del operador a asignar; null para desasignar
              * (marcar INACTIVO cualquier asignacion existente en ese ambiente).
              */
-            Integer idOperador
+            Integer idOperador,
+            String apellidoDesde,
+            String apellidoHasta
     ) {}
 }
