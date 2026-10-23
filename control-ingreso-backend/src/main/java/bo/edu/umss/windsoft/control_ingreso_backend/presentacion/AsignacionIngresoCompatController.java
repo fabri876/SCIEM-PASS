@@ -50,6 +50,8 @@ public class AsignacionIngresoCompatController {
                 r.put("idUsuario", a.idOperadorAsignado());
                 r.put("rol", "OPERADOR");
                 r.put("nombreResponsable", (a.nombreOperador() + " " + a.apellidoOperador()).trim());
+                r.put("apellidoDesde", a.apellidoDesde());
+                r.put("apellidoHasta", a.apellidoHasta());
                 responsables.add(r);
             }
         }
@@ -79,11 +81,13 @@ public class AsignacionIngresoCompatController {
             Object usuario = r.get("idUsuario");
             Integer idAmbiente = ambiente instanceof Number n ? n.intValue() : Integer.valueOf(String.valueOf(ambiente));
             Integer idUsuario = usuario instanceof Number n ? n.intValue() : usuario == null ? null : Integer.valueOf(String.valueOf(usuario));
-            items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, idUsuario));
+            String apellidoDesde = r.get("apellidoDesde") == null ? null : String.valueOf(r.get("apellidoDesde"));
+            String apellidoHasta = r.get("apellidoHasta") == null ? null : String.valueOf(r.get("apellidoHasta"));
+            items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, idUsuario, apellidoDesde, apellidoHasta));
         }
         ambientesSinOperador.forEach((idAmbiente, ignorado) -> {
             if (items.stream().noneMatch(i -> i.idAmbiente().equals(idAmbiente)))
-                items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, null));
+                items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, null, null, null));
         });
         String modoAsignacion = "ONLINE".equalsIgnoreCase(String.valueOf(body.get("modoAsignacion")))
                 ? "ONLINE" : "SUBDIVISION";

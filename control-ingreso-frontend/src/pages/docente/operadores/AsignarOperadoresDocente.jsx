@@ -172,7 +172,15 @@ export default function AsignarOperadoresDocente({
 
                 const caps = aulas.map((a) => a.capacidad);
                 if (previa && Array.isArray(previa.aulas) && previa.aulas.length > 0) {
-                    const cants = aulas.map((a) => previa.aulas.find((x) => x.idAmbiente === a.idAmbiente)?.cantidad || 0);
+                    // El endpoint histórico devuelve la capacidad física del aula,
+                    // no la cantidad de inscritos. La distribución debe basarse en
+                    // la nómina real del examen para no mostrar, por ejemplo, 40
+                    // estudiantes cuando solo hay 15 habilitados.
+                    const guardadas = aulas.map((a) => previa.aulas.find((x) => x.idAmbiente === a.idAmbiente)?.cantidad || 0);
+                    const sumaGuardada = guardadas.reduce((suma, cantidad) => suma + Number(cantidad || 0), 0);
+                    const cants = sumaGuardada === ordenados.length && guardadas.every((cantidad, i) => caps[i] == null || Number(cantidad) <= caps[i])
+                        ? guardadas
+                        : repartoEquilibrado(ordenados.length, caps);
                     setModo(previa.modoReparto === "MANUAL" ? "MANUAL" : "EQUILIBRADO");
                     setModoAsignacion(previa.modoAsignacion === "ONLINE" ? "ONLINE" : "SUBDIVISION");
                     setCantidades(cants);
