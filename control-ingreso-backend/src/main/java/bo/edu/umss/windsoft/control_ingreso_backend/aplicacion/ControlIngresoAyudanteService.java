@@ -260,9 +260,32 @@ public class ControlIngresoAyudanteService {
                             ing.getHoraIngreso(),
                             metodo,
                             estDto,
-                            registradoPor);
+                            registradoPor,
+                            ing.getIdAsignatura(),
+                            ing.getIdExamen(),
+                            ing.getIdAmbiente());
                 })
                 .toList();
+    }
+
+    public List<UltimoIngresoDTO> obtenerMisRegistros(Integer idUsuario, int limite) {
+        return ingresoRepository.findByIdUsuarioRegistraOrderByHoraIngresoDesc(idUsuario).stream()
+                .limit(limite > 0 ? limite : 100)
+                .map(ing -> convertirUltimoIngreso(ing))
+                .toList();
+    }
+
+    private UltimoIngresoDTO convertirUltimoIngreso(Ingreso ing) {
+        Usuario user = usuarioRepository.findById(ing.getIdUsuarioEstudiante()).orElse(null);
+        Estudiante est = estudianteRepository.findByCodsisestudiante(ing.getCodsisEstudiante()).orElse(null);
+        EstudianteResumenDTO resumen = new EstudianteResumenDTO(ing.getIdUsuarioEstudiante(),
+                est != null ? est.getCodsisestudiante() : ing.getCodsisEstudiante(),
+                user != null ? user.getCiusuario() : "",
+                user != null ? (user.getNombreusuario() + " " + user.getApellidousuario()).trim() : "Estudiante registrado",
+                "Carrera no asignada", null);
+        String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
+        return new UltimoIngresoDTO(ing.getIdIngreso(), ing.getHoraIngreso(), metodo, resumen,
+                "Registro propio", ing.getIdAsignatura(), ing.getIdExamen(), ing.getIdAmbiente());
     }
 
     @Transactional
