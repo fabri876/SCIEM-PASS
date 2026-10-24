@@ -7,6 +7,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.ResponsableExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AulaRepository;
@@ -15,6 +16,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteReposit
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteGrupoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ResponsableExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsignacionIngresoRequestDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AulaAsignacionDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.OperadorDisponibleDTO;
@@ -79,6 +81,7 @@ public class AsignacionIngresoService {
         private final IngresoRepository ingresoRepository;
         private final CredencialRepository credencialRepository;
         private final AsignacionAulaService asignacionAulaService;
+        private final ResponsableExamenRepository responsableExamenRepository;
 
         public AsignacionIngresoService(ExamenRepository examenRepository,
                         AmbienteRepository ambienteRepository,
@@ -90,7 +93,8 @@ public class AsignacionIngresoService {
                         HabilitacionRepository habilitacionRepository,
                         IngresoRepository ingresoRepository,
                         CredencialRepository credencialRepository,
-                        AsignacionAulaService asignacionAulaService) {
+                        AsignacionAulaService asignacionAulaService,
+                        ResponsableExamenRepository responsableExamenRepository) {
                 this.examenRepository = examenRepository;
                 this.ambienteRepository = ambienteRepository;
                 this.aulaRepository = aulaRepository;
@@ -102,6 +106,7 @@ public class AsignacionIngresoService {
                 this.ingresoRepository = ingresoRepository;
                 this.credencialRepository = credencialRepository;
                 this.asignacionAulaService = asignacionAulaService;
+                this.responsableExamenRepository = responsableExamenRepository;
         }
 
         // -----------------------------------------------------------------------
@@ -324,6 +329,21 @@ public class AsignacionIngresoService {
                                 continue; // solo se quería desasignar
 
                         // Verificar que el operador existe en la tabla ayudante
+                        if ("DOCENTE".equalsIgnoreCase(item.rol())) {
+                                ResponsableExamen responsable = responsableExamenRepository
+                                                .findByIdusuarioAndIdexamenAndIdambiente(idOperador, idExamen, idAmbiente)
+                                                .orElseGet(ResponsableExamen::new);
+                                responsable.setIdusuario(idOperador);
+                                responsable.setIdasignatura(idAsignatura);
+                                responsable.setIdexamen(idExamen);
+                                responsable.setIdambiente(idAmbiente);
+                                responsable.setRol("DOCENTE");
+                                responsable.setApellidoDesde(normalizarLetra(item.apellidoDesde()));
+                                responsable.setApellidoHasta(normalizarLetra(item.apellidoHasta()));
+                                responsable.setEstado(ESTADO_ACTIVO);
+                                responsableExamenRepository.save(responsable);
+                                continue;
+                        }
                         if (!ayudanteRepository.existsByIdusuario(idOperador)) {
                                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                                 "El usuario " + idOperador + " no es un operador registrado.");
