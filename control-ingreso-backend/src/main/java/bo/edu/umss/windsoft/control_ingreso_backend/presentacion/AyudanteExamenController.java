@@ -69,6 +69,14 @@ public class AyudanteExamenController {
         return ResponseEntity.ok(ultimos);
     }
 
+    @GetMapping("/control/mis-registros")
+    @PreAuthorize("hasRole('OPERADOR')")
+    public ResponseEntity<List<bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UltimoIngresoDTO>> misRegistros(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "100") int limite) {
+        return ResponseEntity.ok(controlIngresoAyudanteService.obtenerMisRegistros(
+                contextoUsuarioService.actual().idUsuario(), limite));
+    }
+
     @PostMapping("/control/ingresos")
     @PreAuthorize("hasAnyRole('OPERADOR','ADMINISTRADOR','DOCENTE')")
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(@Valid @RequestBody VerificarIngresoRequestDTO dto) {
