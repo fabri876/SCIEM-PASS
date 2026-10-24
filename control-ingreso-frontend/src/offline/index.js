@@ -86,7 +86,7 @@ export {
   purgarFotosHuerfanas,
   purgarNominasAntiguas,
 } from "./purgeJob.js";
-export { useInactividad } from "./useInactividad.js";
+export { useInactividad, crearInactividad } from "./useInactividad.js";
 export {
   limpiarAlLogout,
   limpiezaTotalDispositivoCompartido,
