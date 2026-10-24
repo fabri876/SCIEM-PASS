@@ -50,9 +50,9 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
 /**
  * Obtiene la lista de habilitaciones desde el backend, opcionalmente filtrada por idAsignatura.
  */
-export async function obtenerHabilitaciones(idAsignatura) {
+export async function obtenerHabilitaciones(idAsignatura, idExamen = null) {
     const strRuta = idAsignatura
-        ? `/api/habilitaciones?idAsignatura=${idAsignatura}`
+        ? `/api/habilitaciones?idAsignatura=${idAsignatura}${idExamen ? `&idExamen=${idExamen}` : ""}`
         : `/api/habilitaciones`;
     return fetchAutenticado(strRuta);
 }
