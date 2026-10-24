@@ -29,6 +29,8 @@ import HomeEstudiante from "./pages/estudiante/HomeEstudiante";
 // Páginas de Personal de Control (Operador)
 import HomeControl from "./pages/control/HomeControl";
 import ConectadoOperador from "./pages/control/conectado/ConectadoOperador";
+import MisExamenesAyudante from "./pages/control/examenes/MisExamenesAyudante";
+import MisRegistrosAyudante from "./pages/control/registros/MisRegistrosAyudante";
 
 
 /**
@@ -219,6 +221,8 @@ function App() {
         >
           <Route index element={<Navigate to="conectado" replace />} />
           <Route path="conectado" element={<ConectadoOperador />} />
+          <Route path="examenes" element={<MisExamenesAyudante />} />
+          <Route path="registros" element={<MisRegistrosAyudante />} />
         </Route>
         <Route path="/home/control" element={<Navigate to="/control" replace />} />
 

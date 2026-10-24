@@ -67,6 +67,19 @@ function fechaDeIso(iso) {
   }
 }
 
+// Primera letra sin tildes y en mayúscula ("Ñ" se mantiene)
+function inicialSinTildes(strTexto) {
+  const strLetra = String(strTexto || "").trim().charAt(0).toUpperCase();
+  return strLetra === "Ñ" ? strLetra : strLetra.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function letraEnRango(strLetra, strDesde, strHasta) {
+  if (!strLetra || !strDesde || !strHasta) return false;
+  const d = inicialSinTildes(strDesde);
+  const h = inicialSinTildes(strHasta);
+  return strLetra.localeCompare(d, "es") >= 0 && strLetra.localeCompare(h, "es") <= 0;
+}
+
 function baseResultado(resultado, strValor, metodo) {
   return {
     resultado,
@@ -287,13 +300,17 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         return mapeado;
       }
 
-      // Fila fuera de rango: solo aviso, no registra (salvo que se ignore la fila).
+      // Apellido fuera del tramo de este ayudante: solo aviso, no registra (salvo que se ignore el tramo).
+      // Se busca el tramo del otro ayudante al que le corresponde el estudiante.
       if (rVal.fueraDeRango && !objOpciones.ignorarFila) {
+        const estOffline = estudianteOffline(rVal.estudiante);
+        const strInicial = inicialSinTildes(rVal.estudiante?.apellidoPaterno || estOffline?.apellidos);
+        const filaOtro = (ex?.filas || []).find((f) => !f.esMia && letraEnRango(strInicial, f.desde, f.hasta)) || null;
         const mapeado = {
           ...baseResultado("FUERA_DE_FILA", strValor, textoMetodo(strMetodo, rVal.metodo)),
-          estudiante: estudianteOffline(rVal.estudiante),
-          filaCorrecta: fila
-            ? { desde: fila.desde, hasta: fila.hasta, operador: usuario?.nombre || "" }
+          estudiante: estOffline,
+          filaCorrecta: filaOtro
+            ? { desde: filaOtro.desde, hasta: filaOtro.hasta, operador: filaOtro.operador || "" }
             : null,
         };
         setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
@@ -411,7 +428,12 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     setObjContador(null);
     setStrUltimoRegistrado(null);
     setStrError("");
-  }, []);
+    if (id == null) {
+      // Al volver a la lista, actualizar inmediatamente los contadores del
+      // examen para reflejar los ingresos registrados en el control.
+      fnCargarExamenes();
+    }
+  }, [fnCargarExamenes]);
 
   const fnVolverALista = useCallback(() => fnElegirExamen(null), [fnElegirExamen]);
 

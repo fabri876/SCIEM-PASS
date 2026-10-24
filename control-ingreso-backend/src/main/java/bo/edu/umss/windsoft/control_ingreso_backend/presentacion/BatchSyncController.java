@@ -2,6 +2,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ContextoUsuarioService;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ControlIngresoAyudanteService;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MetodoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.BatchSyncRequestDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ResultadoIngresoDTO;
@@ -14,6 +15,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -36,6 +40,7 @@ public class BatchSyncController {
     public ResponseEntity<Map<String, Object>> sincronizar(@RequestBody BatchSyncRequestDTO request) {
         Integer usuario = contexto.actual().idUsuario();
         List<Map<String, Object>> resultados = new ArrayList<>();
+        Set<String> codsisYaEnLote = new HashSet<>();
         if (request == null || request.items() == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "El lote debe contener items"));
         }
@@ -43,9 +48,8 @@ public class BatchSyncController {
             Map<String, Object> salida = new LinkedHashMap<>();
             salida.put("clientUuid", item == null ? null : item.clientUuid());
             try {
-                if (item == null || item.examenId() == null || item.asignaturaId() == null
-                        || item.ambienteId() == null || item.codigoSis() == null) {
-                    throw new IllegalArgumentException("Faltan examenId, asignaturaId, ambienteId o codigoSis");
+                if (item == null || item.examenId() == null || item.codigoSis() == null) {
+                    throw new IllegalArgumentException("Faltan examenId o codigoSis");
                 }
                 if (item.clockOffsetMs() != null && Math.abs(item.clockOffsetMs()) > 600_000L) {
                     throw new IllegalArgumentException("El desfase del reloj supera el límite permitido de 10 minutos");
@@ -53,6 +57,29 @@ public class BatchSyncController {
                 if (item.clientUuid() != null && ingresoRepository.findByClientUuid(item.clientUuid()).isPresent()) {
                     salida.put("estado", "DUPLICADO");
                     salida.put("mensaje", "La marcación ya fue procesada anteriormente");
+                    resultados.add(salida);
+                    continue;
+                }
+                // Evitar duplicados dentro del mismo lote de sincronización
+                if (codsisYaEnLote.contains(item.codigoSis())) {
+                    salida.put("estado", "DUPLICADO");
+                    salida.put("mensaje", "Estudiante ya registrado en este lote de sincronización");
+                    resultados.add(salida);
+                    continue;
+                }
+
+                // Defensa en profundidad: verificar si ya existe un ingreso para este
+                // estudiante+asignatura+examen en la BD, independientemente del clientUuid.
+                // Esto evita duplicados cuando un ingreso offline se sincroniza y luego
+                // se intenta registrar el mismo estudiante por otra vía (online/manual).
+                Integer codsis = Integer.valueOf(item.codigoSis());
+                Optional<Ingreso> ingresoExistente = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
+                        codsis, item.asignaturaId(), item.examenId());
+                if (ingresoExistente.isPresent()) {
+                    Ingreso prev = ingresoExistente.get();
+                    salida.put("estado", "DUPLICADO");
+                    salida.put("mensaje", "El estudiante ya tiene un ingreso registrado en este examen");
+                    salida.put("horaIngreso", prev.getHoraIngreso() != null ? prev.getHoraIngreso().toString() : null);
                     resultados.add(salida);
                     continue;
                 }
@@ -70,12 +97,21 @@ public class BatchSyncController {
                         : respuesta.getStatusCode().is2xxSuccessful() ? "PROCESADO" : "ERROR";
                 salida.put("estado", estado);
                 salida.put("resultado", cuerpo);
+                if ("ERROR".equals(estado)) {
+                    salida.put("mensaje", "El servidor devolvió error " + respuesta.getStatusCode().value()
+                            + " al registrar el ingreso para " + item.codigoSis());
+                }
+                if ("PROCESADO".equals(estado)) {
+                    codsisYaEnLote.add(item.codigoSis());
+                }
             } catch (IllegalArgumentException ex) {
                 salida.put("estado", "ERROR_VALIDACION");
                 salida.put("mensaje", ex.getMessage());
             } catch (Exception ex) {
                 salida.put("estado", "ERROR");
-                salida.put("mensaje", "No se pudo procesar la marcación");
+                salida.put("mensaje", ex.getMessage() != null ? ex.getMessage() : ex.toString());
+                System.err.println("[BatchSyncController] Error procesando item " + item.clientUuid() + ": " + ex.getMessage());
+                ex.printStackTrace();
             }
             resultados.add(salida);
         }

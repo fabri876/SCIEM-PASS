@@ -1,4 +1,4 @@
-// Página del DOCENTE (y del ADMINISTRADOR): mismo control de ingreso + lista oficial del aula
+// Página del DOCENTE (y del ADMINISTRADOR): mismo control de ingreso + lista oficial del aula (solo lectura)
 // Rutas: /home/docente/examenes/:idExamen/control-ingreso  (docente)
 //        /admin/examenes/:idExamen/control-ingreso         (administrador)
 import { useCallback, useEffect, useState } from "react";
@@ -33,13 +33,12 @@ export default function ControlIngresoDocente() {
   const idAmbiente = objExamenNavegado?.idambiente ?? objAmbiente?.idAmbiente ?? objAmbiente?.idambiente;
   const idAsignatura = objExamenNavegado?.idAsignatura ?? objExamenNavegado?.idasignatura;
   const idControl = idAsignatura && idAmbiente ? `${idAsignatura}-${idExamen}-${idAmbiente}` : (idExamen ? Number(idExamen) : null);
-  const objExamenInicial = objExamenNavegado && idControl ? { id: idControl, idasignatura: idAsignatura, idexamen: Number(idExamen), idambiente: idAmbiente, materia: objExamenNavegado.nombreExamen || objExamenNavegado.nombreAsignatura, tipo: objExamenNavegado.tipoExamen || objExamenNavegado.nombreTipoExamen || "Examen", aula: objExamenNavegado.aulaNombre || objExamenNavegado.aula, edificio: objExamenNavegado.bloque, fecha: objExamenNavegado.fechaExamen, horaInicio: objExamenNavegado.horaInicio, horaFin: objExamenNavegado.horaFin, contador: { ingresaron: objExamenNavegado.ingresados || 0, pendientes: objExamenNavegado.noLlegan || 0, inhabilitados: objExamenNavegado.inhabilitados || 0, habilitados: objExamenNavegado.totalInscritos || 0 } } : null;
+  const objExamenInicial = objExamenNavegado && idControl ? { id: idControl, idasignatura: idAsignatura, idexamen: Number(idExamen), idambiente: idAmbiente, materia: objExamenNavegado.nombreExamen || objExamenNavegado.nombreAsignatura, tipo: objExamenNavegado.tipoExamen || objExamenNavegado.nombreTipoExamen || "Examen", aula: objExamenNavegado.aulaNombre || objExamenNavegado.aula || objAmbiente?.nombreAmbiente || objAmbiente?.nombreAula, edificio: objExamenNavegado.bloque || objAmbiente?.ubicacionAmbiente || objAmbiente?.bloque, fecha: objExamenNavegado.fechaExamen, horaInicio: objExamenNavegado.horaInicio || objAmbiente?.horaInicio, horaFin: objExamenNavegado.horaFin || objAmbiente?.horaFin, contador: { ingresaron: objExamenNavegado.ingresados || 0, pendientes: objExamenNavegado.noLlegan || 0, inhabilitados: objExamenNavegado.inhabilitados || 0, habilitados: objExamenNavegado.totalInscritos || 0 } } : null;
   const ctrl = useControlIngreso(idControl, { examenInicial: objExamenInicial });
   const { estadoRed, fnCambiarRed } = useOperador();
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
 
   const fnCerrarLista = useCallback(() => setBoolListaAbierta(false), []);
-  const fnRegistrarDesdeLista = useCallback((strCi) => ctrl.fnValidar(strCi, "LISTA"), [ctrl]);
 
   const examen = ctrl.examenActual;
   const boolEnLinea = estadoRed.net !== "offline";
@@ -100,28 +99,35 @@ export default function ControlIngresoDocente() {
           </p>
         </div>
 
+        {/* Volver + avisos de conexión (offline, almacenamiento, sincronización) */}
         <EncabezadoControl
-          strTitulo="Control de ingreso"
-          strDetalle={examen ? `${examen.tipo} · ${examen.materia}${boolAdmin && strNombreDocente ? ` · Docente: ${strNombreDocente}` : ""}${boolAunNoEmpieza ? ` · Registro desde las ${strHoraApertura}` : ""}` : "Control de ingreso"}
-          boolMostrarRed
           onVolver={fnVolver}
           strTextoVolver={strTextoVolver}
           net={estadoRed.net}
           pend={estadoRed.pend}
           enviados={estadoRed.enviados}
           spacePrc={estadoRed.spacePrc}
-        >
-          <button
-            type="button"
-            onClick={() => setBoolListaAbierta(true)}
-            className="min-h-10 px-4 rounded-lg border border-[#CBD5E1] bg-white text-[#003770] text-[13px] font-semibold inline-flex items-center justify-center gap-2 hover:border-[#003770] cursor-pointer max-md:w-full"
-          >
-            <ListChecks className="w-4 h-4" /> Lista oficial del aula
-          </button>
-        </EncabezadoControl>
+        />
 
         <div>
-          <SeccionControlIngreso ctrl={ctrl} strRol="docente" boolPermitirVolver={false} />
+          <SeccionControlIngreso
+            ctrl={ctrl}
+            strRol="docente"
+            boolPermitirVolver={false}
+            listAvisos={[
+              boolAdmin && strNombreDocente ? `Docente: ${strNombreDocente}` : null,
+              boolAunNoEmpieza ? `Registro desde las ${strHoraApertura}` : null,
+            ]}
+            nodoAcciones={
+              <button
+                type="button"
+                onClick={() => setBoolListaAbierta(true)}
+                className="min-h-10 px-4 rounded-lg bg-white text-[#003770] text-[14px] font-bold inline-flex items-center justify-center gap-2 hover:bg-[#F0F6FC] cursor-pointer max-md:w-full"
+              >
+                <ListChecks className="w-4 h-4" /> Lista oficial del aula
+              </button>
+            }
+          />
         </div>
       </main>
 
@@ -141,7 +147,6 @@ export default function ControlIngresoDocente() {
         onCerrar={fnCerrarLista}
         idExamen={Number(idExamen)}
         numVersion={ctrl.numVersion}
-        onRegistrar={fnRegistrarDesdeLista}
         strUltimoRegistrado={ctrl.strUltimoRegistrado}
       />
       <ToastSyncConfirmacion />

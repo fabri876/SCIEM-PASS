@@ -20,7 +20,7 @@ public class ExamenPublicoRepository {
             LEFT JOIN usuario u ON u.idusuario = e.idusuario
             LEFT JOIN ambiente am ON am.idexamen = e.idexamen AND am.idasignatura = e.idasignatura
             LEFT JOIN aula au ON au.idaula = am.idaula
-            WHERE e.estadoexamen = true AND e.fechaexamen >= ?
+            WHERE e.idsemestre=(SELECT idsemestre FROM semestre WHERE estado='ACTUAL') AND e.estadoexamen = true AND e.fechaexamen >= ?
               AND (e.fechaexamen > ? OR am.horafin IS NULL OR am.horafin > ?)
             ORDER BY e.fechaexamen, am.horainicio NULLS LAST, e.idexamen, am.idambiente
             """, (rs, n) -> new ExamenPublicoDto(rs.getInt("idexamen"), rs.getObject("idambiente", Integer.class),

@@ -27,7 +27,7 @@ export default function ProximoExamenDocente({ examen, onVerDetalle }) {
             </p>
             {examen.aulaNombre && examen.aulaNombre !== "Aula por definir" && (
               <p className="text-[11px] text-slate-600 mt-0.5">
-                Aula {examen.aulaNombre}{examen.bloque ? ` · ${examen.bloque}` : ""}
+                Aula {examen.aulaNombre}
               </p>
             )}
           </div>

@@ -36,9 +36,11 @@ export const asistenciaRepo = {
     const timestampLocal = new Date().toISOString();
     const clientUuid = generarUuid();
 
+    console.log('[asistenciaRepo] Iniciando transacción para registrarMarca:', { examenId: exId, sis, operadorId, rol, metodo });
     return await db.transaction('rw', [db.nominas, db.asistencias_pendientes], async () => {
       // 1. Obtener de nómina
       const estudiante = await db.nominas.get([exId, sis]);
+      console.log('[asistenciaRepo] Estudiante de nominas:', estudiante);
       if (!estudiante) {
         const error = new Error(`El estudiante con código SIS ${sis} no pertenece a la nómina del examen.`);
         error.codigo = ERROR_ASISTENCIA.NO_EN_NOMINA;
@@ -55,7 +57,7 @@ export const asistenciaRepo = {
 
       // 3. Verificar duplicado local
       if (estudiante.marcadoLocal === 1) {
-        const error = new Error(`El estudiante ya registró su ingreso a las ${estudiante.marcadoEn} (operador: ${estudiante.marcadoPor || 'Desconocido'}).`);
+        const error = new Error(`El estudiante ya registró su ingreso a las ${estudiante.marcadoEn} (ayudante: ${estudiante.marcadoPor || 'Desconocido'}).`);
         error.codigo = ERROR_ASISTENCIA.YA_MARCADO;
         error.marcadoEn = estudiante.marcadoEn;
         error.marcadoPor = estudiante.marcadoPor;
@@ -68,13 +70,14 @@ export const asistenciaRepo = {
         marcadoEn: timestampLocal,
         marcadoPor: operadorId
       });
+      console.log('[asistenciaRepo] Nomina actualizada para', sis);
 
       // 5. Encolar asistencia pendiente con verificacionVisual y qrToken
       const nuevaAsistencia = {
         clientUuid,
         examenId: exId,
-      asignaturaId: asignaturaId ? Number(asignaturaId) : null,
-      ambienteId: ambienteId ? Number(ambienteId) : null,
+        asignaturaId: asignaturaId ? Number(asignaturaId) : null,
+        ambienteId: ambienteId ? Number(ambienteId) : null,
         codigoSis: sis,
         metodo,
         operadorId,
@@ -90,8 +93,13 @@ export const asistenciaRepo = {
         ultimoError: null,
         sincronizadoEn: null
       };
+      console.log('[asistenciaRepo] Nueva asistencia a guardar:', nuevaAsistencia);
 
       await db.asistencias_pendientes.add(nuevaAsistencia);
+      console.log('[asistenciaRepo] Asistencia guardada en asistencias_pendientes');
+
+      const pendientesDespues = await db.asistencias_pendientes.toArray();
+      console.log('[asistenciaRepo] Pendientes después de guardar:', pendientesDespues.length, 'items');
 
       return {
         clientUuid,
@@ -183,6 +191,21 @@ export const asistenciaRepo = {
       .modify({
         syncStatus: ESTADO_SYNC.PENDIENTE,
         nextRetryAt: 0
+      });
+  },
+
+  /**
+   * Vuelve a 'pendiente' los ítems en estado ERROR para que se reintenten en el
+   * próximo ciclo de sincronización. Útil tras corregir un error del backend.
+   */
+  async recuperarErrores() {
+    return await db.asistencias_pendientes
+      .where('syncStatus')
+      .equals(ESTADO_SYNC.ERROR)
+      .modify({
+        syncStatus: ESTADO_SYNC.PENDIENTE,
+        nextRetryAt: 0,
+        ultimoError: null
       });
   }
 };

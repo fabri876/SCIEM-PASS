@@ -197,6 +197,18 @@ public class CargaMasivaService {
                 }
             }
 
+            if (TipoUsuarioResolver.ESTUDIANTE.equals(rolFila) && !ci.isBlank() && codSis != null) {
+                var persona = usuarioRepository.findByCiusuario(ci);
+                var estudiante = estudianteRepository.findByCodsisestudiante(codSis);
+                if (persona.isPresent() && estudiante.isPresent()
+                        && persona.get().getIdusuario().equals(estudiante.get().getIdusuario())
+                        && correo.equalsIgnoreCase(persona.get().getCorreousuario())) {
+                    docenteExistente = persona.get();
+                    if (!Boolean.TRUE.equals(docenteExistente.getEstadousuario()))
+                        erroresFila.add("La cuenta existente esta inactiva.");
+                }
+            }
+
             // Los otros roles conservan su validación de duplicados.
             if (docenteExistente == null) {
                 if (!ci.isBlank()) {
@@ -278,6 +290,8 @@ public class CargaMasivaService {
                 try {
                     if (TipoUsuarioResolver.ESTUDIANTE.equals(rolFila) && gruposResueltos.size() > 1)
                         grupoService.validarUnGrupoPorAsignatura(new ArrayList<>(gruposResueltos));
+                    if (TipoUsuarioResolver.ESTUDIANTE.equals(rolFila) && docenteExistente != null)
+                        grupoService.validarInscripcionesEstudiante(docenteExistente.getIdusuario(), new ArrayList<>(gruposResueltos));
                     List<Integer> pendientes = new ArrayList<>();
                     for (Integer idGrupo : gruposResueltos) {
                         if (!permisosValidados.contains(rolFila + ":" + idGrupo)) pendientes.add(idGrupo);
@@ -300,8 +314,9 @@ public class CargaMasivaService {
                 for (Integer idGrupo : gruposResueltos) {
                     String claveAsignacion = docenteExistente.getIdusuario() + ":" + idGrupo;
                     if (asignacionesProcesadas.add(claveAsignacion)) {
-                        boolean yaAsignado = grupoService.docenteTieneGrupo(docenteExistente.getIdusuario(), idGrupo);
-                        grupoService.asignarDocenteAGrupo(docenteExistente.getIdusuario(), codSis, idGrupo);
+                        boolean yaAsignado = TipoUsuarioResolver.DOCENTE.equals(rolFila) && grupoService.docenteTieneGrupo(docenteExistente.getIdusuario(), idGrupo);
+                        if (TipoUsuarioResolver.DOCENTE.equals(rolFila)) grupoService.asignarDocenteAGrupo(docenteExistente.getIdusuario(), codSis, idGrupo);
+                        else grupoService.inscribirEstudianteAGrupo(docenteExistente.getIdusuario(), codSis, idGrupo);
                         if (!yaAsignado) nuevas++;
                     }
                 }
@@ -342,7 +357,7 @@ public class CargaMasivaService {
         auditoriaService.registrarEnTransaccion("CARGA_MASIVA_USUARIOS", executorCorreo, executorCorreo,
                 "Carga masiva procesada: " + exitosos + " nuevos, " + existentes + " existentes, " + fallidos + " fallidos de " + filas.size() + " filas.", ip);
 
-        String resumenMensaje = exitosos + " usuario(s) nuevos, " + existentes + " fila(s) de docentes existentes y " + fallidos + " fila(s) con errores.";
+        String resumenMensaje = exitosos + " usuario(s) nuevos, " + existentes + " fila(s) de usuarios existentes y " + fallidos + " fila(s) con errores.";
         var respuesta = new CargaMasivaRespuestaDto(resumenMensaje, filas.size(), exitosos, fallidos, errores);
         respuesta.setExistentes(existentes);
         respuesta.setAvisos(avisos);

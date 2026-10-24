@@ -92,9 +92,8 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
           <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
         </button>
         {toast && (
-          <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${
-            toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
-          }`}>
+          <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
+            }`}>
             {toast.msg}
           </div>
         )}
@@ -163,12 +162,35 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
         <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
       </button>
       {toast && (
-        <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${
-          toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
-        }`}>
+        <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
+          }`}>
           {toast.msg}
         </div>
       )}
+    </div>
+  );
+}
+
+// "Modo sin conexión: …" de un examen (estado de la nómina + Forzar), tal como lo hizo Yuri (HU07).
+// Se exporta para reutilizarlo en el Inicio y en "Mis exámenes" del ayudante.
+export function FilaNominaSinConexion({ examen, boolSinRed }) {
+  const nomina = useNominaLocal(examen.idexamen);
+  const conn = useConectividad();
+  const boolSinRedReal = boolSinRed ?? (conn.estado === "offline");
+  const objNomina = {
+    estado: nomina.descargando ? "descargando" : (nomina.estado.lista ? "lista" : "ninguna"),
+    total: nomina.estado.totalLocal || 0,
+    porcentaje: nomina.descargando
+      ? (nomina.progreso?.porcentaje ?? 0)
+      : (nomina.estado.lista ? 100 : 0),
+  };
+  const fnDescargarNomina = () => {
+    nomina.descargar({ incluirFotos: false }).catch(() => { });
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
+      <span className="font-semibold text-[#475569]">Modo sin conexión:</span>
+      <EstadoNomina examen={examen} objNomina={objNomina} boolSinRed={boolSinRedReal} fnDescargarNomina={fnDescargarNomina} />
     </div>
   );
 }
@@ -183,7 +205,7 @@ function TarjetaExamenHoy({ examen, onElegir, boolSinRed }) {
       : (nomina.estado.lista ? 100 : 0),
   };
   const fnDescargarNomina = () => {
-    nomina.descargar({ incluirFotos: false }).catch(() => {});
+    nomina.descargar({ incluirFotos: false }).catch(() => { });
   };
 
   const c = examen.contador || {};
@@ -254,8 +276,8 @@ function TarjetaExamenHoy({ examen, onElegir, boolSinRed }) {
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 min-w-0">
               <PildoraFila objFila={objFila} />
               <span className="text-[#475569]">
-                <b className="font-bold text-[#08264A]">{objFila.ingresaron ?? 0}</b> de {objFila.total ?? 0} de tu fila ya ingresaron
-                {numOperadores > 1 && <span className="text-[#64748B]"> · {numOperadores} operadores en este examen</span>}
+                <b className="font-bold text-[#08264A]">{objFila.ingresaron ?? 0}</b> de {objFila.total ?? 0} de tus apellidos ya ingresaron
+                {numOperadores > 1 && <span className="text-[#64748B]"> · {numOperadores} ayudantes en este examen</span>}
               </span>
             </div>
           ) : <span />}
@@ -290,7 +312,7 @@ function FilaExamen({ examen, onElegir }) {
       <div className="min-w-0">
         <div className="text-sm font-semibold text-[#08264A] truncate">{examen.tipo} · {examen.materia}</div>
         <div className="mt-px text-xs text-[#64748B] truncate">
-          Aula {examen.aula}{examen.grupo ? ` · Grupo ${examen.grupo}` : ""}{examen.fila ? ` · Tu fila ${examen.fila.desde} – ${examen.fila.hasta}` : ""}
+          Aula {examen.aula}{examen.grupo ? ` · Grupo ${examen.grupo}` : ""}{examen.fila ? ` · Sin internet: apellidos ${examen.fila.desde} – ${examen.fila.hasta}` : ""}
           <span className={"ml-2 inline-flex items-center gap-1 px-2 py-px rounded-full text-[11px] font-semibold " + objEstado.strClase}>
             <i className={"w-[6px] h-[6px] rounded-full " + objEstado.strPunto} />{objEstado.strTexto}
           </span>

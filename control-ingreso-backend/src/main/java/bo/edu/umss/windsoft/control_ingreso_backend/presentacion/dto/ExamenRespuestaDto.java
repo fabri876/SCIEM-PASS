@@ -30,6 +30,11 @@ public class ExamenRespuestaDto {
 
     private List<AmbienteRespuestaDto> ambientes;
 
+    private int ingresados;
+    private int noLlegan;
+    private int inhabilitados;
+    private int totalInscritos;
+
     public ExamenRespuestaDto() {}
 
     private List<NormaGeneralRespuestaDto> normasGenerales;
@@ -87,4 +92,13 @@ public class ExamenRespuestaDto {
 
     public List<AmbienteRespuestaDto> getAmbientes() { return ambientes; }
     public void setAmbientes(List<AmbienteRespuestaDto> ambientes) { this.ambientes = ambientes; }
+
+    public int getIngresados() { return ingresados; }
+    public void setIngresados(int ingresados) { this.ingresados = ingresados; }
+    public int getNoLlegan() { return noLlegan; }
+    public void setNoLlegan(int noLlegan) { this.noLlegan = noLlegan; }
+    public int getInhabilitados() { return inhabilitados; }
+    public void setInhabilitados(int inhabilitados) { this.inhabilitados = inhabilitados; }
+    public int getTotalInscritos() { return totalInscritos; }
+    public void setTotalInscritos(int totalInscritos) { this.totalInscritos = totalInscritos; }
 }

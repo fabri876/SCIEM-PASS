@@ -1,4 +1,7 @@
 import React from "react";
+// El backend identifica este rol como OPERADOR (no se cambia: lo usan login,
+// rutas y permisos); en pantalla se muestra como AYUDANTE.
+const ETIQUETAS_ROL = { OPERADOR: "AYUDANTE" };
 
 /**
  * Tipos de usuario y sus permisos básicos (HU16, criterio #1): lista de
@@ -30,8 +33,7 @@ export default function RolesTable({ roles, boolCargando, strError }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {listaSegura.map((rol) => (
             <div key={rol.idRol} className="rounded-xl border border-slate-200 p-4">
-              <h3 className="text-sm font-extrabold text-[#021B3B] mb-1">{rol.nombre}</h3>
-              <p className="text-xs text-slate-500 mb-3">{rol.descripcion}</p>
+              <h3 className="text-sm font-extrabold text-[#021B3B] mb-1">{ETIQUETAS_ROL[rol.nombre] || rol.nombre}</h3>              <p className="text-xs text-slate-500 mb-3">{rol.descripcion}</p>
               <div className="flex flex-wrap gap-1.5">
                 {(rol.permisos || []).map((permiso) => (
                   <span

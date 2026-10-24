@@ -113,7 +113,7 @@ export async function obtenerExamenesAsignados() {
     usuarioId: usuario?.idUsuario ?? null,
     fetcher: async ({ signal }) => {
       const strToken = obtenerToken();
-      const resp = await fetch(`${strApiBaseUrl}/api/v1/examenes/delegados`, {
+      const resp = await fetch(`${strApiBaseUrl}/api/v1/examenes/delegados?_t=${Date.now()}`, {
         headers: {
           "Content-Type": "application/json",
           ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
