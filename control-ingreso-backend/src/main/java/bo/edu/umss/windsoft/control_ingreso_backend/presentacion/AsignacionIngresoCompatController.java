@@ -50,21 +50,26 @@ public class AsignacionIngresoCompatController {
                 r.put("idUsuario", a.idOperadorAsignado());
                 r.put("rol", "OPERADOR");
                 r.put("nombreResponsable", (a.nombreOperador() + " " + a.apellidoOperador()).trim());
+                r.put("apellidoDesde", a.apellidoDesde());
+                r.put("apellidoHasta", a.apellidoHasta());
                 responsables.add(r);
             }
         }
-        return ResponseEntity.ok(Map.of("modoReparto", "MANUAL", "aulas", aulas, "responsables", responsables));
+        String modoAsignacion = actuales.stream()
+                .map(a -> service.modoAsignacion(idExamen, a.idAmbiente()))
+                .filter(java.util.Objects::nonNull)
+                .findFirst().orElse("SUBDIVISION");
+        return ResponseEntity.ok(Map.of("modoReparto", "MANUAL", "modoAsignacion", modoAsignacion, "aulas", aulas, "responsables", responsables));
     }
 
     @PutMapping("/asignacion-ingreso")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','DOCENTE')")
     public ResponseEntity<?> guardar(@PathVariable Integer idExamen, @RequestBody Map<String, Object> body) {
         Examen examen = examenRepository.findById(idExamen).orElseThrow();
-        Map<Integer, Integer> operadoresPorAmbiente = new LinkedHashMap<>();
-        // Inicializar todas las aulas con null permite desactivar el operador
-        // anterior cuando el docente vuelve a atender esa aula.
+        List<AsignacionIngresoRequestDTO.ItemAsignacion> items = new ArrayList<>();
+        Map<Integer, Integer> ambientesSinOperador = new LinkedHashMap<>();
         service.leerAsignacion(idExamen, contexto.actual()).forEach(a ->
-                operadoresPorAmbiente.put(a.idAmbiente(), null));
+                ambientesSinOperador.putIfAbsent(a.idAmbiente(), null));
         Object responsables = body.get("responsables");
         if (responsables instanceof List<?> lista) for (Object valor : lista) {
             if (!(valor instanceof Map<?, ?> r)) continue;
@@ -76,12 +81,17 @@ public class AsignacionIngresoCompatController {
             Object usuario = r.get("idUsuario");
             Integer idAmbiente = ambiente instanceof Number n ? n.intValue() : Integer.valueOf(String.valueOf(ambiente));
             Integer idUsuario = usuario instanceof Number n ? n.intValue() : usuario == null ? null : Integer.valueOf(String.valueOf(usuario));
-            operadoresPorAmbiente.put(idAmbiente, idUsuario);
+            String apellidoDesde = r.get("apellidoDesde") == null ? null : String.valueOf(r.get("apellidoDesde"));
+            String apellidoHasta = r.get("apellidoHasta") == null ? null : String.valueOf(r.get("apellidoHasta"));
+            items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, idUsuario, apellidoDesde, apellidoHasta));
         }
-        List<AsignacionIngresoRequestDTO.ItemAsignacion> items = operadoresPorAmbiente.entrySet().stream()
-                .map(e -> new AsignacionIngresoRequestDTO.ItemAsignacion(e.getKey(), e.getValue()))
-                .toList();
-        var request = new AsignacionIngresoRequestDTO(examen.getIdAsignatura(), items);
+        ambientesSinOperador.forEach((idAmbiente, ignorado) -> {
+            if (items.stream().noneMatch(i -> i.idAmbiente().equals(idAmbiente)))
+                items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, null, null, null));
+        });
+        String modoAsignacion = "ONLINE".equalsIgnoreCase(String.valueOf(body.get("modoAsignacion")))
+                ? "ONLINE" : "SUBDIVISION";
+        var request = new AsignacionIngresoRequestDTO(examen.getIdAsignatura(), items, modoAsignacion);
         return ResponseEntity.ok(service.guardarAsignacion(idExamen, request, contexto.actual()));
     }
 }

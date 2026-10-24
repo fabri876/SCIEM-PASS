@@ -387,7 +387,10 @@ export default function SeccionRegistroExamenes() {
 
     function handleAbrirControl(ex) {
         navigate(`/admin/examenes/${ex.idExamen}/control-ingreso`, {
-            state: { nombreDocente: ex._docente },
+            // El control necesita asignatura y ambiente para cargar el examen
+            // seleccionado. Antes solo se enviaba el nombre del docente y la
+            // vista intentaba buscarlo como si fuera un examen delegado.
+            state: { nombreDocente: ex._docente, examen: ex },
         });
     }
 
@@ -506,7 +509,7 @@ export default function SeccionRegistroExamenes() {
         });
     }, [arrNormasParticulares, mapExamenPorId, mapDocentePorId]);
 
-    // ===================== Asignar / ver operadores =====================
+    // ===================== Asignar / ver ayudantes =====================
 
     if (examenOperadores) {
         const strDocenteOp = examenOperadores._docente;
@@ -540,7 +543,8 @@ export default function SeccionRegistroExamenes() {
                 </div>
             </div>
 
-            <div className="flex gap-4 sm:gap-6 border-b border-[#EEF1F8] mb-5 overflow-x-auto whitespace-nowrap">
+            {/* overflow-y-hidden: evita la barrita de desplazamiento vertical que salía a la derecha */}
+            <div className="flex gap-4 sm:gap-6 border-b border-[#EEF1F8] mb-5 overflow-x-auto overflow-y-hidden whitespace-nowrap">
                 <button
                     type="button"
                     onClick={() => setStrTabActiva("examenes")}

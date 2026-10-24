@@ -29,21 +29,6 @@ const DIAS_SEMANA = {
 const HORA_ACADEMICA_INICIO = "06:45";
 const HORA_ACADEMICA_FIN = "21:45";
 
-// Cadena de prerrequisitos entre tipos de examen fijos (Segundo parcial
-// requiere Primer parcial ya registrado, y así sucesivamente). "Otro" queda
-// fuera de esta cadena a propósito. Heurística por nombre normalizado, ya
-// que el catálogo no trae un campo de "orden" — si Neil cambia estos
-// nombres en la BD, hay que ajustar este arreglo.
-const CADENA_TIPOS = ["primer parcial", "segundo parcial", "examen final", "segunda instancia"];
-
-function normalizarNombreTipo(strNombre) {
-    return (strNombre || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .trim();
-}
-
 function diaSemanaDeFecha(strFechaYYYYMMDD) {
     if (!strFechaYYYYMMDD) return null;
     const d = new Date(`${strFechaYYYYMMDD}T00:00:00`);
@@ -701,30 +686,13 @@ export default function ExamenFormAdmin({
                                         arrIdTiposUsados.map(String).includes(String(tipo.idTipoExamen)) &&
                                         !boolEsElTipoActual;
 
-                                    // Cadena de prerrequisitos: si este tipo está en la cadena
-                                    // fija y el anterior de la cadena todavía no fue registrado
-                                    // (por nombre, ver CADENA_TIPOS arriba), se deshabilita —
-                                    // salvo que sea el propio tipo actual del examen en edición.
-                                    const strNombreNormalizado = normalizarNombreTipo(tipo.nombreTipoExamen);
-                                    const intPosicionCadena = CADENA_TIPOS.indexOf(strNombreNormalizado);
-                                    let boolFaltaPrerrequisito = false;
-                                    if (intPosicionCadena > 0 && !boolEsElTipoActual) {
-                                        const strNombrePrevio = CADENA_TIPOS[intPosicionCadena - 1];
-                                        const boolPrevioRegistrado = arrTiposExamen.some(
-                                            (t) =>
-                                                normalizarNombreTipo(t.nombreTipoExamen) === strNombrePrevio &&
-                                                arrIdTiposUsados.map(String).includes(String(t.idTipoExamen))
-                                        );
-                                        boolFaltaPrerrequisito = !boolPrevioRegistrado;
-                                    }
-
-                                    const boolDeshabilitado = boolYaUsado || boolFaltaPrerrequisito;
+                                    // Se puede registrar cualquier tipo, sin exigir el anterior
+                                    const boolDeshabilitado = boolYaUsado;
 
                                     return (
                                         <option key={tipo.idTipoExamen} value={tipo.idTipoExamen} disabled={boolDeshabilitado}>
                                             {tipo.nombreTipoExamen}
                                             {boolYaUsado ? " (ya registrado)" : ""}
-                                            {!boolYaUsado && boolFaltaPrerrequisito ? " (requiere el anterior)" : ""}
                                         </option>
                                     );
                                 })}

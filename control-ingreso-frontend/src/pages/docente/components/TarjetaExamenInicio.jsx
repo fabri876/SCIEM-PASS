@@ -1,74 +1,95 @@
-// Tarjeta resumida del examen para el Inicio del docente.
-// Muestra un solo botón: "Control de ingreso" cuando ya corresponde (desde 1 hora
-// antes del inicio hasta el fin del examen) y "Ver detalle" en cualquier otro momento.
+// Tarjeta de un examen de HOY en el Inicio del docente.
+// - Hora de inicio en grande a la izquierda.
+// - "Registrar ingreso" desde 15 minutos antes del inicio hasta el fin; antes, "Registro desde las HH:MM".
+// - Si está en curso: franja azul a la izquierda y barra de ingresos a lo ancho, debajo del botón.
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import { estadoExamen, esHoy } from "../utilidadesExamenDocente";
+import { estadoExamen, puedeControlarIngreso, aperturaControl } from "../utilidadesExamenDocente";
 
-const MESES = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
-
-function partesFecha(strFecha) {
-  const m = String(strFecha || "").match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return { dia: "--", mes: "" };
-  return { dia: String(Number(m[3])), mes: MESES[Number(m[2]) - 1] };
+// "Aula 690B" o "Aulas 691A y 691B" (sin repetir la palabra "Aula")
+function textoAulas(examen) {
+  const list = (examen.ambientes || [])
+    .map((a) => String(a.nombreAmbiente || a.nombreAula || "").replace(/^aula\s*/i, "").trim())
+    .filter(Boolean);
+  if (list.length === 0) {
+    const str = String(examen.aulaNombre || "").replace(/^aula\s*/i, "").trim();
+    return str && str !== "por definir" ? `Aula ${str}` : "";
+  }
+  if (list.length === 1) return `Aula ${list[0]}`;
+  return `Aulas ${list.slice(0, -1).join(", ")} y ${list[list.length - 1]}`;
 }
 
-export default function TarjetaExamenInicio({ examen, onVerDetalle }) {
+const horaCorta = (date) => `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+export default function TarjetaExamenInicio({ examen }) {
   const navigate = useNavigate();
-  const ahora = new Date();
-  const strEstado = estadoExamen(examen, ahora);
-  const boolIngreso = examen.esExamenReal !== false;
-  const boolDestacado = strEstado === "EN_CURSO" || esHoy(examen, ahora);
-  const { dia, mes } = partesFecha(examen.fechaExamen);
-  const strEtiqueta = strEstado === "EN_CURSO" ? "EN CURSO" : esHoy(examen, ahora) ? "HOY" : "PRÓXIMO";
+
+  // Se actualiza cada 30 s para que el botón aparezca solo a la hora indicada
+  const [dateAhora, setDateAhora] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setDateAhora(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  const boolEnCurso = estadoExamen(examen, dateAhora) === "EN_CURSO";
+  const boolControl = puedeControlarIngreso(examen, dateAhora);
+  const dateApertura = aperturaControl(examen);
   const numTotal = examen.totalInscritos || 0;
-  const numPct = numTotal > 0 ? Math.round((examen.ingresados / numTotal) * 100) : 0;
-  const strMeta = [
-    examen.horario,
-    examen.aulaNombre && examen.aulaNombre !== "Aula por definir" ? `Aula ${examen.aulaNombre}` : null,
-    examen.tipoExamen,
-  ].filter(Boolean).join(" · ");
+  const numIng = examen.ingresados || 0;
+  const numPct = numTotal > 0 ? Math.min(100, Math.round((numIng / numTotal) * 100)) : 0;
+  const strDetalle = [examen.tipoExamen, textoAulas(examen)].filter(Boolean);
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-4 py-5 border-t border-slate-100 first:border-t-0">
-      <div className="flex items-center gap-4 flex-1 min-w-0">
-        <div className={`w-14 h-16 rounded-2xl shrink-0 flex flex-col items-center justify-center ${boolDestacado ? "bg-[#1A365D] text-white" : "bg-[#EFF6FF] text-[#1A365D] border border-[#BFDBFE]"}`}>
-          <b className="text-xl leading-none font-black">{dia}</b>
-          <span className="text-[11px] tracking-wider mt-1 font-semibold">{mes}</span>
+    <div
+      className={
+        "bg-white border border-[#CBD5E1] rounded-xl px-4 py-3 " +
+        (boolEnCurso ? "shadow-[inset_4px_0_0_#003770]" : "")
+      }
+    >
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="w-16 shrink-0 text-center border-r border-[#E2E8F0] pr-3">
+          <b className="block text-[17px] font-black text-[#08264A] leading-tight">{examen.horaInicio || "--:--"}</b>
+          {examen.horaFin && <span className="text-[11px] font-bold text-slate-500">a {examen.horaFin}</span>}
         </div>
-        <div className="min-w-0">
-          <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full mb-1 ${boolDestacado ? "bg-[#1A365D] text-white" : "bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]"}`}>
-            {strEtiqueta}
-          </span>
-          <h4 className="font-black text-[15px] text-[#1A365D] uppercase tracking-tight leading-snug">{examen.nombreExamen}</h4>
-          <p className="text-xs text-slate-500 font-semibold mt-0.5">{strMeta}</p>
-          {numTotal > 0 && (
-            <div className="flex items-center gap-3 mt-2">
-              <div className="w-40 h-1.5 rounded-full bg-slate-200 overflow-hidden">
-                <div className="h-full bg-[#003770]" style={{ width: `${numPct}%` }} />
-              </div>
-              <span className="text-[11px] font-bold text-slate-600">{examen.ingresados} / {numTotal} ingresaron</span>
-            </div>
+
+        <div className="flex-1 min-w-[180px]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="m-0 font-black text-sm text-[#08264A] uppercase">{examen.nombreExamen}</h4>
+            {boolEnCurso && <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#003770] text-white">● En curso</span>}
+          </div>
+          {strDetalle.length > 0 && (
+            <p className="mt-0.5 text-xs font-bold text-[#64748B]">
+              {examen.tipoExamen && <span className="text-[#124B83]">{examen.tipoExamen}</span>}
+              {examen.tipoExamen && strDetalle.length > 1 ? " · " : ""}
+              {textoAulas(examen)}
+            </p>
           )}
         </div>
+
+        {boolControl ? (
+          <button
+            type="button"
+            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "inicio", examen } })}
+            className="inline-flex items-center justify-center gap-2 bg-[#003770] hover:bg-[#124B83] text-white font-bold text-xs h-9 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap"
+          >
+            Registrar ingreso <ArrowRight className="w-4 h-4" />
+          </button>
+        ) : (
+          dateApertura && dateAhora < dateApertura && (
+            <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Registro desde las {horaCorta(dateApertura)}</span>
+          )
+        )}
       </div>
 
-      {boolIngreso ? (
-        <button
-          type="button"
-          onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "inicio", examen } })}
-          className="inline-flex items-center justify-center gap-2 bg-[#1A365D] hover:bg-[#132743] text-white font-bold text-xs h-10 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap self-start sm:self-center"
-        >
-          Control de ingreso <ArrowRight className="w-4 h-4" />
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => onVerDetalle(examen.idExamen)}
-          className="inline-flex items-center justify-center bg-white border border-[#CBD5E1] text-slate-600 hover:bg-slate-50 font-bold text-xs h-10 px-4 rounded-xl transition cursor-pointer whitespace-nowrap self-start sm:self-center"
-        >
-          Ver detalle
-        </button>
+      {/* Barra de ingresos (solo en curso), a lo ancho hasta debajo del botón */}
+      {boolEnCurso && numTotal > 0 && (
+        <div className="mt-2.5 ml-20 flex items-center gap-3 max-md:ml-0">
+          <div className="flex-1 h-1.5 rounded-full bg-[#EEF2F7] overflow-hidden">
+            <div className="h-full rounded-full bg-[#1860A3] transition-all duration-500" style={{ width: `${numPct}%` }} />
+          </div>
+          <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap">{numIng} / {numTotal} ingresaron</span>
+        </div>
       )}
     </div>
   );
