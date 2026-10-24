@@ -32,7 +32,11 @@ public class HabilitacionController {
 
     @GetMapping
     public ResponseEntity<List<HabilitacionResponseDto>> obtenerHabilitaciones(
-            @RequestParam(required = false) Integer idAsignatura) {
+            @RequestParam(required = false) Integer idAsignatura,
+            @RequestParam(required = false) Integer idExamen) {
+        if (idAsignatura != null && idExamen != null) {
+            return ResponseEntity.ok(habilitacionService.obtenerPorAsignaturaYExamen(idAsignatura, idExamen));
+        }
         if (idAsignatura != null) {
             return ResponseEntity.ok(habilitacionService.obtenerPorAsignatura(idAsignatura));
         }

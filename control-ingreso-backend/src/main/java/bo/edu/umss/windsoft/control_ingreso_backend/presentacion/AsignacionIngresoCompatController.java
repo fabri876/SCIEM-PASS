@@ -4,6 +4,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.AsignacionIngreso
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ContextoUsuarioService;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ResponsableExamenRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsignacionIngresoRequestDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AulaAsignacionDTO;
 import org.springframework.http.ResponseEntity;
@@ -21,13 +23,19 @@ public class AsignacionIngresoCompatController {
     private final AsignacionIngresoService service;
     private final ContextoUsuarioService contexto;
     private final ExamenRepository examenRepository;
+    private final ResponsableExamenRepository responsableExamenRepository;
+    private final UsuarioRepository usuarioRepository;
 
     public AsignacionIngresoCompatController(AsignacionIngresoService service,
                                              ContextoUsuarioService contexto,
-                                             ExamenRepository examenRepository) {
+                                             ExamenRepository examenRepository,
+                                             ResponsableExamenRepository responsableExamenRepository,
+                                             UsuarioRepository usuarioRepository) {
         this.service = service;
         this.contexto = contexto;
         this.examenRepository = examenRepository;
+        this.responsableExamenRepository = responsableExamenRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
     @GetMapping("/operadores-disponibles")
@@ -55,6 +63,18 @@ public class AsignacionIngresoCompatController {
                 responsables.add(r);
             }
         }
+        responsableExamenRepository.findByIdexamenAndEstado(idExamen, "ACTIVO").forEach(r -> {
+            var usuario = usuarioRepository.findById(r.getIdusuario()).orElse(null);
+            Map<String, Object> fila = new LinkedHashMap<>();
+            fila.put("idAmbiente", r.getIdambiente());
+            fila.put("idUsuario", r.getIdusuario());
+            fila.put("rol", r.getRol());
+            fila.put("nombreResponsable", usuario == null ? "Responsable" :
+                    (usuario.getNombreusuario() + " " + usuario.getApellidousuario()).trim());
+            fila.put("apellidoDesde", r.getApellidoDesde());
+            fila.put("apellidoHasta", r.getApellidoHasta());
+            responsables.add(fila);
+        });
         String modoAsignacion = actuales.stream()
                 .map(a -> service.modoAsignacion(idExamen, a.idAmbiente()))
                 .filter(java.util.Objects::nonNull)
@@ -74,20 +94,17 @@ public class AsignacionIngresoCompatController {
         if (responsables instanceof List<?> lista) for (Object valor : lista) {
             if (!(valor instanceof Map<?, ?> r)) continue;
             Object rol = r.get("rol");
-            // El docente no es un registro de ayudante: queda como responsable
-            // por defecto y no debe enviarse a la tabla de asignaciones.
-            if ("DOCENTE".equalsIgnoreCase(String.valueOf(rol))) continue;
             Object ambiente = r.get("idAmbiente");
             Object usuario = r.get("idUsuario");
             Integer idAmbiente = ambiente instanceof Number n ? n.intValue() : Integer.valueOf(String.valueOf(ambiente));
             Integer idUsuario = usuario instanceof Number n ? n.intValue() : usuario == null ? null : Integer.valueOf(String.valueOf(usuario));
             String apellidoDesde = r.get("apellidoDesde") == null ? null : String.valueOf(r.get("apellidoDesde"));
             String apellidoHasta = r.get("apellidoHasta") == null ? null : String.valueOf(r.get("apellidoHasta"));
-            items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, idUsuario, apellidoDesde, apellidoHasta));
+            items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, idUsuario, apellidoDesde, apellidoHasta, String.valueOf(rol)));
         }
         ambientesSinOperador.forEach((idAmbiente, ignorado) -> {
             if (items.stream().noneMatch(i -> i.idAmbiente().equals(idAmbiente)))
-                items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, null, null, null));
+                items.add(new AsignacionIngresoRequestDTO.ItemAsignacion(idAmbiente, null, null, null, null));
         });
         String modoAsignacion = "ONLINE".equalsIgnoreCase(String.valueOf(body.get("modoAsignacion")))
                 ? "ONLINE" : "SUBDIVISION";

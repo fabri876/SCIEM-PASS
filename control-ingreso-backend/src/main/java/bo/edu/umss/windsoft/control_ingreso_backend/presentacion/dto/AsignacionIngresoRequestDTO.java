@@ -22,6 +22,7 @@ public record AsignacionIngresoRequestDTO(
              */
             Integer idOperador,
             String apellidoDesde,
-            String apellidoHasta
+            String apellidoHasta,
+            String rol
     ) {}
 }
