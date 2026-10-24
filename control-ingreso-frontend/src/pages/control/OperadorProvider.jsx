@@ -255,6 +255,8 @@ export default function OperadorProvider({ children }) {
     fnConfirmarPin,
     tienePinConfigurado,
     fnAbrirConfigurarPin,
+    setConfigurandoPin: setConfigurandoPinVisible,
+    configurandoPin: configurarPinVisible,
     sesionCerradaVisible,
     resumenSesion,
     logoutConfirmVisible,
