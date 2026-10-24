@@ -12,7 +12,7 @@ import TablaUltimosIngresos from "./componentes/TablaUltimosIngresos";
 export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true }) {
   const { fnMostrarToast } = useOperador();
   const {
-    listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
+    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
     boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
   } = ctrl;
 
@@ -25,6 +25,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         <ListaExamenesHoy
           listExamenes={listExamenes}
           boolCargando={boolCargandoExamenes}
+          sinRespaldoOffline={sinRespaldoOffline}
           onElegir={fnElegirExamen}
           boolSinRed={ctrl.boolOffline}
         />
@@ -51,7 +52,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
             <ArrowLeft className="w-4 h-4" /> Mis exámenes
           </button>
         )}
-        <TarjetaExamen examen={examenActual} objContador={objContador} boolMostrarFila={boolOperador} />
+        <TarjetaExamen examen={examenActual} objContador={objContador} boolMostrarFila={boolOperador} sinRespaldoOffline={sinRespaldoOffline} />
       </div>
 
       {objNomina && (

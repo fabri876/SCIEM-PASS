@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ContextoOperador } from "./operadorContexto";
 import {
   useConectividad,
@@ -6,11 +6,20 @@ import {
   usePendientesCount,
   establecerModoOfflineForzado,
   verificarAlmacenamiento,
+  crearInactividad,
+  pinService,
+  verificarPin,
 } from "../../offline";
 import { useArranqueOffline } from "../../offline/useArranqueOffline";
+import { cerrarSesion, obtenerUsuarioActual } from "../../services/authService";
+import ModalPin from "./components/ModalPin";
+import ConfigurarPin from "./components/ConfigurarPin";
 
 export default function OperadorProvider({ children }) {
   useArranqueOffline();
+
+  const usuario = obtenerUsuarioActual();
+  const idUsuario = usuario?.idUsuario ?? usuario?.idusuario ?? usuario?.id ?? null;
 
   const conn = useConectividad();
   const pendReal = usePendientesCount();
@@ -28,6 +37,62 @@ export default function OperadorProvider({ children }) {
   const [sesionCerradaVisible, setSesionCerradaVisible] = useState(false);
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
   const [logoutMensaje, setLogoutMensaje] = useState("");
+
+  // Estado del PIN de seguridad y pantalla bloqueada
+  const [pinVisible, setPinVisible] = useState(false);
+  const [configurarPinVisible, setConfigurarPinVisible] = useState(false);
+  const [tienePinConfigurado, setTienePinConfigurado] = useState(false);
+  const refInactividad = useRef(null);
+
+  // Verificar si el operador actual tiene PIN configurado localmente
+  useEffect(() => {
+    let activo = true;
+    if (!idUsuario) {
+      setTienePinConfigurado(false);
+      return;
+    }
+    pinService.tienePinConfigurado(idUsuario).then((tiene) => {
+      if (activo) {
+        setTienePinConfigurado(tiene);
+      }
+    }).catch(() => {});
+    return () => {
+      activo = false;
+    };
+  }, [idUsuario]);
+
+  // Callback de bloqueo por inactividad
+  const onBloquearInactividad = useCallback(() => {
+    if (tienePinConfigurado) {
+      setPinVisible(true);
+      if (idUsuario) {
+        pinService.bloquearSesion(idUsuario).catch(() => {});
+      }
+    }
+  }, [tienePinConfigurado, idUsuario]);
+
+  // Monitor de inactividad: solo se activa si hay PIN configurado
+  useEffect(() => {
+    if (!tienePinConfigurado) {
+      if (refInactividad.current) {
+        refInactividad.current.destruir();
+        refInactividad.current = null;
+      }
+      return;
+    }
+
+    const ctrl = crearInactividad({
+      tiempoMaximoMs: 5 * 60 * 1000, // 5 minutos sin actividad
+      advertenciaMs: 60 * 1000,
+      onBloquear: onBloquearInactividad,
+    });
+    refInactividad.current = ctrl;
+
+    return () => {
+      ctrl.destruir();
+      refInactividad.current = null;
+    };
+  }, [tienePinConfigurado, onBloquearInactividad]);
 
   useEffect(() => {
     const n = ultimoResultado?.enviados ?? ultimoResultado?.procesados ?? 0;
@@ -104,6 +169,7 @@ export default function OperadorProvider({ children }) {
   }, []);
 
   const fnCerrarSesion = useCallback((resumenExtra) => {
+    cerrarSesion({ limpiarDatosLocales: true });
     if (pendReal > 0) {
       setResumenSesion(resumenExtra || "Sesion cerrada con " + pendReal + " marcas sin sincronizar.");
     } else {
@@ -122,6 +188,38 @@ export default function OperadorProvider({ children }) {
   }, [pendReal, fnCerrarSesion]);
 
   const fnCancelarLogout = useCallback(() => setLogoutConfirmVisible(false), []);
+
+  // Validación criptográfica del PIN
+  const fnConfirmarPin = useCallback(async (strPin) => {
+    if (!idUsuario) return false;
+    const pinHash = await pinService.obtenerPinHash(idUsuario);
+    if (!pinHash) return false;
+
+    const ok = await verificarPin(strPin, pinHash, idUsuario);
+    if (ok) {
+      await pinService.desbloquearSesion(idUsuario);
+      setPinVisible(false);
+      if (refInactividad.current) {
+        refInactividad.current.resetear();
+      }
+      return true;
+    }
+    return false;
+  }, [idUsuario]);
+
+  const fnCancelarPin = useCallback(() => {
+    fnCerrarSesion("Sesión cerrada desde pantalla de bloqueo.");
+  }, [fnCerrarSesion]);
+
+  const fnAbrirConfigurarPin = useCallback(() => {
+    setConfigurarPinVisible(true);
+  }, []);
+
+  const fnPinGuardadoExitoso = useCallback(() => {
+    setTienePinConfigurado(true);
+    setConfigurarPinVisible(false);
+    fnMostrarToast("PIN de seguridad configurado correctamente.");
+  }, [fnMostrarToast]);
 
   const netReal = estadoSync === "enviando"
     ? "syncing"
@@ -152,14 +250,35 @@ export default function OperadorProvider({ children }) {
     fnCerrarSesion,
     fnConfirmarLogout,
     fnCancelarLogout,
-    pinVisible: false,
+    pinVisible,
     pinMensaje: "",
-    fnConfirmarPin: () => false,
+    fnConfirmarPin,
+    tienePinConfigurado,
+    fnAbrirConfigurarPin,
     sesionCerradaVisible,
     resumenSesion,
     logoutConfirmVisible,
     logoutMensaje,
   };
 
-  return <ContextoOperador.Provider value={valor}>{children}</ContextoOperador.Provider>;
+  return (
+    <ContextoOperador.Provider value={valor}>
+      {children}
+      {pinVisible && (
+        <ModalPin
+          visible={pinVisible}
+          fnConfirmar={fnConfirmarPin}
+          fnCancelar={fnCancelarPin}
+        />
+      )}
+      {configurarPinVisible && idUsuario && (
+        <ConfigurarPin
+          visible={configurarPinVisible}
+          idUsuario={idUsuario}
+          onGuardar={fnPinGuardadoExitoso}
+          onCancelar={() => setConfigurarPinVisible(false)}
+        />
+      )}
+    </ContextoOperador.Provider>
+  );
 }

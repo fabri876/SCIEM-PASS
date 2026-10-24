@@ -329,7 +329,7 @@ function GrupoFilas({ strTitulo, list, onElegir }) {
   );
 }
 
-export default function ListaExamenesHoy({ listExamenes, boolCargando, onElegir, boolSinRed }) {
+export default function ListaExamenesHoy({ listExamenes, boolCargando, sinRespaldoOffline = false, onElegir, boolSinRed }) {
   const [boolVerTodos, setBoolVerTodos] = useState(false);
   const [strBuscar, setStrBuscar] = useState("");
   const conn = useConectividad();
@@ -411,8 +411,14 @@ export default function ListaExamenesHoy({ listExamenes, boolCargando, onElegir,
 
       {!boolCargando && numTotal === 0 && (
         <div className="bg-white border border-dashed border-[#CBD5E1] rounded-xl px-5 py-8 text-center">
-          <p className="m-0 text-[15px] font-semibold text-[#08264A]">No tienes exámenes asignados</p>
-          <p className="mt-1 text-[13px] text-[#64748B]">Cuando te asignen el control de un examen, aparecerá aquí.</p>
+          <p className="m-0 text-[15px] font-semibold text-[#08264A]">
+            {sinRespaldoOffline ? "Sin conexión a internet" : "No tienes exámenes asignados"}
+          </p>
+          <p className="mt-1 text-[13px] text-[#64748B]">
+            {sinRespaldoOffline
+              ? "Abre este examen una vez con internet para trabajar sin red."
+              : "Cuando te asignen el control de un examen, aparecerá aquí."}
+          </p>
         </div>
       )}
 

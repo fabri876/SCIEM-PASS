@@ -51,13 +51,15 @@ function ListaFilas({ listFilas }) {
 }
 
 // boolMostrarFila: solo el operador ve su fila por apellido
-export default function TarjetaExamen({ examen, objContador, boolMostrarFila = false }) {
+export default function TarjetaExamen({ examen, objContador, boolMostrarFila = false, sinRespaldoOffline = false }) {
   const [boolVerFilas, setBoolVerFilas] = useState(false);
 
   if (!examen) {
     return (
       <section className="bg-white border border-[#CBD5E1] rounded-xl px-[22px] py-5 text-sm text-[#64748B]">
-        Cargando examen asignado…
+        {sinRespaldoOffline
+          ? "Sin conexión: abre este examen una vez con internet para trabajar sin red"
+          : "Cargando examen asignado…"}
       </section>
     );
   }

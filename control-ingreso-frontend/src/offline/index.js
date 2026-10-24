@@ -98,4 +98,6 @@ export {
   obtenerOrigenExamenes,
   suscribirOrigenExamenes,
 } from "./examenRepo.js";
+export { derivarHashPin, verificarPin } from "./pinCrypto.js";
+export { pinService } from "./pinService.js";
 
