@@ -2,7 +2,8 @@
 // ÚNICO archivo que habla con el backend.
 
 import { strApiBaseUrl } from "./apiConfig";
-import { obtenerToken, obtenerUsuarioActual, cerrarSesion } from "./authService";
+import { obtenerToken, obtenerUsuarioActual, cerrarSesion, registrarActividad } from "./authService";
+import { cargarExamenesConRespaldo } from "../offline/examenRepo";
 
 
 // Mismo manejo que el resto de services: token, sesión vencida (401) y mensaje del backend
@@ -106,8 +107,37 @@ function mapearFilas(e) {
    GET /api/v1/examenes/delegados
    ============================================================ */
 export async function obtenerExamenesAsignados() {
-  const datos = await pedir(`/api/v1/examenes/delegados?_t=${Date.now()}`, { cache: "no-store" });
-  return (datos || []).map((e) => {
+  const usuario = obtenerUsuarioActual();
+  const res = await cargarExamenesConRespaldo({
+    clave: "delegados",
+    usuarioId: usuario?.idUsuario ?? null,
+    fetcher: async ({ signal }) => {
+      const strToken = obtenerToken();
+      const resp = await fetch(`${strApiBaseUrl}/api/v1/examenes/delegados?_t=${Date.now()}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
+        },
+        signal,
+      });
+
+      if (!resp.ok) {
+        const objError = await resp.json().catch(() => null);
+        const err = new Error(objError?.mensaje || objError?.error || `Error ${resp.status} en el servidor.`);
+        err.status = resp.status;
+        throw err;
+      }
+
+      return resp.status === 204 ? [] : resp.json();
+    },
+  });
+
+  const datos = res.examenes || [];
+  if (res.sesionExpirada && datos.length === 0) {
+    fnSesionVencida();
+  }
+
+  return datos.map((e) => {
     const horaInicio = e.horaInicio ? String(e.horaInicio).substring(0, 5) : "";
     const horaFin = e.horaFin ? String(e.horaFin).substring(0, 5) : "";
     const strEstado = String(e.estadoMateria || "").toUpperCase();
@@ -168,7 +198,7 @@ const MAPA_ESTADOS = {
 };
 
 export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = {}, objOpciones = {}) {
-
+  registrarActividad();
   const strIdentificador = String(strValor).trim();
   const strToken = obtenerToken();
   const resp = await fetch(`${strApiBaseUrl}/api/v1/control/ingresos`, {
@@ -190,7 +220,6 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
   if (resp.status === 401) fnSesionVencida();
 
   const objData = await resp.json().catch(() => null);
-  console.log("Raw response from backend (validarIngreso):", resp.status, objData);
 
   // Un error del servidor (sin estado de validación) no es "estudiante no encontrado":
   // se muestra como error para que el operador lo sepa

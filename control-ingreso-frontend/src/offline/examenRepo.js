@@ -7,12 +7,13 @@ const mapaUltimoOrigen = new Map();
 const suscriptoresOrigen = new Set();
 
 function construirClaveMeta(consulta, usuarioId) {
-  const uId = consulta === 'proximos' ? 'publico' : (usuarioId ? String(usuarioId) : 'publico');
-  return `examenes:${consulta}:${uId}`;
+  if (consulta === 'proximos') return 'examenes:proximos:publico';
+  if (!usuarioId) return null;
+  return `examenes:${consulta}:${String(usuarioId)}`;
 }
 
 function notificarOrigen(consulta, usuarioId, estado) {
-  const uId = consulta === 'proximos' ? 'publico' : (usuarioId ? String(usuarioId) : 'publico');
+  const uId = consulta === 'proximos' ? 'publico' : (usuarioId ? String(usuarioId) : 'sin-usuario');
   const claveInterna = `${consulta}:${uId}`;
   mapaUltimoOrigen.set(claveInterna, estado);
 
@@ -47,6 +48,7 @@ export const examenRepo = {
    */
   async listarExamenes({ clave, usuarioId = null } = {}) {
     if (!clave) return [];
+    if (clave !== 'proximos' && !usuarioId) return [];
     const claveMeta = construirClaveMeta(clave, usuarioId);
     const snapshot = await db.meta.get(claveMeta);
     return Array.isArray(snapshot?.items) ? snapshot.items : [];
@@ -58,6 +60,7 @@ export const examenRepo = {
    */
   async obtenerExamen(id, { usuarioId = null } = {}) {
     if (id === null || id === undefined) return null;
+    if (!usuarioId) return null;
     const claveMeta = construirClaveMeta('mis-examenes', usuarioId);
     const snapshot = await db.meta.get(claveMeta);
     const items = Array.isArray(snapshot?.items) ? snapshot.items : [];
@@ -141,7 +144,7 @@ export async function cargarExamenesConRespaldo({
     throw new Error('cargarExamenesConRespaldo requiere "clave" y una función "fetcher".');
   }
 
-  const esClaveUsuario = clave === 'mis-examenes' || (typeof clave === 'string' && clave.startsWith('asignaturas-'));
+  const esClaveUsuario = clave !== 'proximos';
   const usuarioSnapshot = clave === 'proximos' ? 'publico' : (usuarioId ? String(usuarioId) : null);
   const sinUsuarioEnClaveUsuario = esClaveUsuario && !usuarioId;
 
@@ -307,7 +310,7 @@ export async function cargarExamenesConRespaldo({
  * Obtiene el estado de origen de la última carga para una consulta y usuario.
  */
 export function obtenerOrigenExamenes(clave, usuarioId = null) {
-  const uId = clave === 'proximos' ? 'publico' : (usuarioId ? String(usuarioId) : 'publico');
+  const uId = clave === 'proximos' ? 'publico' : (usuarioId ? String(usuarioId) : 'sin-usuario');
   return mapaUltimoOrigen.get(`${clave}:${uId}`) || {
     origen: null,
     guardadoEn: null,

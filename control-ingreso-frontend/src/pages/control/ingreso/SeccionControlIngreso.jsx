@@ -43,7 +43,7 @@ function FranjaEstado({ boolSinRed, objFila }) {
 export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true, nodoAcciones = null, listAvisos = [] }) {
   const { fnMostrarToast, fnDoForzar, setConfigurandoPin, estadoRed } = useOperador();
   const {
-    listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
+    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
     boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
   } = ctrl;
 
@@ -74,6 +74,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         <ListaExamenesHoy
           listExamenes={listExamenes}
           boolCargando={boolCargandoExamenes}
+          sinRespaldoOffline={sinRespaldoOffline}
           onElegir={fnElegirExamen}
           boolSinRed={ctrl.boolOffline}
         />

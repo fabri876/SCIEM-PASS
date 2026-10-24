@@ -86,7 +86,7 @@ export {
   purgarFotosHuerfanas,
   purgarNominasAntiguas,
 } from "./purgeJob.js";
-export { useInactividad } from "./useInactividad.js";
+export { useInactividad, crearInactividad } from "./useInactividad.js";
 export {
   limpiarAlLogout,
   limpiezaTotalDispositivoCompartido,
@@ -98,4 +98,6 @@ export {
   obtenerOrigenExamenes,
   suscribirOrigenExamenes,
 } from "./examenRepo.js";
+export { derivarHashPin, verificarPin } from "./pinCrypto.js";
+export { pinService } from "./pinService.js";
 
