@@ -11,14 +11,23 @@ import {
     repartoEquilibrado,
     validarReparto,
     cortarEnBloques,
-    rangoLetras,
-    letrasDeBloque,
     partirPorLetras,
     cortesEquitativos,
     inicialApellido,
 } from "./utilidadesAsignacion";
 
-const PASOS = ["Aulas y estudiantes", "Ayudantes por aula", "Resumen"];
+const PASOS = ["Aulas", "Ayudantes", "Resumen"];
+const ALFABETO = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function siguienteLetra(l) {
+    const i = ALFABETO.indexOf(l);
+    return i >= 0 && i < ALFABETO.length - 1 ? ALFABETO[i + 1] : l || "A";
+}
+
+function textoRango(desde, hasta) {
+    if (!desde) return "—";
+    return desde === hasta ? desde : `${desde} – ${hasta}`;
+}
 
 function nombreCompleto(o) {
     return `${o.nombre || ""} ${o.apellido || ""}`.trim() || "Ayudante";
@@ -34,7 +43,7 @@ function BotonPrincipal({ children, ...props }) {
         <button
             type="button"
             {...props}
-            className="h-11 px-5 rounded-xl bg-[#003770] text-white font-bold text-[15px] hover:bg-[#002a55] transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-9 px-4 rounded-xl bg-[#003770] text-white font-bold text-xs hover:bg-[#124B83] transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
             {children}
         </button>
@@ -46,57 +55,50 @@ function BotonSecundario({ children, ...props }) {
         <button
             type="button"
             {...props}
-            className="h-11 px-5 rounded-xl bg-white border-[1.5px] border-[#CBD5E1] text-[#003770] font-bold text-[15px] hover:bg-slate-50 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-9 px-4 rounded-xl bg-white border border-[#CBD5E1] text-[#003770] font-bold text-xs hover:bg-slate-50 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
             {children}
         </button>
     );
 }
 
-function Pildora({ children, tipo = "azul" }) {
-    const clases = {
-        azul: "bg-[#EFF6FF] text-[#003770] border-[#BFDBFE]",
-        gris: "bg-slate-100 text-slate-600 border-slate-300",
-        rojo: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]",
-    }[tipo];
-    return <span className={`inline-flex items-center rounded-full border font-bold text-[13px] px-3 py-1 ${clases}`}>{children}</span>;
+function Etiqueta({ children }) {
+    return <span className="inline-flex items-center rounded-full font-extrabold text-[11px] px-2.5 py-0.5 bg-[#E8F1FB] text-[#003770] whitespace-nowrap">{children}</span>;
 }
 
-function Indicador({ paso, pasoActivo, bloqueado, onIr }) {
-    const hecho = paso < pasoActivo;
-    const actual = paso === pasoActivo;
-    const puedeIr = hecho && !bloqueado;
+function IconoAula() {
     return (
-        <button
-            type="button"
-            disabled={!puedeIr}
-            onClick={() => puedeIr && onIr(paso)}
-            className={`flex items-center gap-3 ${puedeIr ? "cursor-pointer" : "cursor-default"}`}
-        >
-            <span
-                className={`w-9 h-9 rounded-full border-2 flex items-center justify-center font-bold text-[15px] ${hecho || actual ? "bg-[#003770] border-[#003770] text-white" : "bg-white border-[#CBD5E1] text-slate-400"
-                    }`}
-            >
-                {hecho ? <Check className="w-4 h-4" strokeWidth={3} /> : paso}
-            </span>
-            <span className={`font-bold text-[15px] ${hecho || actual ? "text-[#003770]" : "text-slate-400"} ${puedeIr ? "underline" : ""}`}>
-                {PASOS[paso - 1]}
-            </span>
-        </button>
+        <span className="w-7 h-7 rounded-lg bg-[#003770] text-white flex items-center justify-center shrink-0">
+            <MapPin className="w-3.5 h-3.5" />
+        </span>
     );
 }
 
 function Pasos({ pasoActivo, bloquearPaso1, onIr }) {
     return (
-        <div className="flex items-center gap-3 mt-5 flex-wrap">
-            {PASOS.map((_, i) => (
-                <div key={i} className="flex items-center gap-3 flex-1 last:flex-none min-w-0">
-                    <Indicador paso={i + 1} pasoActivo={pasoActivo} bloqueado={i === 0 && bloquearPaso1} onIr={onIr} />
-                    {i < PASOS.length - 1 && (
-                        <div className={`flex-1 h-0.5 min-w-4 ${i + 1 < pasoActivo ? "bg-[#003770]" : "bg-[#CBD5E1]"}`} />
-                    )}
-                </div>
-            ))}
+        <div className="flex items-center gap-2 mt-3">
+            {PASOS.map((strPaso, i) => {
+                const n = i + 1;
+                const hecho = n < pasoActivo;
+                const actual = n === pasoActivo;
+                const puedeIr = hecho && !(n === 1 && bloquearPaso1);
+                return (
+                    <div key={strPaso} className="flex items-center gap-2 flex-1 last:flex-none min-w-0">
+                        <button
+                            type="button"
+                            disabled={!puedeIr}
+                            onClick={() => puedeIr && onIr(n)}
+                            className={`flex items-center gap-1.5 text-xs font-extrabold ${hecho || actual ? "text-[#003770]" : "text-slate-400"} ${puedeIr ? "cursor-pointer hover:underline" : "cursor-default"}`}
+                        >
+                            <span className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center text-[11px] ${hecho || actual ? "bg-[#003770] border-[#003770] text-white" : "bg-white border-[#CBD5E1] text-slate-400"}`}>
+                                {hecho ? <Check className="w-3 h-3" strokeWidth={3} /> : n}
+                            </span>
+                            {strPaso}
+                        </button>
+                        {i < PASOS.length - 1 && <div className={`flex-1 h-0.5 min-w-4 ${n < pasoActivo ? "bg-[#003770]" : "bg-[#CBD5E1]"}`} />}
+                    </div>
+                );
+            })}
         </div>
     );
 }
@@ -116,7 +118,6 @@ export default function AsignarOperadoresDocente({
             (examen?.ambientes || []).map((a) => ({
                 idAmbiente: a.idAmbiente,
                 nombre: a.nombreAmbiente || a.nombreAula || "Aula",
-                ubicacion: a.ubicacionAmbiente || a.bloque || "",
                 capacidad: a.capacidadAmbiente ?? null,
             })),
         [examen]
@@ -132,7 +133,10 @@ export default function AsignarOperadoresDocente({
 
     const [paso, setPaso] = useState(1);
     const [modo, setModo] = useState("EQUILIBRADO");
-    const [modoAsignacion, setModoAsignacion] = useState("SUBDIVISION");
+    // Con internet todos registran a cualquier estudiante del aula; el reparto por apellidos
+    // se guarda siempre y solo se usa sin internet.
+    const modoAsignacion = "SUBDIVISION";
+    const [idAulaAjustando, setIdAulaAjustando] = useState(null);
     const [cantidades, setCantidades] = useState([]);
     const [responsables, setResponsables] = useState({});
     const [base, setBase] = useState("");
@@ -182,10 +186,10 @@ export default function AsignarOperadoresDocente({
                         ? guardadas
                         : repartoEquilibrado(ordenados.length, caps);
                     setModo(previa.modoReparto === "MANUAL" ? "MANUAL" : "EQUILIBRADO");
-                    setModoAsignacion(previa.modoAsignacion === "ONLINE" ? "ONLINE" : "SUBDIVISION");
                     setCantidades(cants);
+                    const bloquesCarga = cortarEnBloques(ordenados, cants);
                     const porAula = {};
-                    aulas.forEach((a) => {
+                    aulas.forEach((a, idxAula) => {
                         const lista = (previa.responsables || [])
                             .filter((r) => r.idAmbiente === a.idAmbiente)
                             .sort((x, y) => String(x.apellidoDesde).localeCompare(String(y.apellidoDesde)))
@@ -195,7 +199,11 @@ export default function AsignarOperadoresDocente({
                                 rol: r.rol === "DOCENTE" ? "DOCENTE" : "OPERADOR",
                                 hasta: i < arr.length - 1 ? r.apellidoHasta : null,
                             }));
-                        porAula[a.idAmbiente] = lista.length ? lista : [{ ...docente, hasta: null }];
+                        // Asignaciones antiguas guardadas como "lista completa" no traen cortes: se reparten en partes iguales
+                        const faltanCortes = lista.length > 1 && lista.slice(0, -1).some((r) => !r.hasta);
+                        const cortes = faltanCortes ? cortesEquitativos(bloquesCarga[idxAula] || [], lista.length) : null;
+                        const listaFinal = cortes ? lista.map((r, i) => ({ ...r, hasta: i < lista.length - 1 ? cortes[i] : null })) : lista;
+                        porAula[a.idAmbiente] = listaFinal.length ? listaFinal : [{ ...docente, hasta: null }];
                     });
                     setResponsables(porAula);
                     setBase(JSON.stringify(cants));
@@ -239,7 +247,6 @@ export default function AsignarOperadoresDocente({
 
     function subBloques(idx) {
         const lista = responsablesDe(idx);
-        if (modoAsignacion === "ONLINE") return lista.map(() => bloques[idx] || []);
         return partirPorLetras(bloques[idx], lista.slice(0, -1).map((r) => r.hasta));
     }
 
@@ -250,17 +257,9 @@ export default function AsignarOperadoresDocente({
     function fijarResponsables(idx, lista) {
         const id = aulas[idx].idAmbiente;
         const k = lista.length;
-        if (modoAsignacion === "ONLINE") {
-            setAvisoDivision("");
-            setResponsables((prev) => ({
-                ...prev,
-                [id]: lista.map((r) => ({ ...r, hasta: null })),
-            }));
-            return true;
-        }
         const cortes = cortesEquitativos(bloques[idx], k);
         if (cortes === null) {
-            setAvisoDivision(`En el ${aulas[idx].nombre} no hay suficientes apellidos distintos para dividirla entre ${k} responsables.`);
+            setAvisoDivision(`En el ${aulas[idx].nombre} no hay suficientes apellidos distintos para repartirlos entre ${k} personas.`);
             return false;
         }
         setAvisoDivision("");
@@ -298,49 +297,27 @@ export default function AsignarOperadoresDocente({
         fijarResponsables(idx, restantes);
     }
 
+    // Cambia la letra de corte de una persona (cualquier letra de la A a la Z dentro del tramo del aula)
+    // y corre las siguientes si quedaron antes de la nueva letra
     function cambiarHasta(idx, iResp, letra) {
-        if (modoAsignacion === "ONLINE") return;
         const id = aulas[idx].idAmbiente;
-        const letras = letrasDeBloque(bloques[idx]);
         const lista = responsablesDe(idx).map((r) => ({ ...r }));
         lista[iResp].hasta = letra;
         for (let j = iResp + 1; j < lista.length - 1; j++) {
-            const previo = letras.indexOf(lista[j - 1].hasta);
-            if (letras.indexOf(lista[j].hasta) <= previo) lista[j].hasta = letras[previo + 1];
+            const previo = ALFABETO.indexOf(lista[j - 1].hasta);
+            if (ALFABETO.indexOf(lista[j].hasta) <= previo) lista[j].hasta = ALFABETO[previo + 1];
         }
         setResponsables((prev) => ({ ...prev, [id]: lista }));
     }
 
-    function dividirTodasEnPartesIguales() {
-        if (modoAsignacion === "ONLINE") return;
-        let ok = true;
-        aulas.forEach((_, idx) => {
-            const lista = responsablesDe(idx);
-            if (lista.length > 1 && !fijarResponsables(idx, lista)) ok = false;
-        });
-        if (ok) setAvisoDivision("");
+    // "Volver a partes iguales" de un aula
+    function partesIgualesAula(idx) {
+        fijarResponsables(idx, responsablesDe(idx));
     }
 
     function elegirModo(nuevo) {
         setModo(nuevo);
         if (nuevo === "EQUILIBRADO") setCantidades(repartoEquilibrado(estudiantes.length, capacidades));
-    }
-
-    function elegirModoAsignacion(nuevo) {
-        setModoAsignacion(nuevo);
-        setAvisoDivision("");
-        if (nuevo === "ONLINE") {
-            setResponsables((prev) => Object.fromEntries(Object.entries(prev).map(([id, lista]) => [
-                id,
-                lista.map((r) => ({ ...r, hasta: null })),
-            ])));
-        } else {
-            setResponsables((prev) => Object.fromEntries(Object.entries(prev).map(([id, lista]) => {
-                const idx = aulas.findIndex((a) => String(a.idAmbiente) === String(id));
-                const cortes = idx >= 0 ? cortesEquitativos(bloques[idx], lista.length) : null;
-                return [id, cortes === null ? lista : lista.map((r, i) => ({ ...r, hasta: i < lista.length - 1 ? cortes[i] : null }))];
-            })));
-        }
     }
 
     function irAPaso2() {
@@ -352,14 +329,50 @@ export default function AsignarOperadoresDocente({
         setPaso(2);
     }
 
+    // Tramos de A a Z: la primera aula empieza en A, la última termina en Z y no quedan huecos entre tramos
+    const rangosAulas = (() => {
+        const res = aulas.map(() => null);
+        const idxs = aulas.map((_, k) => k).filter((k) => cantidades[k] && bloques[k]?.length);
+        let prevHasta = null;
+        idxs.forEach((k, n) => {
+            const b = bloques[k];
+            const primera = inicialApellido(b[0]);
+            const ultima = inicialApellido(b[b.length - 1]);
+            const desde = prevHasta == null ? "A" : primera === prevHasta ? primera : siguienteLetra(prevHasta);
+            const hasta = n === idxs.length - 1 ? "Z" : ultima;
+            res[k] = { desde, hasta };
+            prevHasta = ultima;
+        });
+        return res;
+    })();
+
+    function rangosPersonas(idx) {
+        const lista = responsablesDe(idx);
+        const subs = subBloques(idx);
+        const aulaR = rangosAulas[idx] || { desde: "A", hasta: "Z" };
+        let prevHasta = null;
+        return lista.map((r, j) => {
+            const sub = subs[j] || [];
+            const primera = sub.length ? inicialApellido(sub[0]) : null;
+            const ultima = sub.length ? inicialApellido(sub[sub.length - 1]) : null;
+            const desde = j === 0 ? aulaR.desde : primera && primera === prevHasta ? primera : siguienteLetra(prevHasta);
+            const hasta = j === lista.length - 1 ? aulaR.hasta : r.hasta || ultima || desde;
+            prevHasta = hasta;
+            return { desde, hasta };
+        });
+    }
+
     const filasResumen = aulas.flatMap((aula, idx) => {
         if (!cantidades[idx]) return [];
         const subs = subBloques(idx);
+        const rangos = rangosPersonas(idx);
         return responsablesDe(idx).map((r, i) => ({
             aula: aula.nombre,
             idAmbiente: aula.idAmbiente,
             responsable: r,
-            rango: rangoLetras(subs[i]),
+            desde: rangos[i].desde,
+            hasta: rangos[i].hasta,
+            rango: textoRango(rangos[i].desde, rangos[i].hasta),
             cantidad: subs[i].length,
             estudiantes: subs[i],
         }));
@@ -378,8 +391,8 @@ export default function AsignarOperadoresDocente({
                     idUsuario: f.responsable.idUsuario,
                     rol: f.responsable.rol,
                     nombreResponsable: f.responsable.nombre,
-                    apellidoDesde: modoAsignacion === "ONLINE" ? null : (f.estudiantes.length ? inicialApellido(f.estudiantes[0]) : null),
-                    apellidoHasta: modoAsignacion === "ONLINE" ? null : (f.estudiantes.length ? inicialApellido(f.estudiantes[f.estudiantes.length - 1]) : null),
+                    apellidoDesde: f.desde,
+                    apellidoHasta: f.hasta,
                     codSisEstudiantes: f.estudiantes.map((e) => e.codSisEstudiante),
                 })),
             });
@@ -392,18 +405,18 @@ export default function AsignarOperadoresDocente({
     }
 
     const editando = Boolean(guardada);
-    const titulo = soloLectura ? "Ayudantes del examen" : editando ? "Editar ayudantes" : "Asignar ayudantes"
+    const titulo = soloLectura ? "Ayudantes del examen" : editando ? "Editar ayudantes" : "Asignar ayudantes";
     const horaTxt = examen?.horaInicio || "la hora de inicio";
+    const boolHayAulaSinAyudante = aulas.some((a, idx) => cantidades[idx] && !responsables[a.idAmbiente]);
 
     const encabezado = (
         <div>
-            <button type="button" onClick={onVolver} className="text-sm font-bold text-[#003770] hover:underline cursor-pointer">
+            <button type="button" onClick={onVolver} className="text-xs font-bold text-[#003770] hover:underline cursor-pointer">
                 ← Volver a {strTextoVolver}
             </button>
-            <h1 className="text-3xl font-black text-[#1A365D] mt-1">{titulo}</h1>
-            <p className="text-[15px] text-slate-600 mt-1">
-                {examen?.nombreExamen}{examen?.tipoExamen ? ` · ${examen.tipoExamen}` : ""} · {examen?.horario}
-                {estudiantes.length ? ` · ${estudiantes.length} estudiantes inscritos` : ""}
+            <h1 className="text-2xl font-black text-[#1A365D] mt-1">{titulo}</h1>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+                {[examen?.nombreExamen, examen?.tipoExamen, examen?.horario].filter(Boolean).join(" · ")}
             </p>
         </div>
     );
@@ -412,7 +425,7 @@ export default function AsignarOperadoresDocente({
         return (
             <div className="space-y-4">
                 {encabezado}
-                <div className="bg-white rounded-3xl border border-slate-200 p-10 text-center text-[15px] font-semibold text-slate-500 animate-pulse">
+                <div className="bg-white rounded-2xl border border-[#CBD5E1] p-8 text-center text-xs font-semibold text-slate-500 animate-pulse">
                     Cargando información del examen...
                 </div>
             </div>
@@ -423,7 +436,7 @@ export default function AsignarOperadoresDocente({
         return (
             <div className="space-y-4">
                 {encabezado}
-                <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-2xl p-5 text-[15px] text-slate-700">
+                <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-xl px-4 py-3 text-sm text-slate-700">
                     <b className="text-[#B91C1C]">No se puede asignar ayudantes todavía.</b>{" "}
                     {errorCarga
                         ? errorCarga
@@ -438,302 +451,235 @@ export default function AsignarOperadoresDocente({
     const hayOperadores = operadores.length > 0;
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-4 text-[#08264A]">
             {encabezado}
             {!soloLectura && <Pasos pasoActivo={paso} bloquearPaso1={editando} onIr={setPaso} />}
 
             {soloLectura && (
-                <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl px-5 py-3.5 text-[15px] text-slate-700 flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-[#003770] shrink-0" />
-                    <span><b className="text-[#003770]">La asignación está bloqueada</b> porque el examen ya empezó.</span>
+                <div className="bg-[#F0F6FC] border border-[#D9E8F7] rounded-xl px-4 py-2.5 text-xs text-slate-700 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-[#003770] shrink-0" />
+                    La asignación está bloqueada porque el examen ya empezó.
                 </div>
             )}
 
             {!soloLectura && editando && paso === 3 && (
-                <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl px-5 py-3.5 text-[15px] text-slate-700">
-                    <b className="text-[#003770]">Puedes editar esta asignación hasta las {horaTxt},</b> cuando empieza el examen. Después quedará bloqueada.
+                <div className="bg-[#F0F6FC] border border-[#D9E8F7] rounded-xl px-4 py-2.5 text-xs text-slate-700">
+                    Puedes editar esta asignación hasta las <b className="text-[#003770]">{horaTxt}</b>.
                 </div>
             )}
 
-            {/* PASO 1 */}
+            {/* PASO 1 · Estudiantes por aula */}
             {paso === 1 && !soloLectura && (
-                <section className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
-                    <div className="p-6">
-                        <h2 className="text-xl font-black text-[#1A365D]">¿Cómo se reparten los estudiantes?</h2>
-                        <p className="text-[15px] text-slate-500 mt-1">Los inscritos se ordenan por apellido y se dividen en bloques seguidos, uno por aula.</p>
-                        <div className="grid sm:grid-cols-2 gap-3 mt-4">
-                            {[
-                                { id: "EQUILIBRADO", t: "Equilibrado", d: `Mismo número en cada aula (${cantidades.length ? repartoEquilibrado(estudiantes.length, capacidades).join(" y ") : ""}).`, rec: true },
-                                { id: "MANUAL", t: "Manual", d: "Tú eliges cuántos van en cada aula." },
-                            ].map((op) => (
+                <section className="bg-white rounded-2xl border border-[#CBD5E1] overflow-hidden">
+                    <div className="bg-[#F0F6FC] px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                        <h2 className="text-sm font-extrabold">Estudiantes por aula</h2>
+                        <div role="group" aria-label="Forma de reparto" className="inline-flex gap-0.5 p-[3px] rounded-[9px] bg-white border border-[#D9E8F7]">
+                            {[["EQUILIBRADO", "Equilibrado"], ["MANUAL", "Manual"]].map(([id, t]) => (
                                 <button
-                                    key={op.id}
+                                    key={id}
                                     type="button"
-                                    onClick={() => elegirModo(op.id)}
-                                    className={`text-left rounded-2xl p-4 cursor-pointer transition border-2 ${modo === op.id ? "border-[#003770] bg-[#EFF6FF]" : "border-[#CBD5E1] bg-white hover:bg-slate-50"}`}
+                                    aria-pressed={modo === id}
+                                    onClick={() => elegirModo(id)}
+                                    className={`px-3 h-7 rounded-[7px] text-xs font-extrabold cursor-pointer ${modo === id ? "bg-[#003770] text-white" : "text-[#475569] hover:text-[#003770]"}`}
                                 >
-                                    <span className="font-black text-base text-[#1A365D]">{op.t}</span>{" "}
-                                    {op.rec && <Pildora>Recomendado</Pildora>}
-                                    <p className="text-[14px] text-slate-600 mt-1">{op.d}</p>
+                                    {t}
                                 </button>
                             ))}
                         </div>
                     </div>
                     {aulas.map((aula, idx) => (
-                        <div key={aula.idAmbiente} className="flex items-center gap-4 px-6 py-4 border-t border-slate-200 flex-wrap">
-                            <span className="w-11 h-11 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center shrink-0">
-                                <MapPin className="w-5 h-5 text-[#003770]" />
+                        <div key={aula.idAmbiente} className="flex items-center gap-3 px-4 py-2.5 border-t border-[#E2E8F0]">
+                            <IconoAula />
+                            <span className="flex-1 min-w-0 text-sm font-bold truncate">{aula.nombre}</span>
+                            <input
+                                type="number"
+                                min="0"
+                                aria-label={`Estudiantes en ${aula.nombre}`}
+                                value={cantidades[idx] ?? 0}
+                                readOnly={modo === "EQUILIBRADO"}
+                                onChange={(e) => {
+                                    const v = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                                    setCantidades((prev) => prev.map((c, i) => (i === idx ? v : c)));
+                                }}
+                                className={`w-16 h-8 rounded-lg text-center text-sm font-black border outline-none focus:ring-2 focus:ring-[#003770]/20 ${modo === "EQUILIBRADO" ? "border-[#CBD5E1] bg-slate-50" : "border-[#003770] bg-white"}`}
+                            />
+                            <span className="w-16 text-right">
+                                <Etiqueta>{rangosAulas[idx] ? textoRango(rangosAulas[idx].desde, rangosAulas[idx].hasta) : "—"}</Etiqueta>
                             </span>
-                            <div className="flex-1 min-w-40">
-                                <p className="font-black text-lg text-[#1A365D]">{aula.nombre}</p>
-                                <p className="text-[14px] text-slate-500">
-                                    {aula.ubicacion ? `${aula.ubicacion} · ` : ""}{aula.capacidad != null ? `capacidad ${aula.capacidad}` : "capacidad sin definir"}
-                                </p>
-                            </div>
-                            <label className="flex items-center gap-2.5 text-[15px] text-slate-600">
-                                Estudiantes
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={cantidades[idx] ?? 0}
-                                    readOnly={modo === "EQUILIBRADO"}
-                                    onChange={(e) => {
-                                        const v = e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
-                                        setCantidades((prev) => prev.map((c, i) => (i === idx ? v : c)));
-                                    }}
-                                    className={`w-24 h-11 rounded-xl text-center text-xl font-black text-[#1A365D] border-[1.5px] ${modo === "EQUILIBRADO" ? "border-[#CBD5E1] bg-slate-50" : "border-[#003770] bg-white"} outline-none focus:ring-2 focus:ring-[#003770]/20`}
-                                />
-                            </label>
-                            <div className="w-40 text-right">
-                                <Pildora>Apellidos {rangoLetras(bloques[idx])}</Pildora>
-                            </div>
                         </div>
                     ))}
-                    <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
-                        <span className={`text-[15px] ${validacion.ok ? "text-slate-700" : "text-[#B91C1C] font-bold"}`}>{validacion.mensaje}</span>
-                        <BotonPrincipal disabled={!validacion.ok} onClick={irAPaso2}>Siguiente: ayudantes →</BotonPrincipal>
+                    <div className="bg-slate-50 border-t border-[#E2E8F0] px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+                        <span className={`text-xs ${validacion.ok ? "text-slate-500" : "text-[#B91C1C] font-bold"}`}>
+                            {validacion.ok ? `${estudiantes.length} de ${estudiantes.length} ubicados` : validacion.mensaje}
+                        </span>
+                        <BotonPrincipal disabled={!validacion.ok} onClick={irAPaso2}>Siguiente →</BotonPrincipal>
                     </div>
                 </section>
             )}
 
-            {/* PASO 2 */}
+            {/* PASO 2 · Ayudantes por aula */}
             {paso === 2 && !soloLectura && (
                 <>
                     {!hayOperadores && (
-                        <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-2xl p-4 flex items-center gap-4 flex-wrap">
-                            <div className="flex-1 min-w-60">
-                                <p className="font-black text-base text-[#B91C1C]">
+                        <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-xl px-4 py-2.5 flex items-center gap-3 flex-wrap">
+                            <p className="flex-1 min-w-60 text-xs text-slate-700">
+                                <b className="text-[#B91C1C]">
                                     {fallaOperadores
                                         ? (boolVistaAdmin ? "No se pudo cargar la lista de ayudantes del docente." : "No se pudo cargar tu lista de ayudantes.")
                                         : (boolVistaAdmin ? "El docente aún no tiene ayudantes registrados." : "Aún no tienes ayudantes registrados.")}
-                                </p>
-                                <p className="text-[15px] text-slate-700 mt-0.5">
-                                    {boolVistaAdmin
-                                        ? "Solo se pueden asignar ayudantes registrados en los grupos del docente. Mientras no tenga, el docente atiende todas las aulas."
-                                        : "Solo puedes asignar ayudantes que hayas registrado en tus grupos. Mientras no tengas, tú atiendes todas las aulas."}
-                                </p>
-                            </div>
+                                </b>
+                            </p>
                             {onRegistrarOperador && <BotonPrincipal onClick={onRegistrarOperador}>Registrar ayudante</BotonPrincipal>}
                         </div>
                     )}
-                    <section className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
-                        <div className="p-6 flex items-center justify-between gap-4 flex-wrap">
-                            <div>
-                                <h2 className="text-xl font-black text-[#1A365D]">¿Quién atiende cada aula?</h2>
-                                <p className="text-[15px] text-slate-500 mt-1">
-                                    {hayOperadores
-                                        ? modoAsignacion === "ONLINE"
-                                            ? "Todos los operadores seleccionados podrán gestionar cualquier estudiante del aula."
-                                            : "Un responsable atiende toda el aula. Con dos o más, el rango de apellidos se divide entre ellos."
-                                        : (boolVistaAdmin ? "Con los ayudantes del docente podrás dividir el rango de cada aula entre ellos." : "Con tus ayudantes registrados podrás dividir el rango de cada aula entre ellos.")}
-                                </p>
-                            </div>
-                            {hayOperadores && modoAsignacion === "SUBDIVISION" && <BotonSecundario onClick={dividirTodasEnPartesIguales}>Dividir en partes iguales</BotonSecundario>}
-                        </div>
-                        <div className="px-6 pb-4">
-                            <div className="grid sm:grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5" role="tablist" aria-label="Tipo de asignación">
-                                {[
-                                    { id: "ONLINE", t: "Lista completa", d: "Todos atienden a cualquier estudiante del aula." },
-                                    { id: "SUBDIVISION", t: "Subdivisión por apellido", d: "Cada operador atiende un rango de apellidos." },
-                                ].map((op) => (
-                                    <button
-                                        key={op.id}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={modoAsignacion === op.id}
-                                        onClick={() => elegirModoAsignacion(op.id)}
-                                        className={`text-left rounded-xl px-4 py-3 transition ${modoAsignacion === op.id ? "bg-white shadow-sm ring-1 ring-[#003770]" : "text-slate-600 hover:bg-white/70"}`}
-                                    >
-                                        <span className="block font-black text-[15px] text-[#1A365D]">{op.t}</span>
-                                        <span className="block text-[13px] mt-0.5">{op.d}</span>
-                                    </button>
-                                ))}
-                            </div>
-                            <p className="text-[13px] text-slate-500 mt-2">Solo puedes guardar una modalidad para este examen.</p>
-                        </div>
-                        {avisoDivision && <div className="px-6 pb-3 text-[14px] font-bold text-[#B91C1C]">{avisoDivision}</div>}
+                    <section className="bg-white rounded-2xl border border-[#CBD5E1] overflow-hidden">
+                        {avisoDivision && <div className="px-4 pt-3 text-xs font-bold text-[#B91C1C]">{avisoDivision}</div>}
 
                         {aulas.map((aula, idx) => {
                             if (!cantidades[idx]) return null;
                             const lista = responsablesDe(idx);
                             const subs = subBloques(idx);
-                            const letras = letrasDeBloque(bloques[idx]);
+                            const rangos = rangosPersonas(idx);
+                            const aulaR = rangosAulas[idx] || { desde: "A", hasta: "Z" };
                             const disponibles = operadores.filter((o) => !operadoresEnUso.has(o.idUsuario));
                             const docenteYaEsta = lista.some((r) => r.rol === "DOCENTE");
+                            const ajustando = idAulaAjustando === aula.idAmbiente && lista.length > 1;
+                            const nombreDe = (r) => (r.rol === "DOCENTE" ? (boolVistaAdmin ? `${r.nombre} (docente)` : "Yo (docente)") : r.nombre);
                             return (
-                                <div key={aula.idAmbiente}>
-                                    <div className="bg-slate-50 border-t border-slate-200 px-6 py-3 flex items-center gap-3.5 flex-wrap">
-                                        <span className="w-10 h-10 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center shrink-0">
-                                            <MapPin className="w-5 h-5 text-[#003770]" />
-                                        </span>
-                                        <p className="flex-1 min-w-40 font-black text-[17px] text-[#1A365D]">
-                                            {aula.nombre} <span className="font-medium text-[15px] text-slate-500">{aula.ubicacion ? `· ${aula.ubicacion}` : ""}</span>
-                                        </p>
-                                        <Pildora>{modoAsignacion === "ONLINE" ? "Lista completa" : `Apellidos ${rangoLetras(bloques[idx])}`}</Pildora>
-                                        <b className="text-[15px] text-slate-600">{cantidades[idx]} estudiantes</b>
+                                <div key={aula.idAmbiente} className={`px-4 py-3 ${idx === aulas.findIndex((_, k) => cantidades[k]) ? "" : "border-t border-[#E2E8F0]"}`}>
+                                    <div className="flex items-center gap-2.5">
+                                        <IconoAula />
+                                        <span className="flex-1 min-w-0 text-sm font-extrabold truncate">{aula.nombre}</span>
+                                        {lista.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIdAulaAjustando(ajustando ? null : aula.idAmbiente)}
+                                                className="text-xs font-extrabold text-[#003770] hover:underline cursor-pointer"
+                                            >
+                                                {ajustando ? "Listo" : "Ajustar letras"}
+                                            </button>
+                                        )}
                                     </div>
-                                    {lista.map((r, i) => {
-                                        const ultimo = i === lista.length - 1;
-                                        const prevIdx = i === 0 ? -1 : letras.indexOf(lista[i - 1].hasta);
-                                        const maxIdx = letras.length - 1 - (lista.length - 1 - i);
-                                        const opciones = letras.slice(prevIdx + 1, maxIdx + 1);
-                                        const desde = subs[i][0] ? inicialApellido(subs[i][0]) : "—";
-                                        return (
-                                            <div key={`${r.rol}-${r.idUsuario}`} className="flex items-center gap-4 px-6 py-3 border-t border-slate-200 flex-wrap">
-                                                <span className={`w-10 h-10 rounded-full text-white font-black text-sm flex items-center justify-center shrink-0 ${r.rol === "DOCENTE" ? "bg-[#B91C1C]" : "bg-[#003770]"}`}>
-                                                    {iniciales(r.nombre)}
-                                                </span>
-                                                <div className="w-52">
-                                                    <p className="font-black text-base text-[#1A365D] leading-tight">{r.rol === "DOCENTE" && !boolVistaAdmin ? `Yo (${r.nombre})` : r.nombre}</p>
-                                                    <p className="text-[13px] text-slate-500">{r.rol === "DOCENTE" ? "Docente" : "Ayudante"}</p>
-                                                </div>
-                                                {modoAsignacion === "ONLINE" ? (
-                                                    <span className="flex items-center gap-2 text-[15px] text-slate-500">
-                                                        Atiende toda el aula <Pildora tipo="gris">{cantidades[idx]} estudiantes</Pildora>
+
+                                    <div className="mt-1.5">
+                                        {lista.map((r, i) => {
+                                            const ultimo = i === lista.length - 1;
+                                            // Todas las letras posibles: desde donde empieza esta persona hasta dejar
+                                            // al menos una letra a cada una de las siguientes
+                                            const minIdx = ALFABETO.indexOf(rangos[i].desde);
+                                            const maxIdx = ALFABETO.indexOf(aulaR.hasta) - (lista.length - 1 - i);
+                                            const opciones = ALFABETO.slice(Math.max(0, minIdx), maxIdx + 1).split("");
+                                            return (
+                                                <div key={`${r.rol}-${r.idUsuario}`} className={`flex items-center gap-2.5 py-1.5 ${i === 0 ? "" : "border-t border-[#EEF2F7]"}`}>
+                                                    <span className={`w-[26px] h-[26px] shrink-0 rounded-full text-white font-extrabold text-[10px] flex items-center justify-center ${r.rol === "DOCENTE" ? "bg-[#B91C1C]" : "bg-[#003770]"}`}>
+                                                        {iniciales(r.nombre)}
                                                     </span>
-                                                ) : lista.length === 1 ? (
-                                                    <span className="flex items-center gap-2 text-[15px] text-slate-500">
-                                                        Atiende toda el aula <Pildora tipo="gris">{rangoLetras(bloques[idx])}</Pildora>
-                                                    </span>
-                                                ) : (
-                                                    <span className="flex items-center gap-2 text-[15px] text-slate-500">
-                                                        Apellidos de
-                                                        <span className="h-10 min-w-12 px-3 rounded-xl border-[1.5px] border-[#E2E8F0] bg-slate-50 flex items-center justify-center font-bold text-slate-700">{desde}</span>
-                                                        a
-                                                        {ultimo ? (
-                                                            <span className="h-10 min-w-12 px-3 rounded-xl border-[1.5px] border-[#E2E8F0] bg-slate-50 flex items-center justify-center font-bold text-slate-700">
-                                                                {subs[i].length ? inicialApellido(subs[i][subs[i].length - 1]) : "—"}
-                                                            </span>
-                                                        ) : (
+                                                    <span className="flex-1 min-w-0 text-[13px] font-bold truncate">{nombreDe(r)}</span>
+                                                    {ajustando && !ultimo ? (
+                                                        <span className="shrink-0 flex items-center gap-1 text-xs font-extrabold text-[#003770]">
+                                                            {rangos[i].desde} –
                                                             <select
                                                                 value={r.hasta || ""}
                                                                 onChange={(e) => cambiarHasta(idx, i, e.target.value)}
-                                                                className="h-10 min-w-16 px-3 rounded-xl border-[1.5px] border-[#CBD5E1] bg-white font-bold text-[15px] text-[#1A365D] cursor-pointer"
+                                                                aria-label={`Hasta qué letra registra ${r.nombre}`}
+                                                                className="h-7 px-1.5 rounded-md border border-[#CBD5E1] bg-white text-xs font-extrabold text-[#003770] cursor-pointer"
                                                             >
                                                                 {opciones.map((l) => <option key={l} value={l}>{l}</option>)}
                                                             </select>
-                                                        )}
-                                                    </span>
-                                                )}
-                                                <div className="flex-1" />
-                                                <b className="text-[15px] text-slate-600">{subs[i].length} estudiantes</b>
-                                                {lista.length > 1 || r.rol === "OPERADOR" ? (
-                                                    <button type="button" onClick={() => quitarResponsable(idx, i)} aria-label="Quitar responsable" className="text-slate-400 hover:text-[#B91C1C] text-2xl leading-none px-1 cursor-pointer">×</button>
-                                                ) : <span className="w-6" />}
-                                            </div>
-                                        );
-                                    })}
-                                    <div className="px-6 py-3 border-t border-slate-200 flex items-center gap-3 flex-wrap">
-                                        <select
-                                            value=""
-                                            onChange={(e) => agregarResponsable(idx, e.target.value)}
-                                            disabled={disponibles.length === 0 && docenteYaEsta}
-                                            className="h-10 px-3 rounded-xl border-[1.5px] border-[#CBD5E1] bg-white font-bold text-[14.5px] text-[#003770] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <option value="">+ Agregar responsable</option>
-                                            {!docenteYaEsta && <option value="DOCENTE">{boolVistaAdmin ? docente.nombre : `Yo (${docente.nombre})`} · Docente</option>}
-                                            {disponibles.map((o) => <option key={o.idUsuario} value={String(o.idUsuario)}>{nombreCompleto(o)} · Ayudante</option>)}
-                                        </select>
-                                        <span className="text-[14px] text-slate-500">{boolVistaAdmin ? "ayudante o el docente" : "ayudante o yo (docente)"}</span>
+                                                        </span>
+                                                    ) : (
+                                                        <b className="shrink-0 text-xs font-extrabold text-[#003770] whitespace-nowrap">{textoRango(rangos[i].desde, rangos[i].hasta)}</b>
+                                                    )}
+                                                    <span className="w-14 shrink-0 text-xs text-slate-500 text-right">{subs[i].length} est.</span>
+                                                    {lista.length > 1 || r.rol === "OPERADOR" ? (
+                                                        <button type="button" onClick={() => quitarResponsable(idx, i)} aria-label={`Quitar a ${r.nombre}`} className="w-5 shrink-0 text-slate-400 hover:text-[#B91C1C] text-base leading-none cursor-pointer">×</button>
+                                                    ) : <span className="w-5 shrink-0" />}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
+
+                                    {ajustando && (
+                                        <div className="mt-1.5 flex justify-end">
+                                            <button type="button" onClick={() => partesIgualesAula(idx)} className="text-xs font-bold text-slate-500 hover:text-[#003770] hover:underline cursor-pointer">
+                                                Volver a partes iguales
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <select
+                                        value=""
+                                        onChange={(e) => agregarResponsable(idx, e.target.value)}
+                                        disabled={disponibles.length === 0 && docenteYaEsta}
+                                        aria-label={`Agregar persona al ${aula.nombre}`}
+                                        className="mt-2 w-full h-9 px-3 rounded-lg border-[1.5px] border-dashed border-[#94A3B8] bg-white font-extrabold text-xs text-[#003770] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <option value="">{boolVistaAdmin ? "+ Agregar ayudante o al docente" : "+ Agregar ayudante o agregarme"}</option>
+                                        {!docenteYaEsta && <option value="DOCENTE">{boolVistaAdmin ? `${docente.nombre} · Docente` : "Yo (docente)"}</option>}
+                                        {disponibles.map((o) => <option key={o.idUsuario} value={String(o.idUsuario)}>{nombreCompleto(o)} · Ayudante</option>)}
+                                    </select>
                                 </div>
                             );
                         })}
-                        <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between gap-4">
-                            <BotonSecundario onClick={() => setPaso(editando ? 3 : 1)}>← Atrás</BotonSecundario>
-                            <BotonPrincipal onClick={() => setPaso(3)}>Siguiente: resumen →</BotonPrincipal>
+
+                        <div className="bg-slate-50 border-t border-[#E2E8F0] px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+                            <span className="text-[11.5px] text-slate-500">
+                                Las letras solo se usan sin internet.
+                                {boolHayAulaSinAyudante && " Las aulas sin ayudante asignado quedan a cargo del docente."}
+                            </span>
+                            <div className="flex gap-2">
+                                <BotonSecundario onClick={() => setPaso(editando ? 3 : 1)}>← Atrás</BotonSecundario>
+                                <BotonPrincipal onClick={() => { setIdAulaAjustando(null); setPaso(3); }}>Siguiente →</BotonPrincipal>
+                            </div>
                         </div>
                     </section>
-                    <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl px-5 py-3.5 text-[15px] text-slate-700">
-                        {boolVistaAdmin ? (
-                            <><b className="text-[#003770]">Si un aula queda sin ayudante,</b> la atiende el docente. El administrador puede entrar a cualquier aula sin estar en la lista.</>
-                        ) : (
-                            <><b className="text-[#003770]">Si un aula queda sin ayudante,</b> la atiendes tú como docente. El administrador puede entrar a cualquier aula sin estar en la lista.</>
-                        )}
-                    </div>
                 </>
             )}
 
-            {/* PASO 3 */}
+            {/* PASO 3 · Resumen */}
             {(paso === 3 || soloLectura) && (
-                <section className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
-                    <div className="p-6 flex items-center justify-between gap-4 flex-wrap">
-                        <div>
-                            <h2 className="text-xl font-black text-[#1A365D]">{editando ? "Asignación actual" : "Resumen de la asignación"}</h2>
-                            <p className="text-[15px] text-slate-500 mt-1">
-                                {soloLectura
-                                    ? "Así quedó repartido el ingreso de este examen."
-                                    : editando
-                                        ? "Puedes cambiar quién atiende cada aula y cómo se dividen los apellidos."
-                                        : "Revisa antes de guardar. Podrás editarla hasta que empiece el examen."}
-                            </p>
-                        </div>
-                        {editando && !soloLectura && <BotonSecundario onClick={() => setPaso(2)}>Cambiar ayudantes</BotonSecundario>}
-                    </div>
+                <section className="bg-white rounded-2xl border border-[#CBD5E1] overflow-hidden">
                     {soloLectura && !guardada ? (
-                        <div className="px-6 pb-6 text-[15px] text-slate-600">No se asignaron ayudantes: el docente atiende el ingreso de todas las aulas.</div>
+                        <div className="px-4 py-4 text-xs text-slate-600">No se asignaron ayudantes: el docente estuvo a cargo del ingreso de todas las aulas.</div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-[15px] min-w-[560px]">
+                            <table className="w-full text-[13px] min-w-[480px]">
                                 <thead>
-                                    <tr className="bg-slate-50 text-[13px] font-bold text-slate-500 tracking-wide text-left">
-                                        <th className="px-6 py-2.5 border-t border-slate-200">AULA</th>
-                                        <th className="px-3 py-2.5 border-t border-slate-200">RESPONSABLE</th>
-                                        <th className="px-3 py-2.5 border-t border-slate-200">ROL</th>
-                                        <th className="px-3 py-2.5 border-t border-slate-200">APELLIDOS</th>
-                                        <th className="px-6 py-2.5 border-t border-slate-200 text-right">ESTUDIANTES</th>
+                                    <tr className="bg-[#E8F1FB] text-[10.5px] font-extrabold text-[#124B83] tracking-[.5px] text-left">
+                                        <th className="px-4 py-2">AULA</th>
+                                        <th className="px-3 py-2">RESPONSABLE</th>
+                                        <th className="px-3 py-2">APELLIDOS</th>
+                                        <th className="px-4 py-2 text-right">ESTUDIANTES</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filasResumen.map((f, i) => (
-                                        <tr key={i}>
-                                            <td className="px-6 py-3.5 border-t border-slate-200 font-black text-[#1A365D]">{f.aula}</td>
-                                            <td className="px-3 py-3.5 border-t border-slate-200">{f.responsable.rol === "DOCENTE" && !boolVistaAdmin ? `${f.responsable.nombre} (yo)` : f.responsable.nombre}</td>
-                                            <td className="px-3 py-3.5 border-t border-slate-200">
-                                                <Pildora tipo={f.responsable.rol === "DOCENTE" ? "rojo" : "azul"}>{f.responsable.rol === "DOCENTE" ? "Docente" : "Ayudante"}</Pildora>
+                                        <tr key={i} className={i % 2 === 1 ? "bg-slate-50" : "bg-white"}>
+                                            <td className="px-4 py-2 border-t border-[#E2E8F0] font-extrabold">{f.aula}</td>
+                                            <td className="px-3 py-2 border-t border-[#E2E8F0]">
+                                                {f.responsable.rol === "DOCENTE" ? (boolVistaAdmin ? `${f.responsable.nombre} (docente)` : "Yo (docente)") : f.responsable.nombre}
                                             </td>
-                                            <td className="px-3 py-3.5 border-t border-slate-200 text-slate-700">{f.rango}</td>
-                                            <td className="px-6 py-3.5 border-t border-slate-200 text-right font-black">{f.cantidad}</td>
+                                            <td className="px-3 py-2 border-t border-[#E2E8F0]">{f.rango}</td>
+                                            <td className="px-4 py-2 border-t border-[#E2E8F0] text-right">{f.cantidad}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     )}
-                    {errorGuardar && <div className="px-6 py-3 border-t border-slate-200 text-[14.5px] font-bold text-[#B91C1C]">{errorGuardar}</div>}
+                    {errorGuardar && <div className="px-4 py-2.5 border-t border-[#E2E8F0] text-xs font-bold text-[#B91C1C]">{errorGuardar}</div>}
                     {!soloLectura && (
-                        <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between gap-4">
+                        <div className="bg-slate-50 border-t border-[#E2E8F0] px-4 py-2.5 flex items-center justify-between gap-3">
                             {editando ? <BotonSecundario onClick={onVolver}>Cancelar</BotonSecundario> : <BotonSecundario onClick={() => setPaso(2)}>← Atrás</BotonSecundario>}
-                            <BotonPrincipal disabled={guardando} onClick={guardar}>
-                                {guardando ? "Guardando..." : editando ? "Guardar cambios" : "Guardar asignación"}
-                            </BotonPrincipal>
+                            <div className="flex gap-2">
+                                {editando && <BotonSecundario onClick={() => setPaso(2)}>Cambiar ayudantes</BotonSecundario>}
+                                <BotonPrincipal disabled={guardando} onClick={guardar}>
+                                    {guardando ? "Guardando..." : editando ? "Guardar cambios" : "Guardar asignación"}
+                                </BotonPrincipal>
+                            </div>
                         </div>
                     )}
                 </section>
-            )}
-
-            {!soloLectura && editando && paso === 3 && (
-                <p className="text-[14px] text-slate-500 px-1">El reparto de estudiantes por aula queda fijo una vez guardado, porque cada estudiante ya tiene su aula asignada.</p>
             )}
         </div>
     );

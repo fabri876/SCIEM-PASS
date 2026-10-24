@@ -1,27 +1,153 @@
+// Inicio del ayudante.
+// Sin examen elegido: banner (con el conmutador Online/Offline de Yuri), "Mis exámenes de hoy",
+// Con examen elegido: pantalla de registro de ingreso (verificación, resultado y últimos ingresos).
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { obtenerUsuarioActual } from "../../../services/authService";
 import { useOperador } from "../operadorContexto";
-
-// ---- Control de ingreso ----
 import useControlIngreso from "../ingreso/useControlIngreso";
 import SeccionControlIngreso from "../ingreso/SeccionControlIngreso";
 import EncabezadoControl from "../ingreso/componentes/EncabezadoControl";
+import SelectorConexion from "../components/SelectorConexion";
+import TarjetaHoyAyudante from "../inicio/TarjetaHoyAyudante";
+import CalendarioExamenes from "../../credencial/componentes/CalendarioExamenes";
+import ProximoExamenDocente from "../../docente/components/ProximoExamenDocente";
+import { estadoAyudante, esHoyAyudante, ordenarExamenes, textoAula } from "../utilidadesAyudante";
+
+function fechaDeHoy() {
+  const str = new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" });
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 export default function ConectadoOperador() {
-  const ctrl = useControlIngreso();
+  const objUbicacion = useLocation();
+  const navigate = useNavigate();
+  // "Registrar ingreso" desde "Mis exámenes" llega con el examen ya elegido
+  const ctrl = useControlIngreso(objUbicacion.state?.idExamen ?? null);
   const { estadoRed } = useOperador();
   const strNombre = (obtenerUsuarioActual()?.nombre || "").split(" ")[0];
 
+  // Hora actual: cada 30 s, para que el botón "Registrar ingreso" aparezca solo a la hora indicada
+  const [dateAhora, setDateAhora] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setDateAhora(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  const listOrdenados = useMemo(() => ordenarExamenes(ctrl.listExamenes, dateAhora), [ctrl.listExamenes, dateAhora]);
+  // Inicio: solo los exámenes de HOY en curso o por empezar
+  const listHoy = listOrdenados.filter(({ e, strEstado }) => strEstado !== "FINALIZADO" && esHoyAyudante(e, dateAhora)).map(({ e }) => e);
+  const objProximo = listOrdenados.find(({ e, strEstado }) => strEstado === "PROXIMO" && !esHoyAyudante(e, dateAhora))?.e || null;
+  const listCalendario = (ctrl.listExamenes || [])
+    .filter((e) => e.fecha)
+    .map((e) => ({
+      id: e.id,
+      fecha: String(e.fecha).slice(0, 10),
+      materia: e.materia,
+      horaInicio: e.horaInicio,
+      horaFin: e.horaFin,
+      // El calendario ya antepone "Aula"
+      aula: String(e.aula || "").replace(/^aula\s*/i, "").trim(),
+    }));
+
+  const fnIrAMisExamenes = () => navigate("/control/examenes");
+
+  // ---- Pantalla de registro de un examen ----
+  if (ctrl.idExamen != null) {
+    return (
+      <div className="space-y-5">
+        <SelectorConexion />
+        <EncabezadoControl
+          net={estadoRed.net}
+          pend={estadoRed.pend}
+          enviados={estadoRed.enviados}
+          spacePrc={estadoRed.spacePrc}
+        />
+        <SeccionControlIngreso ctrl={ctrl} strRol="operador" />
+      </div>
+    );
+  }
+
+  // ---- Inicio ----
   return (
     <div className="space-y-6">
-      {/* mis exámenes de hoy → verificación (QR / C.I. o SIS), resultado y últimos ingresos */}
+      {/* Banner de bienvenida con el conmutador Online/Offline de Yuri arriba a la derecha */}
+      <div
+        className="w-full text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 min-h-[130px]"
+        style={{ backgroundImage: "linear-gradient(to right, #1A365D, #2563EB, #DC2626)" }}
+      >
+        <div>
+          <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1 block">
+            ¡HOLA{strNombre ? `, ${strNombre.toUpperCase()}` : ""}!
+          </span>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">Te damos la bienvenida a SCIEM-PASS</h1>
+          <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
+            Aquí registras el ingreso de los estudiantes a los exámenes que tienes asignados.
+          </p>
+        </div>
+        <div className="self-start shrink-0">
+          <SelectorConexion boolEnBanner />
+        </div>
+      </div>
+
+      {/* Avisos de conexión de Yuri (sin red, almacenamiento, sincronización) */}
       <EncabezadoControl
-        strTitulo={strNombre ? `Hola, ${strNombre}` : "Control de ingreso"}
         net={estadoRed.net}
         pend={estadoRed.pend}
         enviados={estadoRed.enviados}
         spacePrc={estadoRed.spacePrc}
       />
-      <SeccionControlIngreso ctrl={ctrl} strRol="operador" />
+
+      {ctrl.strError && (
+        <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{ctrl.strError}</div>
+      )}
+
+      <div className="flex flex-col xl:flex-row gap-6 items-start">
+        {/* MIS EXÁMENES DE HOY */}
+        <div className="w-full xl:flex-1 min-w-0">
+          <div className="bg-white rounded-2xl border border-[#CBD5E1] shadow-xs overflow-hidden">
+            <div className="px-5 pt-4 pb-3 border-b border-[#E2E8F0]">
+              <h3 className="text-base font-black text-[#08264A]">Mis exámenes de hoy</h3>
+              <p className="text-xs font-bold text-slate-500 mt-0.5">{fechaDeHoy()}</p>
+            </div>
+            <div className="px-5 py-4 space-y-2.5">
+              {ctrl.boolCargandoExamenes && listHoy.length === 0 ? (
+                <div className="text-center py-6 text-slate-500 text-xs font-semibold animate-pulse">Cargando exámenes…</div>
+              ) : listHoy.length === 0 ? (
+                <div className="text-center py-6 text-slate-500 text-xs font-semibold">No tienes exámenes hoy.</div>
+              ) : (
+                listHoy.map((examen) => (
+                  <TarjetaHoyAyudante
+                    key={examen.id}
+                    examen={examen}
+                    dateAhora={dateAhora}
+                    onElegir={ctrl.fnElegirExamen}
+                    boolSinRed={ctrl.boolOffline}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* PANEL DERECHO */}
+        <div className="w-full xl:w-64 shrink-0 space-y-6">
+          <CalendarioExamenes listExamenes={listCalendario} onVerQr={fnIrAMisExamenes} />
+          <ProximoExamenDocente
+            examen={objProximo ? {
+              idExamen: objProximo.id,
+              nombreExamen: objProximo.materia,
+              fechaExamen: objProximo.fecha,
+              horaInicio: objProximo.horaInicio,
+              horaFin: objProximo.horaFin,
+              horario: [objProximo.horaInicio, objProximo.horaFin].filter(Boolean).join(" – "),
+              aulaNombre: textoAula(objProximo.aula).replace(/^Aula\s*/, ""),
+              estado: estadoAyudante(objProximo, dateAhora),
+            } : null}
+            onVerDetalle={fnIrAMisExamenes}
+          />
+        </div>
+      </div>
     </div>
   );
 }

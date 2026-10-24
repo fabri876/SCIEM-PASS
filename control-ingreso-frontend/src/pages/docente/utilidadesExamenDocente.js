@@ -2,7 +2,7 @@
 
 // El botón "Control de ingreso" se habilita desde esta cantidad de minutos
 // antes del inicio del examen. Para cambiar la regla, basta con editar este valor.
-export const MINUTOS_ANTES_CONTROL_INGRESO = 60;
+export const MINUTOS_ANTES_CONTROL_INGRESO = 15;
 
 function armarFecha(strFecha, strHora, boolFinDeDia = false) {
   const f = String(strFecha || "").match(/(\d{4})-(\d{2})-(\d{2})/);
@@ -43,6 +43,12 @@ export function puedeControlarIngreso(examen, ahora = new Date()) {
   if (!inicio) return false;
   const apertura = new Date(inicio.getTime() - MINUTOS_ANTES_CONTROL_INGRESO * 60000);
   return ahora >= apertura && ahora <= fin;
+}
+
+// Hora en que se habilita el control de ingreso (Date o null)
+export function aperturaControl(examen) {
+  const { inicio } = rangoExamen(examen);
+  return inicio ? new Date(inicio.getTime() - MINUTOS_ANTES_CONTROL_INGRESO * 60000) : null;
 }
 
 // Marca de tiempo para ordenar
