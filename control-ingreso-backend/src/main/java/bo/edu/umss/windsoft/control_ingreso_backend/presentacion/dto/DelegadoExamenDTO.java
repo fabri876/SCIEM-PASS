@@ -22,6 +22,10 @@ public record DelegadoExamenDTO(
         int ingresaron,
         int faltantes,
         int inhabilitados,
-        int totalHabilitados
+        int totalHabilitados,
+        String letraDesde,
+        String letraHasta,
+        String nombreOperador,
+        boolean esMia
 ) {
 }

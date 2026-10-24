@@ -60,20 +60,41 @@ public class HabilitacionService {
         if (!examen.getIdAsignatura().equals(request.idAsignatura())) {
             throw new IllegalArgumentException("La asignatura no corresponde al examen.");
         }
-        if (habilitacionRepository.existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(
-                request.idAsignatura(), request.idExamen(), request.codigoSis())) {
-            throw new IllegalArgumentException("El estudiante ya está asociado a este examen.");
-        }
         var estudiante = estudianteRepository.findByCodsisestudiante(request.codigoSis())
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el estudiante."));
-        var h = new Habilitacion();
-        h.setEstudiante(estudiante);
-        h.setIdAsignatura(request.idAsignatura());
-        h.setIdExamen(request.idExamen());
-        h.setIdUsuario(estudiante.getIdusuario());
-        h.setEstadohabilitacion(request.habilitado() == null || request.habilitado());
-        h.setObservacionhabilitacion(request.observacion());
-        return mapearADto(habilitacionRepository.save(h));
+
+        Habilitacion habilitacionActual = null;
+        for (var examenAsignatura : examenRepository.findByIdAsignatura(request.idAsignatura())) {
+            boolean existe = habilitacionRepository
+                    .existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(
+                            request.idAsignatura(), examenAsignatura.getIdExamen(), request.codigoSis());
+            if (existe) {
+                if (examenAsignatura.getIdExamen().equals(request.idExamen())) {
+                    habilitacionActual = habilitacionRepository
+                            .findByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(
+                                    request.idAsignatura(), request.idExamen(), request.codigoSis())
+                            .orElse(null);
+                }
+                continue;
+            }
+
+            var nueva = new Habilitacion();
+            nueva.setEstudiante(estudiante);
+            nueva.setIdAsignatura(request.idAsignatura());
+            nueva.setIdExamen(examenAsignatura.getIdExamen());
+            nueva.setIdUsuario(estudiante.getIdusuario());
+            nueva.setEstadohabilitacion(request.habilitado() == null || request.habilitado());
+            nueva.setObservacionhabilitacion(request.observacion());
+            var guardada = habilitacionRepository.save(nueva);
+            if (examenAsignatura.getIdExamen().equals(request.idExamen())) {
+                habilitacionActual = guardada;
+            }
+        }
+
+        if (habilitacionActual == null) {
+            throw new IllegalArgumentException("El estudiante ya está asociado a este examen.");
+        }
+        return mapearADto(habilitacionActual);
     }
 
     @Transactional(readOnly = true)
@@ -85,6 +106,12 @@ public class HabilitacionService {
     @Transactional(readOnly = true)
     public List<HabilitacionResponseDto> obtenerPorAsignatura(Integer idAsignatura) {
         List<Habilitacion> lista = habilitacionRepository.findByIdAsignaturaConDetalles(idAsignatura);
+        return mapearADtosBatch(lista);
+    }
+
+    @Transactional(readOnly = true)
+    public List<HabilitacionResponseDto> obtenerPorAsignaturaYExamen(Integer idAsignatura, Integer idExamen) {
+        List<Habilitacion> lista = habilitacionRepository.findHabilitacionesConEstudiante(idAsignatura, idExamen);
         return mapearADtosBatch(lista);
     }
 

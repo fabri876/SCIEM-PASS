@@ -375,10 +375,9 @@ public class ControlIngresoAyudanteService {
                 "Carrera no asignada",
                 null);
 
-        ResponseEntity<ResultadoIngresoDTO> fueraDeRango = validarRangoAsignacion(
-                dto, idOperador, usuario.getApellidousuario(), estudianteResumen);
-        if (fueraDeRango != null)
-            return fueraDeRango;
+        // En línea todos los operadores asignados al aula pueden registrar
+        // cualquier estudiante habilitado. La subdivisión por apellidos se
+        // valida únicamente en el motor offline del frontend.
 
         if (qrDeOtroExamen) {
             OtroExamenDTO otro = encontrarOtroExamen(estudiante.getCodsisestudiante(), dto.idexamen())
@@ -653,7 +652,13 @@ public class ControlIngresoAyudanteService {
                 ingresaron,
                 faltantes,
                 inhabilitados,
-                totalHab);
+                totalHab,
+                ae.getApellidoDesde(),
+                ae.getApellidoHasta(),
+                usuarioRepository.findById(ae.getId().getIdayudante())
+                        .map(u -> (u.getNombreusuario() + " " + u.getApellidousuario()).trim())
+                        .orElse("Ayudante"),
+                true);
     }
 
     private JornadaActivaDTO mapearAJornadaActivaDTO(AyudanteExamen ae) {

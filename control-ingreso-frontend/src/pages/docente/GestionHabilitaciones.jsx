@@ -194,7 +194,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                     });
                 }
 
-                const data = await obtenerHabilitaciones(targetIdAsignatura).catch(() => []);
+                const data = await obtenerHabilitaciones(targetIdAsignatura, Number(examenIdActivo)).catch(() => []);
                 if (!cancel) {
                     setEstudiantes(normalizarHabilitaciones(Array.isArray(data) ? data : []));
                 }

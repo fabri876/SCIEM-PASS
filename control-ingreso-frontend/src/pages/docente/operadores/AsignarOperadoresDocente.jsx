@@ -162,7 +162,7 @@ export default function AsignarOperadoresDocente({
             setErrorCarga("");
             try {
                 if (!examen?.idAsignatura) throw new Error("No se pudo identificar la asignatura del examen.");
-                const lista = await obtenerHabilitaciones(examen.idAsignatura);
+                const lista = await obtenerHabilitaciones(examen.idAsignatura, examen.idExamen);
                 const ordenados = ordenarPorApellido(Array.isArray(lista) ? lista : []);
                 let previa = null;
                 try {
