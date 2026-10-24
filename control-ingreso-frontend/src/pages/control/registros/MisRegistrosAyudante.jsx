@@ -5,7 +5,7 @@
 // se pide examen por examen con un límite alto.
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { obtenerExamenesAsignados, obtenerUltimosIngresos } from "../../../services/ingresoService";
+import { obtenerExamenesAsignados, obtenerMisRegistros } from "../../../services/ingresoService";
 import { obtenerUsuarioActual } from "../../../services/authService";
 import { db } from "../../../offline/db.js";
 import { textoAula } from "../utilidadesAyudante";
@@ -38,24 +38,20 @@ async function cargarRegistros() {
   const listExamenes = await obtenerExamenesAsignados();
   const listFilas = [];
 
-  // 1. Sincronizados (backend)
-  const listRespuestas = await Promise.all(
-    listExamenes.map((ex) => obtenerUltimosIngresos(ex.idexamen, LIMITE_POR_EXAMEN, ex, true).catch(() => null))
-  );
-  listRespuestas.forEach((listIngresos, i) => {
-    const ex = listExamenes[i];
-    (listIngresos || []).forEach((r, j) => {
+  // 1. Sincronizados (backend): solo registros del usuario autenticado.
+  const listIngresos = await obtenerMisRegistros(LIMITE_POR_EXAMEN).catch(() => []);
+  listIngresos.forEach((r, j) => {
+    const ex = listExamenes.find((e) => String(e.idexamen) === String(r.idExamen)) || null;
       listFilas.push({
-        clave: `s-${ex.id}-${j}-${r.estudiante?.ci}`,
-        idExamen: ex.id,
-        strFecha: String(ex.fecha || "").slice(0, 10),
+        clave: `s-${ex?.id || "general"}-${j}-${r.estudiante?.ci}`,
+        idExamen: ex?.id ?? null,
+        strFecha: String(r.fechaHora || ex?.fecha || "").slice(0, 10),
         strHora: r.hora || "",
         estudiante: { nombre: nombreNormal(`${r.estudiante?.nombres || ""} ${r.estudiante?.apellidos || ""}`), ci: r.estudiante?.ci, sis: r.estudiante?.sis },
         examen: ex,
         strMetodo: r.metodo || "Manual",
         boolSincronizado: true,
       });
-    });
   });
 
   // 2. Sin sincronizar (cola local del modo sin conexión)

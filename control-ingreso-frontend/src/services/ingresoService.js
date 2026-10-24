@@ -345,6 +345,26 @@ export async function obtenerUltimosIngresos(idExamen, numLimite = 5, objExamen 
   }
 }
 
+export async function obtenerMisRegistros(numLimite = 100) {
+  const res = await pedir(`/api/v1/control/mis-registros?limite=${numLimite}`);
+  if (!Array.isArray(res)) return [];
+  return res.map((r) => ({
+    idAsignatura: r.idAsignatura,
+    idExamen: r.idExamen,
+    idAmbiente: r.idAmbiente,
+    hora: soloHora(r.horaIngreso || r.hora),
+    fechaHora: r.horaIngreso || r.hora,
+    metodo: String(r.metodoIngreso || r.metodo || "").toUpperCase() === "ESCANEO" ? "QR" : "Manual",
+    registradoPor: r.registradoPor || "Registro propio",
+    estudiante: {
+      nombres: r.estudiante?.nombreCompleto || "",
+      apellidos: "",
+      ci: r.estudiante?.ci || "",
+      sis: r.estudiante?.codsisestudiante || "",
+    },
+  }));
+}
+
 /* ============================================================
    5. Lista oficial del aula (docente) · endpoint pendiente
    ============================================================ */
