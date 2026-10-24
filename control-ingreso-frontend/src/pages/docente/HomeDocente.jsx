@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import Header from "../../components/layout/Header";
 import VentanaEmergente from "../../components/common/VentanaEmergente";
 import BulkUploadCard from "../admin/components/BulkUploadCard";
@@ -12,15 +12,14 @@ import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
 import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
 import { AlertTriangle, ScanLine, Activity } from "lucide-react";
-import { GraduationCap } from "lucide-react";
 import CalendarioExamenes from "../credencial/componentes/CalendarioExamenes";
-import { fechaCorta } from "../credencial/componentes/formato";
 import SeccionMisExamenes from "./components/SeccionMisExamenes";
+import TarjetaExamenDocente from "./components/TarjetaExamenDocente";
 import SeccionRegistrarExamen from "./components/SeccionRegistrarExamen";
 import TarjetaExamenInicio from "./components/TarjetaExamenInicio";
 import ProximoExamenDocente from "./components/ProximoExamenDocente";
 import AsignarOperadoresDocente from "./operadores/AsignarOperadoresDocente";
-import { estadoExamen, marcaTiempo } from "./utilidadesExamenDocente";
+import { estadoExamen, marcaTiempo, esHoy } from "./utilidadesExamenDocente";
 
 // Un docente no puede registrar a otro docente, solo Operador o Estudiante
 // (el backend ya lo valida igual en UsuarioService.validarPermisosRegistro).
@@ -28,79 +27,6 @@ const ROLES_REGISTRABLES_POR_DOCENTE = [
     { valor: "OPERADOR", etiqueta: "Ayudante" },
     { valor: "ESTUDIANTE", etiqueta: "Estudiante" },
 ];
-
-function TarjetaExamenDocente({ examen, boolResaltado = false }) {
-    const navigate = useNavigate();
-    const porcentaje = examen.totalInscritos > 0
-        ? Math.round((examen.ingresados / examen.totalInscritos) * 100)
-        : 0;
-    // El botón siempre se ve en exámenes reales; la pantalla de control avisa si aún no es la hora
-    const boolPuedeIngreso = examen.esExamenReal !== false;
-
-    return (
-        <div id={`examen-${examen.idExamen}`} className={`bg-white border rounded-xl p-5 space-y-3 transition ${boolResaltado ? "border-[#1A365D] ring-2 ring-[#1A365D]/20" : "border-[#CBD5E1]"}`}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-[10px] bg-[#003770] text-white flex items-center justify-center shadow-xs shrink-0">
-                        <GraduationCap className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h4 className="font-black text-sm text-[#08264A]">{examen.nombreExamen}</h4>
-                            {examen.siglaAsignatura && (
-                                <span className="bg-[#F0F6FC] text-[#1860A3] font-extrabold px-2 py-0.5 rounded text-[10px]">
-                                    {examen.siglaAsignatura}
-                                </span>
-                            )}
-                        </div>
-                        <p className="text-xs text-[#64748B] font-bold mt-0.5">
-                            {examen.fechaExamen ? `${fechaCorta(String(examen.fechaExamen).slice(0, 10))} · ` : ""}{examen.aula} · <span className="text-[#124B83]">{examen.horario}</span>
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2 self-start sm:self-center">
-                    {boolPuedeIngreso && (
-                        <button
-                            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "mis-examenes", examen } })}
-                            className="bg-[#003770] hover:bg-[#124B83] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
-                        >
-                            Control de ingreso →
-                        </button>
-                    )}
-                    <button
-                        onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`)}
-                        className="bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#1A365D] font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer"
-                    >
-                        Gestionar Habilitaciones
-                    </button>
-                </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-1">
-                <span className="bg-[#F0F6FC] border border-[#D9E8F7] text-[#1860A3] text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
-                    ✓ {examen.ingresados} Ingresaron
-                </span>
-                <span className="bg-[#F1F5F9] border border-[#CBD5E1] text-[#475569] text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
-                    ⏱ {examen.noLlegan} Faltan
-                </span>
-                <span className="bg-[#FEF2F2] border border-[#FCD9D9] text-[#B91C1C] text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
-                    ✕ {examen.inhabilitados} Inhabilitados
-                </span>
-            </div>
-
-            <div>
-                <div className="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
-                    <span>Progreso de acceso</span>
-                    <span className="font-mono">{examen.ingresados} / {examen.totalInscritos}</span>
-                </div>
-                <div className="w-full bg-[#F1F5F9] h-2 rounded-full overflow-hidden border border-[#CBD5E1]">
-                    <div className="bg-[#003770] h-full rounded-full transition-all duration-500" style={{ width: `${porcentaje}%` }}></div>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 export default function HomeDocente() {
     const [usuario, setUsuario] = useState(null);
@@ -203,6 +129,7 @@ export default function HomeDocente() {
                             horaInicio,
                             horaFin,
                             tipoExamen: ex.nombreTipoExamen || "",
+                            grupo: ex.grupo || ex.nombreGrupo || "",
                             ingresados: ing,
                             noLlegan: faltan,
                             inhabilitados: inhab,
@@ -295,6 +222,13 @@ export default function HomeDocente() {
         .filter((e) => e.esExamenReal !== false && ["EN_CURSO", "PROXIMO"].includes(estadoExamen(e)))
         .sort((a, b) => marcaTiempo(a) - marcaTiempo(b));
 
+    // Inicio: solo los exámenes de HOY que están en curso o por empezar
+    const listExamenesHoy = listExamenesVigentes.filter((e) => esHoy(e));
+    const strFechaHoy = (() => {
+        const str = new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" });
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    })();
+
     const listExamenesCalendario = examenes
         .filter((e) => e.esExamenReal !== false && e.fechaExamen)
         .map((e) => ({
@@ -303,7 +237,8 @@ export default function HomeDocente() {
             materia: e.nombreExamen,
             horaInicio: e.horaInicio,
             horaFin: e.horaFin,
-            aula: e.aulaNombre,
+            // El calendario ya antepone "Aula": se quita del nombre para no mostrar "Aula Aula 691A"
+            aula: String(e.aulaNombre || "").replace(/^aula\s*/i, "").trim(),
         }));
 
     const boolMenuControl = strMenuActivo === "control-ingresos" || strMenuActivo === "asignar-operadores";
@@ -334,7 +269,7 @@ export default function HomeDocente() {
                 <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-6 gap-6">
 
                     {/* SIDEBAR IZQUIERDA */}
-                    <aside className="w-72 shrink-0 hidden lg:block space-y-6">
+                    <aside className="w-[280px] shrink-0 hidden lg:block space-y-6">
                         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center text-center">
                             <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-md mb-3">
                                 {strIniciales}
@@ -422,8 +357,8 @@ export default function HomeDocente() {
                                     </span>
                                 )}
                             </button>
-                            <button onClick={() => { setStrSeccionRegistro("individual"); setBoolModalRegistroAbierto(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
-                                <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                            <button onClick={() => { setStrSeccionRegistro("individual"); setBoolModalRegistroAbierto(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs text-left whitespace-nowrap transition cursor-pointer">
+                                <svg className="w-4 h-4 shrink-0 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
                                 Registrar Estudiante/Ayudante
                             </button>
                         </div>
@@ -480,66 +415,49 @@ export default function HomeDocente() {
                                         ¡HOLA, {strNombre.toUpperCase()}!
                                     </span>
                                     <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
-                                        Bienvenida a SCIEM-PASS
+                                        Te damos la bienvenida a SCIEM-PASS
                                     </h1>
                                     <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
                                         Aquí podrás supervisar tus exámenes programados hoy, llevar el control de ingresos y gestionar las habilitaciones de tus estudiantes.
                                     </p>
                                 </div>
 
-                                {/* GRILLA PRINCIPAL */}
-                                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                                {/* GRILLA PRINCIPAL: exámenes de hoy (ancho) + calendario (angosto) */}
+                                <div className="flex flex-col xl:flex-row gap-6 items-start">
 
-                                    {/* SECCIÓN DE EXÁMENES (resumen: lo demás está en "Mis Exámenes") */}
-                                    <div className="xl:col-span-2 space-y-4">
-                                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-                                            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-2">
-                                                <h3 className="text-base font-black text-[#1A365D]">
-                                                    Exámenes próximos
-                                                </h3>
-                                                <span className="text-[11px] font-extrabold text-[#1A365D] bg-slate-100 px-3 py-1 rounded-full">
-                                                    {listExamenesVigentes.length} {listExamenesVigentes.length === 1 ? "examen" : "exámenes"}
-                                                </span>
+                                    {/* MIS EXÁMENES DE HOY (lo demás está en "Mis Exámenes") */}
+                                    <div className="w-full xl:flex-1 min-w-0">
+                                        <div className="bg-white rounded-2xl border border-[#CBD5E1] shadow-xs overflow-hidden">
+                                            <div className="px-5 pt-4 pb-3 border-b border-[#E2E8F0]">
+                                                <h3 className="text-base font-black text-[#08264A]">Mis exámenes de hoy</h3>
+                                                <p className="text-xs font-bold text-slate-500 mt-0.5">{strFechaHoy}</p>
                                             </div>
-
-                                            {boolCargando ? (
-                                                <div className="text-center py-8 text-slate-500 text-xs font-semibold animate-pulse">
-                                                    Cargando exámenes del docente...
-                                                </div>
-                                            ) : listExamenesVigentes.length === 0 ? (
-                                                <div className="text-center py-8 text-slate-500 text-xs font-semibold bg-[#F8FAFC] rounded-2xl border border-slate-200 mt-4">
-                                                    No tienes exámenes próximos.
-                                                </div>
-                                            ) : (
-                                                listExamenesVigentes.slice(0, 3).map((examen) => (
-                                                    <TarjetaExamenInicio
-                                                        key={examen.idExamen}
-                                                        examen={examen}
-                                                        onVerDetalle={fnVerDetalleExamen}
-                                                    />
-                                                ))
-                                            )}
-
-                                            <div className="border-t border-slate-100 pt-4 mt-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setIdExamenResaltado(null); setStrMenuActivo("mis-examenes"); }}
-                                                    className="text-xs font-bold text-[#003770] hover:underline cursor-pointer"
-                                                >
-                                                    Ver todos mis exámenes →
-                                                </button>
+                                            <div className="px-5 py-4 space-y-2.5">
+                                                {boolCargando ? (
+                                                    <div className="text-center py-6 text-slate-500 text-xs font-semibold animate-pulse">
+                                                        Cargando exámenes del docente...
+                                                    </div>
+                                                ) : listExamenesHoy.length === 0 ? (
+                                                    <div className="text-center py-6 text-slate-500 text-xs font-semibold">
+                                                        No tienes exámenes hoy.
+                                                    </div>
+                                                ) : (
+                                                    listExamenesHoy.map((examen) => (
+                                                        <TarjetaExamenInicio key={examen.idExamen} examen={examen} />
+                                                    ))
+                                                )}
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* PANEL DERECHO */}
-                                    <div className="space-y-6">
+                                    {/* PANEL DERECHO (más angosto) */}
+                                    <div className="w-full xl:w-64 shrink-0 space-y-6">
                                         <CalendarioExamenes
                                             listExamenes={listExamenesCalendario}
                                             onVerQr={fnVerDetalleExamen}
                                         />
                                         <ProximoExamenDocente
-                                            examen={listExamenesVigentes[0] || null}
+                                            examen={listExamenesVigentes.find((e) => !esHoy(e)) || null}
                                             onVerDetalle={fnVerDetalleExamen}
                                         />
                                     </div>

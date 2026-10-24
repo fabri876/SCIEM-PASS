@@ -1,7 +1,7 @@
 // Estación de verificación: Escanear QR / Ingreso manual (C.I. o Código SIS)
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { QrCode, Keyboard } from "lucide-react";
+import { QrCode, Keyboard, ScanLine } from "lucide-react";
 
 const ID_LECTOR = "ci-lector-qr";
 
@@ -193,10 +193,19 @@ export default function EstacionVerificacion({ onValidar, boolValidando, idExame
   const [strModo, setStrModo] = useState("qr");
 
   return (
-    <div className="bg-white border border-[#CBD5E1] rounded-xl p-[22px] max-md:p-3.5">
-      <div role="group" aria-label="Método de verificación" className="inline-flex gap-1 bg-[#F1F5F9] rounded-[10px] p-1 max-md:grid max-md:grid-cols-2 max-md:w-full">
-        <BotonModo boolActivo={strModo === "qr"} onClick={() => setStrModo("qr")} Icono={QrCode}>Escanear QR</BotonModo>
-        <BotonModo boolActivo={strModo === "manual"} onClick={() => setStrModo("manual")} Icono={Keyboard}>Ingreso manual</BotonModo>
+    <div className="bg-white border border-[#CBD5E1] border-t-4 border-t-[#003770] rounded-[14px] p-[22px] max-md:p-3.5 shadow-[0_2px_8px_rgba(8,38,74,.05)]">
+      {/* Título dentro de la tarjeta + pestañas a la derecha */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#E2E8F0]">
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-[10px] bg-[#003770] text-white flex items-center justify-center shrink-0">
+            <ScanLine className="w-5 h-5" />
+          </span>
+          <h2 id="ci-t-verificacion" className="m-0 text-lg font-bold text-[#08264A]">Verificación de ingreso</h2>
+        </div>
+        <div role="group" aria-label="Método de verificación" className="inline-flex gap-1 bg-[#F1F5F9] rounded-[10px] p-1 max-md:grid max-md:grid-cols-2 max-md:w-full">
+          <BotonModo boolActivo={strModo === "qr"} onClick={() => setStrModo("qr")} Icono={QrCode}>Escanear QR</BotonModo>
+          <BotonModo boolActivo={strModo === "manual"} onClick={() => setStrModo("manual")} Icono={Keyboard}>Ingreso manual</BotonModo>
+        </div>
       </div>
 
       {strModo === "qr"

@@ -509,7 +509,7 @@ export default function SeccionRegistroExamenes() {
         });
     }, [arrNormasParticulares, mapExamenPorId, mapDocentePorId]);
 
-    // ===================== Asignar / ver operadores =====================
+    // ===================== Asignar / ver ayudantes =====================
 
     if (examenOperadores) {
         const strDocenteOp = examenOperadores._docente;
@@ -543,7 +543,8 @@ export default function SeccionRegistroExamenes() {
                 </div>
             </div>
 
-            <div className="flex gap-4 sm:gap-6 border-b border-[#EEF1F8] mb-5 overflow-x-auto whitespace-nowrap">
+            {/* overflow-y-hidden: evita la barrita de desplazamiento vertical que salía a la derecha */}
+            <div className="flex gap-4 sm:gap-6 border-b border-[#EEF1F8] mb-5 overflow-x-auto overflow-y-hidden whitespace-nowrap">
                 <button
                     type="button"
                     onClick={() => setStrTabActiva("examenes")}
