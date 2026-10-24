@@ -107,14 +107,14 @@ export default function MenuIngresoExamen({
                     />
                     <Opcion
                         Icono={ListChecks}
-                        strTexto="Ver lista de estudiantes"
+                        strTexto="Ver ingresos"
                         onClick={() => elegir(onVerLista)}
                     />
                     <div className="my-1 mx-2 border-t border-slate-100" />
                     <Opcion
                         Icono={ScanLine}
-                        strTexto={boolFinalizado ? "Ver registro de ingreso" : "Abrir control de ingreso"}
-                        strAyuda={!boolControlDisponible && strDisponibleDesde ? `Disponible desde las ${strDisponibleDesde}` : ""}
+                        strTexto={boolFinalizado ? "Ver registro de ingreso" : "Registrar ingreso"}
+                        strAyuda={!boolControlDisponible && strDisponibleDesde ? `Registro desde las ${strDisponibleDesde}` : ""}
                         boolDeshabilitada={!boolControlDisponible}
                         onClick={() => elegir(onAbrirControl)}
                     />

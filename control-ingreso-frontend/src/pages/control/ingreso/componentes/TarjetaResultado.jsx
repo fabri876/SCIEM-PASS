@@ -1,8 +1,21 @@
-// Tarjeta con el resultado de la verificación (se puede cerrar con la X)
+// Tarjeta con el resultado de la verificación (se puede cerrar con la X).
+// Muestra solo los datos del estudiante: la hora, el método y quién registró ya están en el historial en vivo.
 import { useEffect, useRef } from "react";
-import { Check, X, Ban, MapPin, Info, Lock, IdCard, Clock, UserX, SearchX, Users } from "lucide-react";
+import { Check, X, Ban, MapPin, Lock, IdCard, RotateCcw, UserX, SearchX, AlertTriangle } from "lucide-react";
 
-const nombreCompleto = (e) => (e ? `${e.nombres} ${e.apellidos}` : "");
+const nombreCompleto = (e) => (e ? `${e.nombres || ""} ${e.apellidos || ""}`.trim() : "");
+
+// Iniciales para el espacio de la foto: primer nombre + primer apellido
+function iniciales(strNombre) {
+  const p = String(strNombre || "").trim().split(/\s+/).filter(Boolean);
+  if (p.length === 0) return "?";
+  if (p.length === 1) return p[0].charAt(0).toUpperCase();
+  const strApellido = p.length >= 4 ? p[p.length - 2] : p[1];
+  return (p[0].charAt(0) + strApellido.charAt(0)).toUpperCase();
+}
+
+// Evita "Aula Aula 691A"
+const textoAula = (strAula) => (!strAula ? "" : /^aula/i.test(String(strAula)) ? String(strAula) : `Aula ${strAula}`);
 
 // Sonido corto: agudo = permitido, grave = rechazado
 let objAudio = null;
@@ -23,127 +36,110 @@ function sonar(boolOk) {
   } catch { /* sin audio */ }
 }
 
-function Nota({ strTipo, Icono = Info, children }) {
+// Nota debajo de los datos (solo cuando el ayudante necesita saber qué hacer)
+function Nota({ strTipo = "rojo", Icono = null, children }) {
   const strColor = {
-    azul: "bg-[#F0F6FC] text-[#124B83]",
     rojo: "bg-[#FEF2F2] text-[#B91C1C]",
+    azul: "bg-[#F0F6FC] text-[#124B83]",
     gris: "bg-[#F1F5F9] text-[#475569]",
   }[strTipo];
   return (
-    <div className={"flex items-start gap-2.5 px-3.5 py-[11px] rounded-lg text-sm " + strColor}>
-      <Icono className="w-[18px] h-[18px] shrink-0 mt-px" />
+    <div className={"flex items-start gap-2 px-4 py-3 rounded-lg text-[15px] " + strColor}>
+      {Icono && <Icono className="w-[18px] h-[18px] shrink-0 mt-0.5" />}
       <div>{children}</div>
     </div>
   );
 }
 
-// Primera letra del apellido, sin tildes
-const letraApellido = (e) => String(e?.apellidos || e?.nombres?.split(" ").slice(-2, -1)[0] || "")
-  .normalize("NFD").replace(/[\u0300-\u036f]/g, "").charAt(0).toUpperCase();
-
+// Cada resultado define: color de la banda, ícono, título, subtítulo y (si hace falta) una nota
+// strTono: "ok" (azul) · "gris" (ya registrado) · "bad" (rojo)
 function configurar(r, strRol) {
   const e = r.estudiante;
   switch (r.resultado) {
     case "PERMITIDO":
-      return {
-        strTono: "ok", Icono: Check, strTitulo: "INGRESO PERMITIDO", strSub: "IDENTIDAD Y HABILITACIÓN VERIFICADAS",
-        objSello: { strEtiqueta: "Ingreso registrado", strHora: r.horaIngreso, strDetalle: [r.fechaIngreso, r.metodo].filter(Boolean).join(" · "), strRegistro: r.registradoPor },
-        notas: e?.normaParticular ? <Nota strTipo="azul"><b className="font-semibold">Norma particular:</b> {e.normaParticular}</Nota> : null,
-      };
+      return { strTono: "ok", Icono: Check, strTitulo: "INGRESO PERMITIDO", strSub: "IDENTIDAD Y HABILITACIÓN VERIFICADAS" };
     case "REGISTRADO_OFFLINE":
       return {
-        strTono: "ok", Icono: Check, strTitulo: "REGISTRADO OFFLINE", strSub: "INGRESO REGISTRADO · PENDIENTE DE SINCRONIZACIÓN",
-        objSello: { strEtiqueta: "Ingreso registrado (offline)", strHora: r.horaIngreso, strDetalle: [r.fechaIngreso, r.metodo].filter(Boolean).join(" · "), strRegistro: r.registradoPor },
-        notas: e?.normaParticular ? <Nota strTipo="azul"><b className="font-semibold">Norma particular:</b> {e.normaParticular}</Nota> : null,
+        strTono: "ok", Icono: Check, strTitulo: "INGRESO PERMITIDO", strSub: "GUARDADO EN EL EQUIPO · SE ENVIARÁ AL VOLVER EL INTERNET",
       };
     case "YA_REGISTRADO":
-      return {
-        strTono: "bad", Icono: Clock, strTitulo: "YA REGISTRADO", strSub: "INGRESO DENEGADO · YA MARCÓ SU INGRESO A ESTE EXAMEN",
-        objSello: {
-          strEtiqueta: "Primera marcación", strHora: r.ingresoPrevio?.hora,
-          strDetalle: [r.ingresoPrevio?.fecha || r.fechaIngreso, (r.ingresoPrevio?.aula || e?.aulaAsignada) && `Aula ${r.ingresoPrevio?.aula || e?.aulaAsignada}`].filter(Boolean).join(" · "),
-          strRegistro: r.ingresoPrevio?.registradoPor,
-        },
-        notas: <Nota strTipo="gris">No se creó un nuevo registro.</Nota>,
-      };
+      return { strTono: "gris", Icono: RotateCcw, strTitulo: "YA REGISTRADO", strSub: "YA MARCÓ SU INGRESO A ESTE EXAMEN" };
     case "NO_HABILITADO":
       return {
-        strTono: "bad", Icono: Ban, strTitulo: "ESTUDIANTE INHABILITADO", strSub: "INGRESO DENEGADO · NO CUMPLE LOS REQUISITOS",
-        notas: (
+        strTono: "bad", Icono: Ban, strTitulo: "ESTUDIANTE INHABILITADO", strSub: "NO CUMPLE LOS REQUISITOS",
+        nota: (
           <>
-            <Nota strTipo="rojo">
-              <b className="font-semibold">Motivo del bloqueo:</b>
-              {r.motivos?.length ? (
-                <ul className="mt-1.5 pl-[18px] list-disc">{r.motivos.map((m) => <li key={m}>{m}</li>)}</ul>
-              ) : " sin detalle."}
+            <Nota>
+              <b className="font-bold">Motivo del bloqueo:</b>{" "}
+              {r.motivos?.length > 1 ? (
+                <ul className="mt-1 pl-[18px] list-disc">{r.motivos.map((m) => <li key={m}>{m}</li>)}</ul>
+              ) : (r.motivos?.[0] || "sin detalle.")}
             </Nota>
-            {strRol === "operador" && <Nota strTipo="gris" Icono={Lock}>El rol operador no puede autorizar este ingreso.</Nota>}
+            {strRol === "operador" && <Nota strTipo="gris" Icono={Lock}>El ayudante no puede autorizar este ingreso.</Nota>}
           </>
         ),
       };
     case "OTRA_AULA":
       return {
-        strTono: "bad", Icono: MapPin, strTitulo: "INGRESO A UN AMBIENTE DIFERENTE", strSub: "INGRESO DENEGADO · ESTÁ HABILITADO, PERO EN OTRA AULA",
-        notas: (
-          <Nota strTipo="azul">
-            El estudiante debe dirigirse al{" "}
-            <b className="font-semibold">
-              {/^aula/i.test(String(e?.aulaAsignada || "")) ? e?.aulaAsignada : `Aula ${e?.aulaAsignada}`}
-            </b>
-            . El docente puede reubicarlo desde el monitoreo si en esta aula hay pupitres libres.
-          </Nota>
-        ),
+        strTono: "bad", Icono: MapPin, strTitulo: "INGRESO A UN AMBIENTE DIFERENTE", strSub: "ESTÁ HABILITADO, PERO EN OTRA AULA",
+        nota: <Nota><b className="font-bold">Debe ir al {textoAula(e?.aulaAsignada) || "aula que le corresponde"}</b></Nota>,
       };
     case "FUERA_DE_FILA": {
       const f = r.filaCorrecta;
-      const strLetra = letraApellido(e);
       return {
-        strTono: "aviso", Icono: Users, strTitulo: "NO PERTENECE A TU FILA", strSub: "INGRESO NO REGISTRADO · LE CORRESPONDE A OTRO OPERADOR",
-        notas: (
-          <Nota strTipo="gris" Icono={Users}>
-            {strLetra && <>Apellido con <b className="font-semibold">{strLetra}</b>: </>}
-            {f
-              ? <>le corresponde la fila <b className="font-semibold">{f.desde} – {f.hasta}</b>{f.operador ? <> de <b className="font-semibold">{f.operador}</b></> : null}.</>
-              : <>le corresponde la fila de otro operador.</>}
-            {" "}Indícale que vaya a esa fila.
+        strTono: "bad", Icono: AlertTriangle, strTitulo: "LE CORRESPONDE A OTRO AYUDANTE", strSub: "INGRESO NO REGISTRADO",
+        nota: f ? (
+          <Nota>
+            <b className="font-bold">Debe ir con {f.operador || "otro ayudante"}</b> · apellidos {f.desde} – {f.hasta}
           </Nota>
-        ),
+        ) : <Nota><b className="font-bold">Debe ir con otro ayudante del aula</b></Nota>,
       };
     }
     case "NO_INSCRITO":
       return {
-        strTono: "bad", Icono: UserX, strTitulo: "NO INSCRITO EN ESTE EXAMEN", strSub: "INGRESO DENEGADO · PERTENECE A OTRO EXAMEN",
-        notas: r.otroExamen ? (
-          <Nota strTipo="rojo">
-            Está inscrito en <b className="font-semibold">{r.otroExamen.asignatura}</b> · <b className="font-semibold">{r.otroExamen.nombre}</b> · Aula {r.otroExamen.aula} · {r.otroExamen.hora}.
-            No se registró el ingreso en este examen.
+        strTono: "bad", Icono: UserX, strTitulo: "NO INSCRITO EN ESTE EXAMEN", strSub: "PERTENECE A OTRO EXAMEN",
+        nota: r.otroExamen ? (
+          <Nota>
+            <b className="font-bold">Está inscrito en {r.otroExamen.asignatura}</b> · {r.otroExamen.nombre} · {textoAula(r.otroExamen.aula)} · {r.otroExamen.hora}
           </Nota>
         ) : null,
       };
     case "QR_INVALIDO":
       return {
-        strTono: "bad", Icono: Ban, strTitulo: "QR INVÁLIDO", strSub: "INGRESO DENEGADO · EL CÓDIGO QR NO ES VÁLIDO",
+        strTono: "bad", Icono: Ban, strTitulo: "QR INVÁLIDO", strSub: "EL CÓDIGO QR NO ES VÁLIDO",
         strQuien: "Credencial rechazada",
-        strDetalle: r.mensaje || "El QR no existe, fue anulado o ya expiró. Pide al estudiante que consulte su credencial.",
-        notas: (
-          <Nota strTipo="rojo">
-            Posibles causas: QR expirado, estudiante inhabilitado después de generarlo, o QR de otro examen.
-            Indica al estudiante que contacte a su docente.
-          </Nota>
-        ),
+        nota: <Nota>{r.mensaje || "El QR no existe, fue anulado o ya expiró. Indica al estudiante que contacte a su docente."}</Nota>,
       };
     case "NO_ENCONTRADO":
       return {
-        strTono: "bad", Icono: SearchX, strTitulo: "ESTUDIANTE NO ENCONTRADO", strSub: "INGRESO DENEGADO · EL DATO NO EXISTE EN EL SISTEMA",
+        strTono: "bad", Icono: SearchX, strTitulo: "ESTUDIANTE NO ENCONTRADO", strSub: "EL DATO NO EXISTE EN EL SISTEMA",
         strQuien: "Sin coincidencias",
-        strDetalle: `El dato «${r.valor ?? ""}» no corresponde a ningún estudiante registrado.`,
+        nota: <Nota>El dato «{r.valor ?? ""}» no corresponde a ningún estudiante registrado.</Nota>,
       };
     default: // estado que el frontend todavía no conoce: se muestra el mensaje del backend
       return {
         strTono: "bad", Icono: X, strTitulo: "INGRESO DENEGADO", strSub: String(r.resultado || "").replaceAll("_", " "),
-        strDetalle: r.mensaje || "",
+        nota: r.mensaje ? <Nota>{r.mensaje}</Nota> : null,
       };
   }
+}
+
+const COLOR_BANDA = { ok: "bg-[#003770]", gris: "bg-[#475569]", bad: "bg-[#B91C1C]" };
+
+// Espacio de la foto: muestra la foto si el backend la envía; si no, las iniciales
+function Foto({ strUrl, strNombre }) {
+  return (
+    <div className="w-24 h-[116px] max-md:w-20 max-md:h-24 rounded-xl border border-[#CBD5E1] bg-gradient-to-b from-[#E2E8F0] to-[#CBD5E1] flex flex-col items-center justify-center shrink-0 overflow-hidden">
+      {strUrl ? (
+        <img src={strUrl} alt={`Foto de ${strNombre}`} className="w-full h-full object-cover" />
+      ) : (
+        <>
+          <span className="text-[28px] max-md:text-2xl font-extrabold text-[#475569] leading-none">{iniciales(strNombre)}</span>
+          <span className="mt-1.5 text-[10px] font-bold tracking-[.4px] text-[#64748B]">FOTO</span>
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function TarjetaResultado({ objResultado, onCerrar, strRol = "operador" }) {
@@ -151,7 +147,7 @@ export default function TarjetaResultado({ objResultado, onCerrar, strRol = "ope
 
   useEffect(() => {
     if (!objResultado) return;
-    sonar(objResultado.resultado === "PERMITIDO");
+    sonar(objResultado.resultado === "PERMITIDO" || objResultado.resultado === "REGISTRADO_OFFLINE");
     if (window.innerWidth <= 720) {
       setTimeout(() => refTarjeta.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     }
@@ -176,74 +172,54 @@ export default function TarjetaResultado({ objResultado, onCerrar, strRol = "ope
 
   const c = configurar(objResultado, strRol);
   const e = objResultado.estudiante;
-  const boolOk = c.strTono === "ok";
+  const strNombre = c.strQuien || nombreCompleto(e);
 
   return (
     <div
       ref={refTarjeta}
       key={objResultado.clave}
       aria-live="polite"
-      className="ci-aparecer mt-[18px] bg-white border border-[#CBD5E1] rounded-xl overflow-hidden scroll-mt-24"
+      className="ci-aparecer mt-[18px] bg-white border border-[#CBD5E1] rounded-[14px] overflow-hidden shadow-[0_2px_8px_rgba(8,38,74,.06)] scroll-mt-24"
     >
-      {/* Banda de estado */}
-      <div className={"flex items-center gap-3.5 py-3.5 pr-3.5 pl-[22px] text-white max-md:gap-3 max-md:py-3 max-md:pr-2 max-md:pl-4 " + (boolOk ? "bg-[#1860A3]" : c.strTono === "aviso" ? "bg-[#475569]" : "bg-[#B91C1C]")}>
-        <span className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-          <c.Icono className="w-6 h-6" strokeWidth={2.6} />
+      {/* Banda de color con el resultado */}
+      <div className={"flex items-center gap-3 py-3 pr-2 pl-5 text-white max-md:pl-4 " + (COLOR_BANDA[c.strTono] || COLOR_BANDA.bad)}>
+        <span className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+          <c.Icono className="w-5 h-5" strokeWidth={2.6} />
         </span>
         <div className="flex-1 min-w-0">
-          <b className="block text-[17px] max-md:text-[15px] font-bold tracking-[.3px]">{c.strTitulo}</b>
-          <span className="text-xs max-md:text-[11px] font-semibold tracking-[.5px] opacity-90">{c.strSub}</span>
+          <b className="block text-[16px] max-md:text-[15px] font-bold tracking-[.4px]">{c.strTitulo}</b>
+          <span className="block text-xs max-md:text-[11px] font-semibold tracking-[.3px] opacity-85">{c.strSub}</span>
         </div>
         <button type="button" onClick={onCerrar} aria-label="Cerrar tarjeta" className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0 hover:bg-white/15 cursor-pointer">
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Datos del estudiante + sello de hora */}
-      <div className="flex flex-wrap items-center gap-[22px] px-[22px] py-5 max-md:p-4 max-md:gap-3.5">
-        <div className="flex-1 basis-[420px] min-w-0 max-md:basis-full">
-          <div className="text-[22px] max-md:text-[19px] font-bold text-[#08264A]">{c.strQuien || nombreCompleto(e)}</div>
-          {c.strDetalle && <div className="mt-0.5 text-sm text-[#64748B]">{c.strDetalle}</div>}
-          {e && (
-            <div className="mt-3 grid grid-cols-4 max-md:grid-cols-2 gap-x-[18px] gap-y-3 max-md:gap-x-3.5 max-md:gap-y-2.5">
-              {[
-                ["C.I.", e.ci, true],
-                ["Código SIS", e.sis, true],
-                ["Carrera", e.carrera, false],
-                ["Aula asignada", e.aulaAsignada ? `Aula ${e.aulaAsignada}` : "—", false],
-              ].map(([strEtq, strVal, boolMono]) => (
-                <div key={strEtq}>
-                  <span className="block text-[11px] font-semibold uppercase tracking-[.4px] text-[#64748B]">{strEtq}</span>
-                  <strong className={"block mt-0.5 text-sm font-semibold text-[#08264A] " + (boolMono ? "font-mono" : "")}>{strVal}</strong>
+      {/* Foto + datos del estudiante */}
+      <div className="flex items-center gap-5 px-5 py-[18px] max-md:gap-4 max-md:px-4">
+        <Foto strUrl={e?.fotoUrl} strNombre={strNombre} />
+        <div className="min-w-0">
+          <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{strNombre}</div>
+          {e && (e.ci || e.sis) && (
+            <div className="mt-2.5 flex flex-wrap gap-x-7 gap-y-2">
+              {e.ci && (
+                <div>
+                  <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">C.I.</span>
+                  <strong className="block text-[15px] font-bold text-[#08264A]">{e.ci}</strong>
                 </div>
-              ))}
+              )}
+              {e.sis && (
+                <div>
+                  <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">Código SIS</span>
+                  <strong className="block text-[15px] font-bold text-[#08264A]">{e.sis}</strong>
+                </div>
+              )}
             </div>
           )}
         </div>
-
-        {c.objSello && (
-          <div
-            className={
-              "rounded-[10px] px-5 py-3.5 text-right min-w-[210px] " +
-              "max-md:w-full max-md:min-w-0 max-md:text-left max-md:flex max-md:flex-wrap max-md:items-baseline max-md:justify-between max-md:gap-x-3 max-md:gap-y-1 max-md:px-3.5 max-md:py-3 " +
-              (boolOk ? "bg-[#F0F6FC]" : "bg-[#FEF2F2]")
-            }
-          >
-            <div className={"text-[11px] font-bold uppercase tracking-[.4px] max-md:w-full " + (boolOk ? "text-[#1860A3]" : "text-[#B91C1C]")}>
-              {c.objSello.strEtiqueta}
-            </div>
-            <span className="block mt-0.5 max-md:mt-0 font-mono text-[32px] max-md:text-[28px] font-semibold text-[#003770]">{c.objSello.strHora}</span>
-            <div className="text-xs text-[#475569]">{c.objSello.strDetalle}</div>
-            {c.objSello.strRegistro && (
-              <div className="mt-0.5 text-xs text-[#64748B] max-md:w-full">Registró: {c.objSello.strRegistro}</div>
-            )}
-          </div>
-        )}
       </div>
 
-      {c.notas && (
-        <div className="mx-[22px] mb-5 pt-4 border-t border-[#CBD5E1] flex flex-col gap-2.5 max-md:mx-4 max-md:mb-4">{c.notas}</div>
-      )}
+      {c.nota && <div className="mx-5 mb-[18px] flex flex-col gap-2 max-md:mx-4">{c.nota}</div>}
     </div>
   );
 }
