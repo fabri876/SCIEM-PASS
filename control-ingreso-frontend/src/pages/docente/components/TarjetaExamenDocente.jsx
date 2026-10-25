@@ -4,6 +4,7 @@
 // - Finalizado: sin botones.
 import { useNavigate } from "react-router-dom";
 import { estadoExamen, esHoy, puedeControlarIngreso, aperturaControl } from "../utilidadesExamenDocente";
+import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
 
 const MESES = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
 
@@ -48,7 +49,7 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
         ? { strTexto: "Finalizado", strClase: "bg-[#F1F5F9] text-[#64748B]" }
         : null;
 
-  const strGrupo = examen.grupo ? `Grupo ${String(examen.grupo).replace(/^grupo\s*/i, "")}` : "";
+  const strGrupo = textoGrupoExamen(examen.grupo);
   const strDetalle = [strGrupo, examen.horario, textoAulas(examen)].filter(Boolean).join(" · ");
 
   return (

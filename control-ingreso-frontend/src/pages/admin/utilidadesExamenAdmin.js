@@ -6,6 +6,7 @@ import {
   rangoExamen,
   MINUTOS_ANTES_CONTROL_INGRESO,
 } from "../docente/utilidadesExamenDocente";
+import { textoGrupoExamen } from "../../components/examenes/textoGrupoExamen";
 
 const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 const DIAS_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -79,11 +80,10 @@ export function rangoHorario(ex) {
   return horaInicio || "";
 }
 
-// "Grupo 1" (solo si el backend ya manda el grupo del examen)
+// "Grupo C1": usa el nombre del grupo del examen (numeroGrupo solo guarda los dígitos: "C1" → 1).
+// Exámenes antiguos sin grupo ("A, B, C1") → "" (ver textoGrupoExamen)
 export function nombreGrupo(ex) {
-  const g = ex?.numeroGrupo ?? ex?.nombreGrupo ?? ex?.grupo;
-  if (g === undefined || g === null || g === "") return "";
-  return /grupo/i.test(String(g)) ? String(g) : `Grupo ${g}`;
+  return textoGrupoExamen(ex?.nombreGrupo ?? ex?.grupo ?? ex?.numeroGrupo);
 }
 
 // Hora desde la que se habilita el control de ingreso ("13:15") o "" si no hay hora

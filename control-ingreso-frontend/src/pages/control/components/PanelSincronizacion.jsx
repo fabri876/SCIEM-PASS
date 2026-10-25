@@ -79,23 +79,23 @@ export default function PanelSincronizacion() {
   const duplicados = ultimo.duplicados ?? 0;
 
   return (
-    <section className="mt-4 flex flex-col gap-3">
+    <section className="ml-auto flex flex-wrap items-center justify-end gap-x-2 gap-y-1.5">
       {/* Contadores */}
-      <div className="flex flex-wrap items-center gap-3 text-xs">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1]">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1]">
           <Clock className="w-3 h-3" />
           <span>
             <b>{conteo.pendiente}</b> pendientes
           </span>
         </div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#D9E8F7] text-[#124B83] border border-[#BFD7F2]">
+        <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#D9E8F7] text-[#124B83] border border-[#BFD7F2]">
           <CheckCircle className="w-3 h-3" />
           <span>
             <b>{conteo.sincronizado}</b> sincronizados
           </span>
         </div>
         {conteo.duplicado > 0 && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]">
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]">
             <AlertCircle className="w-3 h-3" />
             <span>
               <b>{conteo.duplicado}</b> duplicados
@@ -103,7 +103,7 @@ export default function PanelSincronizacion() {
           </div>
         )}
         {hayErrores && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA]">
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA]">
             <AlertCircle className="w-3 h-3" />
             <span>
               <b>{conteo.error}</b> errores
@@ -118,7 +118,7 @@ export default function PanelSincronizacion() {
           type="button"
           onClick={handleSincronizar}
           disabled={forzando || !hayPendientes}
-          className={`inline-flex items-center gap-1.5 min-h-9 px-3.5 rounded-lg text-xs font-semibold cursor-pointer disabled:cursor-not-allowed ${
+          className={`inline-flex items-center gap-1.5 min-h-7 px-2.5 rounded-lg text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed ${
             forzando || !hayPendientes
               ? 'bg-[#9AA8BA] text-white disabled:hover:bg-[#9AA8BA]'
               : 'bg-[#003770] hover:bg-[#124B83] text-white'
@@ -133,7 +133,7 @@ export default function PanelSincronizacion() {
             type="button"
             onClick={handleReintentarErrores}
             disabled={forzando}
-            className={`inline-flex items-center gap-1.5 min-h-9 px-3.5 rounded-lg text-xs font-semibold cursor-pointer disabled:cursor-not-allowed ${
+            className={`inline-flex items-center gap-1.5 min-h-7 px-2.5 rounded-lg text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed ${
               forzando
                 ? 'bg-[#9AA8BA] text-white disabled:hover:bg-[#9AA8BA]'
                 : 'bg-[#B91C1C] hover:bg-[#B91C1C] text-white'
@@ -146,8 +146,8 @@ export default function PanelSincronizacion() {
       </div>
 
       {/* Resumen del último intento */}
-      {ultimoResultado && !ultimoResultado.omitido && !ultimoResultado.sinConexion && (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-[11px] text-[#64748B]">
+      {ultimoResultado && !ultimoResultado.omitido && !ultimoResultado.sinConexion && (procesados + enviados + duplicados + erroresUltimo) > 0 && (
+        <div className="basis-full flex justify-end items-center gap-2 px-3 py-1 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-[11px] text-[#64748B]">
           {procesados > 0 && (
             <span>
               <CheckCircle className="w-2.5 h-2.5 text-[#124B83]" /> {procesados} procesado(s)
@@ -176,7 +176,7 @@ export default function PanelSincronizacion() {
 
       {/* Estado del scheduler */}
       {estaEnviando && (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#D9E8F7] text-[#124B83] text-[11px]">
+        <div className="basis-full flex justify-end items-center gap-2 px-3 py-1 rounded-lg bg-[#D9E8F7] text-[#124B83] text-[11px]">
           <Clock className="w-3 h-3 animate-spin" />
           Sincronizando en segundo plano…
         </div>
