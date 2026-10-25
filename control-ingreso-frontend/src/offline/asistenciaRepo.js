@@ -25,9 +25,12 @@ export const asistenciaRepo = {
   }) {
     const exId = Number(examenId);
     const sis = normalizarCodigo(codigoSis);
+    const ambId = Number(ambienteId);
 
-    if (!Number.isInteger(exId) || exId <= 0 || !sis || !operadorId || !rol || !metodo) {
-      const error = new Error('Parámetros inválidos o incompletos: examenId (entero positivo), codigoSis, operadorId, rol y metodo son requeridos.');
+    // Regla de seguridad: el ambiente es obligatorio y debe pertenecer al examen descargado.
+    // Sin un ambienteId válido no se puede registrar el ingreso offline.
+    if (!Number.isInteger(exId) || exId <= 0 || !sis || !operadorId || !rol || !metodo || !Number.isInteger(ambId) || ambId <= 0) {
+      const error = new Error('Parámetros inválidos o incompletos: examenId, codigoSis, operadorId, rol, metodo y ambienteId (entero positivo) son requeridos.');
       error.codigo = ERROR_ASISTENCIA.PARAMETROS_INVALIDOS;
       throw error;
     }
@@ -77,7 +80,7 @@ export const asistenciaRepo = {
         clientUuid,
         examenId: exId,
         asignaturaId: asignaturaId ? Number(asignaturaId) : null,
-        ambienteId: ambienteId ? Number(ambienteId) : null,
+        ambienteId: ambId,
         codigoSis: sis,
         metodo,
         operadorId,
@@ -207,5 +210,27 @@ export const asistenciaRepo = {
         nextRetryAt: 0,
         ultimoError: null
       });
+  },
+
+  /**
+   * Cuenta cuántas marcas hay en cada estado de sincronización.
+   * Devuelve: { pendiente, syncing, sincronizado, error, duplicado }
+   */
+  async contarPorEstado() {
+    const todos = await db.asistencias_pendientes.toArray();
+    const conteo = {
+      pendiente: 0,
+      syncing: 0,
+      sincronizado: 0,
+      error: 0,
+      duplicado: 0
+    };
+    for (const t of todos) {
+      const s = t.syncStatus || 'pendiente';
+      if (conteo[s] !== undefined) {
+        conteo[s]++;
+      }
+    }
+    return conteo;
   }
 };

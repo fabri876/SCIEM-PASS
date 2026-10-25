@@ -7,6 +7,7 @@ import {
   descargarNomina,
   eliminarNominaLocal
 } from './nominaLoader.js';
+import { descargarAsignacionesOperadores } from './asignacionLoader.js';
 
 export function useNominaLocal(examenId) {
   const [estado, setEstado] = useState({
@@ -88,6 +89,13 @@ export function useNominaLocal(examenId) {
       if (res?.omitido) {
         setDescargando(false);
         return { ok: false, omitido: true };
+      }
+
+      // Descargar asignaciones de operadores (rangos de apellidos) para validación offline
+      try {
+        await descargarAsignacionesOperadores({ examenId: exId });
+      } catch (errAsign) {
+        console.warn('[useNominaLocal] No se pudieron descargar asignaciones de operadores:', errAsign.message);
       }
 
       return { ok: true, ...res };

@@ -21,6 +21,7 @@ import {
   registrarIngreso as motorRegistrar,
   obtenerClockOffsetMs,
   verificarAlmacenamiento,
+  asignacionRepo,
 } from "../../../offline";
 
 const INTERVALO_TIEMPO_REAL_MS = 2000;
@@ -269,9 +270,29 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       const operadorId = usuario?.idUsuario ?? usuario?.idusuario ?? usuario?.id ?? usuario?.correo;
       const rol = String(strRolConfig || usuario?.rol || "operador").toLowerCase();
       const fila = ex?.fila;
-      const rangoApellidos = (rol === "operador" && fila?.desde && fila?.hasta)
-        ? { desde: fila.desde, hasta: fila.hasta }
-        : null;
+      let rangoApellidos = null;
+
+      // 1. Si viene de red (ex.fila con desde/hasta), usarlo como fuente de verdad
+      if (rol === "operador" && fila?.desde && fila?.hasta) {
+        rangoApellidos = { desde: fila.desde, hasta: fila.hasta };
+      }
+
+      // 2. Si no hay rango de red, consultar IndexedDB (offline o respaldo local)
+      if (!rangoApellidos) {
+        const asignacion = await asignacionRepo.obtenerRangoOperador(
+          exId,
+          operadorId,
+          ambienteId
+        );
+
+        if (asignacion && asignacion.modoAsignacion === "SUBDIVISION") {
+          rangoApellidos = {
+            desde: asignacion.apellidoDesde,
+            hasta: asignacion.apellidoHasta,
+          };
+        }
+        // Si modoAsignacion es "ONLINE", dejamos rangoApellidos = null (sin restricción)
+      }
 
       const parametros = {
         examenId: exId,
