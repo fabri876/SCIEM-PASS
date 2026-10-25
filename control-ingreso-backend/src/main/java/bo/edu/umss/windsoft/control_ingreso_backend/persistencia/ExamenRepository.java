@@ -35,4 +35,14 @@ public interface ExamenRepository extends JpaRepository<Examen, Integer> {
     List<Integer> findTiposUsadosByAsignaturaAndDocente(
             @Param("idAsignatura") Integer idAsignatura,
             @Param("codsisDocente") Integer codsisDocente);
+
+    /** Tipos usados dentro de un grupo específico. */
+    @Query("SELECT DISTINCT e.idTipoExamen FROM Examen e " +
+           "WHERE e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL') " +
+           "AND e.idAsignatura = :idAsignatura AND e.codsisDocente = :codsisDocente " +
+           "AND e.idGrupo = :idGrupo")
+    List<Integer> findTiposUsadosByGrupo(
+            @Param("idAsignatura") Integer idAsignatura,
+            @Param("codsisDocente") Integer codsisDocente,
+            @Param("idGrupo") Integer idGrupo);
 }

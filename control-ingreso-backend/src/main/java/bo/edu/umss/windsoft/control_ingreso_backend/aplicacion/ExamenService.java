@@ -176,8 +176,11 @@ public class ExamenService {
                     "Debe especificar el detalle del tipo de examen.");
         }
 
-        List<Integer> tiposYaUsados = examenRepository.findTiposUsadosByAsignaturaAndDocente(
-                request.getIdAsignatura(), request.getCodsisDocente());
+        List<Integer> tiposYaUsados = request.getIdGrupo() != null
+                ? examenRepository.findTiposUsadosByGrupo(
+                        request.getIdAsignatura(), request.getCodsisDocente(), request.getIdGrupo())
+                : examenRepository.findTiposUsadosByAsignaturaAndDocente(
+                        request.getIdAsignatura(), request.getCodsisDocente());
         boolean yaExisteEseTipo = tiposYaUsados.contains(request.getIdTipoExamen());
         boolean esElMismoExamenConMismoTipo = examenAActualizar != null
                 && examenAActualizar.getIdTipoExamen().equals(request.getIdTipoExamen());
@@ -507,8 +510,10 @@ public class ExamenService {
     // TIPOS USADOS
     // -------------------------------------------------------------------------
 
-    public List<Integer> obtenerTiposUsados(Integer idAsignatura, Integer codsisDocente) {
-        return examenRepository.findTiposUsadosByAsignaturaAndDocente(idAsignatura, codsisDocente);
+    public List<Integer> obtenerTiposUsados(Integer idAsignatura, Integer codsisDocente, Integer idGrupo) {
+        return idGrupo != null
+                ? examenRepository.findTiposUsadosByGrupo(idAsignatura, codsisDocente, idGrupo)
+                : examenRepository.findTiposUsadosByAsignaturaAndDocente(idAsignatura, codsisDocente);
     }
 
     // -------------------------------------------------------------------------
