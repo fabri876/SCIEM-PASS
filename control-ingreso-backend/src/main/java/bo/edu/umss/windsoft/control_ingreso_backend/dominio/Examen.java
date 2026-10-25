@@ -40,6 +40,10 @@ public class Examen {
     @Column(name = "idasignatura")
     private Integer idAsignatura;
 
+    // Opcional mientras se migran los exámenes existentes a un grupo.
+    @Column(name = "idgrupo")
+    private Integer idGrupo;
+
     @Column(name = "idtipoexamen", nullable = false)
     private Integer idTipoExamen;
 
@@ -110,6 +114,8 @@ public class Examen {
     public void setIdAsignatura(Integer idAsignatura) {
         this.idAsignatura = idAsignatura;
     }
+    public Integer getIdGrupo() { return idGrupo; }
+    public void setIdGrupo(Integer idGrupo) { this.idGrupo = idGrupo; }
     public Integer getIdTipoExamen() { return idTipoExamen; }
     public void setIdTipoExamen(Integer idTipoExamen) { this.idTipoExamen = idTipoExamen; }
     public String getDetalleTipoExamen() { return detalleTipoExamen; }
