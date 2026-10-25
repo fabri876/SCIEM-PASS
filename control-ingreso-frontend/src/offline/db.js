@@ -23,17 +23,10 @@ db.version(2).stores({
 
   // Configuración de usuario (PIN, bloqueo por inactividad)
   configUsuario: 'idUsuario',
-});
 
-// v2: Agrega tabla configUsuario para persistencia del candado de PIN por operador
-db.version(2).stores({
-  meta: 'clave',
-  examenes: 'idExamen, fechaExamen, codsisDocente',
-  nominas: '[examenId+codigoSis], examenId, [examenId+ci], [examenId+qr]',
-  fotos: 'codigoSis',
-  asistencias_pendientes: 'clientUuid, [syncStatus+nextRetryAt], [examenId+codigoSis], examenId, syncStatus',
-  logs_sincronizacion: '++id, batchId, timestamp',
-  configUsuario: 'idUsuario'
+  // Asignaciones de operadores (ayudantes) por examen y aula
+  // Clave compuesta: [idExamen, idAmbiente, idUsuario] para no mezclar parciales
+  asignacionesOperadores: '[idExamen+idAmbiente+idUsuario], idExamen, idUsuario',
 });
 
 if (import.meta.env.DEV) {

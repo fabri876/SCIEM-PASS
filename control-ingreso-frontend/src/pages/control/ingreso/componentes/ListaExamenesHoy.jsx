@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { GraduationCap, Clock, ArrowLeft, Search, Download, RefreshCw, CheckCircle } from "lucide-react";
 import PildoraFila from "./PildoraFila";
+import PanelSincronizacion from "../../components/PanelSincronizacion";
 import { useNominaLocal, useConectividad, sincronizarAhora } from "../../../../offline";
 
 const ESTADOS = {
@@ -91,6 +92,7 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
         >
           <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
         </button>
+        <PanelSincronizacion />
         {toast && (
           <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
             }`}>
