@@ -3,12 +3,16 @@
 // - Sin internet: "Mi lista" → solo SU rango de apellidos, con la nómina descargada en el equipo.
 // En ambos casos se suman los registros de este equipo que aún no se sincronizaron.
 // Si con internet el servidor no responde, se usa la nómina descargada (toda el aula).
+// El rango sale de la asignación del examen; si no viene, se usa el rango guardado en el equipo
+// (asignacionRepo de HU07), igual que hace la validación sin conexión.
 // Solo LEE la base local; no modifica nada del modo sin conexión.
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { obtenerListaOficial } from "../../../../services/ingresoService";
 import { db } from "../../../../offline/db.js";
 import { ESTADO_SYNC } from "../../../../offline/constantes.js";
+import { asignacionRepo } from "../../../../offline";
+import { obtenerUsuarioActual } from "../../../../services/authService";
 
 const ESTADOS = {
   INGRESO: { strTexto: "Ingreso registrado", strClase: "bg-[#D9E8F7] text-[#124B83]" },
@@ -110,6 +114,7 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
   const [listFilas, setListFilas] = useState([]);
   const [boolCargando, setBoolCargando] = useState(false);
   const [strOrigen, setStrOrigen] = useState("servidor"); // servidor | local | sinNomina
+  const [objRango, setObjRango] = useState(null); // rango de apellidos que se aplicó (solo sin internet)
 
   const exId = Number(examen?.idexamen);
   const objFila = examen?.fila || null;
@@ -122,6 +127,21 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
 
     (async () => {
       const setPendientes = await leerPendientesLocales(exId);
+
+      // Rango del ayudante (solo sin internet): primero el de la asignación, si no, el guardado en el equipo
+      let rango = objFila?.desde && objFila?.hasta ? { desde: objFila.desde, hasta: objFila.hasta } : null;
+      if (boolSinRed && !rango) {
+        try {
+          const usuario = obtenerUsuarioActual();
+          const operadorId = usuario?.idUsuario ?? usuario?.idusuario ?? usuario?.id ?? usuario?.correo;
+          const asignacion = await asignacionRepo.obtenerRangoOperador(exId, operadorId, examen?.idambiente);
+          if (asignacion && asignacion.modoAsignacion === "SUBDIVISION" && asignacion.apellidoDesde && asignacion.apellidoHasta) {
+            rango = { desde: asignacion.apellidoDesde, hasta: asignacion.apellidoHasta };
+          }
+        } catch {
+          // sin rango guardado: se muestra toda el aula
+        }
+      }
       let list = null;
       let strFuente = "servidor";
 
@@ -161,17 +181,18 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
 
       const listMias = list
         // El rango de apellidos solo se aplica sin internet
-        .filter((f) => enAula(f.aula, strAula) && (!boolSinRed || enRango(f.paterno || f.apellidos, objFila)))
+        .filter((f) => enAula(f.aula, strAula) && (!boolSinRed || enRango(f.paterno || f.apellidos, rango)))
         .sort((a, b) => `${a.apellidos} ${a.nombres}`.localeCompare(`${b.apellidos} ${b.nombres}`, "es"));
 
       if (boolVivo) {
         setListFilas(listMias);
         setStrOrigen(strFuente);
+        setObjRango(boolSinRed ? rango : null);
       }
     })().finally(() => boolVivo && setBoolCargando(false));
 
     return () => { boolVivo = false; };
-  }, [boolAbierto, exId, boolSinRed, numVersion, numPendientes, strAula, objFila?.desde, objFila?.hasta]);
+  }, [boolAbierto, exId, boolSinRed, numVersion, numPendientes, strAula, objFila?.desde, objFila?.hasta, examen?.idambiente]);
 
   // Cerrar con Esc
   useEffect(() => {
@@ -204,7 +225,7 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
   const strAulaTexto = String(strAula).replace(/^aula\s*/i, "").trim();
   const listChips = [
     strAulaTexto ? `Aula ${strAulaTexto}` : null,
-    boolSinRed && objFila?.desde && objFila?.hasta ? `Apellidos ${objFila.desde}–${objFila.hasta}` : "Toda el aula",
+    objRango?.desde && objRango?.hasta ? `Apellidos ${objRango.desde}–${objRango.hasta}` : "Toda el aula",
     `${listFilas.length} estudiantes`,
   ].filter(Boolean);
 
@@ -231,7 +252,7 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
           {strOrigen === "local" && (
             <div className="mb-3 px-3.5 py-2.5 rounded-lg bg-[#FEF2F2] border border-[#FEE2E2] text-[13px] text-[#B91C1C]">
               <b className="font-bold">{boolSinRed ? "Sin conexión" : "No se pudo cargar del servidor"}</b>:{" "}
-              {boolSinRed && objFila?.desde && objFila?.hasta ? `solo tu rango ${objFila.desde}–${objFila.hasta}, con ` : "se muestra "}
+              {objRango?.desde && objRango?.hasta ? `solo tu rango ${objRango.desde}–${objRango.hasta}, con ` : "se muestra "}
               la nómina descargada{strNominaDescargadaEn ? ` (${fechaHora(strNominaDescargadaEn)})` : ""} y tus registros de este equipo.
             </div>
           )}
