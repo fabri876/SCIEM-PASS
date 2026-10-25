@@ -29,18 +29,6 @@ db.version(2).stores({
   asignacionesOperadores: '[idExamen+idAmbiente+idUsuario], idExamen, idUsuario',
 });
 
-// v2: Agrega tabla configUsuario para persistencia del candado de PIN por operador
-db.version(2).stores({
-  meta: 'clave',
-  examenes: 'idExamen, fechaExamen, codsisDocente',
-  nominas: '[examenId+codigoSis], examenId, [examenId+ci], [examenId+qr]',
-  fotos: 'codigoSis',
-  asistencias_pendientes: 'clientUuid, [syncStatus+nextRetryAt], [examenId+codigoSis], examenId, syncStatus',
-  logs_sincronizacion: '++id, batchId, timestamp',
-  configUsuario: 'idUsuario',
-  asignacionesOperadores: '[idExamen+idAmbiente+idUsuario], idExamen, idUsuario',
-});
-
 if (import.meta.env.DEV) {
   window.__sciem_db = db;
 }

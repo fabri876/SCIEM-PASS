@@ -1,4 +1,5 @@
 import { asignacionRepo } from './asignacionRepo.js';
+import { ERROR_ASISTENCIA } from './constantes.js';
 import { strApiBaseUrl } from '../services/apiConfig.js';
 import { obtenerToken } from '../services/authService.js';
 
@@ -24,7 +25,7 @@ export async function descargarAsignacionesOperadores({ examenId }) {
   const exId = Number(examenId);
   if (!Number.isInteger(exId) || exId <= 0) {
     const error = new Error('El examenId debe ser un número entero positivo.');
-    error.codigo = 'PARAMETROS_INVALIDOS';
+    error.codigo = ERROR_ASISTENCIA.PARAMETROS_INVALIDOS;
     throw error;
   }
 
