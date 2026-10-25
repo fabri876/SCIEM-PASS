@@ -6,7 +6,7 @@ import BulkUploadCard from "../admin/components/BulkUploadCard";
 import UsuarioFormFields from "../admin/components/UsuarioFormFields";
 import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
-import { obtenerMisExamenes, obtenerAsignaturasPorDocente } from "../../services/examenService";
+import { obtenerMisExamenes } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
@@ -93,7 +93,7 @@ export default function HomeDocente() {
             setBoolCargando(true);
             try {
                 const dataExamenes = await obtenerMisExamenes();
-                if (!cancel && Array.isArray(dataExamenes) && dataExamenes.length > 0) {
+                if (!cancel && Array.isArray(dataExamenes)) {
                     const mapeados = dataExamenes.map((ex) => {
                         const primerAmb = ex.ambientes && ex.ambientes.length > 0 ? ex.ambientes[0] : null;
                         const horaInicio = (ex.horaInicio || primerAmb?.horaInicio || "").toString().substring(0, 5);
@@ -139,42 +139,9 @@ export default function HomeDocente() {
                         };
                     });
                     setExamenes(mapeados);
-                    setBoolCargando(false);
-                    return;
                 }
             } catch (err) {
                 console.warn("No se pudieron cargar exámenes desde /mis-examenes:", err);
-            }
-
-            // Fallback: Si no hay exámenes aún, cargar las asignaturas reales asociadas a este docente
-            try {
-                const current = usuario || obtenerUsuarioActual();
-                if (current?.idUsuario && current?.codigoSis) {
-                    const asigs = await obtenerAsignaturasPorDocente(current.idUsuario, current.codigoSis);
-                    if (!cancel && Array.isArray(asigs) && asigs.length > 0) {
-                        const mapeadosAsig = asigs.map((a, idx) => {
-                            const total = a.totalEstudiantes || (a.cantidadHabilitados || 0) + (a.cantidadInhabilitados || 0);
-                            const hab = a.cantidadHabilitados || 0;
-                            const inhab = a.cantidadInhabilitados || 0;
-                            return {
-                                idExamen: a.idAsignatura || idx + 1,
-                                idAsignatura: a.idAsignatura,
-                                nombreExamen: a.nombreAsignatura || a.nombre,
-                                siglaAsignatura: a.siglaAsignatura || a.codigo || '',
-                                aula: 'Asignatura Asignada · UMSS',
-                                horario: 'Gestión Oficial',
-                                ingresados: hab,
-                                noLlegan: Math.max(0, total - hab - inhab),
-                                inhabilitados: inhab,
-                                totalInscritos: total,
-                                esExamenReal: false,
-                            };
-                        });
-                        setExamenes(mapeadosAsig);
-                    }
-                }
-            } catch (errAsig) {
-                console.warn("No se pudieron cargar asignaturas del docente:", errAsig);
             } finally {
                 if (!cancel) setBoolCargando(false);
             }

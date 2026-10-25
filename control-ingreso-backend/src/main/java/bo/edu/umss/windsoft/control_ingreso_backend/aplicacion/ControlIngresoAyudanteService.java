@@ -652,9 +652,17 @@ public class ControlIngresoAyudanteService {
                 idEx, idAmb);
         int faltantes = Math.max(0, totalHab - ingresaron);
 
-        String grupo = grupoRepository.findByIdAsignatura(idAsig).stream()
-                .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo)
-                .collect(java.util.stream.Collectors.joining(", "));
+        String grupo;
+        if (ex != null && ex.getIdGrupo() != null) {
+            grupo = grupoRepository.findById(ex.getIdGrupo())
+                    .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo)
+                    .orElse(null);
+        } else {
+            // Compatibilidad con exámenes históricos que todavía no tienen grupo.
+            grupo = grupoRepository.findByIdAsignatura(idAsig).stream()
+                    .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo)
+                    .collect(java.util.stream.Collectors.joining(", "));
+        }
 
         return new DelegadoExamenDTO(
                 ae.getId().getIdayudante(),
