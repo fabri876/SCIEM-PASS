@@ -1,12 +1,24 @@
+// Habilitado / Inhabilitado en "Modificar estado", con los colores de las etiquetas de la tabla
 export default function SelectorEstado({ habilitado, onHabilitar, onInhabilitar }) {
-    const base = "p-2.5 rounded-xl border flex items-center justify-center gap-2 text-[13px] transition cursor-pointer";
+    const base = "h-11 rounded-[10px] border flex items-center justify-center gap-2 text-[13.5px] font-extrabold transition cursor-pointer";
+    const apagado = "border-[#CBD5E1] bg-white text-[#475569] hover:bg-slate-50";
     return (
-        <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={onHabilitar} className={`${base} ${habilitado ? 'border-[#003770] bg-blue-50 text-[#003770] font-extrabold shadow-xs ring-1 ring-[#003770]' : 'border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50'}`}>
-                <span className={`w-2 h-2 rounded-full ${habilitado ? 'bg-[#003770]' : 'bg-slate-300'}`}></span> Habilitado
+        <div className="grid grid-cols-2 gap-2.5">
+            <button
+                type="button"
+                onClick={onHabilitar}
+                aria-pressed={habilitado}
+                className={`${base} ${habilitado ? 'border-[1.5px] border-[#003770] bg-[#E8F1FB] text-[#003770]' : apagado}`}
+            >
+                <span className={`w-2 h-2 rounded-full ${habilitado ? 'bg-[#003770]' : 'bg-[#CBD5E1]'}`}></span> Habilitado
             </button>
-            <button type="button" onClick={onInhabilitar} className={`${base} ${!habilitado ? 'border-rose-600 bg-rose-50 text-rose-600 font-extrabold shadow-xs ring-1 ring-rose-600' : 'border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50'}`}>
-                <span className={`w-2 h-2 rounded-full ${!habilitado ? 'bg-rose-600' : 'bg-slate-300'}`}></span> Inhabilitado
+            <button
+                type="button"
+                onClick={onInhabilitar}
+                aria-pressed={!habilitado}
+                className={`${base} ${!habilitado ? 'border-[1.5px] border-[#B91C1C] bg-[#FEF2F2] text-[#B91C1C]' : apagado}`}
+            >
+                <span className={`w-2 h-2 rounded-full ${!habilitado ? 'bg-[#B91C1C]' : 'bg-[#CBD5E1]'}`}></span> Inhabilitado
             </button>
         </div>
     );
