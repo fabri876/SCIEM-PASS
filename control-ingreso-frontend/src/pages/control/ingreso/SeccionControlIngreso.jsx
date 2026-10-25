@@ -209,7 +209,13 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         )}
       </section>
 
-      <TablaUltimosIngresos listUltimos={listUltimos} strUltimoRegistrado={strUltimoRegistrado} strRol={strRol} numRegistrados={objContador?.ingresaron ?? null} />
+      <TablaUltimosIngresos
+        listUltimos={listUltimos}
+        strUltimoRegistrado={strUltimoRegistrado}
+        strRol={strRol}
+        numRegistrados={objContador?.ingresaron ?? null}
+        boolSinRed={boolOperador && (estadoRed?.net === "offline" || Boolean(ctrl.boolOffline))}
+      />
     </div>
   );
 }

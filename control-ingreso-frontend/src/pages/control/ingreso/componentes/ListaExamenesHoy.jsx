@@ -233,7 +233,7 @@ function TarjetaExamenHoy({ examen, onElegir, boolSinRed }) {
               </span>
             </div>
             <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-[#64748B]">
-              <span>Aula {examen.aula}{examen.grupo ? ` · Grupo ${examen.grupo}` : ""}</span>
+              <span>Aula {String(examen.aula || "").replace(/^aula\s*/i, "")}{examen.grupo ? ` · Grupo ${examen.grupo}` : ""}</span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-[#9AA8BA]" />
@@ -312,7 +312,7 @@ function FilaExamen({ examen, onElegir }) {
       <div className="min-w-0">
         <div className="text-sm font-semibold text-[#08264A] truncate">{examen.tipo} · {examen.materia}</div>
         <div className="mt-px text-xs text-[#64748B] truncate">
-          Aula {examen.aula}{examen.grupo ? ` · Grupo ${examen.grupo}` : ""}{examen.fila ? ` · Sin internet: apellidos ${examen.fila.desde} – ${examen.fila.hasta}` : ""}
+          Aula {String(examen.aula || "").replace(/^aula\s*/i, "")}{examen.grupo ? ` · Grupo ${examen.grupo}` : ""}{examen.fila ? ` · Sin internet: apellidos ${examen.fila.desde} – ${examen.fila.hasta}` : ""}
           <span className={"ml-2 inline-flex items-center gap-1 px-2 py-px rounded-full text-[11px] font-semibold " + objEstado.strClase}>
             <i className={"w-[6px] h-[6px] rounded-full " + objEstado.strPunto} />{objEstado.strTexto}
           </span>
