@@ -1,7 +1,7 @@
 // "Mis exámenes" del ayudante: todos los exámenes donde registra el ingreso (como "Mis exámenes" del docente).
 // Botones por estado:
 // - En curso (o desde 15 min antes): "Registrar ingreso".
-// - Antes de terminar: "Modo sin conexión" de Yuri (descargar nómina / forzar), sin cambios.
+// - Antes de terminar: "Modo sin conexión" de Yuri (descargar nómina / forzar), abajo a lo ancho, sin cambiar su función.
 // - Finalizado: sin botones.
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -86,6 +86,11 @@ function TarjetaExamenAyudante({ examen, strEstado, dateAhora, onRegistrar }) {
               Registrar ingreso
             </button>
           )}
+        </div>
+      )}
+
+      {!boolFinalizado && (
+        <div className="basis-full pt-3 border-t border-[#E2E8F0]">
           <FilaNominaSinConexion examen={examen} />
         </div>
       )}

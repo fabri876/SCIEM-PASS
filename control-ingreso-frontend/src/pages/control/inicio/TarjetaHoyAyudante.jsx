@@ -2,9 +2,9 @@
 // - Hora de inicio en grande a la izquierda.
 // - "Registrar ingreso" desde 15 minutos antes del inicio hasta el fin; antes, "Registro desde las HH:MM".
 // - En curso: franja azul a la izquierda y barra de ingresos a lo ancho.
-// - Abajo: "Modo sin conexión" de Yuri (HU07), sin cambios.
+// - Abajo: "Modo sin conexión" de Yuri (HU07) en una sola línea, con su panel de sincronización a la derecha.
+// - El rango de apellidos ya no va aquí: solo se ve en la pantalla de registro cuando no hay internet.
 import { ArrowRight } from "lucide-react";
-import PildoraFila from "../ingreso/componentes/PildoraFila";
 import { FilaNominaSinConexion } from "../ingreso/componentes/ListaExamenesHoy";
 import { estadoAyudante, puedeRegistrar, aperturaRegistro, horaCorta, textoAula, textoGrupo } from "../utilidadesAyudante";
 
@@ -57,15 +57,14 @@ export default function TarjetaHoyAyudante({ examen, dateAhora, onElegir, boolSi
       {boolEnCurso && numHab > 0 && (
         <div className="mt-2.5 ml-20 flex items-center gap-3 max-md:ml-0">
           <div className="flex-1 h-1.5 rounded-full bg-[#EEF2F7] overflow-hidden">
-            <div className="h-full rounded-full bg-[#1860A3] transition-all duration-500" style={{ width: `${numPct}%` }} />
+            <div className="h-full rounded-full bg-[#003770] transition-all duration-500" style={{ width: `${numPct}%` }} />
           </div>
           <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap">{numIng} / {numHab} ingresaron</span>
         </div>
       )}
 
-      {/* Tramo de apellidos (sin internet) y "Modo sin conexión" de Yuri */}
-      <div className="mt-3 ml-20 pt-2.5 border-t border-dashed border-[#E2E8F0] flex flex-wrap items-center justify-between gap-2 max-md:ml-0">
-        {examen.fila ? <PildoraFila objFila={examen.fila} /> : <span />}
+      {/* "Modo sin conexión" de Yuri (HU07): misma función, ordenado en una línea */}
+      <div className="mt-3 ml-20 pt-2.5 border-t border-[#E2E8F0] max-md:ml-0">
         <FilaNominaSinConexion examen={examen} boolSinRed={boolSinRed} />
       </div>
     </div>

@@ -8,6 +8,7 @@ import { obtenerAsignacionIngreso } from "../../../services/asignacionOperadores
 import { useNominaLocal } from "../../../offline";
 import PanelListaOficial from "../../control/ingreso/componentes/PanelListaOficial";
 import { estadoExamen, esHoy, puedeControlarIngreso, marcaTiempo } from "../utilidadesExamenDocente";
+import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
 
 const FILTROS = [
   { clave: "TODOS", etiqueta: "Todos" },
@@ -61,7 +62,7 @@ function TarjetaControlDocente({ examen, objAsig, dateAhora, onAsignarOperadores
         ? { strTexto: "Finalizado", strClase: "bg-[#F1F5F9] text-[#64748B]" }
         : null;
 
-  const strGrupo = examen.grupo ? `Grupo ${String(examen.grupo).replace(/^grupo\s*/i, "")}` : "";
+  const strGrupo = textoGrupoExamen(examen.grupo);
   const strDetalle = [strGrupo, examen.horario, textoAulas(examen)].filter(Boolean).join(" · ");
 
   const fnDescargar = () => {
