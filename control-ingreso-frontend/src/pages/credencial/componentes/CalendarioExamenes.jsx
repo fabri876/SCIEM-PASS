@@ -81,7 +81,7 @@ export default function CalendarioExamenes({ listExamenes = [], onVerQr }) {
                   className="w-full text-left px-3 py-2 rounded-lg bg-[#F0F6FC] hover:bg-[#D9E8F7] cursor-pointer"
                 >
                   <b className="block text-[13px] font-semibold text-[#08264A]">{e.materia}</b>
-                  <span className="text-xs text-[#475569]">{e.horaInicio}{e.horaFin ? ` – ${e.horaFin}` : ""} · Aula {e.aula}</span>
+                  <span className="text-xs text-[#475569]">{e.horaInicio}{e.horaFin ? ` – ${e.horaFin}` : ""} · Aula {String(e.aula || "").replace(/^aula\s*/i, "")}</span>
                 </button>
               </li>
             ))}

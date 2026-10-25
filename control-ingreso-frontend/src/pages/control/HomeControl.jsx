@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Header from "../../components/layout/Header";
 import OperadorProvider from "./OperadorProvider";
@@ -6,11 +7,14 @@ import ModalCierreSesion from "./components/ModalCierreSesion";
 import ToastOperador from "./components/ToastOperador";
 import ToastSyncConfirmacion from "./components/ToastSyncConfirmacion";
 import BarraLateralAyudante, { PestanasAyudante } from "./components/BarraLateralAyudante";
+import { LayoutAyudanteContexto } from "./layoutAyudanteContexto";
 
 // Panel del ayudante: perfil y menú a la izquierda (como el docente) y la sección elegida a la derecha.
 // El conmutador Online / Offline (HU07) ahora lo pone cada pantalla en su lugar:
 // en el banner de Inicio y arriba de la pantalla de registro (ver SelectorConexion).
+// En la pantalla de registro de ingreso el menú lateral se oculta (pantalla completa).
 function ContenidoOperador() {
+  const [boolPantallaCompleta, setBoolPantallaCompleta] = useState(false);
   const {
     fnCerrarSesion,
     logoutConfirmVisible, logoutMensaje, fnCancelarLogout,
@@ -24,11 +28,14 @@ function ContenidoOperador() {
       </div>
 
       <div className="flex-1 w-full">
-        <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-4 sm:px-6 gap-6">
-          <BarraLateralAyudante />
+        {/* Pantalla de registro: mismo ancho que el registro de ingreso del docente (1200px) */}
+        <div className={`flex pt-[115px] pb-10 ${boolPantallaCompleta ? "max-w-[1200px]" : "max-w-[1440px]"} mx-auto px-4 sm:px-6 gap-6`}>
+          {!boolPantallaCompleta && <BarraLateralAyudante />}
           <main className="flex-1 min-w-0 space-y-5">
-            <PestanasAyudante />
-            <Outlet />
+            {!boolPantallaCompleta && <PestanasAyudante />}
+            <LayoutAyudanteContexto.Provider value={{ setBoolPantallaCompleta }}>
+              <Outlet />
+            </LayoutAyudanteContexto.Provider>
           </main>
         </div>
       </div>
