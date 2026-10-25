@@ -1,4 +1,6 @@
 // Página del DOCENTE (y del ADMINISTRADOR): mismo control de ingreso + lista oficial del aula (solo lectura)
+// Sin internet: si el docente se asignó un tramo de apellidos, ve su tramo en la franja y "Mi lista";
+// si no, la lista muestra toda el aula con la nómina descargada (antes no cargaba sin internet).
 // Rutas: /home/docente/examenes/:idExamen/control-ingreso  (docente)
 //        /admin/examenes/:idExamen/control-ingreso         (administrador)
 import { useCallback, useEffect, useState } from "react";
@@ -10,6 +12,8 @@ import useControlIngreso from "./useControlIngreso";
 import SeccionControlIngreso from "./SeccionControlIngreso";
 import EncabezadoControl from "./componentes/EncabezadoControl";
 import PanelListaOficial from "./componentes/PanelListaOficial";
+import PanelMiLista from "./componentes/PanelMiLista";
+import useRangoLocal from "./useRangoLocal";
 import ToastSyncConfirmacion from "../components/ToastSyncConfirmacion";
 import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilidadesExamenDocente";
 
@@ -42,6 +46,10 @@ export default function ControlIngresoDocente() {
 
   const examen = ctrl.examenActual;
   const boolEnLinea = estadoRed.net !== "offline";
+  const boolSinRed = !boolEnLinea || Boolean(ctrl.boolOffline);
+  const idExamenLocal = examen?.idexamen ?? Number(idExamen);
+  // Tramo del docente guardado en el equipo (solo se usa sin internet)
+  const objRangoDocente = useRangoLocal(idExamenLocal, examen?.idambiente ?? idAmbiente, boolSinRed);
 
   // El registro se habilita desde MINUTOS_ANTES_CONTROL_INGRESO antes del inicio.
   // Antes de eso se ve la pantalla, pero no se puede registrar.
@@ -114,6 +122,7 @@ export default function ControlIngresoDocente() {
             ctrl={ctrl}
             strRol="docente"
             boolPermitirVolver={false}
+            objFilaSinRed={boolSinRed ? objRangoDocente : null}
             listAvisos={[
               boolAdmin && strNombreDocente ? `Docente: ${strNombreDocente}` : null,
               boolAunNoEmpieza ? `Registro desde las ${strHoraApertura}` : null,
@@ -124,7 +133,7 @@ export default function ControlIngresoDocente() {
                 onClick={() => setBoolListaAbierta(true)}
                 className="min-h-10 px-4 rounded-lg bg-white text-[#003770] text-[14px] font-bold inline-flex items-center justify-center gap-2 hover:bg-[#F0F6FC] cursor-pointer max-md:w-full"
               >
-                <ListChecks className="w-4 h-4" /> Lista oficial del aula
+                <ListChecks className="w-4 h-4" /> {boolSinRed && objRangoDocente ? "Mi lista" : "Lista oficial del aula"}
               </button>
             }
           />
@@ -142,13 +151,27 @@ export default function ControlIngresoDocente() {
         </div>
       )}
 
-      <PanelListaOficial
-        boolAbierto={boolListaAbierta}
-        onCerrar={fnCerrarLista}
-        idExamen={Number(idExamen)}
-        numVersion={ctrl.numVersion}
-        strUltimoRegistrado={ctrl.strUltimoRegistrado}
-      />
+      {boolSinRed ? (
+        <PanelMiLista
+          boolAbierto={boolListaAbierta}
+          onCerrar={fnCerrarLista}
+          examen={{ ...(examen || {}), idexamen: idExamenLocal, idambiente: examen?.idambiente ?? idAmbiente, fila: objRangoDocente }}
+          boolSinRed
+          numVersion={ctrl.numVersion}
+          numPendientes={estadoRed.pend}
+          strUltimoRegistrado={ctrl.strUltimoRegistrado}
+          strNominaDescargadaEn={ctrl.objNomina?.descargadaEn}
+          strTituloLista="Lista oficial del aula"
+        />
+      ) : (
+        <PanelListaOficial
+          boolAbierto={boolListaAbierta}
+          onCerrar={fnCerrarLista}
+          idExamen={Number(idExamen)}
+          numVersion={ctrl.numVersion}
+          strUltimoRegistrado={ctrl.strUltimoRegistrado}
+        />
+      )}
       <ToastSyncConfirmacion />
     </div>
   );

@@ -108,7 +108,8 @@ function fechaHora(valor) {
   }
 }
 
-export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed, numVersion, numPendientes, strUltimoRegistrado, strNominaDescargadaEn }) {
+// strTituloLista: título cuando no hay tramo (ayudante: "Lista oficial"; docente: "Lista oficial del aula")
+export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed, numVersion, numPendientes, strUltimoRegistrado, strNominaDescargadaEn, strTituloLista = "Lista oficial" }) {
   const [strBuscar, setStrBuscar] = useState("");
   const [strFiltro, setStrFiltro] = useState("TODOS");
   const [listFilas, setListFilas] = useState([]);
@@ -234,8 +235,8 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
       <aside role="dialog" aria-modal="true" aria-labelledby="ci-t-milista" className="ci-deslizar h-full w-[min(540px,100vw)] bg-white overflow-y-auto flex flex-col">
         <div className="flex items-start justify-between gap-3 px-[22px] pt-[22px]">
           <div>
-            <h2 id="ci-t-milista" className="m-0 text-[19px] font-bold text-[#08264A]">{boolSinRed ? "Mi lista" : "Lista oficial"}</h2>
-            <p className="mt-1 text-[13px] text-[#64748B]">{boolSinRed ? "Estudiantes que te toca registrar" : "Estado de ingreso de los estudiantes del aula"}</p>
+            <h2 id="ci-t-milista" className="m-0 text-[19px] font-bold text-[#08264A]">{objRango ? "Mi lista" : strTituloLista}</h2>
+            <p className="mt-1 text-[13px] text-[#64748B]">{objRango ? "Estudiantes que te toca registrar" : "Estado de ingreso de los estudiantes del aula"}</p>
           </div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0 text-[#003770] hover:bg-[#F1F5F9] cursor-pointer">
             <X className="w-[22px] h-[22px]" />

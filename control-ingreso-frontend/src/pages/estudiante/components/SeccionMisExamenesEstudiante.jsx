@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ordenarExamenesEstudiante, partesFecha, textoAula, esHoyEstudiante } from "../utilidadesEstudiante";
 import { estadoQr, EtiquetaQr, BotonQr } from "./QrExamen";
+import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
 
 const FILTROS = [
     { clave: "TODOS", etiqueta: "Todos" },
@@ -25,7 +26,7 @@ function TarjetaExamenLista({ examen, strEstado, dateAhora, onVerQr }) {
                 ? { strTexto: "Finalizado", strClase: "bg-[#F1F5F9] text-[#64748B]" }
                 : null;
 
-    const strGrupo = examen.grupo ? `Grupo ${String(examen.grupo).replace(/^grupo\s*/i, "")}` : "";
+    const strGrupo = textoGrupoExamen(examen.grupo);
     const strHorario = [examen.horaInicio, examen.horaFin].filter(Boolean).join(" – ");
     const strDetalle = [strGrupo, strHorario, textoAula(examen.aula)].filter(Boolean).join(" · ");
 
