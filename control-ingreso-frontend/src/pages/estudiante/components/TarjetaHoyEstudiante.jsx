@@ -2,11 +2,12 @@
 // Hora en grande a la izquierda, datos del examen, estado del QR y "Ver mi QR".
 import { estadoExamenEstudiante, textoAula } from "../utilidadesEstudiante";
 import { estadoQr, EtiquetaQr, BotonQr } from "./QrExamen";
+import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
 
 export default function TarjetaHoyEstudiante({ examen, dateAhora = new Date(), onVerQr }) {
     const boolEnCurso = estadoExamenEstudiante(examen, dateAhora) === "EN_CURSO";
     const objEstado = estadoQr(examen);
-    const strGrupo = examen.grupo ? `Grupo ${String(examen.grupo).replace(/^grupo\s*/i, "")}` : "";
+    const strGrupo = textoGrupoExamen(examen.grupo);
     const strDetalle = [textoAula(examen.aula), strGrupo].filter(Boolean).join(" · ");
 
     return (

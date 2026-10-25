@@ -42,7 +42,7 @@ function dividirEnDos(strCompleto) {
 }
 
 export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGuardar,
-                                             rolesDisponibles = ROLES_CREABLES, boolActivo = true }) {
+                                             rolesDisponibles = ROLES_CREABLES, boolActivo = true, mensajeExito = "" }) {
   const [objFormData, setObjFormData] = useState(VALORES_INICIALES);
   const [strRolOriginal, setStrRolOriginal] = useState(null);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
@@ -478,7 +478,8 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           </div>
         )}
 
-        <div className="col-span-2 flex justify-end gap-3 mt-2">
+        <div className="col-span-2 flex items-center justify-end gap-3 mt-2">
+          {mensajeExito && <p role="status" className="mr-auto rounded-lg bg-green-100 px-3 py-2 text-sm font-semibold text-green-800">{mensajeExito}</p>}
           <button
             type="button"
             onClick={onCerrar}

@@ -1,7 +1,7 @@
 // "Mis exámenes" del ayudante: todos los exámenes donde registra el ingreso (como "Mis exámenes" del docente).
 // Botones por estado:
 // - En curso (o desde 15 min antes): "Registrar ingreso".
-// - Antes de terminar: "Modo sin conexión" de Yuri (descargar nómina / forzar), sin cambios.
+// - Antes de terminar: "Modo sin conexión" de Yuri (descargar nómina / forzar), abajo a lo ancho, sin cambiar su función.
 // - Finalizado: sin botones.
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -86,6 +86,11 @@ function TarjetaExamenAyudante({ examen, strEstado, dateAhora, onRegistrar }) {
               Registrar ingreso
             </button>
           )}
+        </div>
+      )}
+
+      {!boolFinalizado && (
+        <div className="basis-full pt-3 border-t border-[#E2E8F0]">
           <FilaNominaSinConexion examen={examen} />
         </div>
       )}
@@ -108,11 +113,35 @@ export default function MisExamenesAyudante() {
 
   useEffect(() => {
     let boolVivo = true;
-    obtenerExamenesAsignados()
-      .then((list) => boolVivo && setListExamenes(Array.isArray(list) ? list : []))
-      .catch((e) => boolVivo && setStrError(e.message || "No se pudieron cargar tus exámenes."))
-      .finally(() => boolVivo && setBoolCargando(false));
-    return () => { boolVivo = false; };
+    let temporizadorReintento = null;
+
+    const cargar = async (intento = 0) => {
+      try {
+        const list = await obtenerExamenesAsignados();
+        const arr = Array.isArray(list) ? list : [];
+
+        // Después de guardar una asignación, el primer GET puede llegar antes
+        // de que la transacción sea visible para la lectura del operador.
+        // Reintentamos una vez para evitar mostrar una pantalla vacía falsa.
+        if (arr.length === 0 && intento === 0 && boolVivo) {
+          temporizadorReintento = setTimeout(() => cargar(1), 1000);
+          return;
+        }
+
+        if (boolVivo) setListExamenes(arr);
+      } catch (e) {
+        if (boolVivo) setStrError(e.message || "No se pudieron cargar tus exámenes.");
+      } finally {
+        if (intento > 0 && boolVivo) setBoolCargando(false);
+        else if (intento === 0 && !temporizadorReintento && boolVivo) setBoolCargando(false);
+      }
+    };
+
+    cargar();
+    return () => {
+      boolVivo = false;
+      if (temporizadorReintento) clearTimeout(temporizadorReintento);
+    };
   }, []);
 
   const listVisibles = useMemo(

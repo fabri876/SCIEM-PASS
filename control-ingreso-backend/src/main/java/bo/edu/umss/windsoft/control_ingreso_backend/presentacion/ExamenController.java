@@ -88,8 +88,9 @@ public class ExamenController {
     @GetMapping("/tipos-usados")
     public ResponseEntity<List<Integer>> obtenerTiposUsados(
             @RequestParam Integer idAsignatura,
-            @RequestParam Integer codsisDocente) {
-        return ResponseEntity.ok(examenService.obtenerTiposUsados(idAsignatura, codsisDocente));
+            @RequestParam Integer codsisDocente,
+            @RequestParam(required = false) Integer idGrupo) {
+        return ResponseEntity.ok(examenService.obtenerTiposUsados(idAsignatura, codsisDocente, idGrupo));
     }
 
     @GetMapping("/{id}/normas-generales")

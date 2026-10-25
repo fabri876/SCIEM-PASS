@@ -17,6 +17,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -201,6 +202,15 @@ public class GlobalExceptionHandler {
                 mensaje
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponseDto> handleResponseStatus(ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        if (status == null) status = HttpStatus.INTERNAL_SERVER_ERROR;
+        String mensaje = ex.getReason() != null ? ex.getReason() : status.getReasonPhrase();
+        ErrorResponseDto errorDto = new ErrorResponseDto(status.value(), status.getReasonPhrase(), mensaje);
+        return ResponseEntity.status(status).body(errorDto);
     }
 
     @ExceptionHandler(Exception.class)

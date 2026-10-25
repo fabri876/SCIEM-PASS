@@ -23,6 +23,10 @@ db.version(2).stores({
 
   // Configuración de usuario (PIN, bloqueo por inactividad)
   configUsuario: 'idUsuario',
+
+  // Asignaciones de operadores (ayudantes) por examen y aula
+  // Clave compuesta: [idExamen, idAmbiente, idUsuario] para no mezclar parciales
+  asignacionesOperadores: '[idExamen+idAmbiente+idUsuario], idExamen, idUsuario',
 });
 
 if (import.meta.env.DEV) {

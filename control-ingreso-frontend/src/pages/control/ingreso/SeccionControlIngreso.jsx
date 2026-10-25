@@ -40,10 +40,11 @@ function FranjaEstado({ boolSinRed, objFila }) {
 
 // nodoAcciones: botones dentro del encabezado azul (por ejemplo "Lista oficial del aula")
 // listAvisos: chips extra en el encabezado (por ejemplo "Registro desde las 19:15")
-export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true, nodoAcciones = null, listAvisos = [] }) {
+// objFilaSinRed: tramo de apellidos guardado en el equipo (por ejemplo, el docente que también controla el ingreso)
+export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true, nodoAcciones = null, listAvisos = [], objFilaSinRed = null }) {
   const { fnMostrarToast, fnDoForzar, setConfigurandoPin, estadoRed } = useOperador();
   const {
-    listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
+    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
     boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
   } = ctrl;
 
@@ -74,6 +75,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         <ListaExamenesHoy
           listExamenes={listExamenes}
           boolCargando={boolCargandoExamenes}
+          sinRespaldoOffline={sinRespaldoOffline}
           onElegir={fnElegirExamen}
           boolSinRed={ctrl.boolOffline}
         />
@@ -106,7 +108,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         </TarjetaExamen>
         <FranjaEstado
           boolSinRed={estadoRed?.net === "offline" || Boolean(ctrl.boolOffline)}
-          objFila={objContador?.fila || examenActual?.fila || null}
+          objFila={objContador?.fila || examenActual?.fila || objFilaSinRed || null}
         />
       </div>
 
@@ -208,7 +210,13 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         )}
       </section>
 
-      <TablaUltimosIngresos listUltimos={listUltimos} strUltimoRegistrado={strUltimoRegistrado} strRol={strRol} numRegistrados={objContador?.ingresaron ?? null} />
+      <TablaUltimosIngresos
+        listUltimos={listUltimos}
+        strUltimoRegistrado={strUltimoRegistrado}
+        strRol={strRol}
+        numRegistrados={objContador?.ingresaron ?? null}
+        boolSinRed={boolOperador && (estadoRed?.net === "offline" || Boolean(ctrl.boolOffline))}
+      />
     </div>
   );
 }

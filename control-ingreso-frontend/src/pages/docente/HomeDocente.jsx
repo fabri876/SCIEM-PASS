@@ -6,7 +6,7 @@ import BulkUploadCard from "../admin/components/BulkUploadCard";
 import UsuarioFormFields from "../admin/components/UsuarioFormFields";
 import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
-import { obtenerMisExamenes, obtenerAsignaturasPorDocente } from "../../services/examenService";
+import { obtenerMisExamenes } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
@@ -93,7 +93,7 @@ export default function HomeDocente() {
             setBoolCargando(true);
             try {
                 const dataExamenes = await obtenerMisExamenes();
-                if (!cancel && Array.isArray(dataExamenes) && dataExamenes.length > 0) {
+                if (!cancel && Array.isArray(dataExamenes)) {
                     const mapeados = dataExamenes.map((ex) => {
                         const primerAmb = ex.ambientes && ex.ambientes.length > 0 ? ex.ambientes[0] : null;
                         const horaInicio = (ex.horaInicio || primerAmb?.horaInicio || "").toString().substring(0, 5);
@@ -139,42 +139,9 @@ export default function HomeDocente() {
                         };
                     });
                     setExamenes(mapeados);
-                    setBoolCargando(false);
-                    return;
                 }
             } catch (err) {
                 console.warn("No se pudieron cargar exámenes desde /mis-examenes:", err);
-            }
-
-            // Fallback: Si no hay exámenes aún, cargar las asignaturas reales asociadas a este docente
-            try {
-                const current = usuario || obtenerUsuarioActual();
-                if (current?.idUsuario && current?.codigoSis) {
-                    const asigs = await obtenerAsignaturasPorDocente(current.idUsuario, current.codigoSis);
-                    if (!cancel && Array.isArray(asigs) && asigs.length > 0) {
-                        const mapeadosAsig = asigs.map((a, idx) => {
-                            const total = a.totalEstudiantes || (a.cantidadHabilitados || 0) + (a.cantidadInhabilitados || 0);
-                            const hab = a.cantidadHabilitados || 0;
-                            const inhab = a.cantidadInhabilitados || 0;
-                            return {
-                                idExamen: a.idAsignatura || idx + 1,
-                                idAsignatura: a.idAsignatura,
-                                nombreExamen: a.nombreAsignatura || a.nombre,
-                                siglaAsignatura: a.siglaAsignatura || a.codigo || '',
-                                aula: 'Asignatura Asignada · UMSS',
-                                horario: 'Gestión Oficial',
-                                ingresados: hab,
-                                noLlegan: Math.max(0, total - hab - inhab),
-                                inhabilitados: inhab,
-                                totalInscritos: total,
-                                esExamenReal: false,
-                            };
-                        });
-                        setExamenes(mapeadosAsig);
-                    }
-                }
-            } catch (errAsig) {
-                console.warn("No se pudieron cargar asignaturas del docente:", errAsig);
             } finally {
                 if (!cancel) setBoolCargando(false);
             }
@@ -251,7 +218,6 @@ export default function HomeDocente() {
     const fnRegistrarIndividual = async (datos) => {
         await registrarUsuarioIndividual(datos);
         setMensajeRegistro("Usuario registrado correctamente.");
-        setBoolModalRegistroAbierto(false);
         // Si se registró un operador, la pantalla de asignación vuelve a pedir la lista
         setNumRecargaOperadores((n) => n + 1);
     };
@@ -265,7 +231,6 @@ export default function HomeDocente() {
                 <Header strRutaActiva="Inicio" />
             </div>
 
-            {mensajeRegistro && <p role="status" className="fixed bottom-4 left-4 z-50 rounded-xl bg-green-100 text-green-800 p-4 shadow">{mensajeRegistro}</p>}
             {/* CONTENEDOR PRINCIPAL */}
             <div className="flex-1 w-full">
                 <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-6 gap-6">
@@ -511,6 +476,7 @@ export default function HomeDocente() {
                             rolesDisponibles={ROLES_REGISTRABLES_POR_DOCENTE}
                             onCerrar={() => setBoolModalRegistroAbierto(false)}
                             onGuardar={fnRegistrarIndividual}
+                            mensajeExito={mensajeRegistro}
                             boolActivo={boolModalRegistroAbierto && strSeccionRegistro === "individual"}
                         />
                     ) : (

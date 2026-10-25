@@ -14,6 +14,7 @@ public class ExamenRespuestaDto {
     private Boolean estadoExamen;
 
     private Integer idAsignatura;
+    private Integer idGrupo;
     private Integer idTipoExamen;
     private Integer idUsuario;
     private Integer codsisDocente;
@@ -59,6 +60,8 @@ public class ExamenRespuestaDto {
 
     public Integer getIdAsignatura() { return idAsignatura; }
     public void setIdAsignatura(Integer idAsignatura) { this.idAsignatura = idAsignatura; }
+    public Integer getIdGrupo() { return idGrupo; }
+    public void setIdGrupo(Integer idGrupo) { this.idGrupo = idGrupo; }
 
     public Integer getIdTipoExamen() { return idTipoExamen; }
     public void setIdTipoExamen(Integer idTipoExamen) { this.idTipoExamen = idTipoExamen; }
