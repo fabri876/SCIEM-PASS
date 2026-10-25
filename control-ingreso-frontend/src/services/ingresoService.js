@@ -111,6 +111,9 @@ export async function obtenerExamenesAsignados() {
   const res = await cargarExamenesConRespaldo({
     clave: "delegados",
     usuarioId: usuario?.idUsuario ?? null,
+    // La consulta puede tardar cuando se resuelven varias asignaciones,
+    // ambientes y filas de operadores. Evitar cancelarla a los 5 s.
+    timeoutMs: 20000,
     fetcher: async ({ signal }) => {
       const strToken = obtenerToken();
       const resp = await fetch(`${strApiBaseUrl}/api/v1/examenes/delegados?_t=${Date.now()}`, {

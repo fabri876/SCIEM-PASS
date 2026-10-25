@@ -28,6 +28,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoReposito
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.TipoExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.DelegadoExamenDTO;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FilaDelegadoExamenDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.EstudianteResumenDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.JornadaActivaDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.PrimerIngresoDTO;
@@ -62,6 +63,7 @@ public class ControlIngresoAyudanteService {
 
     private static final Logger log = LoggerFactory.getLogger(ControlIngresoAyudanteService.class);
     private static final ZoneId ZONA_HORARIA = ZoneId.of("America/La_Paz");
+    private static final long MINUTOS_ANTES_CONTROL_INGRESO = 15L;
 
     private final AyudanteExamenRepository ayudanteExamenRepository;
     private final AsignaturaRepository asignaturaRepository;
@@ -298,6 +300,16 @@ public class ControlIngresoAyudanteService {
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
             LocalDateTime horaMarcacion, String clientUuid) {
         validarAsignacionDeControl(dto, idOperador);
+
+        // El horario se valida únicamente para registros online. Las marcas
+        // con clientUuid provienen del modo offline y deben sincronizarse sin
+        // ser rechazadas por la hora en que recuperan conexión.
+        if (clientUuid == null) {
+            ResponseEntity<ResultadoIngresoDTO> fueraDeHorario = validarHorarioOnline(dto);
+            if (fueraDeHorario != null) {
+                return fueraDeHorario;
+            }
+        }
         String query = dto.identificador() != null ? dto.identificador().trim() : "";
 
         // Cuando la lectura proviene de la cámara, cualquier contenido que no
@@ -552,6 +564,32 @@ public class ControlIngresoAyudanteService {
         return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
     }
 
+    private ResponseEntity<ResultadoIngresoDTO> validarHorarioOnline(VerificarIngresoRequestDTO dto) {
+        Examen examen = examenRepository.findById(dto.idexamen()).orElse(null);
+        Ambiente ambiente = ambienteRepository.findById(dto.idambiente()).orElse(null);
+        if (examen == null || ambiente == null || examen.getFechaExamen() == null
+                || ambiente.getHoraInicio() == null || ambiente.getHoraFin() == null) {
+            return null;
+        }
+
+        LocalDateTime apertura = LocalDateTime.of(examen.getFechaExamen(), ambiente.getHoraInicio())
+                .minusMinutes(MINUTOS_ANTES_CONTROL_INGRESO);
+        LocalDateTime cierre = LocalDateTime.of(examen.getFechaExamen(), ambiente.getHoraFin());
+        LocalDateTime ahora = LocalDateTime.now(ZONA_HORARIA);
+
+        if (!ahora.isBefore(apertura) && !ahora.isAfter(cierre)) {
+            return null;
+        }
+
+        String mensaje = String.format(
+                "El registro de ingreso se habilita a las %s y finaliza a las %s.",
+                ambiente.getHoraInicio().minusMinutes(MINUTOS_ANTES_CONTROL_INGRESO),
+                ambiente.getHoraFin());
+        ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
+                "FUERA_DE_HORARIO", mensaje, null, null, null, null);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(resultado);
+    }
+
     private void validarAsignacionDeControl(VerificarIngresoRequestDTO dto, Integer idUsuario) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         boolean autorizadoGlobal = auth != null && auth.getAuthorities().stream()
@@ -689,7 +727,31 @@ public class ControlIngresoAyudanteService {
                 usuarioRepository.findById(ae.getId().getIdayudante())
                         .map(u -> (u.getNombreusuario() + " " + u.getApellidousuario()).trim())
                         .orElse("Ayudante"),
-                true);
+                true,
+                obtenerFilasDelExamen(idAsig, idEx, idAmb, idOperadorActual(ae)));
+    }
+
+    private Integer idOperadorActual(AyudanteExamen ae) {
+        return ae.getId().getIdayudante();
+    }
+
+    private List<FilaDelegadoExamenDTO> obtenerFilasDelExamen(Integer idAsignatura, Integer idExamen,
+            Integer idAmbiente, Integer idAyudanteActual) {
+        return ayudanteExamenRepository
+                .findByIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
+                        idAsignatura, idExamen, idAmbiente, "ACTIVO")
+                .stream()
+                .filter(a -> "SUBDIVISION".equalsIgnoreCase(a.getModoAsignacion()))
+                .map(a -> new FilaDelegadoExamenDTO(
+                        a.getApellidoDesde(),
+                        a.getApellidoHasta(),
+                        usuarioRepository.findById(a.getId().getIdayudante())
+                                .map(u -> (u.getNombreusuario() + " " + u.getApellidousuario()).trim())
+                                .orElse("Ayudante"),
+                        0,
+                        0,
+                        a.getId().getIdayudante().equals(idAyudanteActual)))
+                .toList();
     }
 
     private JornadaActivaDTO mapearAJornadaActivaDTO(AyudanteExamen ae) {
