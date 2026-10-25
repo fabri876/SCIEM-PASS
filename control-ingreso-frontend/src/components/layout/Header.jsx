@@ -4,6 +4,7 @@ import Logo from "../common/Logo";
 import UserAccountMenu from "../common/UserAccountMenu";
 import NotificationsMenu from "./NotificationsMenu";
 import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, cerrarSesion } from "../../services/authService";
+import ModalCierreSesion from "../../pages/control/components/ModalCierreSesion.jsx";
 
 /**
  * Header.jsx
@@ -108,9 +109,33 @@ export default function Header() {
   const boolAutenticado = Boolean(obtenerToken() && usuarioActual);
   const [boolMenuAbierto, setBoolMenuAbierto] = useState(false);
   const [boolAbrirNotifMobile, setBoolAbrirNotifMobile] = useState(false);
+  const [modalLogout, setModalLogout] = useState({ visible: false, mensaje: "" });
 
-  const fnCerrarSesion = () => {
-    cerrarSesion();
+  const fnCerrarSesion = async () => {
+    let pend = 0;
+    const u = obtenerUsuarioActual();
+    const uId = u?.idUsuario ?? u?.id;
+    try {
+      const { asistenciaRepo } = await import("../../offline/asistenciaRepo.js");
+      pend = await asistenciaRepo.contarPendientes(null, { operadorId: uId ? String(uId) : null });
+    } catch {}
+
+    if (pend > 0) {
+      setModalLogout({
+        visible: true,
+        mensaje: `Quedan ${pend} marcas sin enviar. Solo se enviarán cuando vuelvas a iniciar sesión con ESTA misma cuenta.`,
+      });
+      setBoolMenuAbierto(false);
+      return;
+    }
+    cerrarSesion({ limpiarDatosLocales: true });
+    setBoolMenuAbierto(false);
+    navigate("/login");
+  };
+
+  const fnConfirmarLogoutConPendientes = () => {
+    setModalLogout({ visible: false, mensaje: "" });
+    cerrarSesion({ limpiarDatosLocales: true });
     setBoolMenuAbierto(false);
     navigate("/login");
   };
@@ -234,6 +259,13 @@ export default function Header() {
           </div>
         </div>
       )}
+
+      <ModalCierreSesion
+        visibleConfirm={modalLogout.visible}
+        mensajeConfirm={modalLogout.mensaje}
+        onConfirmar={fnConfirmarLogoutConPendientes}
+        onCancelar={() => setModalLogout({ visible: false, mensaje: "" })}
+      />
     </header>
   );
 }

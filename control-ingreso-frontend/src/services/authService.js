@@ -1,5 +1,4 @@
 import { strApiBaseUrl } from "./apiConfig";
-import { estaSinRed } from "../offline/connectivityService.js";
 
 const TIEMPO_INACTIVIDAD_MAXIMO_MS = 30 * 60 * 1000; // 30 minutos
 
@@ -14,17 +13,31 @@ export function registrarActividad() {
 }
 
 export function estaSesionExpirada() {
-  if (boolModoOfflineForzado || estaSinRed()) return false;
+  const sinInternet = typeof window !== "undefined" && Boolean(window.__sciemSinInternet);
+  const sinRed = typeof navigator !== "undefined" && navigator.onLine === false;
+  if (sinInternet || sinRed) return false;
 
   const token = localStorage.getItem("token");
   if (!token) return true;
 
+  // Si no hay registro de actividad previa, no considerar expirado (primer inicio)
   const strUltimaActividad = localStorage.getItem("ultimaActividad");
   if (!strUltimaActividad) return false;
 
   const intUltimaActividad = parseInt(strUltimaActividad, 10);
   return (Date.now() - intUltimaActividad) > TIEMPO_INACTIVIDAD_MAXIMO_MS;
 }
+
+function iniciarRegistroActividadGlobal() {
+  if (typeof window === "undefined") return;
+  const eventos = ["click", "keydown", "scroll", "mousemove", "touchstart"];
+  eventos.forEach((evt) =>
+    window.addEventListener(evt, registrarActividad, { passive: true })
+  );
+}
+
+// Iniciar monitoreo de actividad al cargar el módulo
+iniciarRegistroActividadGlobal();
 
 export async function registrarUsuario(objDatosRegistro) {
   const response = await fetch(`${strApiBaseUrl}/api/auth/registro`, {
@@ -84,10 +97,80 @@ export function obtenerUsuarioActual() {
   }
 }
 
-export function cerrarSesion() {
+export async function limpiarDatosLocalesDeUsuario(idUsuario) {
+  let advertenciaMarcasPendientes = false;
+  try {
+    const { examenRepo } = await import("../offline/examenRepo.js");
+    const { eliminarNominaLocal } = await import("../offline/nominaLoader.js");
+    const { db } = await import("../offline/db.js");
+    const { ERROR_ASISTENCIA } = await import("../offline/constantes.js");
+    const { detenerSincronizacionAutomatica } = await import("../offline/syncScheduler.js");
+
+    try {
+      detenerSincronizacionAutomatica();
+    } catch {}
+
+    if (idUsuario) {
+      try {
+        await examenRepo.limpiarExamenesDeUsuario(idUsuario);
+      } catch (err) {
+        if (err?.codigo === ERROR_ASISTENCIA?.TIENE_MARCAS_PENDIENTES) {
+          advertenciaMarcasPendientes = true;
+        }
+      }
+    }
+
+    try {
+      const todosMeta = await db.meta.toArray();
+      const metasNomina = todosMeta.filter((m) => m.clave && m.clave.startsWith("nomina:"));
+      for (const m of metasNomina) {
+        const idExamen = m.idExamen ?? Number(m.clave.replace("nomina:", ""));
+        if (idExamen) {
+          try {
+            await eliminarNominaLocal(idExamen);
+          } catch (err) {
+            if (err?.codigo === ERROR_ASISTENCIA?.TIENE_MARCAS_PENDIENTES) {
+              advertenciaMarcasPendientes = true;
+            }
+          }
+        }
+      }
+    } catch {}
+
+    if (advertenciaMarcasPendientes && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("sesion:marcas_pendientes_conservadas", {
+          detail: { mensaje: "Se conservaron nóminas y marcas pendientes de sincronización." },
+        })
+      );
+    }
+    return { exito: true, marcasPendientesConservadas: advertenciaMarcasPendientes };
+  } catch (err) {
+    return { exito: false, error: err };
+  }
+}
+
+export function cerrarSesion(opciones = {}) {
+  // SIEMPRE detiene el planificador de sincronización al cerrar sesión
+  try {
+    import("../offline/syncScheduler.js")
+      .then((m) => m.detenerSincronizacionAutomatica?.())
+      .catch(() => {});
+  } catch {}
+
+  let idUsuario = null;
+  try {
+    const str = localStorage.getItem("usuario");
+    if (str) idUsuario = JSON.parse(str)?.idUsuario ?? null;
+  } catch {}
+
   localStorage.removeItem("token");
   localStorage.removeItem("usuario");
   localStorage.removeItem("ultimaActividad");
+
+  if (opciones?.limpiarDatosLocales === true) {
+    void limpiarDatosLocalesDeUsuario(idUsuario);
+  }
 }
 
 export function obtenerRutaPorRol(strRol) {

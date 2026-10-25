@@ -7,6 +7,10 @@ import java.time.LocalTime;
 @Entity
 @Table(name = "examen")
 public class Examen {
+    @Column(name="idsemestre", insertable=false, updatable=false)
+    private Integer idSemestre;
+    public Integer getIdSemestre() { return idSemestre; }
+
 
     // Sin IDENTITY/sequence en la base real (ver Usuario.java) — se usa una
     // sequence propia creada a mano.
@@ -35,6 +39,10 @@ public class Examen {
 
     @Column(name = "idasignatura")
     private Integer idAsignatura;
+
+    // Opcional mientras se migran los exámenes existentes a un grupo.
+    @Column(name = "idgrupo")
+    private Integer idGrupo;
 
     @Column(name = "idtipoexamen", nullable = false)
     private Integer idTipoExamen;
@@ -106,6 +114,8 @@ public class Examen {
     public void setIdAsignatura(Integer idAsignatura) {
         this.idAsignatura = idAsignatura;
     }
+    public Integer getIdGrupo() { return idGrupo; }
+    public void setIdGrupo(Integer idGrupo) { this.idGrupo = idGrupo; }
     public Integer getIdTipoExamen() { return idTipoExamen; }
     public void setIdTipoExamen(Integer idTipoExamen) { this.idTipoExamen = idTipoExamen; }
     public String getDetalleTipoExamen() { return detalleTipoExamen; }

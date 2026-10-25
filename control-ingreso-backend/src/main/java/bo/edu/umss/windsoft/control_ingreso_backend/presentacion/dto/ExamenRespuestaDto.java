@@ -14,6 +14,7 @@ public class ExamenRespuestaDto {
     private Boolean estadoExamen;
 
     private Integer idAsignatura;
+    private Integer idGrupo;
     private Integer idTipoExamen;
     private Integer idUsuario;
     private Integer codsisDocente;
@@ -29,6 +30,11 @@ public class ExamenRespuestaDto {
     private String  nombreGrupo;
 
     private List<AmbienteRespuestaDto> ambientes;
+
+    private int ingresados;
+    private int noLlegan;
+    private int inhabilitados;
+    private int totalInscritos;
 
     public ExamenRespuestaDto() {}
 
@@ -54,6 +60,8 @@ public class ExamenRespuestaDto {
 
     public Integer getIdAsignatura() { return idAsignatura; }
     public void setIdAsignatura(Integer idAsignatura) { this.idAsignatura = idAsignatura; }
+    public Integer getIdGrupo() { return idGrupo; }
+    public void setIdGrupo(Integer idGrupo) { this.idGrupo = idGrupo; }
 
     public Integer getIdTipoExamen() { return idTipoExamen; }
     public void setIdTipoExamen(Integer idTipoExamen) { this.idTipoExamen = idTipoExamen; }
@@ -87,4 +95,13 @@ public class ExamenRespuestaDto {
 
     public List<AmbienteRespuestaDto> getAmbientes() { return ambientes; }
     public void setAmbientes(List<AmbienteRespuestaDto> ambientes) { this.ambientes = ambientes; }
+
+    public int getIngresados() { return ingresados; }
+    public void setIngresados(int ingresados) { this.ingresados = ingresados; }
+    public int getNoLlegan() { return noLlegan; }
+    public void setNoLlegan(int noLlegan) { this.noLlegan = noLlegan; }
+    public int getInhabilitados() { return inhabilitados; }
+    public void setInhabilitados(int inhabilitados) { this.inhabilitados = inhabilitados; }
+    public int getTotalInscritos() { return totalInscritos; }
+    public void setTotalInscritos(int totalInscritos) { this.totalInscritos = totalInscritos; }
 }

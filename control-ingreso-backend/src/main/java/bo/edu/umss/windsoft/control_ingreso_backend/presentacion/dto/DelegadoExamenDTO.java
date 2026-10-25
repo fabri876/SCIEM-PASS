@@ -2,6 +2,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 public record DelegadoExamenDTO(
         Integer idayudante,
@@ -22,6 +23,11 @@ public record DelegadoExamenDTO(
         int ingresaron,
         int faltantes,
         int inhabilitados,
-        int totalHabilitados
+        int totalHabilitados,
+        String letraDesde,
+        String letraHasta,
+        String nombreOperador,
+        boolean esMia,
+        List<FilaDelegadoExamenDTO> filas
 ) {
 }

@@ -10,8 +10,9 @@ import {
 import {
     obtenerDocentesAdmin,
     actualizarExamen,
-    obtenerTiposUsados,
 } from "../../../services/adminNormasService";
+import { obtenerTiposUsadosPorGrupo } from "../../../services/grupoExamenService";
+import { useGruposDocente, useAulasOcupadas, textoGrupo } from "../../../components/examenes/useGrupoYAulas";
 
 
 const DIAS_SEMANA = {
@@ -29,21 +30,6 @@ const DIAS_SEMANA = {
 const HORA_ACADEMICA_INICIO = "06:45";
 const HORA_ACADEMICA_FIN = "21:45";
 
-// Cadena de prerrequisitos entre tipos de examen fijos (Segundo parcial
-// requiere Primer parcial ya registrado, y así sucesivamente). "Otro" queda
-// fuera de esta cadena a propósito. Heurística por nombre normalizado, ya
-// que el catálogo no trae un campo de "orden" — si Neil cambia estos
-// nombres en la BD, hay que ajustar este arreglo.
-const CADENA_TIPOS = ["primer parcial", "segundo parcial", "examen final", "segunda instancia"];
-
-function normalizarNombreTipo(strNombre) {
-    return (strNombre || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .trim();
-}
-
 function diaSemanaDeFecha(strFechaYYYYMMDD) {
     if (!strFechaYYYYMMDD) return null;
     const d = new Date(`${strFechaYYYYMMDD}T00:00:00`);
@@ -51,39 +37,25 @@ function diaSemanaDeFecha(strFechaYYYYMMDD) {
     return js === 0 ? 7 : js;
 }
 
-function IconoDocumento() {
+// Una opción del buscador de aulas: las ocupadas en ese horario salen en gris y no se pueden elegir
+function OpcionAula({ aula, boolOcupada, onElegir }) {
+    if (boolOcupada) {
+        return (
+            <div className="px-3 py-2 text-[13px] flex items-center justify-between gap-2 bg-[#F8FAFC] text-gray-400 cursor-not-allowed">
+                {aula.nombreAula}
+                <span className="text-[11px] font-bold bg-[#F1F5F9] text-[#64748B] rounded-full px-2 py-0.5 whitespace-nowrap">
+                    No disponible en este horario
+                </span>
+            </div>
+        );
+    }
     return (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />
-        </svg>
-    );
-}
-
-function IconoInfo() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <circle cx="12" cy="12" r="9" />
-            <path strokeLinecap="round" d="M12 8h.01M11 12h1v4h1" />
-        </svg>
-    );
-}
-
-function IconoNormas() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 3.75h6a1 1 0 011 1v1.25H8V4.75a1 1 0 011-1z" />
-            <rect x="6" y="5" width="12" height="15" rx="1.5" />
-            <path strokeLinecap="round" d="M9 11h6M9 14.5h6M9 18h3.5" />
-        </svg>
-    );
-}
-
-function IconoDocente() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <circle cx="12" cy="8" r="3.5" />
-            <path strokeLinecap="round" d="M5 20c0-3.6 3.1-6.5 7-6.5s7 2.9 7 6.5" />
-        </svg>
+        <div
+            onMouseDown={() => onElegir(aula)}
+            className="px-3 py-2 text-[13px] flex items-center justify-between gap-2 cursor-pointer hover:bg-[#EBF3FA]"
+        >
+            {aula.nombreAula}
+        </div>
     );
 }
 
@@ -115,7 +87,8 @@ export default function ExamenFormAdmin({
 
     const [arrAsignaturas, setArrAsignaturas] = useState([]);
     const [arrTiposExamen, setArrTiposExamen] = useState([]);
-    const [arrHorariosRegulares, setArrHorariosRegulares] = useState([]);
+    // Todos los horarios regulares del docente en la asignatura; abajo se filtran por grupo
+    const [arrHorariosTodos, setArrHorariosRegulares] = useState([]);
     const [strTipoHorario, setStrTipoHorario] = useState("REGULAR");
     const [idHorarioRegularSeleccionado, setIdHorarioRegularSeleccionado] = useState("");
 
@@ -150,6 +123,19 @@ export default function ExamenFormAdmin({
 
     const [boolEnviando, setBoolEnviando] = useState(false);
     const [strMensaje, setStrMensaje] = useState("");
+
+    // Grupo del examen: los grupos que el docente elegido dicta en la asignatura (si es uno, se elige solo).
+    // Al editar, se precarga el grupo del examen cuando el backend lo mande (idGrupo).
+    const { arrGrupos, boolCargandoGrupos, idGrupo, setIdGrupo } = useGruposDocente(
+        objFormData.idAsignatura,
+        idUsuarioDocente,
+        objExamenAEditar?.idGrupo ?? ""
+    );
+    const boolPideGrupo = arrGrupos.length > 0;
+    // Cuando el backend mande el grupo de cada horario (idGrupo), solo se muestran los del grupo elegido
+    const arrHorariosRegulares = arrHorariosTodos.filter(
+        (h) => h.idGrupo == null || !idGrupo || String(h.idGrupo) === String(idGrupo)
+    );
     const [strTipoMensaje, setStrTipoMensaje] = useState("error"); // "error" | "exito"
 
     // Precarga en dos pasos al editar: primero los datos "simples" del
@@ -166,6 +152,7 @@ export default function ExamenFormAdmin({
     }, [
         idUsuarioDocente,
         objFormData,
+        idGrupo,
         strTipoHorario,
         idHorarioRegularSeleccionado,
         arrIdAulasSeleccionadas,
@@ -324,10 +311,11 @@ export default function ExamenFormAdmin({
             setArrIdTiposUsados([]);
             return;
         }
-        obtenerTiposUsados(objFormData.idAsignatura, intCodsisDocente)
+        // Por grupo: mientras el backend no filtre por grupo, cuenta como antes
+        obtenerTiposUsadosPorGrupo(objFormData.idAsignatura, intCodsisDocente, idGrupo)
             .then((tipos) => setArrIdTiposUsados(tipos || []))
             .catch(() => setArrIdTiposUsados([]));
-    }, [objFormData.idAsignatura, intCodsisDocente]);
+    }, [objFormData.idAsignatura, intCodsisDocente, idGrupo]);
 
     const objTipoExamenSeleccionado = arrTiposExamen.find(
         (t) => String(t.idTipoExamen) === String(objFormData.idTipoExamen)
@@ -343,6 +331,15 @@ export default function ExamenFormAdmin({
         objHorarioSeleccionado &&
         objFormData.fecha &&
         diaSemanaDeFecha(objFormData.fecha) !== objHorarioSeleccionado.diaSemana;
+
+    // Aulas con otro examen que se cruza en esa fecha y horario (se muestran en gris).
+    // Al editar, el propio examen no ocupa sus aulas.
+    const mapAulasOcupadas = useAulasOcupadas({
+        fecha: objFormData.fecha,
+        horaInicio: strTipoHorario === "REGULAR" ? objHorarioSeleccionado?.horaInicio : objEventual.horaInicio,
+        horaFin: strTipoHorario === "REGULAR" ? objHorarioSeleccionado?.horaFin : objEventual.horaFin,
+        idExamenExcluir: boolEditando ? objExamenAEditar.idExamen : undefined,
+    });
 
     // Aula principal real para REGULAR: la del horario por defecto, salvo que
     // se haya elegido un reemplazo (idAulaSeleccionadaRegular).
@@ -378,6 +375,7 @@ export default function ExamenFormAdmin({
         // (la asignatura ni siquiera le pertenece). Se limpia todo lo que
         // depende del docente para forzar a elegir de nuevo.
         setIdUsuarioDocente(e.target.value);
+        setIdGrupo("");
         setObjFormData((prev) => ({ ...prev, idAsignatura: "", idTipoExamen: "", detalleTipoExamen: "" }));
         setArrHorariosRegulares([]);
         setStrTipoHorario("REGULAR");
@@ -392,8 +390,18 @@ export default function ExamenFormAdmin({
         setObjFormData((prev) => ({ ...prev, [name]: value }));
     }
 
+    function handleChangeGrupo(e) {
+        // Otro grupo: el tipo y el horario elegidos ya no tienen por qué corresponder
+        setIdGrupo(e.target.value);
+        setObjFormData((prev) => ({ ...prev, idTipoExamen: "", detalleTipoExamen: "" }));
+        setIdHorarioRegularSeleccionado("");
+        setIdAulaSeleccionadaRegular(null);
+        setArrIdAulasSeleccionadas([]);
+    }
+
     function handleChangeAsignatura(e) {
         const strValor = e.target.value;
+        setIdGrupo("");
         // La asignatura puede cambiar independientemente del docente; si eso
         // pasa, el tipo/horario/fecha/ambientes elegidos ya no corresponden
         // (antes se quedaban pegados de la asignatura anterior).
@@ -412,6 +420,7 @@ export default function ExamenFormAdmin({
     }
 
     function handleAgregarAula(aula) {
+        if (mapAulasOcupadas.has(Number(aula.idAula))) return;
         setArrIdAulasSeleccionadas((prev) =>
             prev.includes(aula.idAula) ? prev : [...prev, aula.idAula]
         );
@@ -424,6 +433,7 @@ export default function ExamenFormAdmin({
     }
 
     function handleElegirAulaPrincipal(aula) {
+        if (mapAulasOcupadas.has(Number(aula.idAula))) return;
         setIdAulaSeleccionadaRegular(String(aula.idAula));
         setStrBusquedaAulaPrincipal("");
         setBoolCambiandoAulaRegular(false);
@@ -469,6 +479,11 @@ export default function ExamenFormAdmin({
         const strHoyISO = new Date().toISOString().slice(0, 10);
         if (!boolEditando && objFormData.fecha && objFormData.fecha < strHoyISO) {
             setStrMensaje("No se puede programar un examen en una fecha pasada.");
+            return;
+        }
+
+        if (boolPideGrupo && !idGrupo) {
+            setStrMensaje("Debe seleccionar el grupo.");
             return;
         }
 
@@ -538,6 +553,15 @@ export default function ExamenFormAdmin({
             setStrMensaje("Especifique el tipo de examen.");
             return;
         }
+        const arrIdAulasDelExamen = [
+            ...(strTipoHorario === "REGULAR" && intIdAulaPrincipalRegular ? [intIdAulaPrincipalRegular] : []),
+            ...arrIdAulasSeleccionadas,
+        ];
+        const objAulaOcupada = arrAulas.find((a) => arrIdAulasDelExamen.includes(a.idAula) && mapAulasOcupadas.has(Number(a.idAula)));
+        if (objAulaOcupada) {
+            setStrMensaje(`El aula ${objAulaOcupada.nombreAula} no está disponible en este horario. Elija otra aula.`);
+            return;
+        }
 
         setBoolEnviando(true);
 
@@ -549,6 +573,7 @@ export default function ExamenFormAdmin({
             codsisDocente: intCodsisDocente,
             tipoHorario: strTipoHorario,
             idTipoExamen: parseInt(objFormData.idTipoExamen, 10),
+            ...(idGrupo ? { idGrupo: parseInt(idGrupo, 10) } : {}),
             idsNormasGenerales: arrIdNormasSeleccionadas,
             normasEspecificas: arrNormasEspecificas,
         };
@@ -606,14 +631,11 @@ export default function ExamenFormAdmin({
     return (
         <form onSubmit={handleSubmit} className="bg-white rounded-lg overflow-hidden">
             <div className="flex items-center gap-3 p-6 pb-0">
-                <div className="w-10 h-10 rounded-lg bg-[#163F79] flex items-center justify-center text-white">
-                    <IconoDocumento />
-                </div>
                 <div>
-                    <h2 className="text-[19px] font-bold text-[#163F79]">
+                    <h2 className="text-[19px] font-black text-[#08264A]">
                         {boolEditando ? "Editar examen" : "Registrar examen"}
                     </h2>
-                    <p className="text-[12.5px] text-gray-500">
+                    <p className="text-[13.5px] text-[#64748B] mt-0.5">
                         {boolEditando
                             ? "Modifique los datos y guarde los cambios"
                             : "Complete el formulario para programar la evaluación académica"}
@@ -621,20 +643,18 @@ export default function ExamenFormAdmin({
                 </div>
             </div>
 
-            <div className="bg-[#EBF3FA] px-6 py-2.5 mt-4 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
-                <IconoDocente />
-                Docente
+            <div className="px-6 pt-5 font-black text-[13px] text-[#003770]">Docente
             </div>
 
-            <div className="p-6 pb-2">
-                <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+            <div className="px-6 pt-3 pb-2">
+                <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                     ¿Para qué docente es este examen? <span className="text-red-600">*</span>
                 </label>
                 <select
                     value={idUsuarioDocente}
                     onChange={handleChangeDocente}
                     required
-                    className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                    className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3.5 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                 >
                     <option value="" disabled>Seleccione un docente</option>
                     {arrDocentes.map((docente) => (
@@ -644,22 +664,20 @@ export default function ExamenFormAdmin({
                     ))}
                 </select>
                 {!idUsuarioDocente && (
-                    <p className="text-[11.5px] text-gray-500 mt-1.5">
+                    <p className="text-[12.5px] text-[#64748B] mt-1.5">
                         Seleccione un docente para habilitar el resto del formulario.
                     </p>
                 )}
             </div>
 
             <fieldset disabled={!idUsuarioDocente} className="disabled:opacity-40">
-                <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
-                    <IconoInfo />
-                    Información del examen
+                <div className="px-6 pt-5 font-black text-[13px] text-[#003770]">Información del examen
                 </div>
 
-                <div className="p-6 space-y-4">
+                <div className="px-6 pt-3 pb-6 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
-                            <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                            <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                                 Asignatura <span className="text-red-600">*</span>
                             </label>
                             <select
@@ -667,7 +685,7 @@ export default function ExamenFormAdmin({
                                 value={objFormData.idAsignatura}
                                 onChange={handleChangeAsignatura}
                                 required
-                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3.5 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                             >
                                 <option value="" disabled>Seleccione una asignatura</option>
                                 {arrAsignaturas.map((a) => (
@@ -678,7 +696,39 @@ export default function ExamenFormAdmin({
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                            <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
+                                Grupo {boolPideGrupo && <span className="text-red-600">*</span>}
+                            </label>
+                            <select
+                                name="idGrupo"
+                                value={idGrupo}
+                                onChange={handleChangeGrupo}
+                                required={boolPideGrupo}
+                                disabled={!objFormData.idAsignatura || !boolPideGrupo}
+                                className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3.5 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15 disabled:opacity-50 disabled:bg-gray-50"
+                            >
+                                <option value="" disabled>
+                                    {boolCargandoGrupos ? "Cargando grupos..." : "Seleccione el grupo"}
+                                </option>
+                                {arrGrupos.map((g) => (
+                                    <option key={g.idGrupo} value={g.idGrupo}>
+                                        {textoGrupo(g)}
+                                    </option>
+                                ))}
+                            </select>
+                            {objFormData.idAsignatura && !boolCargandoGrupos && (
+                                <p className="text-[12.5px] text-[#64748B] mt-1">
+                                    {boolPideGrupo
+                                        ? "Solo los grupos que dicta este docente en la asignatura"
+                                        : "El docente no tiene grupos registrados en esta asignatura"}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div>
+                        <div>
+                            <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                                 Tipo de Examen <span className="text-red-600">*</span>
                             </label>
                             <select
@@ -686,7 +736,8 @@ export default function ExamenFormAdmin({
                                 value={objFormData.idTipoExamen}
                                 onChange={handleChange}
                                 required
-                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                disabled={!objFormData.idAsignatura || (boolPideGrupo && !idGrupo)}
+                                className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3.5 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15 disabled:opacity-50 disabled:bg-gray-50"
                             >
                                 <option value="" disabled>Seleccione el tipo</option>
                                 {arrTiposExamen.map((tipo) => {
@@ -701,30 +752,13 @@ export default function ExamenFormAdmin({
                                         arrIdTiposUsados.map(String).includes(String(tipo.idTipoExamen)) &&
                                         !boolEsElTipoActual;
 
-                                    // Cadena de prerrequisitos: si este tipo está en la cadena
-                                    // fija y el anterior de la cadena todavía no fue registrado
-                                    // (por nombre, ver CADENA_TIPOS arriba), se deshabilita —
-                                    // salvo que sea el propio tipo actual del examen en edición.
-                                    const strNombreNormalizado = normalizarNombreTipo(tipo.nombreTipoExamen);
-                                    const intPosicionCadena = CADENA_TIPOS.indexOf(strNombreNormalizado);
-                                    let boolFaltaPrerrequisito = false;
-                                    if (intPosicionCadena > 0 && !boolEsElTipoActual) {
-                                        const strNombrePrevio = CADENA_TIPOS[intPosicionCadena - 1];
-                                        const boolPrevioRegistrado = arrTiposExamen.some(
-                                            (t) =>
-                                                normalizarNombreTipo(t.nombreTipoExamen) === strNombrePrevio &&
-                                                arrIdTiposUsados.map(String).includes(String(t.idTipoExamen))
-                                        );
-                                        boolFaltaPrerrequisito = !boolPrevioRegistrado;
-                                    }
-
-                                    const boolDeshabilitado = boolYaUsado || boolFaltaPrerrequisito;
+                                    // Se puede registrar cualquier tipo, sin exigir el anterior
+                                    const boolDeshabilitado = boolYaUsado;
 
                                     return (
                                         <option key={tipo.idTipoExamen} value={tipo.idTipoExamen} disabled={boolDeshabilitado}>
                                             {tipo.nombreTipoExamen}
-                                            {boolYaUsado ? " (ya registrado)" : ""}
-                                            {!boolYaUsado && boolFaltaPrerrequisito ? " (requiere el anterior)" : ""}
+                                            {boolYaUsado ? (idGrupo ? " (ya registrado en este grupo)" : " (ya registrado)") : ""}
                                         </option>
                                     );
                                 })}
@@ -734,7 +768,7 @@ export default function ExamenFormAdmin({
 
                     {boolRequiereDescripcion && (
                         <div>
-                            <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                            <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                                 Especifique tipo de examen <span className="text-red-600">*</span>
                             </label>
                             <input
@@ -745,22 +779,22 @@ export default function ExamenFormAdmin({
                                 onChange={handleChange}
                                 required
                                 placeholder="Ej. Tercer parcial, Examen extraordinario, etc."
-                                className="h-[42px] w-full border border-[#2B6CB0] rounded-md text-[13.5px] px-3 bg-[#2B6CB0]/[0.06] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                className="h-11 w-full border border-[#003770] rounded-[10px] text-[14.5px] px-3.5 bg-[#003770]/[0.06] focus:ring-3 focus:ring-[#003770]/15"
                             />
-                            <p className="text-[10.5px] text-gray-500 text-right mt-1">
+                            <p className="text-[12.5px] text-[#64748B] text-right mt-1">
                                 {objFormData.detalleTipoExamen.length}/60
                             </p>
                         </div>
                     )}
 
                     <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                             Horario y ambiente <span className="text-red-600">*</span>
                         </label>
 
                         {arrHorariosRegulares.length > 0 && (
                             <div className="flex gap-4 mb-2.5">
-                                <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                                <label className="flex items-center gap-1.5 text-[14px] text-[#334155] cursor-pointer">
                                     <input
                                         type="radio"
                                         checked={strTipoHorario === "REGULAR"}
@@ -773,7 +807,7 @@ export default function ExamenFormAdmin({
                                     />
                                     Horario regular
                                 </label>
-                                <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                                <label className="flex items-center gap-1.5 text-[14px] text-[#334155] cursor-pointer">
                                     <input
                                         type="radio"
                                         checked={strTipoHorario === "EVENTUAL"}
@@ -799,7 +833,7 @@ export default function ExamenFormAdmin({
                                     setIdAulaSeleccionadaRegular(null);
                                 }}
                                 required
-                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3.5 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                             >
                                 <option value="" disabled>Seleccione un horario</option>
                                 {arrHorariosRegulares.map((h) => (
@@ -812,7 +846,7 @@ export default function ExamenFormAdmin({
 
                         {strTipoHorario === "REGULAR" && idHorarioRegularSeleccionado && (
                             <div className="relative mt-3">
-                                <label className="block text-[11.5px] text-gray-500 mb-1">
+                                <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">
                                     Ambiente(s)
                                 </label>
                                 {objHorarioSeleccionado && (
@@ -826,6 +860,11 @@ export default function ExamenFormAdmin({
                                             >
                                                 {strNombreAulaPrincipalRegular || "Aula del horario"}
                                             </span>
+                                            {intIdAulaPrincipalRegular && mapAulasOcupadas.has(Number(intIdAulaPrincipalRegular)) && (
+                                                <span className="text-[12.5px] font-semibold text-red-600">
+                                                    No disponible en este horario · use "Cambiar aula"
+                                                </span>
+                                            )}
                                             {!boolCambiandoAulaRegular && (
                                                 <button
                                                     type="button"
@@ -839,7 +878,7 @@ export default function ExamenFormAdmin({
                                                 <button
                                                     type="button"
                                                     onClick={handleRestablecerAulaPrincipal}
-                                                    className="text-[11.5px] text-gray-500 font-semibold"
+                                                    className="text-[12.5px] text-[#64748B] font-semibold"
                                                 >
                                                     Usar la aula del horario
                                                 </button>
@@ -857,22 +896,21 @@ export default function ExamenFormAdmin({
                                                     onFocus={() => setBoolSugerenciasAulaPrincipalVisibles(true)}
                                                     onBlur={() => setTimeout(() => setBoolSugerenciasAulaPrincipalVisibles(false), 150)}
                                                     autoFocus
-                                                    className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                                    className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] pl-9 pr-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                                                 />
                                                 {boolSugerenciasAulaPrincipalVisibles && (
                                                     <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
                                                         {arrAulasFiltradasPrincipal.length > 0 ? (
                                                             arrAulasFiltradasPrincipal.map((aula) => (
-                                                                <div
+                                                                <OpcionAula
                                                                     key={aula.idAula}
-                                                                    onMouseDown={() => handleElegirAulaPrincipal(aula)}
-                                                                    className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
-                                                                >
-                                                                    {aula.nombreAula}
-                                                                </div>
+                                                                    aula={aula}
+                                                                    boolOcupada={mapAulasOcupadas.has(Number(aula.idAula))}
+                                                                    onElegir={handleElegirAulaPrincipal}
+                                                                />
                                                             ))
                                                         ) : (
-                                                            <div className="px-3 py-2 text-[13px] text-gray-500">
+                                                            <div className="px-3 py-2 text-[12.5px] text-[#64748B]">
                                                                 No se encontraron aulas.
                                                             </div>
                                                         )}
@@ -881,7 +919,7 @@ export default function ExamenFormAdmin({
                                                 <button
                                                     type="button"
                                                     onClick={() => setBoolCambiandoAulaRegular(false)}
-                                                    className="text-[11.5px] text-gray-500 font-semibold mt-1.5"
+                                                    className="text-[12.5px] text-[#64748B] font-semibold mt-1.5"
                                                 >
                                                     Cancelar
                                                 </button>
@@ -889,7 +927,7 @@ export default function ExamenFormAdmin({
                                         )}
                                     </div>
                                 )}
-                                <label className="block text-[11.5px] text-gray-500 mb-1">
+                                <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">
                                     Agregar aula(s) adicional(es) <span className="text-gray-400">(opcional)</span>
                                 </label>
                                 <div className="relative">
@@ -901,22 +939,21 @@ export default function ExamenFormAdmin({
                                         onChange={(e) => setStrBusquedaAula(e.target.value)}
                                         onFocus={() => setBoolSugerenciasAulaVisibles(true)}
                                         onBlur={() => setTimeout(() => setBoolSugerenciasAulaVisibles(false), 150)}
-                                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                        className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] pl-9 pr-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                                     />
                                     {boolSugerenciasAulaVisibles && (
                                         <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
                                             {arrAulasFiltradas.length > 0 ? (
                                                 arrAulasFiltradas.map((aula) => (
-                                                    <div
+                                                    <OpcionAula
                                                         key={aula.idAula}
-                                                        onMouseDown={() => handleAgregarAula(aula)}
-                                                        className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
-                                                    >
-                                                        {aula.nombreAula}
-                                                    </div>
+                                                        aula={aula}
+                                                        boolOcupada={mapAulasOcupadas.has(Number(aula.idAula))}
+                                                        onElegir={handleAgregarAula}
+                                                    />
                                                 ))
                                             ) : (
-                                                <div className="px-3 py-2 text-[13px] text-gray-500">
+                                                <div className="px-3 py-2 text-[12.5px] text-[#64748B]">
                                                     No se encontraron aulas.
                                                 </div>
                                             )}
@@ -927,12 +964,18 @@ export default function ExamenFormAdmin({
                                     {arrIdAulasSeleccionadas.map((idAula) => {
                                         const aula = arrAulas.find((a) => a.idAula === idAula);
                                         if (!aula) return null;
+                                        const boolOcupada = mapAulasOcupadas.has(Number(idAula));
                                         return (
                                             <span
                                                 key={idAula}
-                                                className="inline-flex items-center gap-1.5 bg-[#EBF3FA] text-[#163F79] border border-[#D3E2F5] px-2.5 py-1 rounded-full text-[12px] font-semibold"
+                                                title={boolOcupada ? "No disponible en este horario" : undefined}
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold border ${boolOcupada
+                                                    ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
+                                                    : "bg-[#EBF3FA] text-[#163F79] border-[#D3E2F5]"
+                                                    }`}
                                             >
                                                 {aula.nombreAula}
+                                                {boolOcupada && <span className="font-normal">· No disponible</span>}
                                                 <button
                                                     type="button"
                                                     onClick={() => handleQuitarAula(idAula)}
@@ -950,7 +993,7 @@ export default function ExamenFormAdmin({
                         {strTipoHorario === "EVENTUAL" && (
                             <div className="space-y-3">
                                 <div className="relative">
-                                    <label className="block text-[11.5px] text-gray-500 mb-1">Aula(s)</label>
+                                    <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">Aula(s)</label>
                                     <div className="relative">
                                         <span className="absolute left-3 top-[13px] text-gray-400">⌕</span>
                                         <input
@@ -960,22 +1003,21 @@ export default function ExamenFormAdmin({
                                             onChange={(e) => setStrBusquedaAula(e.target.value)}
                                             onFocus={() => setBoolSugerenciasAulaVisibles(true)}
                                             onBlur={() => setTimeout(() => setBoolSugerenciasAulaVisibles(false), 150)}
-                                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] pl-9 pr-3 focus:border-[#2B6CB0] focus:ring-3 focus:ring-[#2B6CB0]/15"
+                                            className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] pl-9 pr-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                                         />
                                         {boolSugerenciasAulaVisibles && (
                                             <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
                                                 {arrAulasFiltradas.length > 0 ? (
                                                     arrAulasFiltradas.map((aula) => (
-                                                        <div
+                                                        <OpcionAula
                                                             key={aula.idAula}
-                                                            onMouseDown={() => handleAgregarAula(aula)}
-                                                            className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EBF3FA]"
-                                                        >
-                                                            {aula.nombreAula}
-                                                        </div>
+                                                            aula={aula}
+                                                            boolOcupada={mapAulasOcupadas.has(Number(aula.idAula))}
+                                                            onElegir={handleAgregarAula}
+                                                        />
                                                     ))
                                                 ) : (
-                                                    <div className="px-3 py-2 text-[13px] text-gray-500">
+                                                    <div className="px-3 py-2 text-[12.5px] text-[#64748B]">
                                                         No se encontraron aulas.
                                                     </div>
                                                 )}
@@ -986,12 +1028,18 @@ export default function ExamenFormAdmin({
                                         {arrIdAulasSeleccionadas.map((idAula) => {
                                             const aula = arrAulas.find((a) => a.idAula === idAula);
                                             if (!aula) return null;
+                                            const boolOcupada = mapAulasOcupadas.has(Number(idAula));
                                             return (
                                                 <span
                                                     key={idAula}
-                                                    className="inline-flex items-center gap-1.5 bg-[#EBF3FA] text-[#163F79] border border-[#D3E2F5] px-2.5 py-1 rounded-full text-[12px] font-semibold"
+                                                    title={boolOcupada ? "No disponible en este horario" : undefined}
+                                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold border ${boolOcupada
+                                                        ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
+                                                        : "bg-[#EBF3FA] text-[#163F79] border-[#D3E2F5]"
+                                                        }`}
                                                 >
                                                     {aula.nombreAula}
+                                                    {boolOcupada && <span className="font-normal">· No disponible</span>}
                                                     <button
                                                         type="button"
                                                         onClick={() => handleQuitarAula(idAula)}
@@ -1007,7 +1055,7 @@ export default function ExamenFormAdmin({
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-[11.5px] text-gray-500 mb-1">Hora inicio</label>
+                                        <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">Hora inicio</label>
                                         <input
                                             type="time"
                                             name="horaInicio"
@@ -1016,11 +1064,11 @@ export default function ExamenFormAdmin({
                                             required
                                             min={HORA_ACADEMICA_INICIO}
                                             max={HORA_ACADEMICA_FIN}
-                                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
+                                            className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-[11.5px] text-gray-500 mb-1">Hora fin</label>
+                                        <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">Hora fin</label>
                                         <input
                                             type="time"
                                             name="horaFin"
@@ -1029,10 +1077,10 @@ export default function ExamenFormAdmin({
                                             required
                                             min={HORA_ACADEMICA_INICIO}
                                             max={HORA_ACADEMICA_FIN}
-                                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[13.5px] px-3"
+                                            className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3"
                                         />
                                     </div>
-                                    <p className="text-[11px] text-gray-500 col-span-2">
+                                    <p className="text-[12.5px] text-[#64748B] col-span-2">
                                         Dentro del horario académico ({HORA_ACADEMICA_INICIO} - {HORA_ACADEMICA_FIN}).
                                     </p>
                                 </div>
@@ -1040,14 +1088,14 @@ export default function ExamenFormAdmin({
                         )}
 
                         {arrHorariosRegulares.length === 0 && objFormData.idAsignatura && (
-                            <p className="text-[11.5px] text-gray-500 mt-1.5">
+                            <p className="text-[12.5px] text-[#64748B] mt-1.5">
                                 Este docente no tiene un horario regular para esta asignatura, complete un horario eventual.
                             </p>
                         )}
                     </div>
 
                     <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                             Fecha del Examen <span className="text-red-600">*</span>
                         </label>
                         <input
@@ -1057,32 +1105,30 @@ export default function ExamenFormAdmin({
                             onChange={handleChange}
                             required
                             min={boolEditando ? undefined : new Date().toISOString().slice(0, 10)}
-                            className={`h-[42px] w-full border rounded-md text-[13.5px] px-3 focus:ring-3 ${boolFechaNoCoincide
+                            className={`h-11 w-full border rounded-[10px] text-[14.5px] px-3.5 focus:ring-3 ${boolFechaNoCoincide
                                     ? "border-red-400 focus:border-red-500 focus:ring-red-400/15"
                                     : "border-[#C8D6E8] focus:border-[#2B6CB0] focus:ring-[#2B6CB0]/15"
                                 }`}
                         />
                         {boolFechaNoCoincide && (
-                            <p className="text-[11px] text-red-600 mt-1">
+                            <p className="text-[12.5px] text-red-600 mt-1">
                                 La fecha no corresponde a {DIAS_SEMANA[objHorarioSeleccionado.diaSemana]}, el día de ese horario regular.
                             </p>
                         )}
                     </div>
                 </div>
 
-                <div className="bg-[#EBF3FA] px-6 py-2.5 font-bold text-[13px] text-[#163F79] flex items-center gap-2">
-                    <IconoNormas />
-                    Normas e indicaciones
+                <div className="px-6 pt-5 font-black text-[13px] text-[#003770]">Normas e indicaciones
                 </div>
 
-                <div className="p-6 space-y-4">
+                <div className="px-6 pt-3 pb-6 space-y-4">
                     <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-2">
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-2">
                             Normas generales
                         </label>
                         <div className="flex flex-col gap-2">
                             {arrNormasGeneralesCatalogo.map((norma) => (
-                                <label key={norma.idNormaGeneral} className="flex items-start gap-2 text-[13px] text-gray-700 cursor-pointer">
+                                <label key={norma.idNormaGeneral} className="flex items-start gap-2 text-[14px] text-[#334155] cursor-pointer">
                                     <input
                                         type="checkbox"
                                         checked={arrIdNormasSeleccionadas.includes(norma.idNormaGeneral)}
@@ -1096,7 +1142,7 @@ export default function ExamenFormAdmin({
                     </div>
 
                     <div>
-                        <label className="block text-[12.5px] font-semibold text-[#163F79] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                             Normas particulares
                         </label>
                         <div className="flex gap-2 mb-2">
@@ -1106,12 +1152,12 @@ export default function ExamenFormAdmin({
                                 onChange={(e) => setStrNuevaNormaEspecifica(e.target.value)}
                                 maxLength={100}
                                 placeholder="Escriba una indicación y presione Agregar"
-                                className="h-[38px] flex-1 border border-[#C8D6E8] rounded-md text-[13px] px-3"
+                                className="h-11 flex-1 border border-[#C8D6E8] rounded-[10px] text-[14px] px-3.5"
                             />
                             <button
                                 type="button"
                                 onClick={handleAgregarNormaEspecifica}
-                                className="h-[38px] px-4 rounded-md border border-[#163F79] text-[#163F79] text-[13px] font-semibold"
+                                className="h-11 px-4 rounded-[10px] border border-[#163F79] text-[#163F79] text-[13px] font-semibold"
                             >
                                 Agregar
                             </button>
@@ -1120,7 +1166,7 @@ export default function ExamenFormAdmin({
                             {arrNormasEspecificas.map((norma, index) => (
                                 <div
                                     key={index}
-                                    className="flex items-center justify-between bg-[#F4F7FB] border border-[#E2E8F0] rounded-md px-3 py-1.5 text-[12.5px] text-gray-700"
+                                    className="flex items-center justify-between bg-[#F4F7FB] border border-[#E2E8F0] rounded-[10px] px-3 py-2 text-[13.5px] text-[#334155]"
                                 >
                                     {norma}
                                     <button
@@ -1147,7 +1193,7 @@ export default function ExamenFormAdmin({
             )}
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-t border-gray-100">
-                <span className="text-[11.5px] text-gray-500">
+                <span className="text-[12.5px] text-[#64748B]">
                     Campos con (<span className="text-red-600">*</span>) son obligatorios
                 </span>
                 <div className="flex gap-2.5">

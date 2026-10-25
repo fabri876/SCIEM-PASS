@@ -31,9 +31,10 @@ import java.util.stream.Collectors;
  * Decisión del equipo (10/10/2026): reparto AUTOMÁTICO.
  * 1. Los habilitados del examen se ordenan por apellido y nombre.
  * 2. Se reparten en bloques entre las aulas del examen (ordenadas por nombre),
- *    en proporción a su capacidad (si alguna aula no tiene capacidad, por partes iguales).
+ * en proporción a su capacidad (si alguna aula no tiene capacidad, por partes
+ * iguales).
  * 3. Las reubicaciones ("Reubicar y Autorizar", tabla cambioambiente) tienen
- *    prioridad: vale la más reciente de cada estudiante.
+ * prioridad: vale la más reciente de cada estudiante.
  *
  * El escaneo del operador (HU05) y el dashboard (HU10) usan este mismo cálculo,
  * así que siempre coinciden. Es determinista: mientras la lista de habilitados
@@ -52,13 +53,13 @@ public class AsignacionAulaService {
     }
 
     /**
-     * @param aulas         aulas del examen, en orden
-     * @param habilitados   habilitados por Código SIS, en orden de apellido
-     * @param asignacion    Código SIS → idambiente asignado (reparto + reubicaciones)
+     * @param aulas       aulas del examen, en orden
+     * @param habilitados habilitados por Código SIS, en orden de apellido
+     * @param asignacion  Código SIS → idambiente asignado (reparto + reubicaciones)
      */
     public record Reparto(List<AulaExamen> aulas,
-                          Map<Integer, EstudianteHabilitado> habilitados,
-                          Map<Integer, Integer> asignacion) {
+            Map<Integer, EstudianteHabilitado> habilitados,
+            Map<Integer, Integer> asignacion) {
 
         public Optional<AulaExamen> aulaDe(Integer codSis) {
             Integer idAmbiente = asignacion.get(codSis);
@@ -77,8 +78,8 @@ public class AsignacionAulaService {
     private final CambioAmbienteRepository cambioAmbienteRepository;
 
     public AsignacionAulaService(AmbienteRepository ambienteRepository, AulaRepository aulaRepository,
-                                 HabilitacionRepository habilitacionRepository, UsuarioRepository usuarioRepository,
-                                 CambioAmbienteRepository cambioAmbienteRepository) {
+            HabilitacionRepository habilitacionRepository, UsuarioRepository usuarioRepository,
+            CambioAmbienteRepository cambioAmbienteRepository) {
         this.ambienteRepository = ambienteRepository;
         this.aulaRepository = aulaRepository;
         this.habilitacionRepository = habilitacionRepository;
@@ -86,7 +87,10 @@ public class AsignacionAulaService {
         this.cambioAmbienteRepository = cambioAmbienteRepository;
     }
 
-    /** Aula asignada a un estudiante; vacío si no está habilitado o el examen no tiene aulas. */
+    /**
+     * Aula asignada a un estudiante; vacío si no está habilitado o el examen no
+     * tiene aulas.
+     */
     @Transactional(readOnly = true)
     public Optional<AulaExamen> aulaAsignada(Integer idAsignatura, Integer idExamen, Integer codSis) {
         return repartir(idAsignatura, idExamen).aulaDe(codSis);
@@ -116,7 +120,8 @@ public class AsignacionAulaService {
 
         // Reubicaciones (la más reciente gana)
         List<Integer> idsAmbiente = aulas.stream().map(AulaExamen::idAmbiente).toList();
-        for (CambioAmbiente cambio : cambioAmbienteRepository.findByIdAmbienteInOrderByFechaHoraCambioAscIdCambioAsc(idsAmbiente)) {
+        for (CambioAmbiente cambio : cambioAmbienteRepository
+                .findByIdAmbienteInOrderByFechaHoraCambioAscIdCambioAsc(idsAmbiente)) {
             if (cambio.getCodsisEstudiante() != null) {
                 asignacion.put(cambio.getCodsisEstudiante(), cambio.getIdAmbiente());
             }
@@ -181,7 +186,7 @@ public class AsignacionAulaService {
     private Map<Integer, EstudianteHabilitado> habilitadosOrdenados(Integer idAsignatura, Integer idExamen) {
         List<Habilitacion> habilitaciones = habilitacionRepository.findHabilitadosConEstudiante(idAsignatura, idExamen);
         Map<Integer, Usuario> usuarios = usuarioRepository.findAllById(habilitaciones.stream()
-                        .map(h -> h.getEstudiante().getIdusuario()).distinct().toList())
+                .map(h -> h.getEstudiante().getIdusuario()).distinct().toList())
                 .stream().collect(Collectors.toMap(Usuario::getIdusuario, Function.identity()));
 
         Collator collator = Collator.getInstance(new Locale("es"));

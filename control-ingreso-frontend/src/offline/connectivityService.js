@@ -38,8 +38,15 @@ function esPestanaVisible() {
   return document.visibilityState === 'visible';
 }
 
+function actualizarGlobalSinInternet(estado, forzado) {
+  if (typeof window !== 'undefined') {
+    window.__sciemSinInternet = Boolean(estado === 'offline' || forzado === true);
+  }
+}
+
 function notificarSuscriptores() {
   const actual = estadoConexion;
+  actualizarGlobalSinInternet(actual.estado, actual.forzado);
   const huboCambio =
     !ultimoEstadoNotificado ||
     ultimoEstadoNotificado.estado !== actual.estado ||
@@ -159,6 +166,7 @@ export async function establecerModoOfflineForzado(valor) {
       ultimaVerificacion: Date.now(),
       forzado: true
     };
+    actualizarGlobalSinInternet('offline', true);
     notificarSuscriptores();
     programarSiguientePing();
     return estadoConexion;
@@ -421,6 +429,7 @@ export async function iniciarConectividad({ ping, intervaloMs } = {}) {
     sinDatoDeReloj,
     forzado: Boolean(forzado)
   };
+  actualizarGlobalSinInternet(estadoConexion.estado, estadoConexion.forzado);
 
   if (typeof window !== 'undefined') {
     window.addEventListener('online', handleWindowOnline);
@@ -463,6 +472,10 @@ export function detenerConectividad() {
     estado: 'verificando',
     latenciaMs: null
   };
+
+  if (typeof window !== 'undefined') {
+    window.__sciemSinInternet = false;
+  }
 
   notificarSuscriptores();
 }

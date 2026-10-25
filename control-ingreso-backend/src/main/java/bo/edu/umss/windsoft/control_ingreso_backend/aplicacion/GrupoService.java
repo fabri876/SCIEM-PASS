@@ -31,6 +31,8 @@ public class GrupoService {
     private final EstudianteRepository estudianteRepository;
     private final AyudanteRepository ayudanteRepository;
     private final DocenteAsignaturaRepository docenteAsignaturaRepository;
+    private final ExamenRepository examenRepository;
+    private final HabilitacionRepository habilitacionRepository;
 
     public GrupoService(GrupoRepository grupoRepository,
             AsignaturaRepository asignaturaRepository,
@@ -41,7 +43,9 @@ public class GrupoService {
             DocenteRepository docenteRepository,
             EstudianteRepository estudianteRepository,
             AyudanteRepository ayudanteRepository,
-            DocenteAsignaturaRepository docenteAsignaturaRepository) {
+            DocenteAsignaturaRepository docenteAsignaturaRepository,
+            ExamenRepository examenRepository,
+            HabilitacionRepository habilitacionRepository) {
         this.grupoRepository = grupoRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.docenteGrupoRepository = docenteGrupoRepository;
@@ -52,6 +56,8 @@ public class GrupoService {
         this.estudianteRepository = estudianteRepository;
         this.ayudanteRepository = ayudanteRepository;
         this.docenteAsignaturaRepository = docenteAsignaturaRepository;
+        this.examenRepository = examenRepository;
+        this.habilitacionRepository = habilitacionRepository;
     }
 
     @Transactional
@@ -152,6 +158,17 @@ public class GrupoService {
         return docenteGrupoRepository.existsByIdUsuarioAndIdGrupo(idUsuario, idGrupo);
     }
 
+    public void validarInscripcionesEstudiante(Integer idUsuario, List<Integer> idsGrupos) {
+        estudianteRepository.bloquearParaInscripcion(idUsuario)
+                .orElseThrow(() -> new ValidacionNegocioException("El usuario no es estudiante."));
+        validarUnGrupoPorAsignatura(idsGrupos);
+        for (Integer idGrupo : idsGrupos) {
+            Grupo grupo = grupoRepository.findById(idGrupo).orElseThrow(() -> new ValidacionNegocioException("El grupo no pertenece al semestre actual."));
+            if (estudianteGrupoRepository.existeOtroGrupoEnAsignatura(idUsuario, grupo.getIdAsignatura(), idGrupo))
+                throw new ValidacionNegocioException("El estudiante ya pertenece a otro grupo de esta asignatura en el semestre actual.");
+        }
+    }
+
     @Transactional
     public void inscribirEstudianteAGrupo(Integer idUsuarioEstudiante, Integer codSisEstudiante, Integer idGrupo) {
         Grupo grupo = grupoRepository.findById(idGrupo)
@@ -170,6 +187,29 @@ public class GrupoService {
             estudianteGrupoRepository
                     .save(new EstudianteGrupo(idUsuarioEstudiante, estudiante.getCodsisestudiante(), idGrupo));
         }
+        crearHabilitacionesDeLaAsignatura(estudiante, grupo.getIdAsignatura());
+    }
+
+    /**
+     * Al inscribir un estudiante en un grupo, queda habilitado por defecto en
+     * todos los exámenes existentes de esa asignatura del semestre actual.
+     * La operación es idempotente para no duplicar filas al volver a guardar.
+     */
+    private void crearHabilitacionesDeLaAsignatura(Estudiante estudiante, Integer idAsignatura) {
+        examenRepository.findByIdAsignatura(idAsignatura).forEach(examen -> {
+            boolean existe = habilitacionRepository
+                    .existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(
+                            idAsignatura, examen.getIdExamen(), estudiante.getCodsisestudiante());
+            if (existe) return;
+            Habilitacion habilitacion = new Habilitacion();
+            habilitacion.setEstudiante(estudiante);
+            habilitacion.setIdUsuario(estudiante.getIdusuario());
+            habilitacion.setIdAsignatura(idAsignatura);
+            habilitacion.setIdExamen(examen.getIdExamen());
+            habilitacion.setEstadohabilitacion(true);
+            habilitacion.setObservacionhabilitacion(null);
+            habilitacionRepository.save(habilitacion);
+        });
     }
 
     @Transactional

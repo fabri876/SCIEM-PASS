@@ -58,16 +58,16 @@ export async function purgarAsistenciasProcesadas() {
     "rw",
     [db.asistencias_pendientes, db.logs_sincronizacion],
     async () => {
-      // 1. Buscar IDs a eliminar (batch para no cargar todo en memoria)
+      // 1. Buscar IDs a eliminar usando filter (no hay índice compuesto para [syncStatus, sincronizadoEn])
       const idsAEliminar = await db.asistencias_pendientes
-        .where("syncStatus")
-        .anyOf(estadosPurgables)
-        .and(
+        .filter(
           (item) =>
+            estadosPurgables.includes(item.syncStatus) &&
             item.sincronizadoEn &&
             new Date(item.sincronizadoEn).getTime() < corte,
         )
-        .primaryKeys();
+        .toArray()
+        .then((rows) => rows.map((r) => r.clientUuid));
 
       if (idsAEliminar.length > 0) {
         await db.asistencias_pendientes.bulkDelete(idsAEliminar);
@@ -123,11 +123,15 @@ export async function purgarFotosHuerfanas() {
 
   await db.transaction("rw", [db.fotos, db.nominas], async () => {
     // Buscar códigos SIS de estudiantes ya sincronizados (marcadoLocal=1 y marcadoEn < corte)
+    // Usar filter porque no hay índice compuesto para [marcadoLocal, marcadoEn]
     const sisSincronizados = await db.nominas
-      .where("marcadoLocal")
-      .equals(1)
-      .and((e) => e.marcadoEn && new Date(e.marcadoEn).getTime() < corte)
-      .primaryKeys(); // retorna [examenId, codigoSis] — necesitamos solo codigoSis
+      .filter(
+        (item) =>
+          item.marcadoLocal === 1 &&
+          item.marcadoEn &&
+          new Date(item.marcadoEn).getTime() < corte,
+      )
+      .toArray();
 
     // Extraer solo los códigos SIS (el segundo elemento de la PK compuesta)
     const codigosSIS = [...new Set(sisSincronizados.map((pk) => pk[1]))];

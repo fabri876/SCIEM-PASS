@@ -6,7 +6,6 @@ import {
   iniciarConectividad,
   detenerConectividad,
   verificarAhora,
-  probarConexionReal,
   obtenerEstadoConexion,
   suscribirConectividad
 } from './connectivityService.js';
@@ -82,11 +81,13 @@ async function dispararSincronizacion(motivo) {
     return;
   }
 
-  const conn = obtenerEstadoConexion();
-  if (conn.estado === 'offline') {
+  // Comprobación rápida: si el navegador dice que no hay internet, saltar.
+  // Si dice que sí, intentamos sincronizar y deja que el servidor responda.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return;
   }
 
+  const conn = obtenerEstadoConexion();
   const tamano =
     conn.estado === 'degraded'
       ? configActual.tamanoLoteLento
@@ -125,51 +126,26 @@ async function dispararSincronizacion(motivo) {
  * - Si res.omitido es true: devuelve con motivo: 'envio_en_curso' sin actualizar ultimaSync ni ultimoResultado.
  */
 export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
-  const conn = obtenerEstadoConexion();
   const pendientesRestantes = await asistenciaRepo.contarPendientes();
 
-  if (conn.forzado) {
-    const redReal = await probarConexionReal();
-    if (!redReal.ok) {
-      return {
-        sinConexion: true,
-        pendientesRestantes,
-        enviados: 0,
-        procesados: 0,
-        duplicados: 0,
-        errores: 0,
-        itemsConFalloDeLote: 0
-      };
-    }
-  } else {
-    const estadoActualizado = await verificarAhora();
-    if (estadoActualizado.estado === 'offline') {
-      return {
-        sinConexion: true,
-        pendientesRestantes,
-        enviados: 0,
-        procesados: 0,
-        duplicados: 0,
-        errores: 0,
-        itemsConFalloDeLote: 0
-      };
-    }
-  }
-
+  console.log('[syncScheduler] sincronizarAhora llamado. Pendientes:', pendientesRestantes);
   pausadoPorAuth = false;
   notificarCambioScheduler();
 
+  const conn = obtenerEstadoConexion();
   const loteSize =
     tamanoLote ||
     (conn.estado === 'degraded'
       ? configActual.tamanoLoteLento
       : configActual.tamanoLote);
 
+  console.log('[syncScheduler] Llamando a sincronizarPendientes con origen manual');
   const res = await sincronizarPendientes({
     enviarLote: enviarLote || configActual.enviarLote,
     tamanoLote: loteSize,
     origen: 'manual'
   });
+  console.log('[syncScheduler] Resultado sincronizarPendientes:', res);
 
   if (res?.omitido) {
     return {
@@ -204,9 +180,8 @@ function programarCicloPeriodico() {
     if (!activo || generacion !== genAlProgramar) return;
 
     const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
-    const conn = obtenerEstadoConexion();
 
-    if (visible && (conn.estado === 'online' || conn.estado === 'degraded') && !pausadoPorAuth) {
+    if (visible && !pausadoPorAuth && !(typeof navigator !== 'undefined' && navigator.onLine === false)) {
       const pendientes = await asistenciaRepo.pendientes(1);
 
       // Comprobar de nuevo tras el await

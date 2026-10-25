@@ -11,6 +11,7 @@ public class HorarioRegularRequest {
     @NotNull private Integer idUsuario;
     @NotNull private Integer codsisDocente;
     @NotNull private Integer idAsignatura;
+    private Integer idGrupo;
     @NotNull private Integer idAula;
 
     @NotNull @Min(1) @Max(7)
@@ -25,6 +26,8 @@ public class HorarioRegularRequest {
     public void setCodsisDocente(Integer codsisDocente) { this.codsisDocente = codsisDocente; }
     public Integer getIdAsignatura() { return idAsignatura; }
     public void setIdAsignatura(Integer idAsignatura) { this.idAsignatura = idAsignatura; }
+    public Integer getIdGrupo() { return idGrupo; }
+    public void setIdGrupo(Integer idGrupo) { this.idGrupo = idGrupo; }
     public Integer getIdAula() { return idAula; }
     public void setIdAula(Integer idAula) { this.idAula = idAula; }
     public Short getDiaSemana() { return diaSemana; }

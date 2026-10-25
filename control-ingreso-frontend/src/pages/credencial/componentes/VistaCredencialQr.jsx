@@ -67,7 +67,7 @@ async function descargarCredencial(svgQr, examen, usuario, objQr) {
   ctx.fillText(`C.I. ${usuario?.ci || "—"} · SIS ${usuario?.codigoSis || "—"}`, W / 2, 650);
   ctx.fillStyle = "#08264A"; ctx.font = "22px sans-serif";
   // Fecha completa (no "Hoy"/"Mañana": la imagen se guarda y se ve después)
-  ctx.fillText(`${fechaHora(`${examen.fecha}T00:00:00`).split(",")[0]} · ${examen.horaInicio}${examen.horaFin ? " – " + examen.horaFin : ""} · Aula ${examen.aula}`, W / 2, 705);
+  ctx.fillText(`${fechaHora(`${examen.fecha}T00:00:00`).split(",")[0]} · ${examen.horaInicio}${examen.horaFin ? " – " + examen.horaFin : ""} · Aula ${String(examen.aula || "").replace(/^aula\s*/i, "")}`, W / 2, 705);
   ctx.fillStyle = "#64748B"; ctx.font = "18px sans-serif";
   ctx.fillText(`Válido hasta ${fechaHora(objQr.validoHasta)}`, W / 2, 745);
   ctx.fillText("Personal e intransferible · solo para este examen", W / 2, 840);
@@ -201,7 +201,7 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
             <div className="grid grid-cols-3 max-md:grid-cols-2 gap-x-[18px] gap-y-3">
               <Dato strEtiqueta="Fecha">{fechaCorta(examen.fecha)}{strFalta && !boolInhabilitado ? <span className="ml-1.5 font-medium text-[#1860A3]">· {strFalta}</span> : null}</Dato>
               <Dato strEtiqueta="Hora">{examen.horaInicio}{examen.horaFin ? ` – ${examen.horaFin}` : ""}</Dato>
-              <Dato strEtiqueta="Aula">Aula {examen.aula}</Dato>
+              <Dato strEtiqueta="Aula">Aula {String(examen.aula || "").replace(/^aula\s*/i, "")}</Dato>
             </div>
 
             <div className="pt-4 border-t border-[#F1F5F9] grid grid-cols-3 max-md:grid-cols-2 gap-x-[18px] gap-y-3">

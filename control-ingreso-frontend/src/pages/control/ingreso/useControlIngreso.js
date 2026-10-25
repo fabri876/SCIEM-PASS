@@ -12,7 +12,8 @@ import {
   obtenerUltimosIngresos,
   validarIngreso,
 } from "../../../services/ingresoService";
-import { obtenerUsuarioActual } from "../../../services/authService";
+import { obtenerUsuarioActual, registrarActividad } from "../../../services/authService";
+import { obtenerOrigenExamenes } from "../../../offline/examenRepo";
 import {
   useConectividad,
   useNominaLocal,
@@ -20,6 +21,7 @@ import {
   registrarIngreso as motorRegistrar,
   obtenerClockOffsetMs,
   verificarAlmacenamiento,
+  asignacionRepo,
 } from "../../../offline";
 
 const INTERVALO_TIEMPO_REAL_MS = 2000;
@@ -64,6 +66,19 @@ function fechaDeIso(iso) {
   } catch {
     return null;
   }
+}
+
+// Primera letra sin tildes y en mayúscula ("Ñ" se mantiene)
+function inicialSinTildes(strTexto) {
+  const strLetra = String(strTexto || "").trim().charAt(0).toUpperCase();
+  return strLetra === "Ñ" ? strLetra : strLetra.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function letraEnRango(strLetra, strDesde, strHasta) {
+  if (!strLetra || !strDesde || !strHasta) return false;
+  const d = inicialSinTildes(strDesde);
+  const h = inicialSinTildes(strHasta);
+  return strLetra.localeCompare(d, "es") >= 0 && strLetra.localeCompare(h, "es") <= 0;
 }
 
 function baseResultado(resultado, strValor, metodo) {
@@ -142,6 +157,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const strRolConfig = objConfig.rol || null;
   const [listExamenes, setListExamenes] = useState(() => objExamenInicial ? [objExamenInicial] : []);
   const [boolCargandoExamenes, setBoolCargandoExamenes] = useState(true);
+  const [sinRespaldoOffline, setSinRespaldoOffline] = useState(false);
   const [idExamen, setIdExamen] = useState(idExamenInicial);
   const [objContador, setObjContador] = useState(null);
   const [listUltimosServidor, setListUltimosServidor] = useState(null); // null = el backend aún no lo da
@@ -175,6 +191,10 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       const listCargada = await obtenerExamenesAsignados();
       // En la vista docente la ruta de delegados puede no devolver datos;
       // conservar el examen recibido desde Mis exámenes.
+      const usuario = obtenerUsuarioActual();
+      const origenInfo = obtenerOrigenExamenes("delegados", usuario?.idUsuario ?? null);
+      const faltaRespaldo = origenInfo?.origen === "local" && !origenInfo?.guardadoEn;
+      setSinRespaldoOffline(Boolean(faltaRespaldo));
       setListExamenes(listCargada.length ? listCargada : (objExamenInicial ? [objExamenInicial] : []));
     } catch (e) {
       setStrError(e.message);
@@ -237,7 +257,12 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   // Validación con el motor local (offline-first).
   const fnValidarOffline = useCallback(async (strValor, strMetodo, objOpciones, ex) => {
     const id = refIdExamen.current;
-    const exId = Number(ex?.idexamen ?? id);
+    // Si id es compuesto "idasignatura-idexamen-idambiente", desglosar partes
+    const partesId = typeof id === "string" && id.includes("-") ? id.split("-") : [];
+    const exId = Number(ex?.idexamen ?? (partesId[1] ? Number(partesId[1]) : id));
+    const asignaturaId = ex?.idasignatura ?? (partesId[0] ? Number(partesId[0]) : null);
+    const ambienteId = ex?.idambiente ?? (partesId[2] ? Number(partesId[2]) : null);
+
     setBoolValidando(true);
     setStrError("");
     try {
@@ -245,14 +270,34 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       const operadorId = usuario?.idUsuario ?? usuario?.idusuario ?? usuario?.id ?? usuario?.correo;
       const rol = String(strRolConfig || usuario?.rol || "operador").toLowerCase();
       const fila = ex?.fila;
-      const rangoApellidos = (rol === "operador" && fila?.desde && fila?.hasta)
-        ? { desde: fila.desde, hasta: fila.hasta }
-        : null;
+      let rangoApellidos = null;
+
+      // 1. Si viene de red (ex.fila con desde/hasta), usarlo como fuente de verdad
+      if (rol === "operador" && fila?.desde && fila?.hasta) {
+        rangoApellidos = { desde: fila.desde, hasta: fila.hasta };
+      }
+
+      // 2. Si no hay rango de red, consultar IndexedDB (offline o respaldo local)
+      if (!rangoApellidos) {
+        const asignacion = await asignacionRepo.obtenerRangoOperador(
+          exId,
+          operadorId,
+          ambienteId
+        );
+
+        if (asignacion && asignacion.modoAsignacion === "SUBDIVISION") {
+          rangoApellidos = {
+            desde: asignacion.apellidoDesde,
+            hasta: asignacion.apellidoHasta,
+          };
+        }
+        // Si modoAsignacion es "ONLINE", dejamos rangoApellidos = null (sin restricción)
+      }
 
       const parametros = {
         examenId: exId,
-        asignaturaId: ex?.idasignatura ?? null,
-        ambienteId: ex?.idambiente ?? null,
+        asignaturaId,
+        ambienteId,
         lectura: String(strValor).trim(),
         metodo: strMetodo === "QR" ? "QR" : undefined,
         operadorId,
@@ -276,13 +321,17 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         return mapeado;
       }
 
-      // Fila fuera de rango: solo aviso, no registra (salvo que se ignore la fila).
+      // Apellido fuera del tramo de este ayudante: solo aviso, no registra (salvo que se ignore el tramo).
+      // Se busca el tramo del otro ayudante al que le corresponde el estudiante.
       if (rVal.fueraDeRango && !objOpciones.ignorarFila) {
+        const estOffline = estudianteOffline(rVal.estudiante);
+        const strInicial = inicialSinTildes(rVal.estudiante?.apellidoPaterno || estOffline?.apellidos);
+        const filaOtro = (ex?.filas || []).find((f) => !f.esMia && letraEnRango(strInicial, f.desde, f.hasta)) || null;
         const mapeado = {
           ...baseResultado("FUERA_DE_FILA", strValor, textoMetodo(strMetodo, rVal.metodo)),
-          estudiante: estudianteOffline(rVal.estudiante),
-          filaCorrecta: fila
-            ? { desde: fila.desde, hasta: fila.hasta, operador: usuario?.nombre || "" }
+          estudiante: estOffline,
+          filaCorrecta: filaOtro
+            ? { desde: filaOtro.desde, hasta: filaOtro.hasta, operador: filaOtro.operador || "" }
             : null,
         };
         setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
@@ -299,8 +348,8 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
 
       const rReg = await motorRegistrar({
         examenId: exId,
-        asignaturaId: ex?.idasignatura ?? null,
-        ambienteId: ex?.idambiente ?? null,
+        asignaturaId,
+        ambienteId,
         codigoSis: rVal.estudiante.codigoSis,
         metodo: rVal.metodo || parametros.metodo || "CI",
         operadorId,
@@ -314,6 +363,14 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       if (mapeado.resultado === "PERMITIDO" || mapeado.resultado === "REGISTRADO_OFFLINE") {
         setStrUltimoRegistrado(mapeado.estudiante?.ci ?? null);
         setNumVersion((v) => v + 1);
+        setObjContador((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            ingresaron: (prev.ingresaron ?? 0) + 1,
+            pendientes: Math.max(0, (prev.pendientes ?? 1) - 1),
+          };
+        });
         setObjLocales((prev) => ({
           ...prev,
           [id]: [
@@ -339,6 +396,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
 
   // objOpciones.ignorarFila = registrar aunque el apellido le toque a otro operador
   const fnValidar = useCallback(async (strValor, strMetodo, objOpciones = {}) => {
+    registrarActividad();
     const id = refIdExamen.current;
     if (id == null || !String(strValor || "").trim()) return null;
     const ex = examenPorId(id);
@@ -369,9 +427,9 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       }
       return r;
     } catch (e) {
-      // Pendiente HU7: ante un fallo de red con navigator.onLine=true,
-      // el flujo aún debe derivar explícitamente al motor offline.
-      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      // Si la nómina local está descargada y el servidor falla (timeout, error de red o backend caído),
+      // derivar automáticamente al motor offline para no detener el ingreso de los estudiantes.
+      if (nomina.estado.lista || (typeof navigator !== "undefined" && navigator.onLine === false)) {
         return await fnValidarOffline(strValor, strMetodo, objOpciones, ex);
       }
       setObjResultado(null);
@@ -380,7 +438,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     } finally {
       setBoolValidando(false);
     }
-  }, [boolOffline, fnRefrescar, fnValidarOffline]);
+  }, [boolOffline, fnRefrescar, fnValidarOffline, nomina.estado.lista]);
 
   const fnCerrarResultado = useCallback(() => setObjResultado(null), []);
 
@@ -391,12 +449,17 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     setObjContador(null);
     setStrUltimoRegistrado(null);
     setStrError("");
-  }, []);
+    if (id == null) {
+      // Al volver a la lista, actualizar inmediatamente los contadores del
+      // examen para reflejar los ingresos registrados en el control.
+      fnCargarExamenes();
+    }
+  }, [fnCargarExamenes]);
 
   const fnVolverALista = useCallback(() => fnElegirExamen(null), [fnElegirExamen]);
 
   const fnDescargarNomina = useCallback(() => {
-    nomina.descargar({ incluirFotos: false }).catch(() => {});
+    return nomina.descargar({ incluirFotos: false });
   }, [nomina.descargar]);
 
   // Si el backend ya devuelve los últimos ingresos, se usan; si no, los de esta sesión
@@ -414,7 +477,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   };
 
   return {
-    listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado,
+    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado,
     boolValidando, strError, strUltimoRegistrado, numVersion, boolOffline,
     objNomina, fnDescargarNomina,
     fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnRefrescar,

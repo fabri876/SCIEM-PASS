@@ -1,40 +1,56 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+// Panel del estudiante (mismas medidas que los paneles de docente y ayudante):
+// - Izquierda (280 px): perfil (C.I., SIS, carrera) y menú Inicio / Mis exámenes.
+// - Inicio: banner, "Mis exámenes de hoy" y a la derecha (256 px) el calendario y el próximo examen.
+// - Mis exámenes: lista completa con filtros.
+// - "Ver mi QR" / "Ver motivo" abre la credencial QR del examen (VistaCredencialQr, sin cambios).
+import { useState, useEffect, useMemo } from "react";
+import { Home, CalendarDays } from "lucide-react";
 import Header from "../../components/layout/Header";
 import { obtenerUsuarioActual } from "../../services/authService";
 import { obtenerMisExamenesEstudiante } from "../../services/credencialService";
-import ProximoExamen from "../credencial/componentes/ProximoExamen";
-import TarjetaExamenEstudiante from "../credencial/componentes/TarjetaExamenEstudiante";
 import VistaCredencialQr from "../credencial/componentes/VistaCredencialQr";
 import CalendarioExamenes from "../credencial/componentes/CalendarioExamenes";
-import { diasHasta } from "../credencial/componentes/formato";
+import ProximoExamenDocente from "../docente/components/ProximoExamenDocente";
+import TarjetaHoyEstudiante from "./components/TarjetaHoyEstudiante";
+import SeccionMisExamenesEstudiante from "./components/SeccionMisExamenesEstudiante";
+import { ordenarExamenesEstudiante, esHoyEstudiante, textoAula, fechaDeHoy } from "./utilidadesEstudiante";
 
-// Próximos (el más cercano primero) y pasados (el más reciente primero)
-function ordenarExamenes(list) {
-  const clave = (e) => `${e.fecha}T${e.horaInicio}`;
-  const proximos = list.filter((e) => (diasHasta(e.fecha) ?? 0) >= 0).sort((a, b) => clave(a).localeCompare(clave(b)));
-  const pasados = list.filter((e) => (diasHasta(e.fecha) ?? 0) < 0).sort((a, b) => clave(b).localeCompare(clave(a)));
-  return { proximos, pasados };
-}
+const OPCIONES = [
+  { strClave: "inicio", strTexto: "Inicio", Icono: Home },
+  { strClave: "mis-examenes", strTexto: "Mis exámenes", Icono: CalendarDays },
+];
 
 export default function HomeEstudiante() {
   const [usuario, setUsuario] = useState(null);
-  const [activeMenu, setActiveMenu] = useState("Inicio");
+  const [strMenuActivo, setStrMenuActivo] = useState("inicio");
 
   // Exámenes del estudiante y su credencial QR
   const [listExamenes, setListExamenes] = useState([]);
-  const [cargandoExamenes, setCargandoExamenes] = useState(true);
-  const [strErrorExamenes, setStrErrorExamenes] = useState("");
+  const [boolCargando, setBoolCargando] = useState(true);
+  const [strError, setStrError] = useState("");
   const [idExamenQr, setIdExamenQr] = useState(null);
-  const [boolVerPasados, setBoolVerPasados] = useState(false);
-  const refMain = useRef(null);
+
+  // Hora actual: cada 30 s, para que los estados (en curso, QR disponible) cambien solos
+  const [dateAhora, setDateAhora] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setDateAhora(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Reserva siempre el espacio de la barra de desplazamiento: así el menú no se mueve
+  // al pasar de una sección corta (Inicio) a una larga (Mis exámenes)
+  useEffect(() => {
+    const elHtml = document.documentElement;
+    const strAntes = elHtml.style.scrollbarGutter;
+    elHtml.style.scrollbarGutter = "stable";
+    return () => { elHtml.style.scrollbarGutter = strAntes; };
+  }, []);
 
   useEffect(() => {
     const user = obtenerUsuarioActual();
     if (user) {
       setUsuario(user);
     } else {
-
       setUsuario({
         idUsuario: 15,
         nombre: "María",
@@ -50,194 +66,173 @@ export default function HomeEstudiante() {
 
     obtenerMisExamenesEstudiante()
       .then(setListExamenes)
-      .catch(() => setStrErrorExamenes("No pudimos cargar tus exámenes. Intenta de nuevo en unos minutos."))
-      .finally(() => setCargandoExamenes(false));
+      .catch(() => setStrError("No pudimos cargar tus exámenes. Intenta de nuevo en unos minutos."))
+      .finally(() => setBoolCargando(false));
   }, []);
 
   const strNombre = usuario?.nombre || "Estudiante";
   const strApellido = usuario?.apellido || "";
-  const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`;
+  const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`.toUpperCase();
 
-  const { proximos, pasados } = useMemo(() => ordenarExamenes(listExamenes), [listExamenes]);
-  const examenDestacado = proximos.find((e) => e.habilitado !== false) || null;
-  const listResto = proximos.filter((e) => e !== examenDestacado);
+  const listOrdenados = useMemo(() => ordenarExamenesEstudiante(listExamenes, dateAhora), [listExamenes, dateAhora]);
+  // Inicio: solo los exámenes de HOY en curso o por empezar
+  const listHoy = listOrdenados.filter(({ e, strEstado }) => strEstado !== "FINALIZADO" && esHoyEstudiante(e, dateAhora)).map(({ e }) => e);
+  const objProximo = listOrdenados.find(({ e, strEstado }) => strEstado === "PROXIMO" && !esHoyEstudiante(e, dateAhora))?.e || null;
+  const listCalendario = listExamenes
+    .filter((e) => e.fecha)
+    // El calendario ya antepone "Aula"
+    .map((e) => ({ ...e, aula: textoAula(e.aula).replace(/^Aula\s*/, "") }));
+
   const examenQr = listExamenes.find((e) => e.id === idExamenQr) || null;
 
   const fnVerQr = (id) => {
     setIdExamenQr(id);
-    refMain.current?.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const fnSeleccionarMenu = (nombre) => {
-    setActiveMenu(nombre);
-    if (nombre === "Mi QR") {
-      const examen = examenDestacado || proximos[0] || listExamenes[0];
-      if (examen) fnVerQr(examen.id);
-    } else if (nombre === "Mis exámenes") {
-      setIdExamenQr(null);
-      refMain.current?.scrollTo({ top: 0, behavior: "smooth" });
-    } else if (nombre === "Mi Información") {
-      setIdExamenQr(null);
-      refMain.current?.scrollTo({ top: 0, behavior: "smooth" });
-    }
+  const fnSeleccionarMenu = (strClave) => {
+    setIdExamenQr(null);
+    setStrMenuActivo(strClave);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
-    <div className="h-screen w-screen bg-[var(--color-bg-app)] font-[var(--font-nunito)] text-[var(--color-text-body)] overflow-hidden flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-800 font-nunito">
 
-      {/* Header Fijo Superior (incluye el menú de cuenta: cambiar
-          contraseña / cerrar sesión, ver Header.jsx). Altura en 98px para
-          coincidir con la altura fija que ya trae Header.jsx — antes este
-          wrapper forzaba 80px (h-20) y el header interno de 98px quedaba
-          recortado (BUG-003 QA de "backdrop-blur-md": ver commit anterior,
-          ya corregido; esto es el ajuste de altura que faltaba al mover
-          UserAccountMenu adentro de Header.jsx). */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-white/95 border-b border-[var(--color-border)] h-[98px] shadow-xs">
+      {/* Header fijo (incluye el menú de cuenta: cambiar contraseña / cerrar sesión, ver Header.jsx) */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200">
         <Header strRutaActiva="Inicio" />
-      </header>
+      </div>
 
-      {/* Contenedor Principal con Layout Sidebar + Workspace */}
-      <div className="flex pt-[98px] h-full w-full overflow-hidden">
+      <div className="flex-1 w-full">
+        <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-4 sm:px-6 gap-6">
 
-        {/* Sidebar Estilo Dashboard */}
-        <aside className="w-72 shrink-0 h-[calc(100vh-98px)] bg-[var(--color-bg-card)] border-r border-[var(--color-border)] p-6 flex flex-col justify-between overflow-y-auto hidden lg:flex">
-          <div className="space-y-6">
-
-            {/* Tarjeta de perfil en el sidebar */}
-            <div className="flex flex-col items-center text-center p-4 bg-[var(--color-bg-app)] rounded-2xl border border-[var(--color-border)]">
-              <div className="w-16 h-16 rounded-2xl bg-[image:var(--gradient-banner)] text-white font-black text-2xl flex items-center justify-center shadow-md mb-3">
+          {/* BARRA IZQUIERDA */}
+          <aside className="w-[280px] shrink-0 hidden lg:block space-y-6">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-md mb-3">
                 {strIniciales}
               </div>
-              <h2 className="text-base font-bold text-[var(--color-text-title)]">{`${strNombre} ${strApellido}`}</h2>
-              <span className="text-[11px] font-bold text-primary-navy uppercase tracking-wider mt-0.5">Estudiante</span>
-
-              <div className="w-full mt-4 pt-3 border-t border-[var(--color-border)] text-left space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-[var(--color-text-body)] font-medium">C.I.:</span>
-                  <span className="font-bold text-[var(--color-secondary-data)]">{usuario?.ci || "8765432"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--color-text-body)] font-medium">Código SIS:</span>
-                  <span className="font-bold text-primary-navy">{usuario?.codigoSis || "202308123"}</span>
-                </div>
-                <div className="flex flex-col pt-1">
-                  <span className="text-[var(--color-text-body)] font-medium">Carrera:</span>
-                  <span className="font-bold text-[var(--color-secondary-data)] text-xs truncate">{usuario?.carrera || "Ingeniería de Sistemas"}</span>
-                </div>
+              <h3 className="font-extrabold text-[#1A365D] text-sm uppercase">{strNombre} {strApellido}</h3>
+              <span className="text-[11px] text-[#1A365D] font-bold mb-4">ESTUDIANTE</span>
+              <div className="w-full border-t border-slate-100 pt-3 text-left space-y-2 text-xs">
+                <p className="flex justify-between text-slate-600"><span className="font-bold text-[#1A365D]">C.I.:</span> {usuario?.ci || "-"}</p>
+                <p className="flex justify-between text-slate-600"><span className="font-bold text-[#1A365D]">Código SIS:</span> {usuario?.codigoSis || "-"}</p>
+                <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Carrera:</span> {usuario?.carrera || "-"}</p>
               </div>
             </div>
 
-            {/* Menú de navegación */}
-            <nav className="space-y-1.5">
-              {[
-                {
-                  name: "Inicio",
-                  icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                },
-                {
-                  name: "Mis exámenes",
-                  icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                },
-                {
-                  name: "Mi Información",
-                  icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                },
-                {
-                  name: "Mi QR",
-                  icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1 z" />
-                },
-              ].map((item) => (
+            <nav aria-label="Menú del estudiante" className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+              {OPCIONES.map(({ strClave, strTexto, Icono }) => {
+                const boolActivo = strMenuActivo === strClave;
+                return (
+                  <button
+                    key={strClave}
+                    type="button"
+                    onClick={() => fnSeleccionarMenu(strClave)}
+                    aria-current={boolActivo ? "page" : undefined}
+                    className={"w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer " +
+                      (boolActivo ? "bg-[#1A365D] text-white shadow-xs" : "text-slate-700 hover:bg-slate-50")}
+                  >
+                    <Icono className={`w-4 h-4 ${boolActivo ? "text-white" : "text-[#1A365D]"}`} />
+                    {strTexto}
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
+
+          {/* CONTENIDO */}
+          <main className="flex-1 min-w-0 space-y-6">
+            {/* Menú en pestañas para el celular */}
+            <nav aria-label="Menú del estudiante" className="lg:hidden flex gap-1 p-1 bg-white rounded-2xl border border-slate-200 shadow-xs">
+              {OPCIONES.map(({ strClave, strTexto, Icono }) => (
                 <button
-                  key={item.name}
-                  onClick={() => fnSeleccionarMenu(item.name)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${activeMenu === item.name
-                    ? "bg-primary-navy text-white shadow-md shadow-slate-950/20"
-                    : "text-[var(--color-secondary-data)] hover:bg-[var(--color-bg-app)] hover:text-[var(--color-text-title)]"
-                    }`}
+                  key={strClave}
+                  type="button"
+                  onClick={() => fnSeleccionarMenu(strClave)}
+                  className={"flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap cursor-pointer " +
+                    (strMenuActivo === strClave ? "bg-[#1A365D] text-white" : "text-slate-700")}
                 >
-                  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    {item.icon}
-                  </svg>
-                  <span>{item.name}</span>
+                  <Icono className="w-4 h-4" /> {strTexto}
                 </button>
               ))}
             </nav>
-          </div>
-        </aside>
-
-
-        {/* Área Central de Contenido */}
-        <main ref={refMain} className="flex-1 h-[calc(100vh-98px)] overflow-y-auto px-6 lg:px-10 py-8">
-          <div className="max-w-[1100px] flex flex-col gap-6 text-[#08264A]">
-            {/* El saludo solo va en la pantalla principal, no en el detalle del QR */}
-            {!examenQr && (
-              <div>
-                <h1 className="m-0 text-[22px] max-md:text-xl font-bold text-[#08264A]">Hola, {strNombre.split(" ")[0]}</h1>
-                <p className="mt-1 text-[13px] text-[#64748B]">Consulta tus exámenes y tu credencial QR de ingreso.</p>
-              </div>
-            )}
 
             {examenQr ? (
               <VistaCredencialQr examen={examenQr} usuario={usuario} onVolver={() => setIdExamenQr(null)} />
+            ) : strMenuActivo === "mis-examenes" ? (
+              <SeccionMisExamenesEstudiante
+                examenes={listExamenes}
+                boolCargando={boolCargando}
+                strError={strError}
+                dateAhora={dateAhora}
+                onVerQr={fnVerQr}
+              />
             ) : (
               <>
-                {strErrorExamenes && (
-                  <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strErrorExamenes}</div>
+                {/* Banner de bienvenida */}
+                <div
+                  className="w-full text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]"
+                  style={{ backgroundImage: "linear-gradient(to right, #1A365D, #2563EB, #DC2626)" }}
+                >
+                  <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
+                    ¡HOLA, {strNombre.split(" ")[0].toUpperCase()}!
+                  </span>
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">Te damos la bienvenida a SCIEM-PASS</h1>
+                  <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
+                    Aquí consultas tus exámenes y muestras tu credencial QR para ingresar.
+                  </p>
+                </div>
+
+                {strError && (
+                  <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
                 )}
 
-                {cargandoExamenes && <div className="h-[150px] rounded-xl bg-[#D9E8F7] animate-pulse" aria-label="Cargando" />}
-
-                {examenDestacado && <ProximoExamen examen={examenDestacado} onVerDetalle={fnVerQr} />}
-
-                <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-6 items-start max-xl:grid-cols-1">
-                  {/* Mis exámenes */}
-                  <section aria-labelledby="he-t-examenes" className="flex flex-col gap-3 min-w-0">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h2 id="he-t-examenes" className="m-0 text-base font-bold text-[#08264A]">Mis exámenes</h2>
-                      {!cargandoExamenes && <span className="text-xs text-[#64748B]">El QR se habilita desde el día anterior a cada examen</span>}
-                    </div>
-
-                    {cargandoExamenes && [0, 1].map((i) => <div key={i} className="h-[78px] rounded-xl bg-white border border-[#CBD5E1] animate-pulse" />)}
-
-                    {!cargandoExamenes && !strErrorExamenes && listExamenes.length === 0 && (
-                      <div className="bg-white border border-dashed border-[#CBD5E1] rounded-xl px-5 py-10 text-center">
-                        <p className="m-0 text-[15px] font-semibold text-[#08264A]">No tienes exámenes inscritos</p>
-                        <p className="mt-1 text-[13px] text-[#64748B]">Cuando te inscriban en un examen, aparecerá aquí con su QR.</p>
+                <div className="flex flex-col xl:flex-row gap-6 items-start">
+                  {/* MIS EXÁMENES DE HOY */}
+                  <div className="w-full xl:flex-1 min-w-0">
+                    <div className="bg-white rounded-2xl border border-[#CBD5E1] shadow-xs overflow-hidden">
+                      <div className="px-5 pt-4 pb-3 border-b border-[#E2E8F0]">
+                        <h3 className="text-base font-black text-[#08264A]">Mis exámenes de hoy</h3>
+                        <p className="text-xs font-bold text-slate-500 mt-0.5">{fechaDeHoy()}</p>
                       </div>
-                    )}
+                      <div className="px-5 py-4 space-y-2.5">
+                        {boolCargando ? (
+                          <div className="text-center py-6 text-slate-500 text-xs font-semibold animate-pulse">Cargando exámenes…</div>
+                        ) : listHoy.length === 0 ? (
+                          <div className="text-center py-6 text-slate-500 text-xs font-semibold">No tienes exámenes hoy.</div>
+                        ) : (
+                          listHoy.map((examen) => (
+                            <TarjetaHoyEstudiante key={examen.id} examen={examen} dateAhora={dateAhora} onVerQr={fnVerQr} />
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-                    {listResto.map((ex) => <TarjetaExamenEstudiante key={ex.id} examen={ex} onVerQr={fnVerQr} />)}
-
-                    {pasados.length > 0 && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setBoolVerPasados((v) => !v)}
-                          aria-expanded={boolVerPasados}
-                          className="self-start mt-1 inline-flex items-center gap-1 text-[13px] font-semibold text-[#1860A3] hover:underline cursor-pointer"
-                        >
-                          {boolVerPasados
-                            ? <>Ocultar exámenes pasados <ChevronUp className="w-4 h-4" /></>
-                            : <>Ver exámenes pasados ({pasados.length}) <ChevronDown className="w-4 h-4" /></>}
-                        </button>
-                        {boolVerPasados && pasados.map((ex) => <TarjetaExamenEstudiante key={ex.id} examen={ex} onVerQr={fnVerQr} />)}
-                      </>
-                    )}
-                  </section>
-
-                  {/* Calendario: días con examen marcados */}
-                  <aside>
-                    <CalendarioExamenes listExamenes={listExamenes} onVerQr={fnVerQr} />
-                  </aside>
+                  {/* PANEL DERECHO */}
+                  <div className="w-full xl:w-64 shrink-0 space-y-6">
+                    <CalendarioExamenes listExamenes={listCalendario} onVerQr={fnVerQr} />
+                    <ProximoExamenDocente
+                      examen={objProximo ? {
+                        idExamen: objProximo.id,
+                        nombreExamen: objProximo.materia,
+                        fechaExamen: objProximo.fecha,
+                        horaInicio: objProximo.horaInicio,
+                        horaFin: objProximo.horaFin,
+                        horario: [objProximo.horaInicio, objProximo.horaFin].filter(Boolean).join(" – "),
+                        aulaNombre: textoAula(objProximo.aula).replace(/^Aula\s*/, ""),
+                      } : null}
+                      onVerDetalle={fnVerQr}
+                    />
+                  </div>
                 </div>
               </>
             )}
-          </div>
-
-        </main>
+          </main>
+        </div>
       </div>
-
     </div>
   );
 }
-

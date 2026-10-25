@@ -4,6 +4,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Asignatura;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Aula;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamen;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
@@ -27,6 +28,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoReposito
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.TipoExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.DelegadoExamenDTO;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FilaDelegadoExamenDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.EstudianteResumenDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.JornadaActivaDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.PrimerIngresoDTO;
@@ -47,6 +49,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.text.Normalizer;
+import java.util.Locale;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
@@ -59,6 +63,7 @@ public class ControlIngresoAyudanteService {
 
     private static final Logger log = LoggerFactory.getLogger(ControlIngresoAyudanteService.class);
     private static final ZoneId ZONA_HORARIA = ZoneId.of("America/La_Paz");
+    private static final long MINUTOS_ANTES_CONTROL_INGRESO = 15L;
 
     private final AyudanteExamenRepository ayudanteExamenRepository;
     private final AsignaturaRepository asignaturaRepository;
@@ -72,7 +77,8 @@ public class ControlIngresoAyudanteService {
     private final EstudianteRepository estudianteRepository;
     private final GrupoRepository grupoRepository;
     private final CredencialRepository credencialRepository;
-    // HU10: aula asignada (reparto por apellido) e intentos bloqueados para el dashboard
+    // HU10: aula asignada (reparto por apellido) e intentos bloqueados para el
+    // dashboard
     private final AsignacionAulaService asignacionAulaService;
     private final IntentoIngresoService intentoIngresoService;
 
@@ -80,19 +86,19 @@ public class ControlIngresoAyudanteService {
     private static final String PREFIJO_QR = "SCIEMPASS:1:";
 
     public ControlIngresoAyudanteService(AyudanteExamenRepository ayudanteExamenRepository,
-                                         AsignaturaRepository asignaturaRepository,
-                                         ExamenRepository examenRepository,
-                                         AmbienteRepository ambienteRepository,
-                                         AulaRepository aulaRepository,
-                                         TipoExamenRepository tipoExamenRepository,
-                                         HabilitacionRepository habilitacionRepository,
-                                         IngresoRepository ingresoRepository,
-                                         UsuarioRepository usuarioRepository,
-                                         EstudianteRepository estudianteRepository,
-                                         GrupoRepository grupoRepository,
-                                         CredencialRepository credencialRepository,
-                                         AsignacionAulaService asignacionAulaService,
-                                         IntentoIngresoService intentoIngresoService) {
+            AsignaturaRepository asignaturaRepository,
+            ExamenRepository examenRepository,
+            AmbienteRepository ambienteRepository,
+            AulaRepository aulaRepository,
+            TipoExamenRepository tipoExamenRepository,
+            HabilitacionRepository habilitacionRepository,
+            IngresoRepository ingresoRepository,
+            UsuarioRepository usuarioRepository,
+            EstudianteRepository estudianteRepository,
+            GrupoRepository grupoRepository,
+            CredencialRepository credencialRepository,
+            AsignacionAulaService asignacionAulaService,
+            IntentoIngresoService intentoIngresoService) {
         this.asignacionAulaService = asignacionAulaService;
         this.intentoIngresoService = intentoIngresoService;
         this.ayudanteExamenRepository = ayudanteExamenRepository;
@@ -110,18 +116,21 @@ public class ControlIngresoAyudanteService {
     }
 
     public List<DelegadoExamenDTO> obtenerDelegadosActivos(Integer idUsuario) {
-        List<AyudanteExamen> activas = ayudanteExamenRepository.findByIdIdayudanteAndEstadoAsignacion(idUsuario, "ACTIVO");
+        List<AyudanteExamen> activas = ayudanteExamenRepository.findByIdIdayudanteAndEstadoAsignacion(idUsuario,
+                "ACTIVO");
         validarSolapamientoAsignaciones(activas);
 
         return activas.stream()
                 .map(this::mapearADelegadoDTO)
-                .sorted(Comparator.comparing(DelegadoExamenDTO::fechaExamen, Comparator.nullsLast(Comparator.naturalOrder()))
+                .sorted(Comparator
+                        .comparing(DelegadoExamenDTO::fechaExamen, Comparator.nullsLast(Comparator.naturalOrder()))
                         .thenComparing(DelegadoExamenDTO::horaInicio, Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
     }
 
     public JornadaActivaDTO obtenerJornadaActiva(Integer idUsuario) {
-        List<AyudanteExamen> activas = ayudanteExamenRepository.findByIdIdayudanteAndEstadoAsignacion(idUsuario, "ACTIVO");
+        List<AyudanteExamen> activas = ayudanteExamenRepository.findByIdIdayudanteAndEstadoAsignacion(idUsuario,
+                "ACTIVO");
         if (activas.isEmpty()) {
             throw new AsignacionNoActivaException("No tiene asignaciones ACTIVAS para control de ingreso.");
         }
@@ -139,7 +148,8 @@ public class ControlIngresoAyudanteService {
                     .filter(ae -> {
                         Examen ex = obtenerExamen(ae);
                         Ambiente amb = obtenerAmbiente(ae);
-                        if (ex == null || amb == null || ex.getFechaExamen() == null) return false;
+                        if (ex == null || amb == null || ex.getFechaExamen() == null)
+                            return false;
                         return ex.getFechaExamen().equals(hoy)
                                 && !horaActual.isBefore(amb.getHoraInicio())
                                 && !horaActual.isAfter(amb.getHoraFin());
@@ -155,7 +165,8 @@ public class ControlIngresoAyudanteService {
                         .filter(ae -> {
                             Examen ex = obtenerExamen(ae);
                             Ambiente amb = obtenerAmbiente(ae);
-                            if (ex == null || amb == null || ex.getFechaExamen() == null) return false;
+                            if (ex == null || amb == null || ex.getFechaExamen() == null)
+                                return false;
                             LocalDateTime inicioExamen = LocalDateTime.of(ex.getFechaExamen(), amb.getHoraInicio());
                             return inicioExamen.isAfter(ahora);
                         })
@@ -185,29 +196,48 @@ public class ControlIngresoAyudanteService {
         return mapearAJornadaActivaDTO(seleccionada);
     }
 
-    public JornadaActivaDTO obtenerExamenSeleccionado(Integer idUsuario, Integer idAsignatura, Integer idExamen, Integer idAmbiente) {
-        bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId id =
-                new bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId(idUsuario, idAsignatura, idExamen, idAmbiente);
+    public JornadaActivaDTO obtenerExamenSeleccionado(Integer idUsuario, Integer idAsignatura, Integer idExamen,
+            Integer idAmbiente) {
+        bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId id = new bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId(
+                idUsuario, idAsignatura, idExamen, idAmbiente);
         // Pendiente: permitir al docente consultar sus propias aulas sin exigir
         // una fila en ayudante_examen. Se conserva temporalmente la validación
         // original hasta definir el contrato completo para esta pantalla.
         AyudanteExamen asignacion = ayudanteExamenRepository.findById(id)
-                .orElseThrow(() -> new AsignacionNoActivaException("No tiene asignado el examen/aula seleccionada."));
+                .orElse(null);
+
+        if (asignacion == null) {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            boolean puedeConsultarSinAsignacion = auth != null && auth.getAuthorities().stream()
+                    .anyMatch(a -> "ROLE_DOCENTE".equals(a.getAuthority())
+                            || "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
+            if (!puedeConsultarSinAsignacion) {
+                throw new AsignacionNoActivaException("No tiene asignado el examen/aula seleccionada.");
+            }
+            // Docente/admin pueden consultar el resumen de un aula aunque no
+            // exista una fila de ayudante_examen para ellos.
+            asignacion = new AyudanteExamen(id, "ACTIVO");
+        }
 
         return mapearAJornadaActivaDTO(asignacion);
     }
 
-    public List<UltimoIngresoDTO> obtenerUltimosIngresos(Integer idAsignatura, Integer idExamen, Integer idAmbiente, int limite) {
-        List<Ingreso> lista = ingresoRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByIdIngresoDesc(idAsignatura, idExamen, idAmbiente);
+    public List<UltimoIngresoDTO> obtenerUltimosIngresos(Integer idAsignatura, Integer idExamen, Integer idAmbiente,
+            int limite) {
+        List<Ingreso> lista = ingresoRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByIdIngresoDesc(
+                idAsignatura, idExamen, idAmbiente);
 
         return lista.stream()
                 .limit(limite > 0 ? limite : 5)
                 .map(ing -> {
                     Usuario user = usuarioRepository.findById(ing.getIdUsuarioEstudiante()).orElse(null);
-                    Estudiante est = estudianteRepository.findByCodsisestudiante(ing.getCodsisEstudiante()).orElse(null);
+                    Estudiante est = estudianteRepository.findByCodsisestudiante(ing.getCodsisEstudiante())
+                            .orElse(null);
 
                     String ci = user != null ? user.getCiusuario() : "";
-                    String nombreCompleto = user != null ? (user.getNombreusuario() + " " + user.getApellidousuario()).trim() : "Estudiante registrado";
+                    String nombreCompleto = user != null
+                            ? (user.getNombreusuario() + " " + user.getApellidousuario()).trim()
+                            : "Estudiante registrado";
                     Integer codsis = est != null ? est.getCodsisestudiante() : ing.getCodsisEstudiante();
 
                     EstudianteResumenDTO estDto = new EstudianteResumenDTO(
@@ -216,23 +246,48 @@ public class ControlIngresoAyudanteService {
                             ci,
                             nombreCompleto,
                             "Carrera no asignada",
-                            null
-                    );
+                            null);
 
                     String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
 
-                    Usuario operador = ing.getIdUsuarioRegistra() != null ? usuarioRepository.findById(ing.getIdUsuarioRegistra()).orElse(null) : null;
-                    String registradoPor = operador != null ? (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim() : null;
+                    Usuario operador = ing.getIdUsuarioRegistra() != null
+                            ? usuarioRepository.findById(ing.getIdUsuarioRegistra()).orElse(null)
+                            : null;
+                    String registradoPor = operador != null
+                            ? (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim()
+                            : null;
 
                     return new UltimoIngresoDTO(
                             ing.getIdIngreso(),
                             ing.getHoraIngreso(),
                             metodo,
                             estDto,
-                            registradoPor
-                    );
+                            registradoPor,
+                            ing.getIdAsignatura(),
+                            ing.getIdExamen(),
+                            ing.getIdAmbiente());
                 })
                 .toList();
+    }
+
+    public List<UltimoIngresoDTO> obtenerMisRegistros(Integer idUsuario, int limite) {
+        return ingresoRepository.findByIdUsuarioRegistraOrderByHoraIngresoDesc(idUsuario).stream()
+                .limit(limite > 0 ? limite : 100)
+                .map(ing -> convertirUltimoIngreso(ing))
+                .toList();
+    }
+
+    private UltimoIngresoDTO convertirUltimoIngreso(Ingreso ing) {
+        Usuario user = usuarioRepository.findById(ing.getIdUsuarioEstudiante()).orElse(null);
+        Estudiante est = estudianteRepository.findByCodsisestudiante(ing.getCodsisEstudiante()).orElse(null);
+        EstudianteResumenDTO resumen = new EstudianteResumenDTO(ing.getIdUsuarioEstudiante(),
+                est != null ? est.getCodsisestudiante() : ing.getCodsisEstudiante(),
+                user != null ? user.getCiusuario() : "",
+                user != null ? (user.getNombreusuario() + " " + user.getApellidousuario()).trim() : "Estudiante registrado",
+                "Carrera no asignada", null);
+        String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
+        return new UltimoIngresoDTO(ing.getIdIngreso(), ing.getHoraIngreso(), metodo, resumen,
+                "Registro propio", ing.getIdAsignatura(), ing.getIdExamen(), ing.getIdAmbiente());
     }
 
     @Transactional
@@ -243,18 +298,34 @@ public class ControlIngresoAyudanteService {
     /** Variante HU7: conserva la hora declarada por el dispositivo offline. */
     @Transactional
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
-                                                                 LocalDateTime horaMarcacion, String clientUuid) {
+            LocalDateTime horaMarcacion, String clientUuid) {
         validarAsignacionDeControl(dto, idOperador);
+
+        // El horario se valida únicamente para registros online. Las marcas
+        // con clientUuid provienen del modo offline y deben sincronizarse sin
+        // ser rechazadas por la hora en que recuperan conexión.
+        if (clientUuid == null) {
+            ResponseEntity<ResultadoIngresoDTO> fueraDeHorario = validarHorarioOnline(dto);
+            if (fueraDeHorario != null) {
+                return fueraDeHorario;
+            }
+        }
         String query = dto.identificador() != null ? dto.identificador().trim() : "";
 
         // Cuando la lectura proviene de la cámara, cualquier contenido que no
         // sea una credencial SCIEM-PASS debe rechazarse como QR inválido. No
         // debe caer al flujo de búsqueda manual por CI/SIS.
+        // Excepción: sincronización offline (clientUuid presente). El frontend
+        // puede haber marcado una lectura de código SIS numérico como "QR" sin
+        // tener un token QR real; en ese caso se trata como lectura manual.
         if (dto.metodoIngreso() == MetodoIngreso.ESCANEO && !query.startsWith(PREFIJO_QR)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
-                    "QR_INVALIDO",
-                    "QR INVÁLIDO - El código leído no corresponde a una credencial SCIEM-PASS.",
-                    null, null, null, null));
+            if (clientUuid == null || !query.matches("^\\d+$")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
+                        "QR_INVALIDO",
+                        "QR INVÁLIDO - El código leído no corresponde a una credencial SCIEM-PASS.",
+                        null, null, null, null));
+            }
+            // clientUuid + código numérico: continuar al flujo manual por SIS abajo.
         }
 
         // 1. Detección de Ingreso por QR (formato: SCIEMPASS:1:TOKEN)
@@ -272,20 +343,19 @@ public class ControlIngresoAyudanteService {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
                         "QR_INVALIDO",
                         "QR INVÁLIDO - El código QR no es válido, está anulado o ha expirado.",
-                        null, null, null, null
-                ));
+                        null, null, null, null));
             }
 
             var credencial = credOpt.get();
 
             // Verificar ventana de tiempo
-            java.time.LocalDateTime ahora = horaMarcacion != null ? horaMarcacion : java.time.LocalDateTime.now(ZONA_HORARIA);
+            java.time.LocalDateTime ahora = horaMarcacion != null ? horaMarcacion
+                    : java.time.LocalDateTime.now(ZONA_HORARIA);
             if (ahora.isBefore(credencial.getValidoDesde()) || ahora.isAfter(credencial.getValidoHasta())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResultadoIngresoDTO(
                         "QR_INVALIDO",
                         "QR EXPIRADO - El código QR está fuera de su ventana de validez.",
-                        null, null, null, null
-                ));
+                        null, null, null, null));
             }
 
             // Verificar que el QR corresponde al examen que se está controlando
@@ -323,12 +393,12 @@ public class ControlIngresoAyudanteService {
         if (usuario == null || estudiante == null) {
             ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
                     "NO_ENCONTRADO",
-                    "ESTUDIANTE NO ENCONTRADO - EL DATO NO EXISTE EN EL SISTEMA. El dato «" + query + "» no corresponde a ningún estudiante registrado.",
+                    "ESTUDIANTE NO ENCONTRADO - EL DATO NO EXISTE EN EL SISTEMA. El dato «" + query
+                            + "» no corresponde a ningún estudiante registrado.",
                     null,
                     null,
                     null,
-                    null
-            );
+                    null);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resultado);
         }
 
@@ -338,8 +408,11 @@ public class ControlIngresoAyudanteService {
                 usuario.getCiusuario(),
                 usuario.getNombreusuario() + " " + usuario.getApellidousuario(),
                 "Carrera no asignada",
-                null
-        );
+                null);
+
+        // En línea todos los operadores asignados al aula pueden registrar
+        // cualquier estudiante habilitado. La subdivisión por apellidos se
+        // valida únicamente en el motor offline del frontend.
 
         if (qrDeOtroExamen) {
             OtroExamenDTO otro = encontrarOtroExamen(estudiante.getCodsisestudiante(), dto.idexamen())
@@ -355,22 +428,21 @@ public class ControlIngresoAyudanteService {
         // también cuenta como ingreso previo aunque el estudiante esté
         // actualmente marcado como inhabilitado.
         Optional<Ingreso> ingresoPrevio = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
-                estudiante.getCodsisestudiante(), dto.idasignatura(), dto.idexamen()
-        );
+                estudiante.getCodsisestudiante(), dto.idasignatura(), dto.idexamen());
 
         if (ingresoPrevio.isPresent()) {
             Ingreso prev = ingresoPrevio.get();
             Ambiente ambPrev = ambienteRepository.findById(prev.getIdAmbiente()).orElse(null);
             Aula aulaPrev = ambPrev != null ? aulaRepository.findById(ambPrev.getIdAula()).orElse(null) : null;
 
-            String nombreAula = aulaPrev != null ? aulaPrev.getNombreAula() : (ambPrev != null ? "Ambiente #" + ambPrev.getIdAmbiente() : "Aula asignada");
+            String nombreAula = aulaPrev != null ? aulaPrev.getNombreAula()
+                    : (ambPrev != null ? "Ambiente #" + ambPrev.getIdAmbiente() : "Aula asignada");
             String ubicacionAula = aulaPrev != null ? aulaPrev.getUbicacionAula() : "";
 
             PrimerIngresoDTO primerIngreso = new PrimerIngresoDTO(
                     prev.getHoraIngreso(),
                     nombreAula,
-                    ubicacionAula
-            );
+                    ubicacionAula);
 
             // HU10: cuenta para el indicador "Duplicados Bloqueados"
             intentoIngresoService.registrar(MotivoIntento.DUPLICADO, dto.idasignatura(), dto.idexamen(),
@@ -382,17 +454,18 @@ public class ControlIngresoAyudanteService {
                     estudianteResumen,
                     null,
                     primerIngreso,
-                    null
-            );
+                    null);
             return ResponseEntity.status(HttpStatus.CONFLICT).body(resultado);
         }
 
         // 3. Verificación de Habilitación Académica
         Optional<Habilitacion> habOpt = habilitacionRepository
-                .findByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(dto.idasignatura(), dto.idexamen(), estudiante.getCodsisestudiante());
+                .findByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(dto.idasignatura(), dto.idexamen(),
+                        estudiante.getCodsisestudiante());
 
         if (habOpt.isEmpty()) {
-            habOpt = habilitacionRepository.findByIdAsignaturaAndIdExamenAndIdUsuario(dto.idasignatura(), dto.idexamen(), usuario.getIdusuario());
+            habOpt = habilitacionRepository.findByIdAsignaturaAndIdExamenAndIdUsuario(dto.idasignatura(),
+                    dto.idexamen(), usuario.getIdusuario());
         }
 
         // Si no está inscrito en el examen actual, orientar al estudiante hacia
@@ -418,8 +491,7 @@ public class ControlIngresoAyudanteService {
                     estudianteResumen,
                     null,
                     null,
-                    motivo
-            );
+                    motivo);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(resultado);
         }
 
@@ -436,15 +508,16 @@ public class ControlIngresoAyudanteService {
                     dto.idambiente(), asignada.idAmbiente(), usuario.getIdusuario(),
                     estudiante.getCodsisestudiante(), idOperador);
             String ubicacion = asignada.ubicacion() == null || asignada.ubicacion().isBlank()
-                    ? "" : " (" + asignada.ubicacion() + ")";
+                    ? ""
+                    : " (" + asignada.ubicacion() + ")";
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new ResultadoIngresoDTO(
                     "AMBIENTE_DIFERENTE",
-                    "INGRESO A UN AMBIENTE DIFERENTE - El estudiante debe dirigirse al " + asignada.nombre() + ubicacion + ".",
+                    "INGRESO A UN AMBIENTE DIFERENTE - El estudiante debe dirigirse al " + asignada.nombre() + ubicacion
+                            + ".",
                     estudianteResumen,
                     null,
                     new PrimerIngresoDTO(null, asignada.nombre(), asignada.ubicacion()),
-                    null
-            ));
+                    null));
         }
 
         // 5. Registro Exitoso del Ingreso
@@ -486,17 +559,44 @@ public class ControlIngresoAyudanteService {
                 estudianteResumen,
                 nuevoIngreso.getHoraIngreso(),
                 null,
-                null
-        );
+                null);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
+    }
+
+    private ResponseEntity<ResultadoIngresoDTO> validarHorarioOnline(VerificarIngresoRequestDTO dto) {
+        Examen examen = examenRepository.findById(dto.idexamen()).orElse(null);
+        Ambiente ambiente = ambienteRepository.findById(dto.idambiente()).orElse(null);
+        if (examen == null || ambiente == null || examen.getFechaExamen() == null
+                || ambiente.getHoraInicio() == null || ambiente.getHoraFin() == null) {
+            return null;
+        }
+
+        LocalDateTime apertura = LocalDateTime.of(examen.getFechaExamen(), ambiente.getHoraInicio())
+                .minusMinutes(MINUTOS_ANTES_CONTROL_INGRESO);
+        LocalDateTime cierre = LocalDateTime.of(examen.getFechaExamen(), ambiente.getHoraFin());
+        LocalDateTime ahora = LocalDateTime.now(ZONA_HORARIA);
+
+        if (!ahora.isBefore(apertura) && !ahora.isAfter(cierre)) {
+            return null;
+        }
+
+        String mensaje = String.format(
+                "El registro de ingreso se habilita a las %s y finaliza a las %s.",
+                ambiente.getHoraInicio().minusMinutes(MINUTOS_ANTES_CONTROL_INGRESO),
+                ambiente.getHoraFin());
+        ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
+                "FUERA_DE_HORARIO", mensaje, null, null, null, null);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(resultado);
     }
 
     private void validarAsignacionDeControl(VerificarIngresoRequestDTO dto, Integer idUsuario) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         boolean autorizadoGlobal = auth != null && auth.getAuthorities().stream()
-                .anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()) || "ROLE_DOCENTE".equals(a.getAuthority()));
-        if (autorizadoGlobal) return;
+                .anyMatch(
+                        a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()) || "ROLE_DOCENTE".equals(a.getAuthority()));
+        if (autorizadoGlobal)
+            return;
 
         boolean asignado = ayudanteExamenRepository
                 .existsByIdIdayudanteAndIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
@@ -505,6 +605,40 @@ public class ControlIngresoAyudanteService {
             throw new org.springframework.web.server.ResponseStatusException(
                     HttpStatus.FORBIDDEN, "El operador no tiene asignada esta aula para el examen.");
         }
+    }
+
+    /** En subdivisión, un operador solo puede registrar su rango de apellidos. */
+    private ResponseEntity<ResultadoIngresoDTO> validarRangoAsignacion(
+            VerificarIngresoRequestDTO dto, Integer idOperador, String apellidoEstudiante,
+            EstudianteResumenDTO estudianteResumen) {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean autorizadoGlobal = auth != null && auth.getAuthorities().stream()
+                .anyMatch(
+                        a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()) || "ROLE_DOCENTE".equals(a.getAuthority()));
+        if (autorizadoGlobal || idOperador == null || dto.idambiente() == null)
+            return null;
+
+        AyudanteExamenId id = new AyudanteExamenId(
+                idOperador, dto.idasignatura(), dto.idexamen(), dto.idambiente());
+        AyudanteExamen asignacion = ayudanteExamenRepository.findById(id).orElse(null);
+        if (asignacion == null || !"SUBDIVISION".equalsIgnoreCase(asignacion.getModoAsignacion()))
+            return null;
+
+        String letra = Normalizer
+                .normalize(String.valueOf(apellidoEstudiante == null ? "" : apellidoEstudiante), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").trim().toUpperCase(Locale.ROOT);
+        letra = letra.isEmpty() ? "#" : letra.substring(0, 1);
+        String desde = asignacion.getApellidoDesde();
+        String hasta = asignacion.getApellidoHasta();
+        boolean dentro = (desde == null || letra.compareTo(desde) >= 0)
+                && (hasta == null || letra.compareTo(hasta) <= 0);
+        if (!dentro) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ResultadoIngresoDTO(
+                    "FUERA_DE_RANGO",
+                    "INGRESO DENEGADO - El estudiante está fuera del rango de apellidos asignado a este operador.",
+                    estudianteResumen, null, null, null));
+        }
+        return null;
     }
 
     private Optional<OtroExamenDTO> encontrarOtroExamen(Integer codSis, Integer examenActual) {
@@ -517,7 +651,8 @@ public class ControlIngresoAyudanteService {
                             .flatMap(a -> aulaRepository.findById(a.getIdAula()).map(Aula::getNombreAula))
                             .orElse("Aula asignada");
                     String hora = ambienteRepository.findByIdExamen(examen.getIdExamen()).stream().findFirst()
-                            .map(a -> String.valueOf(a.getHoraInicio()).substring(0, 5) + " - " + String.valueOf(a.getHoraFin()).substring(0, 5))
+                            .map(a -> String.valueOf(a.getHoraInicio()).substring(0, 5) + " - "
+                                    + String.valueOf(a.getHoraFin()).substring(0, 5))
                             .orElse("Horario no disponible");
                     String asignatura = asignaturaRepository.findById(examen.getIdAsignatura())
                             .map(a -> a.getNombreAsignatura()).orElse("Asignatura no disponible");
@@ -534,7 +669,8 @@ public class ControlIngresoAyudanteService {
         String nombreAsig = asig != null ? asig.getNombreAsignatura() : "Sin Asignatura";
         String siglaAsig = asig != null ? asig.getSiglaAsignatura() : "";
         String nombreEx = resolverNombreExamen(ex);
-        String nombreAmb = aula != null ? aula.getNombreAula() : (amb != null ? "Ambiente #" + amb.getIdAmbiente() : "Sin Aula");
+        String nombreAmb = aula != null ? aula.getNombreAula()
+                : (amb != null ? "Ambiente #" + amb.getIdAmbiente() : "Sin Aula");
         String ubicacionAmb = aula != null ? aula.getUbicacionAula() : "";
         LocalDate fechaEx = ex != null ? ex.getFechaExamen() : null;
         LocalTime horaIni = amb != null ? amb.getHoraInicio() : null;
@@ -546,14 +682,25 @@ public class ControlIngresoAyudanteService {
         Integer idEx = ae.getId().getIdexamen();
         Integer idAmb = ae.getId().getIdambiente();
 
-        int totalHab = (int) habilitacionRepository.countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(idAsig, idEx);
-        int inhabilitados = (int) habilitacionRepository.countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(idAsig, idEx);
-        int ingresaron = (int) ingresoRepository.countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNull(idAsig, idEx, idAmb);
+        int totalHab = (int) habilitacionRepository.countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(idAsig,
+                idEx);
+        int inhabilitados = (int) habilitacionRepository
+                .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(idAsig, idEx);
+        int ingresaron = (int) ingresoRepository.countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNull(idAsig,
+                idEx, idAmb);
         int faltantes = Math.max(0, totalHab - ingresaron);
 
-        String grupo = grupoRepository.findByIdAsignatura(idAsig).stream()
-                .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo)
-                .collect(java.util.stream.Collectors.joining(", "));
+        String grupo;
+        if (ex != null && ex.getIdGrupo() != null) {
+            grupo = grupoRepository.findById(ex.getIdGrupo())
+                    .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo)
+                    .orElse(null);
+        } else {
+            // Compatibilidad con exámenes históricos que todavía no tienen grupo.
+            grupo = grupoRepository.findByIdAsignatura(idAsig).stream()
+                    .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo)
+                    .collect(java.util.stream.Collectors.joining(", "));
+        }
 
         return new DelegadoExamenDTO(
                 ae.getId().getIdayudante(),
@@ -574,8 +721,37 @@ public class ControlIngresoAyudanteService {
                 ingresaron,
                 faltantes,
                 inhabilitados,
-                totalHab
-        );
+                totalHab,
+                ae.getApellidoDesde(),
+                ae.getApellidoHasta(),
+                usuarioRepository.findById(ae.getId().getIdayudante())
+                        .map(u -> (u.getNombreusuario() + " " + u.getApellidousuario()).trim())
+                        .orElse("Ayudante"),
+                true,
+                obtenerFilasDelExamen(idAsig, idEx, idAmb, idOperadorActual(ae)));
+    }
+
+    private Integer idOperadorActual(AyudanteExamen ae) {
+        return ae.getId().getIdayudante();
+    }
+
+    private List<FilaDelegadoExamenDTO> obtenerFilasDelExamen(Integer idAsignatura, Integer idExamen,
+            Integer idAmbiente, Integer idAyudanteActual) {
+        return ayudanteExamenRepository
+                .findByIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
+                        idAsignatura, idExamen, idAmbiente, "ACTIVO")
+                .stream()
+                .filter(a -> "SUBDIVISION".equalsIgnoreCase(a.getModoAsignacion()))
+                .map(a -> new FilaDelegadoExamenDTO(
+                        a.getApellidoDesde(),
+                        a.getApellidoHasta(),
+                        usuarioRepository.findById(a.getId().getIdayudante())
+                                .map(u -> (u.getNombreusuario() + " " + u.getApellidousuario()).trim())
+                                .orElse("Ayudante"),
+                        0,
+                        0,
+                        a.getId().getIdayudante().equals(idAyudanteActual)))
+                .toList();
     }
 
     private JornadaActivaDTO mapearAJornadaActivaDTO(AyudanteExamen ae) {
@@ -587,7 +763,8 @@ public class ControlIngresoAyudanteService {
         String nombreAsig = asig != null ? asig.getNombreAsignatura() : "Sin Asignatura";
         String siglaAsig = asig != null ? asig.getSiglaAsignatura() : "";
         String nombreEx = resolverNombreExamen(ex);
-        String nombreAmb = aula != null ? aula.getNombreAula() : (amb != null ? "Ambiente #" + amb.getIdAmbiente() : "Sin Aula");
+        String nombreAmb = aula != null ? aula.getNombreAula()
+                : (amb != null ? "Ambiente #" + amb.getIdAmbiente() : "Sin Aula");
         String ubicacionAmb = aula != null ? aula.getUbicacionAula() : "";
         LocalDate fechaEx = ex != null ? ex.getFechaExamen() : null;
         LocalTime horaIni = amb != null ? amb.getHoraInicio() : null;
@@ -602,9 +779,12 @@ public class ControlIngresoAyudanteService {
         int cantidadOperadores = ayudanteExamenRepository
                 .countByIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(idAsig, idEx, idAmb, "ACTIVO");
 
-        int totalHab = (int) habilitacionRepository.countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(idAsig, idEx);
-        int inhabilitados = (int) habilitacionRepository.countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(idAsig, idEx);
-        int ingresaron = (int) ingresoRepository.countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNull(idAsig, idEx, idAmb);
+        int totalHab = (int) habilitacionRepository.countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(idAsig,
+                idEx);
+        int inhabilitados = (int) habilitacionRepository
+                .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(idAsig, idEx);
+        int ingresaron = (int) ingresoRepository.countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNull(idAsig,
+                idEx, idAmb);
         int faltantes = Math.max(0, totalHab - ingresaron);
 
         String grupo = grupoRepository.findByIdAsignatura(idAsig).stream()
@@ -629,8 +809,7 @@ public class ControlIngresoAyudanteService {
                 ingresaron,
                 faltantes,
                 inhabilitados,
-                totalHab
-        );
+                totalHab);
     }
 
     private String calcularEstadoMateria(LocalDate fechaExamen, LocalTime horaInicio, LocalTime horaFin) {
@@ -651,34 +830,40 @@ public class ControlIngresoAyudanteService {
     }
 
     private String resolverNombreExamen(Examen ex) {
-        if (ex == null) return "Sin Examen";
+        if (ex == null)
+            return "Sin Examen";
         if (ex.getDetalleTipoExamen() != null && !ex.getDetalleTipoExamen().isBlank()) {
             return ex.getDetalleTipoExamen();
         }
         if (ex.getIdTipoExamen() != null) {
             Optional<TipoExamen> te = tipoExamenRepository.findById(ex.getIdTipoExamen());
-            if (te.isPresent()) return te.get().getNombreTipoExamen();
+            if (te.isPresent())
+                return te.get().getNombreTipoExamen();
         }
         return "Examen #" + ex.getIdExamen();
     }
 
     private Asignatura obtenerAsignatura(AyudanteExamen ae) {
-        if (ae.getAsignatura() != null) return ae.getAsignatura();
+        if (ae.getAsignatura() != null)
+            return ae.getAsignatura();
         return asignaturaRepository.findById(ae.getId().getIdasignatura()).orElse(null);
     }
 
     private Examen obtenerExamen(AyudanteExamen ae) {
-        if (ae.getExamen() != null) return ae.getExamen();
+        if (ae.getExamen() != null)
+            return ae.getExamen();
         return examenRepository.findById(ae.getId().getIdexamen()).orElse(null);
     }
 
     private Ambiente obtenerAmbiente(AyudanteExamen ae) {
-        if (ae.getAmbiente() != null) return ae.getAmbiente();
+        if (ae.getAmbiente() != null)
+            return ae.getAmbiente();
         return ambienteRepository.findById(ae.getId().getIdambiente()).orElse(null);
     }
 
     private Aula obtenerAula(Integer idAula) {
-        if (idAula == null) return null;
+        if (idAula == null)
+            return null;
         return aulaRepository.findById(idAula).orElse(null);
     }
 
@@ -697,9 +882,10 @@ public class ControlIngresoAyudanteService {
                         && Objects.equals(ex1.getFechaExamen(), ex2.getFechaExamen())
                         && ex1.getFechaExamen() != null) {
 
-                    if (seSuperponen(amb1.getHoraInicio(), amb1.getHoraFin(), amb2.getHoraInicio(), amb2.getHoraFin())) {
+                    if (seSuperponen(amb1.getHoraInicio(), amb1.getHoraFin(), amb2.getHoraInicio(),
+                            amb2.getHoraFin())) {
                         log.warn("ADVERTENCIA: Solapamiento detectado para el operador ID {} en la fecha {}: " +
-                                        "Asignación 1 (Ambiente {}) [{} - {}] vs Asignación 2 (Ambiente {}) [{} - {}]",
+                                "Asignación 1 (Ambiente {}) [{} - {}] vs Asignación 2 (Ambiente {}) [{} - {}]",
                                 ae1.getId().getIdayudante(), ex1.getFechaExamen(),
                                 amb1.getIdAmbiente(), amb1.getHoraInicio(), amb1.getHoraFin(),
                                 amb2.getIdAmbiente(), amb2.getHoraInicio(), amb2.getHoraFin());
@@ -710,7 +896,8 @@ public class ControlIngresoAyudanteService {
     }
 
     private boolean seSuperponen(LocalTime ini1, LocalTime fin1, LocalTime ini2, LocalTime fin2) {
-        if (ini1 == null || fin1 == null || ini2 == null || fin2 == null) return false;
+        if (ini1 == null || fin1 == null || ini2 == null || fin2 == null)
+            return false;
         return !ini1.isAfter(fin2) && !ini2.isAfter(fin1);
     }
 }

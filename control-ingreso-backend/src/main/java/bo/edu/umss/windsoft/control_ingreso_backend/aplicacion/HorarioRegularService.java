@@ -6,6 +6,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HorarioRegular;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AulaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteAsignaturaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HorarioRegularRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.GrupoRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteGrupoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,14 +20,20 @@ public class HorarioRegularService {
     private final HorarioRegularRepository horarioRegularRepository;
     private final DocenteAsignaturaRepository docenteAsignaturaRepository;
     private final AulaRepository aulaRepository;
+    private final GrupoRepository grupoRepository;
+    private final DocenteGrupoRepository docenteGrupoRepository;
 
     public HorarioRegularService(
             HorarioRegularRepository horarioRegularRepository,
             DocenteAsignaturaRepository docenteAsignaturaRepository,
-            AulaRepository aulaRepository) {
+            AulaRepository aulaRepository,
+            GrupoRepository grupoRepository,
+            DocenteGrupoRepository docenteGrupoRepository) {
         this.horarioRegularRepository = horarioRegularRepository;
         this.docenteAsignaturaRepository = docenteAsignaturaRepository;
         this.aulaRepository = aulaRepository;
+        this.grupoRepository = grupoRepository;
+        this.docenteGrupoRepository = docenteGrupoRepository;
     }
 
     @Transactional
@@ -37,7 +45,9 @@ public class HorarioRegularService {
         hr.setIdUsuario(request.getIdUsuario());
         hr.setCodsisDocente(request.getCodsisDocente());
         hr.setIdAsignatura(request.getIdAsignatura());
+        hr.setIdGrupo(request.getIdGrupo());
         hr.setIdAula(request.getIdAula());
+        hr.setIdGrupo(request.getIdGrupo());
         hr.setDiaSemana(request.getDiaSemana());
         hr.setHoraInicio(request.getHoraInicio());
         hr.setHoraFin(request.getHoraFin());
@@ -93,6 +103,17 @@ public class HorarioRegularService {
 
         docenteAsignaturaRepository.findById(daId)
                 .orElseThrow(() -> new IllegalArgumentException("El docente no dicta esa asignatura."));
+
+        if (request.getIdGrupo() != null) {
+            var grupo = grupoRepository.findById(request.getIdGrupo())
+                    .orElseThrow(() -> new IllegalArgumentException("El grupo no existe o no pertenece al semestre actual."));
+            if (!grupo.getIdAsignatura().equals(request.getIdAsignatura())) {
+                throw new IllegalArgumentException("El grupo no pertenece a la asignatura seleccionada.");
+            }
+            if (!docenteGrupoRepository.existsByIdUsuarioAndIdGrupo(request.getIdUsuario(), request.getIdGrupo())) {
+                throw new IllegalArgumentException("El docente no está asignado al grupo seleccionado.");
+            }
+        }
 
         aulaRepository.findById(request.getIdAula())
                 .orElseThrow(() -> new IllegalArgumentException("Aula no encontrada."));

@@ -2,6 +2,7 @@
 import { GraduationCap, Clock, QrCode } from "lucide-react";
 import { estadoQrPorFecha } from "../../../services/credencialService";
 import { fechaCorta, fechaHora, diasHasta } from "./formato";
+import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
 
 function PildoraFecha({ strFecha }) {
   const n = diasHasta(strFecha);
@@ -65,7 +66,7 @@ export default function TarjetaExamenEstudiante({ examen, onVerQr }) {
               <PildoraFecha strFecha={examen.fecha} />
             </div>
             <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-[#64748B]">
-              <span>Aula {examen.aula}{examen.grupo ? ` · Grupo ${examen.grupo}` : ""}</span>
+              <span>Aula {examen.aula}{textoGrupoExamen(examen.grupo) ? ` · ${textoGrupoExamen(examen.grupo)}` : ""}</span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-[#9AA8BA]" />

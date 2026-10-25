@@ -25,9 +25,12 @@ export const asistenciaRepo = {
   }) {
     const exId = Number(examenId);
     const sis = normalizarCodigo(codigoSis);
+    const ambId = Number(ambienteId);
 
-    if (!Number.isInteger(exId) || exId <= 0 || !sis || !operadorId || !rol || !metodo) {
-      const error = new Error('Parámetros inválidos o incompletos: examenId (entero positivo), codigoSis, operadorId, rol y metodo son requeridos.');
+    // Regla de seguridad: el ambiente es obligatorio y debe pertenecer al examen descargado.
+    // Sin un ambienteId válido no se puede registrar el ingreso offline.
+    if (!Number.isInteger(exId) || exId <= 0 || !sis || !operadorId || !rol || !metodo || !Number.isInteger(ambId) || ambId <= 0) {
+      const error = new Error('Parámetros inválidos o incompletos: examenId, codigoSis, operadorId, rol, metodo y ambienteId (entero positivo) son requeridos.');
       error.codigo = ERROR_ASISTENCIA.PARAMETROS_INVALIDOS;
       throw error;
     }
@@ -36,9 +39,11 @@ export const asistenciaRepo = {
     const timestampLocal = new Date().toISOString();
     const clientUuid = generarUuid();
 
+    console.log('[asistenciaRepo] Iniciando transacción para registrarMarca:', { examenId: exId, sis, operadorId, rol, metodo });
     return await db.transaction('rw', [db.nominas, db.asistencias_pendientes], async () => {
       // 1. Obtener de nómina
       const estudiante = await db.nominas.get([exId, sis]);
+      console.log('[asistenciaRepo] Estudiante de nominas:', estudiante);
       if (!estudiante) {
         const error = new Error(`El estudiante con código SIS ${sis} no pertenece a la nómina del examen.`);
         error.codigo = ERROR_ASISTENCIA.NO_EN_NOMINA;
@@ -55,7 +60,7 @@ export const asistenciaRepo = {
 
       // 3. Verificar duplicado local
       if (estudiante.marcadoLocal === 1) {
-        const error = new Error(`El estudiante ya registró su ingreso a las ${estudiante.marcadoEn} (operador: ${estudiante.marcadoPor || 'Desconocido'}).`);
+        const error = new Error(`El estudiante ya registró su ingreso a las ${estudiante.marcadoEn} (ayudante: ${estudiante.marcadoPor || 'Desconocido'}).`);
         error.codigo = ERROR_ASISTENCIA.YA_MARCADO;
         error.marcadoEn = estudiante.marcadoEn;
         error.marcadoPor = estudiante.marcadoPor;
@@ -68,13 +73,14 @@ export const asistenciaRepo = {
         marcadoEn: timestampLocal,
         marcadoPor: operadorId
       });
+      console.log('[asistenciaRepo] Nomina actualizada para', sis);
 
       // 5. Encolar asistencia pendiente con verificacionVisual y qrToken
       const nuevaAsistencia = {
         clientUuid,
         examenId: exId,
-      asignaturaId: asignaturaId ? Number(asignaturaId) : null,
-      ambienteId: ambienteId ? Number(ambienteId) : null,
+        asignaturaId: asignaturaId ? Number(asignaturaId) : null,
+        ambienteId: ambId,
         codigoSis: sis,
         metodo,
         operadorId,
@@ -90,8 +96,13 @@ export const asistenciaRepo = {
         ultimoError: null,
         sincronizadoEn: null
       };
+      console.log('[asistenciaRepo] Nueva asistencia a guardar:', nuevaAsistencia);
 
       await db.asistencias_pendientes.add(nuevaAsistencia);
+      console.log('[asistenciaRepo] Asistencia guardada en asistencias_pendientes');
+
+      const pendientesDespues = await db.asistencias_pendientes.toArray();
+      console.log('[asistenciaRepo] Pendientes después de guardar:', pendientesDespues.length, 'items');
 
       return {
         clientUuid,
@@ -184,5 +195,42 @@ export const asistenciaRepo = {
         syncStatus: ESTADO_SYNC.PENDIENTE,
         nextRetryAt: 0
       });
+  },
+
+  /**
+   * Vuelve a 'pendiente' los ítems en estado ERROR para que se reintenten en el
+   * próximo ciclo de sincronización. Útil tras corregir un error del backend.
+   */
+  async recuperarErrores() {
+    return await db.asistencias_pendientes
+      .where('syncStatus')
+      .equals(ESTADO_SYNC.ERROR)
+      .modify({
+        syncStatus: ESTADO_SYNC.PENDIENTE,
+        nextRetryAt: 0,
+        ultimoError: null
+      });
+  },
+
+  /**
+   * Cuenta cuántas marcas hay en cada estado de sincronización.
+   * Devuelve: { pendiente, syncing, sincronizado, error, duplicado }
+   */
+  async contarPorEstado() {
+    const todos = await db.asistencias_pendientes.toArray();
+    const conteo = {
+      pendiente: 0,
+      syncing: 0,
+      sincronizado: 0,
+      error: 0,
+      duplicado: 0
+    };
+    for (const t of todos) {
+      const s = t.syncStatus || 'pendiente';
+      if (conteo[s] !== undefined) {
+        conteo[s]++;
+      }
+    }
+    return conteo;
   }
 };
