@@ -108,11 +108,35 @@ export default function MisExamenesAyudante() {
 
   useEffect(() => {
     let boolVivo = true;
-    obtenerExamenesAsignados()
-      .then((list) => boolVivo && setListExamenes(Array.isArray(list) ? list : []))
-      .catch((e) => boolVivo && setStrError(e.message || "No se pudieron cargar tus exámenes."))
-      .finally(() => boolVivo && setBoolCargando(false));
-    return () => { boolVivo = false; };
+    let temporizadorReintento = null;
+
+    const cargar = async (intento = 0) => {
+      try {
+        const list = await obtenerExamenesAsignados();
+        const arr = Array.isArray(list) ? list : [];
+
+        // Después de guardar una asignación, el primer GET puede llegar antes
+        // de que la transacción sea visible para la lectura del operador.
+        // Reintentamos una vez para evitar mostrar una pantalla vacía falsa.
+        if (arr.length === 0 && intento === 0 && boolVivo) {
+          temporizadorReintento = setTimeout(() => cargar(1), 1000);
+          return;
+        }
+
+        if (boolVivo) setListExamenes(arr);
+      } catch (e) {
+        if (boolVivo) setStrError(e.message || "No se pudieron cargar tus exámenes.");
+      } finally {
+        if (intento > 0 && boolVivo) setBoolCargando(false);
+        else if (intento === 0 && !temporizadorReintento && boolVivo) setBoolCargando(false);
+      }
+    };
+
+    cargar();
+    return () => {
+      boolVivo = false;
+      if (temporizadorReintento) clearTimeout(temporizadorReintento);
+    };
   }, []);
 
   const listVisibles = useMemo(

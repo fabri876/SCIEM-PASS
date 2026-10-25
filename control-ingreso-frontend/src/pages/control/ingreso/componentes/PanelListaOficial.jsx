@@ -104,14 +104,17 @@ function fechaHora(valor) {
   }
 }
 
-export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed, numVersion, numPendientes, strUltimoRegistrado, strNominaDescargadaEn }) {
+export default function PanelMiLista({ boolAbierto, onCerrar, examen, idExamen, boolSinRed, numVersion, numPendientes, strUltimoRegistrado, strNominaDescargadaEn }) {
   const [strBuscar, setStrBuscar] = useState("");
   const [strFiltro, setStrFiltro] = useState("TODOS");
   const [listFilas, setListFilas] = useState([]);
   const [boolCargando, setBoolCargando] = useState(false);
   const [strOrigen, setStrOrigen] = useState("servidor"); // servidor | local | sinNomina
 
-  const exId = Number(examen?.idexamen);
+  // El docente abre este panel enviando idExamen directamente; el operador
+  // normalmente envía el objeto examen completo. Aceptar ambas formas evita
+  // que el panel quede sin realizar la consulta oficial.
+  const exId = Number(idExamen ?? examen?.idexamen);
   const objFila = examen?.fila || null;
   const strAula = examen?.aula || "";
 

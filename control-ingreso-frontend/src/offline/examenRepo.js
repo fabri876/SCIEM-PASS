@@ -226,14 +226,29 @@ export async function cargarExamenesConRespaldo({
       };
     }
 
-    // Guardar snapshot en db.meta en su propio try/catch
+    // Guardar snapshot en db.meta en su propio try/catch. Una respuesta vacía
+    // de una consulta autenticada puede ser transitoria (asignaciones aún no
+    // visibles o respuesta incompleta); no reemplazar un respaldo válido con []
+    // para que el modo offline conserve la última lista conocida.
+    let itemsSnapshot = items;
+    if (items.length === 0 && clave !== 'proximos' && usuarioSnapshot) {
+      try {
+        const anterior = await db.meta.get(claveMeta);
+        if (Array.isArray(anterior?.items) && anterior.items.length > 0) {
+          itemsSnapshot = anterior.items;
+        }
+      } catch {
+        // Si no se puede leer el snapshot, se conserva la respuesta de red.
+      }
+    }
+
     let respaldoFallo = false;
     try {
       await db.meta.put({
         clave: claveMeta,
         consulta: clave,
         usuarioId: usuarioSnapshot,
-        items,
+        items: itemsSnapshot,
         guardadoEn: ahora,
       });
     } catch {
@@ -243,7 +258,7 @@ export async function cargarExamenesConRespaldo({
     notificarOrigen(clave, usuarioSnapshot, { origen: 'red', guardadoEn: ahora, sesionExpirada: false });
 
     return {
-      examenes: items,
+      examenes: itemsSnapshot,
       origen: 'red',
       guardadoEn: ahora,
       ...(respaldoFallo ? { respaldoFallo: true } : {}),
