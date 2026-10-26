@@ -7,7 +7,8 @@ import { estadoQrPorFecha } from "../../../services/credencialService";
 import { fechaHora } from "../../credencial/componentes/formato";
 
 export function estadoQr(examen) {
-    return estadoQrPorFecha(examen.fecha, examen.horaInicio, examen.habilitado !== false);
+    // Desde 24 h antes del inicio hasta la hora de fin del examen
+    return estadoQrPorFecha(examen.fecha, examen.horaInicio, examen.habilitado !== false, examen.horaFin);
 }
 
 export function EtiquetaQr({ objEstado }) {
