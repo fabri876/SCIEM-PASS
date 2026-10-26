@@ -1,6 +1,7 @@
 // Bloque completo del control de ingreso.
 // Sin examen elegido → "Mis exámenes". Con examen elegido → verificación.
 import "./controlIngreso.css";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Info } from "lucide-react";
 import { useOperador } from "../operadorContexto";
 import { db } from "../../../offline/db.js";
@@ -9,6 +10,7 @@ import TarjetaExamen from "./componentes/TarjetaExamen";
 import EstacionVerificacion from "./componentes/EstacionVerificacion";
 import TarjetaResultado from "./componentes/TarjetaResultado";
 import TablaUltimosIngresos from "./componentes/TablaUltimosIngresos";
+import { rangoExamen, aperturaControl } from "../../docente/utilidadesExamenDocente";
 
 // Franja de estado debajo del encabezado del examen.
 // Con internet: solo "En línea". Sin internet: el tramo de apellidos que registra este ayudante.
@@ -43,6 +45,14 @@ function FranjaEstado({ boolSinRed, objFila }) {
 // objFilaSinRed: tramo de apellidos guardado en el equipo (por ejemplo, el docente que también controla el ingreso)
 export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true, nodoAcciones = null, listAvisos = [], objFilaSinRed = null }) {
   const { fnMostrarToast, fnDoForzar, setConfigurandoPin, estadoRed } = useOperador();
+
+  // Hora actual (cada 30 s): el registro solo se permite desde 15 min antes del inicio hasta el fin,
+  // con o sin internet, para el ayudante, el docente y el administrador
+  const [dateAhora, setDateAhora] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setDateAhora(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
   const {
     listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
     boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
@@ -83,7 +93,14 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     );
   }
 
-  const boolFinalizado = examenActual?.estado === "FINALIZADO";
+  const objRangoHorario = { fechaExamen: examenActual?.fecha, horaInicio: examenActual?.horaInicio, horaFin: examenActual?.horaFin };
+  const { fin: dateFin } = rangoExamen(objRangoHorario);
+  const dateApertura = aperturaControl(objRangoHorario);
+  const boolFinalizado = examenActual?.estado === "FINALIZADO" || (Boolean(dateFin) && dateAhora > dateFin);
+  const boolAunNoAbre = !boolFinalizado && Boolean(dateApertura) && dateAhora < dateApertura;
+  const strHoraApertura = dateApertura
+    ? `${String(dateApertura.getHours()).padStart(2, "0")}:${String(dateApertura.getMinutes()).padStart(2, "0")}`
+    : "";
   const boolOperador = strRol === "operador";
   // El tramo de apellidos solo aplica al ayudante y solo sin internet (motor offline).
   // El docente puede registrar a cualquiera de su aula.
@@ -199,6 +216,14 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               Este examen ya finalizó. Ya no se pueden registrar ingresos, pero puedes revisar los registrados.
             </div>
           </>
+        ) : boolAunNoAbre ? (
+          <>
+            <h2 id="ci-t-verificacion" className="m-0 mb-3 text-lg font-bold text-[#08264A]">Verificación de ingreso</h2>
+            <div className="flex items-start gap-2.5 px-4 py-3.5 rounded-xl bg-[#F1F5F9] border border-[#CBD5E1] text-sm text-[#475569]">
+              <Info className="w-[18px] h-[18px] shrink-0 mt-px" />
+              El registro de ingreso se habilita a las {strHoraApertura} (15 minutos antes del inicio del examen).
+            </div>
+          </>
         ) : (
           <>
             <EstacionVerificacion onValidar={fnValidarRol} boolValidando={boolValidando} idExamen={idExamen} />
@@ -215,7 +240,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         strUltimoRegistrado={strUltimoRegistrado}
         strRol={strRol}
         numRegistrados={objContador?.ingresaron ?? null}
-        boolSinRed={boolOperador && (estadoRed?.net === "offline" || Boolean(ctrl.boolOffline))}
+        boolSinRed={estadoRed?.net === "offline" || Boolean(ctrl.boolOffline)}
       />
     </div>
   );

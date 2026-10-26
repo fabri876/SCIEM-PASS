@@ -1,4 +1,5 @@
-// "Mis últimos ingresos" sin conexión: se arma con los registros guardados en este equipo.
+// Historial sin conexión ("Mis últimos ingresos" del ayudante y "Últimos ingresos" del docente):
+// se arma con los registros que el usuario guardó en este equipo.
 // Solo LEE la base local (asistencias_pendientes + nominas); no cambia nada del modo sin conexión.
 import { useEffect, useState } from "react";
 import { db } from "../../../offline/db.js";
@@ -36,6 +37,8 @@ export default function useUltimosLocales(idExamen, boolActivo, numVersion, numP
       try {
         const usuario = obtenerUsuarioActual();
         const strYo = String(usuario?.idUsuario ?? usuario?.idusuario ?? usuario?.id ?? usuario?.correo ?? "");
+        // Nombre de quien registró: sin internet solo están los registros propios
+        const strMiNombre = `${usuario?.nombre || ""} ${usuario?.apellido || ""}`.trim() || "Tú";
         const listMarcas = (await db.asistencias_pendientes.where("examenId").equals(exId).toArray())
           .filter((a) => !strYo || String(a.operadorId) === strYo)
           .sort((a, b) => String(b.timestampLocal).localeCompare(String(a.timestampLocal)))
@@ -47,7 +50,7 @@ export default function useUltimosLocales(idExamen, boolActivo, numVersion, numP
           return {
             hora: new Date(a.timestampLocal).toLocaleTimeString("es-BO", { hour12: false }),
             metodo: textoMetodo(a.metodo),
-            registradoPor: null,
+            registradoPor: strMiNombre, // columna "Registró" del docente
             sinSincronizar: a.syncStatus === ESTADO_SYNC.PENDIENTE || a.syncStatus === ESTADO_SYNC.SYNCING || a.syncStatus === ESTADO_SYNC.ERROR,
             estudiante: { ...separarNombre(r), sis: a.codigoSis || "", ci: r?.ci || "" },
           };

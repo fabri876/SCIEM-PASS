@@ -6,7 +6,15 @@ import { useNavigate } from "react-router-dom";
 import { Download, Check } from "lucide-react";
 import { obtenerAsignacionIngreso } from "../../../services/asignacionOperadoresService";
 import { useNominaLocal } from "../../../offline";
-import PanelListaOficial from "../../control/ingreso/componentes/PanelListaOficial";
+import PanelIngresosExamen from "../../control/ingreso/componentes/PanelIngresosExamen";
+// "Seguridad de Sistemas · Primer Parcial · 24 oct" para el panel de ingresos
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function subtituloIngresos(strMateria, strTipo, strFecha) {
+  const m = String(strFecha || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+  const strDia = m ? `${Number(m[3])} ${MESES_CORTOS[Number(m[2]) - 1]}` : "";
+  return [strMateria, strTipo, strDia].filter(Boolean).join(" · ");
+}
+
 import { estadoExamen, esHoy, puedeControlarIngreso, marcaTiempo } from "../utilidadesExamenDocente";
 import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
 
@@ -235,12 +243,12 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
         )}
       </div>
 
-      {/* "Ver ingresos" de un examen finalizado: lista oficial con el estado de cada estudiante */}
-      <PanelListaOficial
+      {/* "Ver ingresos" de un examen finalizado: todos los estudiantes con su estado, hora y quién registró */}
+      <PanelIngresosExamen
         boolAbierto={Boolean(objExamenLista)}
         onCerrar={() => setObjExamenLista(null)}
         idExamen={objExamenLista ? Number(objExamenLista.idExamen) : null}
-        numVersion={0}
+        strSubtitulo={objExamenLista ? subtituloIngresos(objExamenLista.nombreExamen, objExamenLista.tipoExamen, objExamenLista.fechaExamen) : ""}
       />
     </div>
   );

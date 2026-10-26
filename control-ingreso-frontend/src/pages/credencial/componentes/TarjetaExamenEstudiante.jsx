@@ -50,7 +50,7 @@ function EstadoQr({ objEstado }) {
 }
 
 export default function TarjetaExamenEstudiante({ examen, onVerQr }) {
-  const objEstado = estadoQrPorFecha(examen.fecha, examen.horaInicio, examen.habilitado !== false);
+  const objEstado = estadoQrPorFecha(examen.fecha, examen.horaInicio, examen.habilitado !== false, examen.horaFin);
   const boolPasado = objEstado.estado === "VENCIDO";
 
   return (
