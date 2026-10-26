@@ -20,6 +20,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -44,6 +46,8 @@ public class ExamenService {
     private final GrupoRepository grupoRepository;
     private final DocenteGrupoRepository docenteGrupoRepository;
     private final HabilitacionRepository habilitacionRepository;
+    private final EstudianteGrupoRepository estudianteGrupoRepository;
+    private final EstudianteRepository estudianteRepository;
     private final IngresoRepository ingresoRepository;
 
     public ExamenService(
@@ -62,6 +66,8 @@ public class ExamenService {
             GrupoRepository grupoRepository,
             DocenteGrupoRepository docenteGrupoRepository,
             HabilitacionRepository habilitacionRepository,
+            EstudianteGrupoRepository estudianteGrupoRepository,
+            EstudianteRepository estudianteRepository,
             IngresoRepository ingresoRepository,
             CambioExamenService cambiosExamen) {
 
@@ -81,6 +87,8 @@ public class ExamenService {
         this.grupoRepository = grupoRepository;
         this.docenteGrupoRepository = docenteGrupoRepository;
         this.habilitacionRepository = habilitacionRepository;
+        this.estudianteGrupoRepository = estudianteGrupoRepository;
+        this.estudianteRepository = estudianteRepository;
         this.ingresoRepository = ingresoRepository;
     }
 
@@ -272,6 +280,13 @@ public class ExamenService {
 
         Examen examenGuardado = examenRepository.save(examen);
 
+        // Las habilitaciones son por examen. Al crear un examen nuevo deben
+        // generarse aunque los estudiantes ya estuvieran inscritos antes.
+        // En una edición no se ejecuta para preservar decisiones previas del docente.
+        if (examenAActualizar == null) {
+            crearHabilitacionesDelExamen(examenGuardado);
+        }
+
         guardarAmbiente(examenGuardado, idAula, idHorarioRegularUsado, horaInicio, horaFin, request.getTipoHorario());
 
         if (aulasAdicionales != null) {
@@ -303,6 +318,40 @@ public class ExamenService {
         }
 
         return examenGuardado;
+    }
+
+    private void crearHabilitacionesDelExamen(Examen examen) {
+        List<Integer> idsGrupo = examen.getIdGrupo() != null
+                ? List.of(examen.getIdGrupo())
+                : grupoRepository.findByIdAsignatura(examen.getIdAsignatura()).stream()
+                        .map(Grupo::getIdGrupo)
+                        .toList();
+
+        if (idsGrupo.isEmpty()) return;
+
+        Map<Integer, Integer> codSisPorUsuario = new LinkedHashMap<>();
+        for (Integer idGrupo : idsGrupo) {
+            estudianteGrupoRepository.findByIdGrupo(idGrupo).forEach(eg ->
+                    codSisPorUsuario.putIfAbsent(eg.getIdUsuario(), eg.getCodSisEstudiante()));
+        }
+
+        if (codSisPorUsuario.isEmpty()) return;
+
+        estudianteRepository.findByIdusuarioIn(new ArrayList<>(codSisPorUsuario.keySet())).forEach(estudiante -> {
+            boolean existe = habilitacionRepository
+                    .existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(
+                            examen.getIdAsignatura(), examen.getIdExamen(), estudiante.getCodsisestudiante());
+            if (existe) return;
+
+            Habilitacion habilitacion = new Habilitacion();
+            habilitacion.setEstudiante(estudiante);
+            habilitacion.setIdUsuario(estudiante.getIdusuario());
+            habilitacion.setIdAsignatura(examen.getIdAsignatura());
+            habilitacion.setIdExamen(examen.getIdExamen());
+            habilitacion.setEstadohabilitacion(true);
+            habilitacion.setObservacionhabilitacion(null);
+            habilitacionRepository.save(habilitacion);
+        });
     }
 
     /** Valida el grupo únicamente cuando el cliente ya lo envía. */
