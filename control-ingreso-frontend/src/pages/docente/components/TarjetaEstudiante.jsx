@@ -33,10 +33,16 @@ export default function TarjetaEstudiante({ est, numeroFila, onGestionar, onElim
                 </p>
             )}
             <div className="flex gap-2">
-                <button onClick={() => onGestionar(est)} className="flex-1 h-10 bg-[#003770] hover:bg-[#124B83] text-white font-bold text-[13px] rounded-[10px] transition shadow-xs cursor-pointer">
-                    Modificar estado
-                </button>
-                <button onClick={() => onEliminar(est)} title="Quitar de este examen" aria-label="Quitar de este examen" className="h-10 w-10 bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] rounded-[10px] transition cursor-pointer inline-flex items-center justify-center"><Icono nombre="basurero" className="w-[15px] h-[15px]" /></button>
+                {onGestionar ? (
+                    <button onClick={() => onGestionar(est)} className="flex-1 h-10 bg-[#003770] hover:bg-[#124B83] text-white font-bold text-[13px] rounded-[10px] transition shadow-xs cursor-pointer">
+                        Modificar estado
+                    </button>
+                ) : (
+                    <button type="button" disabled title="El examen ya terminó" className="flex-1 h-10 bg-[#E2E8F0] text-[#94A3B8] font-bold text-[13px] rounded-[10px] cursor-not-allowed">
+                        Modificar estado
+                    </button>
+                )}
+                {onEliminar && <button onClick={() => onEliminar(est)} title="Quitar de este examen" aria-label="Quitar de este examen" className="h-10 w-10 bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] rounded-[10px] transition cursor-pointer inline-flex items-center justify-center"><Icono nombre="basurero" className="w-[15px] h-[15px]" /></button>}
             </div>
         </div>
     );

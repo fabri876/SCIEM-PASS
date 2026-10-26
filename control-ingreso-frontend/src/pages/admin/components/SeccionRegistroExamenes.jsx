@@ -18,7 +18,15 @@ import ExamenFormAdmin from "./ExamenFormAdmin";
 import DetalleExamenAdmin from "./DetalleExamenAdmin";
 import MenuIngresoExamen from "./MenuIngresoExamen";
 import AsignarOperadoresDocente from "../../docente/operadores/AsignarOperadoresDocente";
-import PanelListaOficial from "../../control/ingreso/componentes/PanelListaOficial";
+import PanelIngresosExamen from "../../control/ingreso/componentes/PanelIngresosExamen";
+// "Seguridad de Sistemas · Primer Parcial · 24 oct" para el panel de ingresos
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function subtituloIngresos(strMateria, strTipo, strFecha) {
+  const m = String(strFecha || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+  const strDia = m ? `${Number(m[3])} ${MESES_CORTOS[Number(m[2]) - 1]}` : "";
+  return [strMateria, strTipo, strDia].filter(Boolean).join(" · ");
+}
+
 import {
     ESTILOS_ESTADO,
     estadoDeExamen,
@@ -989,13 +997,12 @@ export default function SeccionRegistroExamenes() {
                 )}
             </VentanaEmergente>
 
-            {/* Lista oficial de estudiantes (solo lectura para el administrador) */}
-            <PanelListaOficial
+            {/* "Ver ingresos": todos los estudiantes con su estado, hora y quién registró (solo lectura) */}
+            <PanelIngresosExamen
                 boolAbierto={!!examenLista}
                 onCerrar={() => setExamenLista(null)}
                 idExamen={examenLista ? examenLista.idExamen : null}
-                numVersion={0}
-                strUltimoRegistrado={null}
+                strSubtitulo={examenLista ? subtituloIngresos(examenLista.nombreAsignatura, examenLista.nombreTipoExamen, examenLista.fechaExamen) : ""}
             />
         </div>
     );
