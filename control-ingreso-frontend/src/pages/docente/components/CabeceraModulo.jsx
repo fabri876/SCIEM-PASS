@@ -4,12 +4,13 @@ import Icono from './Icono';
  * Cabecera del módulo de habilitaciones del docente: título, descripción y "Exportar lista oficial".
  * El enlace para volver ("← Mis exámenes") va aparte, arriba a la izquierda, como en los otros paneles.
  */
-export default function CabeceraModulo({ onExportar }) {
+// strDescripcion: texto bajo el título (el admin trabaja por materia, el docente por examen)
+export default function CabeceraModulo({ onExportar, strDescripcion = "Administra la habilitación de los estudiantes para el examen seleccionado." }) {
     return (
         <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 sm:px-6 sm:py-5 rounded-2xl shadow-xs border border-[#CBD5E1]">
             <div className="min-w-0">
                 <h1 className="text-lg sm:text-[22px] font-black text-[#1A365D] leading-snug">Gestión de habilitación de estudiantes</h1>
-                <p className="text-[13.5px] text-slate-500 font-medium mt-0.5">Administra la habilitación de los estudiantes para el examen seleccionado.</p>
+                <p className="text-[13.5px] text-slate-500 font-medium mt-0.5">{strDescripcion}</p>
             </div>
             <button
                 type="button"
