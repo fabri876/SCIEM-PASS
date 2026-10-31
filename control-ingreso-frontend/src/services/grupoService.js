@@ -1,6 +1,26 @@
 import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken, cerrarSesion } from "./authService";
 
+const cacheCatalogo = new Map();
+let sesionCatalogo;
+export function invalidarCatalogo() { cacheCatalogo.clear(); }
+function consultarCatalogo(ruta) {
+  const sesion = obtenerToken();
+  if (sesion !== sesionCatalogo) { invalidarCatalogo(); sesionCatalogo = sesion; }
+  const previa = cacheCatalogo.get(ruta);
+  if (previa && (previa.pendiente || previa.vence > Date.now())) return previa.promesa;
+  const entrada = { pendiente: true, vence: 0 };
+  entrada.promesa = academico(ruta).then(datos => {
+    entrada.pendiente = false; entrada.vence = Date.now() + 15000;
+    return datos;
+  }).catch(error => {
+    if (cacheCatalogo.get(ruta) === entrada) cacheCatalogo.delete(ruta);
+    throw error;
+  });
+  cacheCatalogo.set(ruta, entrada);
+  return entrada.promesa;
+}
+
 function construirHeaders() {
   const strToken = obtenerToken();
   return {
@@ -20,6 +40,7 @@ async function academico(ruta, opciones = {}) {
   }
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new Error(response.status >= 500 ? "No se pudo completar la operación. Intenta nuevamente en unos minutos." : data?.mensaje || "No se pudo guardar la información académica.");
+  if (opciones.method && opciones.method !== "GET") invalidarCatalogo();
   return data;
 }
 
@@ -49,16 +70,10 @@ export function confirmarHorario(archivo) {
  * 1º Desplegable en cascada: Obtiene todas las asignaturas (/api/grupos/asignaturas).
  */
 export async function obtenerAsignaturas() {
-  const response = await fetch(`${strApiBaseUrl}/api/grupos/catalogo`, {
-    headers: construirHeaders(),
-  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
-  if (!response.ok) {
-    throw new Error("No se pudieron obtener las asignaturas.");
-  }
-  return response.json();
+  return consultarCatalogo("/api/grupos/catalogo");
 }
 export function obtenerCatalogoGrupos() {
-  return academico("/api/grupos/catalogo/grupos");
+  return consultarCatalogo("/api/grupos/catalogo/grupos");
 }
 
 /**
@@ -98,13 +113,7 @@ export async function obtenerGruposPorDocente(idAsignatura, idUsuarioDocente) {
  */
 export async function obtenerGruposPorAsignatura(idAsignatura) {
   if (!idAsignatura) return [];
-  const response = await fetch(`${strApiBaseUrl}/api/grupos/asignaturas/${idAsignatura}`, {
-    headers: construirHeaders(),
-  }).catch(() => { throw new Error("No hay conexión con el servidor. Revisa tu internet e intenta de nuevo."); });
-  if (!response.ok) {
-    throw new Error("No se pudieron obtener los grupos de la asignatura.");
-  }
-  return response.json();
+  return consultarCatalogo(`/api/grupos/asignaturas/${idAsignatura}`);
 }
 
 /**
@@ -134,6 +143,7 @@ export async function crearGrupo({ idAsignatura, nombreGrupo, horarios }) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.mensaje || "Error al crear el grupo.");
   }
+  invalidarCatalogo();
   return response.json();
 }
 
@@ -188,3 +198,8 @@ export async function asignarAyudanteAGrupo({ idUsuario, idGrupo }) {
 export function quitarVinculacion({ idUsuario, rol, idGrupo }) {
   return academico(`/api/grupos/vinculaciones/${encodeURIComponent(rol)}/${idUsuario}/${idGrupo}`, { method: "DELETE" });
 }
+
+export function obtenerCarreras() { return consultarCatalogo("/api/catalogo-academico/carreras"); }
+export function obtenerNiveles(carrera) { return consultarCatalogo(`/api/catalogo-academico/carreras/${carrera}/niveles`); }
+export function obtenerAsignaturasFiltradas(carrera,nivel) { return consultarCatalogo(`/api/catalogo-academico/asignaturas?carrera=${carrera}&nivel=${nivel}`); }
+export function clasificarAsignatura(datos) { return academico("/api/admin/academico/clasificacion",{method:"POST",body:JSON.stringify(datos)}); }

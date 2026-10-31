@@ -140,3 +140,49 @@ concreto BCrypt impedia crear ese controlador con Argon2id. Una prueba de contex
 comprueba la inyeccion y configuracion del PIN sin acceder a la base de datos.
 El PIN local del navegador conserva su mecanismo independiente de PBKDF2.
 La compilacion del frontend y la generacion de la PWA tambien finalizaron correctamente.
+
+## Concurrencia de login y memoria
+
+Se agrego un limite compartido de cuatro operaciones criptograficas activas por
+instancia del backend. Aplica tanto a generar hashes como a verificar claves;
+las otras solicitudes esperan su turno. Reduce la memoria de matrices Argon2
+activas a aproximadamente 4 x 19 = 76 MiB, en vez de permitir hasta 200 x 19 =
+3.800 MiB de matrices simultaneas. No es una medicion del consumo total de RAM:
+Java, objetos auxiliares, threads, conexion a BD y memoria pendiente de GC tambien
+consumen recursos. No se rebajan los parametros criptograficos.
+
+Prueba optativa `PasswordConcurrencyTest`, habilitada con
+`-Dpassword.concurrency=true`, JVM con heap maximo de 512 MiB:
+
+- 200 cuentas sinteticas liberadas a la vez desde 200 threads.
+- `AuthService` y hashing reales; repositorios, auditoria y generacion de JWT
+  simulados. No usa HTTP ni cuentas o escrituras reales.
+- Primera ejecucion: 13.808,335 ms para verificar BCrypt y migrar las 200 cuentas.
+- Segunda ronda: 6.396,033 ms para volver a entrar con Argon2id, sin regenerar hashes.
+- Los 200 hashes migrados fueron distintos y todas las cuentas conservaron su clave.
+- Una repeticion durante la suite completa dio 17.016,875 ms y 7.335,949 ms;
+  muestra variacion por la carga del equipo y no es un SLA de produccion.
+- Pruebas adicionales comprueban que nunca hay mas de cuatro operaciones activas
+  y que se liberan turnos incluso si el algoritmo lanza una excepcion.
+
+Esto no demuestra la capacidad del servidor para 200 conexiones HTTP/JWT/BD
+simultaneas ni convierte la carga concurrente en inmediata. Las solicitudes
+pueden esperar mas durante una avalancha de logins, manteniendo el uso criptografico
+acotado. El servidor compartido debe desplegar o reiniciar la version actualizada;
+arrancar y detener una copia local no actualiza otros equipos.
+
+### Arranque y comprobacion global
+
+Se arranco temporalmente el backend con perfil local y heap maximo de 512 MiB
+en el puerto 18080. Valido el esquema PostgreSQL y el endpoint `/api/v1/health`
+respondio `{"status":"UP"}`. Despues se detuvo ese proceso y se confirmo que
+el puerto ya no respondia. No se iniciaron sesiones de usuarios reales.
+
+La suite completa con la prueba de concurrencia incluida ejecuto 182 casos:
+160 aprobados, 15 omitidos, cuatro fallos de asercion y tres errores. Los siete
+problemas se concentran en `ExamenServiceTest` (3), `GrupoServiceTest` (3) y
+`HabilitacionServiceTest` (1). No se declara la suite global aprobada.
+
+Los siete problemas se reprodujeron en una copia intacta de `origin/testing`
+commit `3663758`: 28 casos de esas tres clases, cuatro fallos y tres errores
+iguales. Por tanto no fueron introducidos por este ajuste de concurrencia.

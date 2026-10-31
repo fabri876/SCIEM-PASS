@@ -19,6 +19,7 @@ public class PasswordEncoderConfig {
                 Map.of("argon2id", argon2, "bcrypt", bcrypt));
         // Los hashes historicos $2a$/$2b$/$2y$ no incluyen el prefijo {bcrypt}.
         encoder.setDefaultPasswordEncoderForMatches(bcrypt);
-        return encoder;
+        // Hasta ~76 MiB de matrices Argon2 activas, en vez de 19 MiB por cada solicitud concurrente.
+        return new ConcurrenciaPasswordEncoder(encoder, 4);
     }
 }

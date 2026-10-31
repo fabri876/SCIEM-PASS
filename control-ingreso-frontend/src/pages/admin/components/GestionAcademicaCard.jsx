@@ -1,3 +1,4 @@
+import SelectorAsignatura from "../../../components/common/SelectorAsignatura";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { obtenerAsignaturas, crearAsignatura, crearGrupo,
   previsualizarHorario, confirmarHorario, vincularUsuario } from "../../../services/grupoService";
@@ -10,6 +11,8 @@ const input = "w-full mt-1 p-2.5 border border-border rounded-xl bg-bg-app text-
 const boton = "inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary-blue text-white font-bold hover:bg-primary-navy transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary-blue focus-visible:outline-offset-2";
 
 export default function GestionAcademicaCard({ docentes = [], onCatalogChange }) {
+  const [clasificacionNueva,setClasificacionNueva]=useState(null);
+  const [resultadoHorario,setResultadoHorario]=useState(null);
   const [asignaturas, setAsignaturas] = useState([]);
   const [ocupado, setOcupado] = useState(false);
   const [mensaje, setMensaje] = useState("");
@@ -59,6 +62,7 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
   const importar = () => ejecutar(async () => {
     const resultado = await confirmarHorario(archivo);
     quitarArchivo();
+    setResultadoHorario(resultado);
     setMensaje(`Horario procesado: ${resultado.asignaturasCreadas} asignaturas y ${resultado.gruposCreados} grupos nuevos. Ya existían ${resultado.asignaturasExistentes} asignaturas y ${resultado.gruposExistentes} grupos: se conservaron sin duplicarlos.`);
     actualizarCatalogo();
   });
@@ -68,6 +72,14 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
     </div>
     {error && <p role="alert" className="text-accent-red font-semibold">{error}</p>}
     {mensaje && <p role="status" className="text-green-700 font-semibold">{mensaje}</p>}
+    {resultadoHorario && <div className="rounded-xl border border-border p-4 space-y-3">
+      <details><summary className="font-bold cursor-pointer">Asignaturas que ya existían ({resultadoHorario.asignaturasExistentes})</summary>
+        <ul className="max-h-52 overflow-auto mt-2 text-sm space-y-1">{resultadoHorario.detalleAsignaturasExistentes?.map(a=><li key={a.codigoOficial}>Código {a.codigoOficial} · {a.nombreAsignatura}</li>)}</ul>
+      </details>
+      <details><summary className="font-bold cursor-pointer">Grupos que ya existían ({resultadoHorario.gruposExistentes})</summary>
+        <ul className="max-h-52 overflow-auto mt-2 text-sm space-y-1">{resultadoHorario.detalleGruposExistentes?.map(g=><li key={`${g.codigoOficial}-${g.nombreGrupo}`}>Código {g.codigoOficial} · {g.nombreAsignatura} · Grupo {g.nombreGrupo}</li>)}</ul>
+      </details>
+    </div>}
     {cargando && <p>Cargando catálogo académico…</p>}
     <fieldset disabled={ocupado} className="space-y-4 border border-border rounded-2xl p-4">
       <legend className="px-2 font-bold text-primary-navy">Importar horario PDF</legend>
@@ -87,15 +99,16 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
       <div className="p-5 sm:p-7 space-y-4" role="dialog" aria-modal="true" aria-labelledby="titulo-horario">
         <div className="flex items-center justify-between gap-3"><h2 id="titulo-horario" className="text-card-title font-extrabold text-primary-navy">Vista previa del horario</h2>
           <button autoFocus type="button" disabled={ocupado} onClick={quitarArchivo} className="px-3 py-2 rounded-xl text-primary-navy hover:bg-bg-app">Cerrar</button></div>
+        {preview.carrera && <p className="font-bold text-primary-navy">{preview.carrera} · Gestión {preview.gestion}</p>}
         <p className="text-secondary">{preview.filas.length} grupos de {new Set(preview.filas.map(f => f.codigoAsignatura)).size} asignaturas. Los grupos repetidos se muestran una sola vez por materia.</p>
         {error && <p role="alert" className="text-accent-red font-bold">{error}</p>}
         <p className="text-secondary">Después podrá registrar docentes con sus asignaturas y grupos, individualmente o mediante Excel.</p>
         <div className="overflow-auto max-h-[55vh] border border-border rounded-xl"><table className="w-full text-sm text-left">
-          <thead className="sticky top-0 bg-bg-app text-primary-navy"><tr><th className="p-3">Código</th><th className="p-3">Asignatura</th><th className="p-3">Grupo</th></tr></thead>
+          <thead className="sticky top-0 bg-bg-app text-primary-navy"><tr><th className="p-3">Código</th><th className="p-3">Asignatura</th><th className="p-3">Grupo</th><th className="p-3">Asignatura en catálogo</th></tr></thead>
           <tbody>{preview.filas.map(f => <tr key={`${f.codigoAsignatura}-${f.nombreGrupo}`} className="border-t border-border">
             <td className="p-3">{f.codigoAsignatura}</td>
             <td className="p-3 font-semibold text-primary-navy">{f.nombreAsignatura}</td>
-            <td className="p-3 whitespace-nowrap">{f.nombreGrupo}</td>
+            <td className="p-3 whitespace-nowrap">{f.nombreGrupo}</td><td className="p-3">{f.idAsignaturaDestino ? "Ya existe" : "Nueva"}</td>
           </tr>)}</tbody>
         </table></div>
         {ocupado && <p role="status" className="text-secondary text-primary-blue font-bold">Guardando asignaturas y grupos… La ventana se cerrará al terminar.</p>}
@@ -105,10 +118,11 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
     </VentanaEmergente>, document.body)}
     <div className="grid grid-cols-1 gap-4">
       <form className="border rounded-xl p-4 space-y-3" onSubmit={e => { e.preventDefault(); ejecutar(async () => {
-        await crearAsignatura({ codigo: Number(codigo), nombre, sigla }); setCodigo(""); setNombre(""); setSigla("");
+        await crearAsignatura({ codigo: Number(codigo), nombre, sigla, ...clasificacionNueva }); setCodigo(""); setNombre(""); setSigla("");
         setMensaje("Asignatura guardada. Ahora puede crear sus grupos."); actualizarCatalogo();
       }); }}>
         <h3 className="font-bold">Nueva asignatura</h3>
+        <SelectorAsignatura soloClasificacion required revision={versionCatalogo} disabled={ocupado} onClasificacion={setClasificacionNueva} />
         <label className="block">Código oficial<input required type="number" min="1" value={codigo} onChange={e => setCodigo(e.target.value)} className={input} /></label>
         <label className="block">Nombre<input required maxLength={255} value={nombre} onChange={e => setNombre(e.target.value)} className={input} /></label>
         <label className="block">Sigla (opcional)<input maxLength={50} value={sigla} onChange={e => setSigla(e.target.value)} className={input} /></label>
@@ -119,9 +133,7 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
         setMensaje("Grupo guardado. Puede asignarle un docente ahora o después."); actualizarCatalogo();
       }); }}>
         <h3 className="font-bold">Nuevo grupo</h3>
-        <label className="block">Asignatura<select required value={idAsignatura} onChange={e => setIdAsignatura(e.target.value)} className={input}>
-          <option value="">Seleccione una asignatura</option>{asignaturas.map(a => <option key={a.idAsignatura} value={a.idAsignatura}>ID {a.idAsignatura}{a.codigoOficial ? ` · Código ${a.codigoOficial}` : ""} · {a.nombreAsignatura}</option>)}
-        </select></label>
+        <SelectorAsignatura required value={idAsignatura} onChange={setIdAsignatura} revision={versionCatalogo} disabled={ocupado} />
         <label className="block">Nombre del grupo<input required maxLength={50} placeholder="Ej.: 2, 14, C1 o 6A" value={nombreGrupo} onChange={e => setNombreGrupo(e.target.value)} className={input} /></label>
         <button disabled={ocupado || cargando} className={boton}>Guardar grupo</button>
       </form>

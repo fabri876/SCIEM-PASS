@@ -7,7 +7,20 @@ import java.nio.file.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LectorHorarioPdfTest {
+    @Test void conservaCarreraNivelYPlanesSinConfundirMaterias() {
+        var datos=new LectorHorarioPdf().interpretarClasificacion("PROGRAMA LIC. EN INGENIERIA EN ENERGIA\nGestión Académica 2/2026\nA 2008053 ALGEBRA I\nB 2008019 ALGEBRA I");
+        assertEquals("2/2026",datos.gestion());assertTrue(datos.carrera().contains("ENERGIA"));
+        assertEquals("A",datos.materias().getFirst().nivel());assertEquals(2,datos.materias().size());
+    }
+    @Test void admiteNombreEnTresLineasYRotuloAntiguo() {
+        var filas=new LectorHorarioPdf().interpretar("ANTIGUO\nPROGRAMA DE INGENIERIA EN BIOTECNOLOGIA\nA 2008053 ALGEBRA I\n1 [TP] DELGADILLO FERNANDEZ HEBERT JUAN\nDE DIOS\nVI 645 -0815 682L");
+        assertEquals("DELGADILLO FERNANDEZ HEBERT JUAN DE DIOS",filas.getFirst().nombreDocente());
+    }
     private final LectorHorarioPdf lector = new LectorHorarioPdf();
+    @Test void admiteNivelNumericoSinConfundirloConGrupo() {
+        var filas=lector.interpretar("1 2008053 ALGEBRA I\n5 DOCENTE PRUEBA LU 815 -0945 620");
+        assertEquals(2008053,filas.getFirst().codigoAsignatura());assertEquals("5",filas.getFirst().nombreGrupo());
+    }
     @Test void conservaMateriaEntrePaginasYEliminaDiasRepetidos() {
         var filas = lector.interpretar("""
                 A 2008019 ALGEBRA I

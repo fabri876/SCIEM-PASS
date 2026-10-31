@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 
+import { obtenerUsuarioActual, obtenerToken } from "../../services/authService";
+import { useLocation } from "react-router-dom";
 import { obtenerAvisosExamenes } from "../../services/notificacionesService";
 
 // Clave donde guardo los ids de las notificaciones ya leídas (por navegador)
 const STR_CLAVE_LEIDAS = "notificaciones-leidas";
 
-function fnLeerLeidasGuardadas() {
+function fnLeerLeidasGuardadas(clave = STR_CLAVE_LEIDAS) {
   try {
-    const arr = JSON.parse(localStorage.getItem(STR_CLAVE_LEIDAS) || "[]");
+    const arr = JSON.parse(localStorage.getItem(clave) || "[]");
     return new Set(Array.isArray(arr) ? arr : []);
   } catch {
     return new Set();
@@ -38,6 +40,10 @@ function IconoTipo({ strTipo }) {
 }
 
 export default function NotificationsMenu({ boolVersionMobile = false, boolAbiertoInicial = false }) {
+  const location=useLocation();
+  const usuario=obtenerUsuarioActual();
+  const sesion=Boolean(usuario&&obtenerToken());
+  const claveLeidas=`${STR_CLAVE_LEIDAS}-${usuario?.idUsuario??"invitado"}`;
   const [arrNotificaciones, setArrNotificaciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -48,7 +54,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
 
   // Las "no leídas" son las que todavía no están en el set de leídas.
   // Si llega un aviso nuevo en el próximo refresco, la burbuja vuelve a aparecer.
-  const intNoLeidas = arrNotificaciones.filter((n) => !setLeidas.has(n.intId)).length;
+  const intNoLeidas = !sesion ? 0 : arrNotificaciones.filter((n) => !setLeidas.has(n.intId)).length;
 
   const fnAlternar = () => setBoolAbierto((boolPrev) => !boolPrev);
 
@@ -57,7 +63,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
     const setNuevo = new Set(arrNotificaciones.map((n) => n.intId));
     setSetLeidas(setNuevo);
     try {
-      localStorage.setItem(STR_CLAVE_LEIDAS, JSON.stringify([...setNuevo]));
+      localStorage.setItem(claveLeidas, JSON.stringify([...setNuevo]));
     } catch {}
   };
 
@@ -75,6 +81,9 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
 
   useEffect(() => {
     let activo = true;
+    setArrNotificaciones([]);setError("");setSetLeidas(fnLeerLeidasGuardadas(claveLeidas));
+    if(!sesion){setCargando(false);return;}
+    setCargando(true);
     const cargar = async () => {
       try {
         const datos = await obtenerAvisosExamenes();
@@ -86,7 +95,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
     void cargar();
     const timer = boolAbierto ? setInterval(cargar, 60000) : null;
     return () => { activo = false; if (timer) clearInterval(timer); };
-  }, [boolAbierto, revision]);
+  }, [boolAbierto, revision, sesion, claveLeidas, location.pathname]);
 
   // Cerrar al hacer clic afuera o con Escape (solo tiene sentido en desktop,
   // en mobile el panel se cierra junto con el menú de hamburguesa)
@@ -127,18 +136,19 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
         <button
           type="button"
           onClick={fnMarcarComoLeidas}
-          disabled={intNoLeidas === 0}
+          disabled={!sesion || intNoLeidas === 0}
           className="shrink-0 text-xs font-bold text-[#2563EB] hover:underline disabled:text-[#94A3B8] disabled:no-underline disabled:cursor-default"
         >
           Marcar como leídas
         </button>
       </div>
 
-      {cargando && <p role="status" className="p-4 text-sm text-[#64748B]">Cargando avisos…</p>}
-      {error && <div role="alert" className="p-4 text-sm text-accent-red">{error}<button type="button" onClick={() => setRevision(v => v + 1)} className="block mt-2 font-bold underline">Reintentar</button></div>}
-      {!cargando && !error && !arrNotificaciones.length && <p className="p-4 text-sm text-[#64748B]">No hay exámenes programados para los próximos siete días.</p>}
+      {!sesion && <p className="p-4 text-sm text-[#64748B]">Inicie sesión para ver sus notificaciones.</p>}
+      {sesion && cargando && <p role="status" className="p-4 text-sm text-[#64748B]">Cargando avisos…</p>}
+      {sesion && error && <div role="alert" className="p-4 text-sm text-accent-red">{error}<button type="button" onClick={() => setRevision(v => v + 1)} className="block mt-2 font-bold underline">Reintentar</button></div>}
+      {sesion && !cargando && !error && !arrNotificaciones.length && <p className="p-4 text-sm text-[#64748B]">No hay exámenes programados para los próximos siete días.</p>}
       <ul className="max-h-[360px] overflow-y-auto">
-        {arrNotificaciones.map((notif) => {
+        {(sesion ? arrNotificaciones : []).map((notif) => {
           const boolNueva = !setLeidas.has(notif.intId);
           return (
             <li

@@ -17,9 +17,19 @@ public class HorarioImportacionService {
     private final LectorHorarioPdf lector;
     private final AsignaturaRepository asignaturas;
     private final GrupoRepository grupos;
+    private final HorarioCatalogoJdbcRepository escritura;
+    private ClasificacionAcademicaRepository clasificacion;
 
-    public HorarioImportacionService(LectorHorarioPdf lector, AsignaturaRepository asignaturas, GrupoRepository grupos) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public HorarioImportacionService(LectorHorarioPdf lector, AsignaturaRepository asignaturas, GrupoRepository grupos,
+                                     HorarioCatalogoJdbcRepository escritura, ClasificacionAcademicaRepository clasificacion) {
+        this(lector,asignaturas,grupos,escritura); this.clasificacion=clasificacion;
+    }
+
+    public HorarioImportacionService(LectorHorarioPdf lector, AsignaturaRepository asignaturas, GrupoRepository grupos,
+                                     HorarioCatalogoJdbcRepository escritura) {
         this.lector = lector; this.asignaturas = asignaturas; this.grupos = grupos;
+        this.escritura = escritura;
     }
 
     @Transactional(readOnly = true)
@@ -29,12 +39,14 @@ public class HorarioImportacionService {
             var existente = resolverMateria(f, catalogo);
             return new Fila(f.codigoAsignatura(), f.nombreAsignatura(), f.nombreGrupo(), existente == null ? null : existente.getIdAsignatura());
         }).toList();
-        return new VistaPrevia(filas);
+        var contexto=contexto(archivo);
+        return new VistaPrevia(filas,contexto==null?null:contexto.carrera(),contexto==null?null:contexto.gestion());
     }
 
     @Transactional
     public Resultado confirmarAutomaticamente(MultipartFile archivo) {
         var filas = leerCatalogo(archivo);
+        var contexto=contexto(archivo);
         List<Asignatura> catalogo = new ArrayList<>(asignaturas.findAll());
         Set<Integer> idsPrevios = new HashSet<>();
         catalogo.forEach(a -> idsPrevios.add(a.getIdAsignatura()));
@@ -43,31 +55,54 @@ public class HorarioImportacionService {
         for (var g : grupos.findAll()) existentes.put(clave(g.getIdAsignatura(), g.getNombreGrupo()), g);
         int nuevasAsignaturas = 0, nuevosGrupos = 0;
         Set<Integer> materiasPrevias = new HashSet<>();
+        List<Existente> detalleMaterias = new ArrayList<>(), detalleGrupos = new ArrayList<>();
         int gruposPrevios = 0;
+        List<Asignatura> nuevas = new ArrayList<>(), codigos = new ArrayList<>();
+        List<Grupo> pendientes = new ArrayList<>();
+        Set<Integer> codigosActualizados = new HashSet<>();
         for (var fila : filas) {
             Asignatura materia = resolverMateria(fila, catalogo);
             if (materia == null) {
-                materia = new Asignatura(); materia.setIdAsignatura(fila.codigoAsignatura());
+                materia = new Asignatura(); materia.setIdAsignatura(nuevoId(fila.codigoAsignatura(), catalogo));
                 materia.setNombreAsignatura(fila.nombreAsignatura()); materia.setCodigoOficial(String.valueOf(fila.codigoAsignatura()));
-                materia = asignaturas.save(materia); catalogo.add(materia); nuevasAsignaturas++;
+                nuevas.add(materia); catalogo.add(materia); nuevasAsignaturas++;
             } else {
-                if (idsPrevios.contains(materia.getIdAsignatura())) materiasPrevias.add(materia.getIdAsignatura());
-                if (materia.getCodigoOficial() == null) {
-                    materia.setCodigoOficial(String.valueOf(fila.codigoAsignatura())); asignaturas.save(materia);
+                if (idsPrevios.contains(materia.getIdAsignatura()) && materiasPrevias.add(materia.getIdAsignatura()))
+                    detalleMaterias.add(new Existente(String.valueOf(fila.codigoAsignatura()),materia.getNombreAsignatura(),null));
+                if (materia.getCodigoOficial() == null && codigosActualizados.add(materia.getIdAsignatura())) {
+                    var actualizada = new Asignatura(); actualizada.setIdAsignatura(materia.getIdAsignatura());
+                    actualizada.setCodigoOficial(String.valueOf(fila.codigoAsignatura())); codigos.add(actualizada);
                 }
             }
             String clave = clave(materia.getIdAsignatura(), fila.nombreGrupo());
             Grupo grupo = existentes.get(clave);
             if (grupo == null) {
-                grupo = grupos.save(new Grupo(materia.getIdAsignatura(), fila.nombreGrupo(), null));
+                grupo = new Grupo(materia.getIdAsignatura(), fila.nombreGrupo(), null); pendientes.add(grupo);
                 existentes.put(clave, grupo); nuevosGrupos++;
             } else if (!Boolean.TRUE.equals(grupo.getEstadoGrupo())) {
                 throw new SolicitudInvalidaException("El grupo " + fila.nombreGrupo() + " está inactivo. Revíselo antes de importar.");
             } else {
                 gruposPrevios++;
+                detalleGrupos.add(new Existente(String.valueOf(fila.codigoAsignatura()),materia.getNombreAsignatura(),grupo.getNombreGrupo()));
             }
         }
-        return new Resultado(nuevasAsignaturas, nuevosGrupos, materiasPrevias.size(), gruposPrevios);
+        escritura.guardar(nuevas, codigos, pendientes);
+        if(clasificacion!=null && contexto!=null) {
+            var nombre=archivo.getOriginalFilename();
+            String plan=nombre!=null && nombre.matches("[0-9]{6}\\.pdf") ? nombre.substring(0,6) : null;
+            clasificacion.clasificar(contexto,plan);
+        }
+        return new Resultado(nuevasAsignaturas, nuevosGrupos, materiasPrevias.size(), gruposPrevios,detalleMaterias,detalleGrupos);
+    }
+
+    private ClasificacionHorario contexto(MultipartFile archivo) {
+        if(clasificacion==null) return null;
+        try {
+            var datos=lector.leerClasificacion(archivo.getBytes());
+            if(datos!=null && datos.gestion()!=null && !datos.gestion().equals(clasificacion.gestionActual()))
+                throw new SolicitudInvalidaException("El horario es de "+datos.gestion()+" y no del semestre actual. Cambie de semestre antes de importar.");
+            return datos;
+        } catch(IOException ex) {throw new SolicitudInvalidaException("No se pudo leer el horario.");}
     }
 
     private String clave(Integer materia, String grupo) { return materia + ":" + grupo.trim().toUpperCase(Locale.ROOT); }
@@ -80,7 +115,11 @@ public class HorarioImportacionService {
             throw new SolicitudInvalidaException("Seleccione un horario PDF de hasta 10 MB.");
         try {
             Map<String, MateriaGrupo> unicas = new LinkedHashMap<>();
+            Map<Integer, String> nombres = new HashMap<>();
             for (var f : lector.leer(archivo.getBytes())) {
+                String nombrePrevio = nombres.putIfAbsent(f.codigoAsignatura(), normalizar(f.nombreAsignatura()));
+                if (nombrePrevio != null && !nombrePrevio.equals(normalizar(f.nombreAsignatura())))
+                    throw new SolicitudInvalidaException("El horario contiene nombres contradictorios para el código " + f.codigoAsignatura());
                 // Desechar nombres y tipo de personal antes de deduplicar el catálogo.
                 var materiaGrupo = new MateriaGrupo(f.codigoAsignatura(), f.nombreAsignatura(), f.nombreGrupo().trim().toUpperCase(Locale.ROOT));
                 String clave = clave(f.codigoAsignatura(), f.nombreGrupo());
@@ -98,17 +137,26 @@ public class HorarioImportacionService {
                 .toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", " ").trim();
     }
 
+    private Integer nuevoId(Integer preferido, List<Asignatura> catalogo) {
+        Set<Integer> ocupados = new HashSet<>();
+        catalogo.forEach(a -> ocupados.add(a.getIdAsignatura()));
+        if (!ocupados.contains(preferido)) return preferido;
+        int candidato = 1;
+        while (ocupados.contains(candidato)) candidato = Math.incrementExact(candidato);
+        return candidato;
+    }
+
     private Asignatura resolverMateria(MateriaGrupo fila, List<Asignatura> catalogo) {
         String codigo = String.valueOf(fila.codigoAsignatura());
-        List<Asignatura> porCodigo = catalogo.stream().filter(a -> codigo.equals(a.getCodigoOficial())
-                || fila.codigoAsignatura().equals(a.getIdAsignatura())).distinct().toList();
+        // El nombre es descriptivo: nunca identifica ni fusiona asignaturas.
+        List<Asignatura> porCodigo = catalogo.stream()
+                .filter(a -> codigo.equals(a.getCodigoOficial())).toList();
         if (porCodigo.size() > 1) throw new SolicitudInvalidaException("El código oficial coincide con dos materias del catálogo. Revise " + codigo);
         Asignatura existente = porCodigo.isEmpty() ? null : porCodigo.getFirst();
-        if (existente == null) {
-            var porNombre = catalogo.stream().filter(a -> normalizar(a.getNombreAsignatura()).equals(normalizar(fila.nombreAsignatura()))).toList();
-            if (porNombre.size() > 1) throw new SolicitudInvalidaException("Hay varias materias con el nombre " + fila.nombreAsignatura() + ". Revise el catálogo antes de importar.");
-            existente = porNombre.isEmpty() ? null : porNombre.getFirst();
-        }
+        // Compatibilidad con registros antiguos cuyo ID ya era el código oficial.
+        if (existente == null) existente = catalogo.stream()
+                .filter(a -> a.getCodigoOficial() == null && fila.codigoAsignatura().equals(a.getIdAsignatura()))
+                .findFirst().orElse(null);
         if (existente != null && (!normalizar(existente.getNombreAsignatura()).equals(normalizar(fila.nombreAsignatura()))
                 || (existente.getCodigoOficial() != null && !codigo.equals(existente.getCodigoOficial()))))
             throw new SolicitudInvalidaException("El código o nombre de " + fila.nombreAsignatura() + " entra en conflicto con el catálogo. Revíselo antes de importar.");

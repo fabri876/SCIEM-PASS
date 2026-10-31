@@ -1,5 +1,6 @@
 import { strApiBaseUrl } from './apiConfig';
 import { obtenerToken, cerrarSesion } from './authService';
+import { invalidarCatalogo } from './grupoService';
 
 async function consultar(ruta = '', opciones = {}, pdf = false) {
   const respuesta = await fetch(`${strApiBaseUrl}/api/admin/semestres${ruta}`, {
@@ -10,6 +11,7 @@ async function consultar(ruta = '', opciones = {}, pdf = false) {
     const error = await respuesta.json().catch(() => null);
     throw new Error(error?.mensaje || 'No se pudo completar la operación de semestres.');
   }
+  if (opciones.method && opciones.method !== 'GET') invalidarCatalogo();
   return pdf ? respuesta.blob() : respuesta.json();
 }
 export const listarSemestres = () => consultar();
@@ -19,6 +21,7 @@ export const obtenerPdfSemestre = id => consultar(`/${id}/pdf`, {}, true);
 export const previsualizarSemestre = body => consultar('/vista-previa', { method: 'POST', body });
 export const abrirSemestre = body => consultar('/abrir', { method: 'POST', body });
 export const guardarHistorico = body => consultar('/historicos', { method: 'POST', body });
+export const configurarFechasSemestre = body => consultar('/fechas', { method: 'PUT', body });
 export async function descargarSemestre(id, nombre, original = false) {
   const blob = await consultar(`/${id}/pdf?original=${original}`, {}, true);
   const url = URL.createObjectURL(blob);

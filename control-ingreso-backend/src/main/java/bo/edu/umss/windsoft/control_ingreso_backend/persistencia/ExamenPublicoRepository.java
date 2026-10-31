@@ -10,7 +10,13 @@ public class ExamenPublicoRepository {
     private final JdbcTemplate jdbc;
     public ExamenPublicoRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
     public List<ExamenPublicoDto> proximos(LocalDate hoy, LocalTime hora) {
-        return jdbc.query("""
+        return consultar(hoy,hora,null,null);
+    }
+    public List<ExamenPublicoDto> proximosParaUsuario(LocalDate hoy, LocalTime hora,Integer id,String rol) {
+        return consultar(hoy,hora,id,rol);
+    }
+    private List<ExamenPublicoDto> consultar(LocalDate hoy,LocalTime hora,Integer id,String rol) {
+        String sql="""
             SELECT e.idexamen, am.idambiente, e.fechaexamen, a.nombreasignatura,
                    trim(concat_ws(' ', u.nombreusuario, u.apellidousuario)) AS docente,
                    concat_ws(' - ', au.nombreaula, NULLIF(au.ubicacionaula, '')) AS aula,
@@ -23,9 +29,15 @@ public class ExamenPublicoRepository {
             WHERE e.idsemestre=(SELECT idsemestre FROM semestre WHERE estado='ACTUAL') AND e.estadoexamen = true AND e.fechaexamen >= ?
               AND (e.fechaexamen > ? OR am.horafin IS NULL OR am.horafin > ?)
             ORDER BY e.fechaexamen, am.horainicio NULLS LAST, e.idexamen, am.idambiente
-            """, (rs, n) -> new ExamenPublicoDto(rs.getInt("idexamen"), rs.getObject("idambiente", Integer.class),
+            """;
+        var argumentos=new java.util.ArrayList<Object>(java.util.List.of(hoy,hoy,hora));
+        if(id!=null) {
+            sql=sql.replace("ORDER BY",VisibilidadExamenSql.FILTRO+" ORDER BY");
+            argumentos.addAll(java.util.Arrays.asList(VisibilidadExamenSql.parametros(id,rol)));
+        }
+        return jdbc.query(sql, (rs, n) -> new ExamenPublicoDto(rs.getInt("idexamen"), rs.getObject("idambiente", Integer.class),
                 rs.getObject("fechaexamen", LocalDate.class), rs.getString("nombreasignatura"),
                 rs.getString("docente"), rs.getString("aula"), rs.getString("inicio"), rs.getString("fin")),
-            hoy, hoy, hora);
+            argumentos.toArray());
     }
 }

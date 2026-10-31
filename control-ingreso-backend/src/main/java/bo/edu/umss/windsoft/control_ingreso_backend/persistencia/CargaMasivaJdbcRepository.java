@@ -18,6 +18,11 @@ public class CargaMasivaJdbcRepository {
 
     public CargaMasivaJdbcRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
+    public Set<String> docenteGruposActuales() {
+        return new HashSet<>(jdbc.query("SELECT d.idusuario,d.idgrupo FROM docentegrupo d JOIN grupo g ON g.idgrupo=d.idgrupo WHERE g.idsemestre=semestre_actual_id()",
+                (r,n)->r.getInt(1)+":"+r.getInt(2)));
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public void guardarNuevos(List<AltaUsuarioLote> altas) {
         if (altas.isEmpty()) return;

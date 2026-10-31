@@ -16,6 +16,7 @@ class HorarioImportacionServiceTest {
     @Mock LectorHorarioPdf lector;
     @Mock AsignaturaRepository asignaturas;
     @Mock GrupoRepository grupos;
+    @Mock HorarioCatalogoJdbcRepository escritura;
     @InjectMocks HorarioImportacionService servicio;
     private final MockMultipartFile archivo = new MockMultipartFile("archivo", "horario.pdf", "application/pdf", new byte[]{1});
     private AsignacionHorario fila(String nombre, String tipo) { return new AsignacionHorario(2008054, "CALCULO I", "2", tipo, nombre); }
@@ -38,20 +39,57 @@ class HorarioImportacionServiceTest {
         when(asignaturas.findAll()).thenReturn(List.of(a));
         var g = new Grupo(2008054, "2", null); g.setIdGrupo(7);
         when(grupos.findAll()).thenReturn(List.of(), List.of(g));
-        when(grupos.save(any())).thenReturn(g);
         assertEquals(1, servicio.confirmarAutomaticamente(archivo).gruposCreados());
-        assertEquals(0, servicio.confirmarAutomaticamente(archivo).gruposCreados());
-        verify(grupos, times(1)).save(any()); verify(grupos, times(2)).findAll();
+        var repetida=servicio.confirmarAutomaticamente(archivo);
+        assertEquals(0, repetida.gruposCreados());
+        assertEquals("2008054",repetida.detalleAsignaturasExistentes().getFirst().codigoOficial());
+        assertEquals("CALCULO I",repetida.detalleAsignaturasExistentes().getFirst().nombreAsignatura());
+        assertEquals("2",repetida.detalleGruposExistentes().getFirst().nombreGrupo());
+        verify(escritura).guardar(eq(List.of()),eq(List.of()),argThat(lista -> lista.size()==1 && lista.getFirst().getIdAsignatura().equals(2008054)));
+        verify(escritura).guardar(eq(List.of()),eq(List.of()),eq(List.of()));
+        verify(grupos, never()).save(any()); verify(grupos, times(2)).findAll();
         verify(grupos, never()).findByIdAsignaturaAndNombreGrupoIgnoreCase(any(), any());
     }
     @Test void reutilizaMateriaHeredadaSinCambiarSuId() {
         when(lector.leer(any())).thenReturn(List.of(new AsignacionHorario(2010020, "INGENIERIA DE SOFTWARE", "1", "DOCENTE", "PERSONA")));
-        var a = materia(1, "Ingeniería de Software"); when(asignaturas.findAll()).thenReturn(List.of(a));
+        var a = materia(1, "Ingeniería de Software"); a.setCodigoOficial("2010020"); when(asignaturas.findAll()).thenReturn(List.of(a));
         var g = new Grupo(1, "1", null); when(grupos.findAll()).thenReturn(List.of(g));
         var resultado = servicio.confirmarAutomaticamente(archivo);
         assertEquals(0, resultado.asignaturasCreadas()); assertEquals(0, resultado.gruposCreados());
         assertEquals(1, a.getIdAsignatura()); assertEquals("2010020", a.getCodigoOficial());
+        verify(escritura).guardar(eq(List.of()),eq(List.of()),eq(List.of()));
         assertEquals(1, resultado.asignaturasExistentes()); assertEquals(1, resultado.gruposExistentes());
+    }
+    @Test void mismoNombreOtroCodigoCreaAsignaturaYGrupoIndependientes() {
+        var antigua = materia(2008019, "ALGEBRA I"); antigua.setCodigoOficial("2008019");
+        when(asignaturas.findAll()).thenReturn(List.of(antigua));
+        when(grupos.findAll()).thenReturn(List.of(new Grupo(2008019,"5",null)));
+        when(lector.leer(any())).thenReturn(List.of(new AsignacionHorario(2008053,"ALGEBRA I","5","DOCENTE","A")));
+        assertNull(servicio.previsualizar(archivo).filas().getFirst().idAsignaturaDestino());
+        var resultado = servicio.confirmarAutomaticamente(archivo);
+        assertEquals(1,resultado.asignaturasCreadas()); assertEquals(1,resultado.gruposCreados());
+        verify(escritura).guardar(argThat(a -> a.size()==1 && "2008053".equals(a.getFirst().getCodigoOficial())),
+                eq(List.of()),argThat(g -> g.size()==1 && g.getFirst().getIdAsignatura().equals(2008053)));
+    }
+    @Test void codigoOficialTienePrioridadSobreIdInternoDeOtraMateria() {
+        var otra = materia(2008053,"OTRA"); otra.setCodigoOficial("999");
+        var correcta = materia(7,"ALGEBRA I"); correcta.setCodigoOficial("2008053");
+        when(asignaturas.findAll()).thenReturn(List.of(otra,correcta));
+        when(lector.leer(any())).thenReturn(List.of(new AsignacionHorario(2008053,"ALGEBRA I","5","DOCENTE","A")));
+        assertEquals(7,servicio.previsualizar(archivo).filas().getFirst().idAsignaturaDestino());
+    }
+    @Test void idOcupadoPorOtroCodigoNoSobrescribeLaAsignatura() {
+        var otra = materia(2008053,"OTRA"); otra.setCodigoOficial("999");
+        when(asignaturas.findAll()).thenReturn(List.of(otra));
+        when(lector.leer(any())).thenReturn(List.of(new AsignacionHorario(2008053,"ALGEBRA I","5","DOCENTE","A")));
+        assertEquals(1,servicio.confirmarAutomaticamente(archivo).asignaturasCreadas());
+        verify(escritura).guardar(argThat(a -> a.size()==1 && !a.getFirst().getIdAsignatura().equals(2008053)
+                && "2008053".equals(a.getFirst().getCodigoOficial())),eq(List.of()),anyList());
+        assertEquals("999",otra.getCodigoOficial());
+    }
+    @Test void nombresContradictoriosDelMismoCodigoEntreGruposSeRechazan() {
+        when(lector.leer(any())).thenReturn(List.of(fila("A","DOCENTE"),new AsignacionHorario(2008054,"OTRA","3","DOCENTE","B")));
+        assertThrows(SolicitudInvalidaException.class,()->servicio.previsualizar(archivo));
     }
     @Test void conflictoDeCodigoRechazaCatalogo() {
         when(lector.leer(any())).thenReturn(List.of(fila("PERSONA", "DOCENTE")));
