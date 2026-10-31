@@ -3,10 +3,26 @@ package bo.edu.umss.windsoft.control_ingreso_backend.infraestructura;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.UsuarioPinController;
+import static org.mockito.Mockito.mock;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PasswordEncoderConfigTest {
     private final PasswordEncoder encoder = new PasswordEncoderConfig().passwordEncoder();
+
+    @Test void controladorPinDeTestingPuedeInyectarElEncoderCompartido() {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(JdbcTemplate.class, () -> mock(JdbcTemplate.class));
+            context.register(PasswordEncoderConfig.class, UsuarioPinController.class);
+            context.refresh();
+            assertNotNull(context.getBean(UsuarioPinController.class));
+            assertEquals(200, context.getBean(UsuarioPinController.class)
+                    .configurarPin(new UsuarioPinController.PinRequest(1, "1234"))
+                    .getStatusCode().value());
+        }
+    }
 
     @Test void nuevosHashesUsanArgon2idConSaltIndividual() {
         String first = encoder.encode("Clave-de-prueba-2026!");

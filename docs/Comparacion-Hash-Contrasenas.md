@@ -125,7 +125,7 @@ No cambia los formularios ni necesita cambios de frontend.
 
 Se ejecutaron `PasswordEncoderConfigTest`, `PasswordHashMigrationTest`,
 `AuthServiceTest`, `RegistroUsuarioServiceTest`, `QaRegistroTest` y
-`CargaMasivaAcademicaTest`: 36 casos, 35 aprobados, uno omitido por la suite,
+`CargaMasivaAcademicaTest`: 37 casos, 36 aprobados, uno omitido por la suite,
 sin fallos ni errores. Cubren hashes distintos para la misma clave, rechazo de
 claves incorrectas/texto plano, compatibilidad con BCrypt, migracion al entrar,
 cuentas inactivas y validaciones del registro masivo.
@@ -133,3 +133,10 @@ cuentas inactivas y validaciones del registro masivo.
 Dos pruebas antiguas de login tenian desactualizado el mock de
 `UsuarioBloqueoService`; se actualizaron para comprobar el servicio que ya
 registra los intentos fallidos en su propia transaccion.
+
+Tras integrar `origin/testing` (8b008b4), se adapto la inyeccion de
+`UsuarioPinController` a la interfaz `PasswordEncoder`: su dependencia del tipo
+concreto BCrypt impedia crear ese controlador con Argon2id. Una prueba de contexto
+comprueba la inyeccion y configuracion del PIN sin acceder a la base de datos.
+El PIN local del navegador conserva su mecanismo independiente de PBKDF2.
+La compilacion del frontend y la generacion de la PWA tambien finalizaron correctamente.
