@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.mock.web.MockMultipartFile;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import java.io.ByteArrayOutputStream;
 import java.util.*;
 import static org.mockito.Mockito.*;
@@ -27,6 +28,7 @@ class CargaMasivaAcademicaTest {
     @Mock PasswordEncoder passwords;
     @Mock AuditoriaService auditoria;
     @Mock TipoUsuarioResolver roles;
+    @Mock CargaMasivaJdbcRepository escrituraLotes;
     @InjectMocks CargaMasivaService servicio;
     private MockMultipartFile archivo(boolean relacion) throws Exception {
         return archivo(relacion ? "MATERIA INEXISTENTE" : "", relacion ? "2" : "");
@@ -45,7 +47,6 @@ class CargaMasivaAcademicaTest {
     }
     @Test void docenteSeCreaUnaVezYSeVinculaAVariasMateriasYGrupos() throws Exception {
         ejecutor(); when(passwords.encode(any())).thenReturn("hash");
-        when(usuarios.save(any())).thenAnswer(i -> { Usuario u = i.getArgument(0); u.setIdusuario(5); return u; });
         Asignatura calculo = new Asignatura(); calculo.setIdAsignatura(10);
         Asignatura algebra = new Asignatura(); algebra.setIdAsignatura(20);
         when(asignaturas.findByNombreAsignaturaIgnoreCase("CALCULO I")).thenReturn(Optional.of(calculo));
@@ -55,16 +56,15 @@ class CargaMasivaAcademicaTest {
         when(grupos.findByIdAsignaturaAndNombreGrupoIgnoreCase(20, "3")).thenReturn(Optional.of(g2));
         var resultado = servicio.procesarCargaMasiva(archivo("CALCULO I; ALGEBRA I; CALCULO I", "2; 3; 2"), "DOCENTE", "admin@example.test", "127.0.0.1", null);
         assertEquals(1, resultado.getExitosos());
-        verify(docentes, times(1)).save(any());
-        verify(grupoService, times(1)).asignarDocenteAGrupo(5, 987000065, 7);
-        verify(grupoService, times(1)).asignarDocenteAGrupo(5, 987000065, 8);
+        verify(docentes, never()).save(any());
+        verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 1
+                && altas.getFirst().grupos().equals(Set.of(7, 8))));
         verify(asignaturas, times(1)).findByNombreAsignaturaIgnoreCase("CALCULO I");
         verify(grupos, times(1)).findByIdAsignaturaAndNombreGrupoIgnoreCase(10, "2");
         verify(usuarios, never()).existsByCiusuario(any());
     }
     @Test void idDeAsignaturaEnExcelSeResuelveSinBuscarNombres() throws Exception {
         ejecutor(); when(passwords.encode(any())).thenReturn("hash");
-        when(usuarios.save(any())).thenAnswer(i -> { Usuario u=i.getArgument(0); u.setIdusuario(5); return u; });
         Asignatura materia=new Asignatura(); materia.setIdAsignatura(10);
         Grupo grupo=new Grupo(); grupo.setIdGrupo(7);
         when(asignaturas.findById(10)).thenReturn(Optional.of(materia));
@@ -74,11 +74,11 @@ class CargaMasivaAcademicaTest {
         verify(asignaturas,times(1)).findById(10);
         verify(asignaturas,never()).findByNombreAsignaturaIgnoreCase(any());
         verify(asignaturas,never()).findByCodigoOficial(any());
-        verify(grupoService).asignarDocenteAGrupo(5,987000065,7);
+        verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 1
+                && altas.getFirst().grupos().equals(Set.of(7))));
     }
     @Test void codigoOficialTienePrioridadSobreElNombre() throws Exception {
         ejecutor(); when(passwords.encode(any())).thenReturn("hash");
-        when(usuarios.save(any())).thenAnswer(i -> { Usuario u=i.getArgument(0); u.setIdusuario(5); return u; });
         Asignatura materia=new Asignatura(); materia.setIdAsignatura(10);
         Grupo grupo=new Grupo(); grupo.setIdGrupo(7);
         when(asignaturas.findByCodigoOficial("2001")).thenReturn(Optional.of(materia));
@@ -86,7 +86,8 @@ class CargaMasivaAcademicaTest {
         var resultado=servicio.procesarCargaMasiva(archivo("2001","2","CODIGO_ASIGNATURA"),"DOCENTE","admin@example.test","127.0.0.1",null);
         assertEquals(1,resultado.getExitosos());
         verify(asignaturas,never()).findByNombreAsignaturaIgnoreCase(any());
-        verify(grupoService).asignarDocenteAGrupo(5,987000065,7);
+        verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 1
+                && altas.getFirst().grupos().equals(Set.of(7))));
     }
     @Test void duplicadosExistentesSeRechazanConConsultaDeLote() throws Exception {
         ejecutor(); when(usuarios.buscarCisExistentes(anyList())).thenReturn(List.of("1234567"));
@@ -141,7 +142,6 @@ class CargaMasivaAcademicaTest {
     }
     @Test void mismoDocenteEnDosFilasSeCreaUnaVezYRecibeAmbosGrupos() throws Exception {
         ejecutor(); when(passwords.encode(any())).thenReturn("hash");
-        when(usuarios.save(any())).thenAnswer(i -> { Usuario u = i.getArgument(0); u.setIdusuario(5); return u; });
         Asignatura materia = new Asignatura(); materia.setIdAsignatura(10);
         when(asignaturas.findById(10)).thenReturn(Optional.of(materia));
         Grupo g1 = new Grupo(); g1.setIdGrupo(7); Grupo g2 = new Grupo(); g2.setIdGrupo(8);
@@ -157,9 +157,10 @@ class CargaMasivaAcademicaTest {
         var lote = new MockMultipartFile("archivo", "docentes.xlsx", "application/octet-stream", salida.toByteArray());
         var resultado = servicio.procesarCargaMasiva(lote, "DOCENTE", "admin@example.test", "127.0.0.1", null);
         assertEquals(1, resultado.getExitosos()); assertEquals(1, resultado.getExistentes()); assertEquals(0, resultado.getFallidos());
-        verify(usuarios, times(1)).save(any()); verify(passwords, times(1)).encode(any());
-        verify(grupoService).asignarDocenteAGrupo(5, 987000065, 7);
-        verify(grupoService).asignarDocenteAGrupo(5, 987000065, 8);
+        verify(usuarios, never()).save(any()); verify(passwords, times(1)).encode(any());
+        verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 1
+                && altas.getFirst().grupos().equals(Set.of(7, 8))
+                && altas.getFirst().codigoSis().equals(987000065)));
     }
     @Test void loteSinGrupoRechazaLasFilasAntesDeCrearPersonas() throws Exception {
         ejecutor();
@@ -215,14 +216,13 @@ class CargaMasivaAcademicaTest {
         when(usuarios.findByCorreousuario("docente@example.test")).thenReturn(Optional.of(docente));
         when(roles.resolver(2)).thenReturn("DOCENTE");
         when(passwords.encode(any())).thenReturn("hash");
-        java.util.concurrent.atomic.AtomicInteger ids = new java.util.concurrent.atomic.AtomicInteger(20);
-        when(usuarios.save(any())).thenAnswer(i -> { Usuario u = i.getArgument(0); u.setIdusuario(ids.incrementAndGet()); return u; });
         var ruta=java.nio.file.Path.of("../control-ingreso-frontend/public/plantillas/plantilla-estudiantes.xlsx");
         var archivo=new MockMultipartFile("archivo","estudiantes.xlsx","application/octet-stream",java.nio.file.Files.readAllBytes(ruta));
         var resultado=servicio.procesarCargaMasiva(archivo,"ESTUDIANTE","docente@example.test","127.0.0.1",7);
         assertEquals(2,resultado.getExitosos()); assertEquals(0,resultado.getFallidos());
-        verify(grupoService).inscribirEstudianteAGrupo(21,987000101,7);
-        verify(grupoService).inscribirEstudianteAGrupo(22,987000102,7);
+        verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 2
+                && altas.stream().allMatch(a -> a.grupos().equals(Set.of(7)) && a.rol().equals("ESTUDIANTE"))
+                && altas.stream().map(AltaUsuarioLote::codigoSis).toList().equals(List.of(987000101, 987000102))));
         verify(docentes,never()).save(any());
     }
     @Test void vistaPreviaDelExcelDePruebaConservaLos77Docentes() throws Exception {
@@ -245,9 +245,45 @@ class CargaMasivaAcademicaTest {
     }
     @Test void grupoSeleccionadoEnLaPantallaSeVinculaAlLote() throws Exception {
         ejecutor(); when(passwords.encode(any())).thenReturn("hash");
-        when(usuarios.save(any())).thenAnswer(i -> { Usuario u = i.getArgument(0); u.setIdusuario(5); return u; });
         var resultado = servicio.procesarCargaMasiva(archivo(false), "ESTUDIANTE", "admin@example.test", "127.0.0.1", 7);
         assertEquals(1, resultado.getExitosos()); assertEquals(0, resultado.getFallidos());
-        verify(grupoService).inscribirEstudianteAGrupo(5, 987000065, 7);
+        verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 1
+                && altas.getFirst().grupos().equals(Set.of(7))));
+    }
+
+    @Test void erroresDeUnaFilaNoImpidenGuardarLasOtrasPorLotes() throws Exception {
+        ejecutor(); when(passwords.encode(any())).thenReturn("hash");
+        var original = archivo(false);
+        try (var libro = WorkbookFactory.create(original.getInputStream()); var salida = new ByteArrayOutputStream()) {
+            var hoja = libro.getSheetAt(0); var primera = hoja.getRow(1); var segunda = hoja.createRow(2);
+            for (int i = 0; i < primera.getLastCellNum(); i++) segunda.createCell(i).setCellValue(primera.getCell(i).getStringCellValue());
+            segunda.getCell(0).setCellValue("987000066"); segunda.getCell(1).setCellValue("invalido");
+            segunda.getCell(2).setCellValue("7654321"); libro.write(salida);
+            var resultado = servicio.procesarCargaMasiva(new MockMultipartFile("archivo", "lote.xlsx", "application/octet-stream", salida.toByteArray()), "ESTUDIANTE", "admin@example.test", "127.0.0.1", 7);
+            assertEquals(1, resultado.getExitosos()); assertEquals(1, resultado.getFallidos());
+            verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 1));
+            verify(passwords, times(1)).encode(any());
+        }
+    }
+
+    @Test void noMezclaIdentificadoresDeDosDocentesPendientesSinIdTodavia() throws Exception {
+        ejecutor(); when(passwords.encode(any())).thenReturn("hash");
+        var original = archivo(false);
+        try (var libro = WorkbookFactory.create(original.getInputStream()); var salida = new ByteArrayOutputStream()) {
+            var hoja = libro.getSheetAt(0); var primera = hoja.getRow(1);
+            for (int fila = 2; fila <= 3; fila++) {
+                var nueva = hoja.createRow(fila);
+                for (int i = 0; i < primera.getLastCellNum(); i++) nueva.createCell(i).setCellValue(primera.getCell(i).getStringCellValue());
+            }
+            hoja.getRow(2).getCell(0).setCellValue("987000066");
+            hoja.getRow(2).getCell(1).setCellValue("otro@example.test");
+            hoja.getRow(2).getCell(2).setCellValue("7654321");
+            hoja.getRow(3).getCell(0).setCellValue("987000066");
+            libro.write(salida);
+            var resultado = servicio.procesarCargaMasiva(new MockMultipartFile("archivo", "lote.xlsx", "application/octet-stream", salida.toByteArray()), "DOCENTE", "admin@example.test", "127.0.0.1", 7);
+            assertEquals(2, resultado.getExitosos()); assertEquals(1, resultado.getFallidos());
+            assertEquals(0, resultado.getExistentes());
+            verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 2));
+        }
     }
 }
