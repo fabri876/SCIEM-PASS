@@ -12,7 +12,11 @@ public class CambioExamenRepository {
   jdbc.update("INSERT INTO cambio_examen (idexamen,tipo,anterior,actual) VALUES (?,?,?,?)", examen,tipo,anterior,actual);
  }
  public List<CambioExamenDto> recientes() {
-  return jdbc.query("""
+  return consultar(null,null);
+ }
+ public List<CambioExamenDto> recientesParaUsuario(Integer id,String rol){return consultar(id,rol);}
+ private List<CambioExamenDto> consultar(Integer id,String rol){
+  String sql="""
    SELECT c.id,a.nombreasignatura,c.tipo,c.anterior,c.actual,c.fecha
    FROM cambio_examen c JOIN examen e ON e.idexamen=c.idexamen
    JOIN asignatura a ON a.idasignatura=e.idasignatura
@@ -20,6 +24,8 @@ public class CambioExamenRepository {
    AND e.fechaexamen >= (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz')::date
    AND c.fecha >= CURRENT_TIMESTAMP - INTERVAL '7 days'
    ORDER BY c.fecha DESC,c.id DESC LIMIT 100
-   """,(rs,n)-> new CambioExamenDto(rs.getLong("id"),rs.getString("nombreasignatura"),rs.getString("tipo"),rs.getString("anterior"),rs.getString("actual"),rs.getObject("fecha",OffsetDateTime.class)));
+   """;
+  if(id!=null) sql=sql.replace("ORDER BY",VisibilidadExamenSql.FILTRO+" ORDER BY");
+  return jdbc.query(sql,(rs,n)-> new CambioExamenDto(rs.getLong("id"),rs.getString("nombreasignatura"),rs.getString("tipo"),rs.getString("anterior"),rs.getString("actual"),rs.getObject("fecha",OffsetDateTime.class)),id==null ? new Object[]{} : VisibilidadExamenSql.parametros(id,rol));
  }
 }

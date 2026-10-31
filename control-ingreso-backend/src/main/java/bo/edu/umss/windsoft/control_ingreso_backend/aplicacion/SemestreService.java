@@ -13,10 +13,14 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.*;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.*;
+import org.springframework.beans.factory.annotation.Autowired;
 @Service
 public class SemestreService {
  private final SemestreRepository repo; private final LectorHorarioPdf lector; private final PdfSemestreService pdf;
- public SemestreService(SemestreRepository repo,LectorHorarioPdf lector,PdfSemestreService pdf){this.repo=repo;this.lector=lector;this.pdf=pdf;}
+ private final Clock reloj;
+ @Autowired public SemestreService(SemestreRepository repo,LectorHorarioPdf lector,PdfSemestreService pdf){this(repo,lector,pdf,Clock.system(ZoneId.of("America/La_Paz")));}
+ public SemestreService(SemestreRepository repo,LectorHorarioPdf lector,PdfSemestreService pdf,Clock reloj){this.repo=repo;this.lector=lector;this.pdf=pdf;this.reloj=reloj;}
  public record Panel(Resumen actual,List<Resumen> historial) {}
  public record VistaPrevia(String semestreAnterior,String semestreNuevo,List<ComparadorSemestres.Diferencia> diferencias,List<String> avisos,String confirmacion) {}
  public record Detalle(Resumen seleccionado,Resumen actual,List<ComparadorSemestres.Diferencia> diferencias) {}
@@ -24,13 +28,13 @@ public class SemestreService {
  @Transactional(readOnly=true) public Detalle comparar(int id){var s=repo.obtener(id);if(!"FINALIZADO".equals(s.estado()))throw invalido("Seleccione un semestre finalizado.");return new Detalle(s,repo.actual(false),ComparadorSemestres.comparar(repo.filas(id),repo.filasActuales()));}
  @Transactional(readOnly=true) public byte[] descargar(int id,boolean original){
   var semestre=repo.obtener(id);
-  if(!original && "ACTUAL".equals(semestre.estado()))return pdf.generarListado(semestre.nombre(),repo.listadoActual(),false);
+  if(!original && "ACTUAL".equals(semestre.estado()) && semestre.archivadoEn()==null)return pdf.generarListado(semestre.nombre(),repo.listadoActual(),false);
   byte[] contenido=repo.pdf(id,original);
   if(contenido==null&&!original)return pdf.generarListado(semestre.nombre(),listado(id),semestre.simulado());
   if(contenido==null)throw invalido("Este semestre no tiene un PDF original adjunto.");return contenido;
  }
  @Transactional(readOnly=true) public List<FilaListadoDocente> listado(int id){
-  var semestre=repo.obtener(id);if("ACTUAL".equals(semestre.estado()))return repo.listadoActual();
+  var semestre=repo.obtener(id);if("ACTUAL".equals(semestre.estado()) && semestre.archivadoEn()==null)return repo.listadoActual();
   var guardado=repo.listado(id);return guardado.isEmpty()?sinIdentidades(repo.filas(id)):guardado;
  }
  private List<FilaListadoDocente> sinIdentidades(List<FilaSemestre> filas){
@@ -38,6 +42,45 @@ public class SemestreService {
  }
 
  @Transactional(readOnly=true) public VistaPrevia previsualizar(String nombre,MultipartFile archivo){return preparar(nombre,archivo,false);}
+ @Transactional(readOnly=true) public VistaPrevia previsualizar(String nombre,LocalDate inicio,LocalDate fin,MultipartFile archivo){
+  validarFechas(inicio,fin);validarNuevoPeriodo(repo.actual(false),inicio,fin);
+  var previa=preparar(nombre,archivo,false);
+  return new VistaPrevia(previa.semestreAnterior(),previa.semestreNuevo(),previa.diferencias(),previa.avisos(),huella(previa.confirmacion()+"|"+inicio+"|"+fin));
+ }
+ @Transactional public Panel abrir(String nombre,LocalDate inicio,LocalDate fin,String observaciones,MultipartFile archivo,String confirmacion){
+  validarFechas(inicio,fin);validarNuevoPeriodo(repo.actual(true),inicio,fin);
+  var previa=preparar(nombre,archivo,false);
+  if(!huella(previa.confirmacion()+"|"+inicio+"|"+fin).equals(confirmacion))throw invalido("Las fechas o el catalogo cambiaron. Revise nuevamente antes de confirmar.");
+  abrir(nombre,observaciones,archivo,previa.confirmacion());
+  repo.guardarFechas(repo.actual(false).id(),inicio,fin);return listar();
+ }
+ @Transactional public Panel configurarFechas(LocalDate inicio,LocalDate fin){
+  validarFechas(inicio,fin);var actual=repo.actual(true);
+  if(actual.archivadoEn()!=null)throw invalido("El semestre ya fue archivado; sus fechas no se pueden modificar.");
+  if(repo.haySolapamiento(actual.id(),inicio,fin))throw invalido("Las fechas se solapan con otro semestre registrado.");
+  repo.guardarFechas(actual.id(),inicio,fin);archivarVencido();return listar();
+ }
+ @Transactional public void archivarVencido(){
+  var actual=repo.actual(true);
+  if(actual.fechaFin()==null||actual.archivadoEn()!=null||!LocalDate.now(reloj).isAfter(actual.fechaFin()))return;
+  archivar(actual);
+ }
+ private void archivar(Resumen actual){
+  var listado=repo.listadoActual();repo.guardarListado(actual.id(),listado);
+  repo.guardarFilas(actual.id(),repo.filasActuales());
+  repo.guardarPdfListado(actual.id(),pdf.generarListado(actual.nombre(),listado,false),false);
+  repo.marcarArchivado(actual.id());
+ }
+ private void validarFechas(LocalDate inicio,LocalDate fin){
+  if(inicio==null||fin==null)throw invalido("Indique la fecha de inicio y fin del semestre.");
+  if(fin.isBefore(inicio))throw invalido("La fecha de fin no puede ser anterior al inicio.");
+ }
+ private void validarNuevoPeriodo(Resumen actual,LocalDate inicio,LocalDate fin){
+  if(fin.isBefore(LocalDate.now(reloj)))throw invalido("El nuevo semestre no puede estar vencido. Registre un historico en su lugar.");
+  if(actual.fechaFin()!=null && !LocalDate.now(reloj).isAfter(actual.fechaFin()))throw invalido("El semestre actual sigue vigente hasta "+actual.fechaFin()+". Ajuste sus fechas o espere a su finalizacion.");
+  if(actual.fechaFin()!=null && !inicio.isAfter(actual.fechaFin()))throw invalido("El nuevo semestre debe empezar despues del fin del actual.");
+  if(repo.haySolapamiento(-1,inicio,fin))throw invalido("Las fechas se solapan con otro semestre registrado.");
+ }
  private VistaPrevia preparar(String nombre,MultipartFile archivo,boolean bloquear){
   var actual=repo.actual(bloquear);var periodo=periodo(nombre);if(periodo[0]*2+periodo[1]<=actual.anio()*2+actual.numero())throw invalido("El nuevo semestre debe ser posterior a "+actual.nombre()+".");
   if(repo.existe(periodo[0],periodo[1],false))throw invalido("Ese semestre ya está registrado.");
@@ -51,8 +94,8 @@ public class SemestreService {
   var previa=preparar(nombre,archivo,true);
   if(confirmacion==null||!confirmacion.equals(previa.confirmacion()))throw invalido("El catálogo cambió desde la vista previa. Revise nuevamente antes de confirmar.");
   var anterior=repo.actual(false);var antes=repo.filasActuales();var despues=archivo==null||archivo.isEmpty()?antes:leer(archivo);
-  var listadoAnterior=repo.listadoActual();repo.guardarListado(anterior.id(),listadoAnterior);
-  repo.guardarFilas(anterior.id(),antes);repo.cerrar(anterior.id(),pdf.generarListado(anterior.nombre(),listadoAnterior,false));
+  if(anterior.archivadoEn()==null)archivar(anterior);
+  repo.cerrar(anterior.id(),repo.pdf(anterior.id(),false));
   var periodo=periodo(nombre);int nuevo=repo.crear(periodo[0],periodo[1],"ACTUAL",observaciones(observaciones),false,null,bytes(archivo));
   var docentes=repo.docentes();
   var cargas=new ArrayList<SemestreRepository.CargaGrupo>();
@@ -66,6 +109,14 @@ public class SemestreService {
   if(repo.existe(p[0],p[1],false))throw invalido("Ese semestre ya tiene un histórico real.");
   var filas=leer(archivo);var listado=leerListadoPdf(bytes(archivo)).orElseGet(()->sinIdentidades(filas));
   int id=repo.crear(p[0],p[1],"FINALIZADO",observaciones(observaciones),false,pdf.generarListado(nombre,listado,false),bytes(archivo));repo.guardarFilas(id,filas);repo.guardarListado(id,listado);return listar();
+ }
+ @Transactional public Panel historico(String nombre,LocalDate inicio,LocalDate fin,String observaciones,MultipartFile archivo){
+  validarFechas(inicio,fin);
+  if(!LocalDate.now(reloj).isAfter(fin))throw invalido("Un historico debe tener una fecha de fin pasada.");
+  if(repo.haySolapamiento(-1,inicio,fin))throw invalido("Las fechas se solapan con otro semestre registrado.");
+  historico(nombre,observaciones,archivo);
+  var periodo=periodo(nombre);int id=repo.idPeriodo(periodo[0],periodo[1]);
+  repo.guardarFechas(id,inicio,fin);repo.marcarArchivado(id);return listar();
  }
  @Transactional public Panel ejemplos(){
   var actual=repo.actual(true);var base=new ArrayList<>(repo.filasActuales());

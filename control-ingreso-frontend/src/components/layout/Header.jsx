@@ -186,7 +186,7 @@ export default function Header() {
         ))}
 
         {/* Notificaciones: ventanita desplegable (ya no es una ruta) */}
-        <NotificationsMenu />
+        <NotificationsMenu key={usuarioActual?.idUsuario ?? "invitado"} />
       </nav>
 
       {/* Bloque de sesión: solo visible desde "md" hacia arriba */}
@@ -242,7 +242,7 @@ export default function Header() {
           ))}
 
           {/* Notificaciones: en mobile la lista se expande en línea */}
-          <NotificationsMenu boolVersionMobile boolAbiertoInicial={boolAbrirNotifMobile} />
+          <NotificationsMenu key={usuarioActual?.idUsuario ?? "invitado"} boolVersionMobile boolAbiertoInicial={boolAbrirNotifMobile} />
 
           <div className="mt-3 pt-3 border-t border-[#E2E8F0]">
             {boolAutenticado ? (

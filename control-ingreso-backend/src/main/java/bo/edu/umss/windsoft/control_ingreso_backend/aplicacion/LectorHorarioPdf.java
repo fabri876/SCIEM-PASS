@@ -11,7 +11,27 @@ import java.io.IOException;
 
 @Component
 public class LectorHorarioPdf {
-    private static final Pattern MATERIA = Pattern.compile("^[A-Z]\\s+(\\d{7})\\s+(.+)$");
+    public bo.edu.umss.windsoft.control_ingreso_backend.dominio.ClasificacionHorario leerClasificacion(byte[] bytes) {
+        try (var documento=Loader.loadPDF(bytes)) {
+            if(documento.getNumberOfPages()>100) throw new SolicitudInvalidaException("El horario admite hasta 100 páginas.");
+            var stripper=new PDFTextStripper(); stripper.setSortByPosition(true);
+            return interpretarClasificacion(stripper.getText(documento));
+        } catch(IOException ex) { throw new SolicitudInvalidaException("No se pudo leer la clasificación del horario."); }
+    }
+    public bo.edu.umss.windsoft.control_ingreso_backend.dominio.ClasificacionHorario interpretarClasificacion(String texto) {
+        String carrera=null,gestion=null;
+        var materias=new LinkedHashSet<bo.edu.umss.windsoft.control_ingreso_backend.dominio.ClasificacionHorario.MateriaNivel>();
+        var patron=Pattern.compile("^([A-Z]|[0-9]{1,2})\\s+(\\d{7})\\s+(.+)$");
+        var periodo=Pattern.compile("Gesti[oó]n Acad[eé]mica\\s+(\\d)/([0-9]{4})",Pattern.CASE_INSENSITIVE);
+        for(String linea:texto.lines().map(String::trim).toList()) {
+            if(linea.startsWith("LICENCIATURA ")||linea.startsWith("PROGRAMA ")) carrera=linea.replaceAll("\\s+"," ");
+            if(linea.equals("ANTIGUO")&&carrera!=null) carrera+=" (ANTIGUO)";
+            var p=periodo.matcher(linea); if(p.find()) gestion=p.group(1)+"/"+p.group(2);
+            var m=patron.matcher(linea); if(m.matches()) materias.add(new bo.edu.umss.windsoft.control_ingreso_backend.dominio.ClasificacionHorario.MateriaNivel(Integer.valueOf(m.group(2)),m.group(1)));
+        }
+        return new bo.edu.umss.windsoft.control_ingreso_backend.dominio.ClasificacionHorario(carrera,gestion,List.copyOf(materias));
+    }
+    private static final Pattern MATERIA = Pattern.compile("^(?:[A-Z]|[0-9]{1,2})\\s+(\\d{7})\\s+(.+)$");
     private static final Pattern FILA = Pattern.compile("^([A-Z0-9]+)\\s+(?:\\[([^]]+)\\]\\s+)?(.+?)\\s+(LU|MA|MI|JU|VI|SA|DO)\\s+\\d{3,4}\\s*-\\s*\\d{3,4}\\s+\\S+$");
     private static final Pattern HORA = Pattern.compile("^(LU|MA|MI|JU|VI|SA|DO)\\s+\\d{3,4}\\s*-\\s*\\d{3,4}\\s+\\S+$");
 
@@ -29,7 +49,7 @@ public class LectorHorarioPdf {
     public List<AsignacionHorario> interpretar(String texto) {
         List<String> lineas = texto.lines().map(String::trim).filter(s -> !s.isEmpty())
                 .filter(s -> !s.startsWith("UNIVERSIDAD ") && !s.startsWith("FACULTAD ")
-                        && !s.startsWith("HORARIO DE CLASES") && !s.startsWith("LICENCIATURA ")
+                        && !s.startsWith("HORARIO DE CLASES") && !s.startsWith("LICENCIATURA ") && !s.startsWith("PROGRAMA ") && !s.equals("ANTIGUO")
                         && !s.startsWith("Gestión ") && !s.startsWith("Gestion ")
                         && !s.startsWith("NIVEL ") && !s.startsWith("Procesado CPD"))
                 .toList();
@@ -43,6 +63,15 @@ public class LectorHorarioPdf {
                 codigo = Integer.valueOf(cabecera.group(1));
                 materia = cabecera.group(2).trim();
                 continue;
+            }
+            // Algunos PDF parten un nombre en dos líneas y dejan día/hora en una tercera.
+            if(!FILA.matcher(linea).matches() && i+1<lineas.size() && !HORA.matcher(lineas.get(i+1)).matches()) {
+                String candidata=linea;
+                for(int salto=1;salto<=3 && i+salto<lineas.size();salto++) {
+                    if(MATERIA.matcher(lineas.get(i+salto)).matches()) break;
+                    candidata+=" "+lineas.get(i+salto);
+                    if(FILA.matcher(candidata).matches()) {linea=candidata;i+=salto;break;}
+                }
             }
             // Nombres largos: el día/hora puede quedar entre las dos líneas del nombre.
             if (!FILA.matcher(linea).matches() && i + 1 < lineas.size()

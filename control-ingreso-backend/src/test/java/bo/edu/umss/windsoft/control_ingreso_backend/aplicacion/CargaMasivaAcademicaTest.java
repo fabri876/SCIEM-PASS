@@ -49,8 +49,8 @@ class CargaMasivaAcademicaTest {
         ejecutor(); when(passwords.encode(any())).thenReturn("hash");
         Asignatura calculo = new Asignatura(); calculo.setIdAsignatura(10);
         Asignatura algebra = new Asignatura(); algebra.setIdAsignatura(20);
-        when(asignaturas.findByNombreAsignaturaIgnoreCase("CALCULO I")).thenReturn(Optional.of(calculo));
-        when(asignaturas.findByNombreAsignaturaIgnoreCase("ALGEBRA I")).thenReturn(Optional.of(algebra));
+        when(asignaturas.findAllByNombreAsignaturaIgnoreCase("CALCULO I")).thenReturn(List.of(calculo));
+        when(asignaturas.findAllByNombreAsignaturaIgnoreCase("ALGEBRA I")).thenReturn(List.of(algebra));
         Grupo g1 = new Grupo(); g1.setIdGrupo(7); Grupo g2 = new Grupo(); g2.setIdGrupo(8);
         when(grupos.findByIdAsignaturaAndNombreGrupoIgnoreCase(10, "2")).thenReturn(Optional.of(g1));
         when(grupos.findByIdAsignaturaAndNombreGrupoIgnoreCase(20, "3")).thenReturn(Optional.of(g2));
@@ -59,7 +59,7 @@ class CargaMasivaAcademicaTest {
         verify(docentes, never()).save(any());
         verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 1
                 && altas.getFirst().grupos().equals(Set.of(7, 8))));
-        verify(asignaturas, times(1)).findByNombreAsignaturaIgnoreCase("CALCULO I");
+        verify(asignaturas, times(1)).findAllByNombreAsignaturaIgnoreCase("CALCULO I");
         verify(grupos, times(1)).findByIdAsignaturaAndNombreGrupoIgnoreCase(10, "2");
         verify(usuarios, never()).existsByCiusuario(any());
     }
@@ -72,10 +72,19 @@ class CargaMasivaAcademicaTest {
         var resultado=servicio.procesarCargaMasiva(archivo("10; 10","2; 2","ID_ASIGNATURA"),"DOCENTE","admin@example.test","127.0.0.1",null);
         assertEquals(1,resultado.getExitosos());
         verify(asignaturas,times(1)).findById(10);
-        verify(asignaturas,never()).findByNombreAsignaturaIgnoreCase(any());
+        verify(asignaturas,never()).findAllByNombreAsignaturaIgnoreCase(any());
         verify(asignaturas,never()).findByCodigoOficial(any());
         verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 1
                 && altas.getFirst().grupos().equals(Set.of(7))));
+    }
+    @Test void nombreRepetidoNoAsignaAlDocenteAUnaMateriaArbitraria() throws Exception {
+        ejecutor();
+        when(asignaturas.findAllByNombreAsignaturaIgnoreCase("ALGEBRA I"))
+                .thenReturn(List.of(new Asignatura(),new Asignatura()));
+        var resultado=servicio.procesarCargaMasiva(archivo("ALGEBRA I","5"),"DOCENTE","admin@example.test","127.0.0.1",null);
+        assertEquals(1,resultado.getFallidos()); assertEquals(0,resultado.getExitosos());
+        verify(passwords,never()).encode(any());
+        verify(grupos,never()).findByIdAsignaturaAndNombreGrupoIgnoreCase(any(),any());
     }
     @Test void codigoOficialTienePrioridadSobreElNombre() throws Exception {
         ejecutor(); when(passwords.encode(any())).thenReturn("hash");
@@ -85,9 +94,26 @@ class CargaMasivaAcademicaTest {
         when(grupos.findByIdAsignaturaAndNombreGrupoIgnoreCase(10,"2")).thenReturn(Optional.of(grupo));
         var resultado=servicio.procesarCargaMasiva(archivo("2001","2","CODIGO_ASIGNATURA"),"DOCENTE","admin@example.test","127.0.0.1",null);
         assertEquals(1,resultado.getExitosos());
-        verify(asignaturas,never()).findByNombreAsignaturaIgnoreCase(any());
+        verify(asignaturas,never()).findAllByNombreAsignaturaIgnoreCase(any());
         verify(escrituraLotes).guardarNuevos(argThat(altas -> altas.size() == 1
                 && altas.getFirst().grupos().equals(Set.of(7))));
+    }
+    @Test void loteReutilizaCatalogoPrecargadoSinConsultarCadaMateriaYGrupo() throws Exception {
+        ejecutor();when(passwords.encode(any())).thenReturn("hash");
+        var materia=new Asignatura();materia.setIdAsignatura(10);materia.setCodigoOficial("2001");materia.setNombreAsignatura("ALGEBRA I");
+        var grupo=new Grupo(10,"2",null);grupo.setIdGrupo(7);
+        when(asignaturas.findAll()).thenReturn(List.of(materia));when(grupos.findAll()).thenReturn(List.of(grupo));
+        MockMultipartFile lote;
+        try(var libro=WorkbookFactory.create(archivo("2001","2","CODIGO_ASIGNATURA").getInputStream());var salida=new ByteArrayOutputStream()){
+            var hoja=libro.getSheetAt(0);var fila=hoja.createRow(2);
+            for(int c=0;c<7;c++)fila.createCell(c).setCellValue(hoja.getRow(1).getCell(c).getStringCellValue());
+            fila.getCell(0).setCellValue("987000066");fila.getCell(1).setCellValue("segunda@example.test");fila.getCell(2).setCellValue("2234567");
+            libro.write(salida);lote=new MockMultipartFile("archivo","docentes.xlsx","application/octet-stream",salida.toByteArray());
+        }
+        var resultado=servicio.procesarCargaMasiva(lote,"DOCENTE","admin@example.test","127.0.0.1",null);
+        assertEquals(2,resultado.getExitosos());verify(asignaturas).findAll();verify(grupos).findAll();
+        verify(asignaturas,never()).findByCodigoOficial(any());verify(grupos,never()).findByIdAsignaturaAndNombreGrupoIgnoreCase(any(),any());
+        verify(escrituraLotes).guardarNuevos(argThat(altas->altas.size()==2&&altas.stream().allMatch(a->a.grupos().equals(Set.of(7)))));
     }
     @Test void duplicadosExistentesSeRechazanConConsultaDeLote() throws Exception {
         ejecutor(); when(usuarios.buscarCisExistentes(anyList())).thenReturn(List.of("1234567"));

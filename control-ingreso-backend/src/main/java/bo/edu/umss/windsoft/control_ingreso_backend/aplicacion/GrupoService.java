@@ -285,6 +285,11 @@ public class GrupoService {
     }
 
     public void validarAccesoRegistro(List<Integer> idsGrupos, String rolDestino) {
+        validarAccesoRegistro(idsGrupos,rolDestino,java.util.Map.of());
+    }
+
+    // Cache interna de esta carga, obtenida del repositorio del semestre actual.
+    void validarAccesoRegistro(List<Integer> idsGrupos,String rolDestino,java.util.Map<Integer,Grupo> catalogo) {
         if (idsGrupos == null || idsGrupos.isEmpty())
             return;
         if (TipoUsuarioResolver.ESTUDIANTE.equals(rolDestino) && new java.util.HashSet<>(idsGrupos).size() > 1)
@@ -304,7 +309,8 @@ public class GrupoService {
         for (Integer idGrupo : idsGrupos) {
             if (idGrupo == null)
                 throw new ValidacionNegocioException("Seleccione un grupo válido.");
-            Grupo grupo = grupoRepository.findById(idGrupo)
+            Grupo grupo = catalogo.get(idGrupo);
+            if(grupo==null) grupo=grupoRepository.findById(idGrupo)
                     .orElseThrow(() -> new ValidacionNegocioException("El grupo seleccionado no existe."));
             if (!Boolean.TRUE.equals(grupo.getEstadoGrupo())) {
                 throw new ValidacionNegocioException("El grupo seleccionado está inactivo.");

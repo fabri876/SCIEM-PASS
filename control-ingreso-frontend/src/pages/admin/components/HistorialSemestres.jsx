@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, Download, X, CalendarDays } from 'lucide-react';
-import { listarSemestres, compararSemestre, previsualizarSemestre, abrirSemestre, guardarHistorico, descargarSemestre, obtenerListadoSemestre, obtenerPdfSemestre } from '../../../services/semestreService';
+import { listarSemestres, compararSemestre, previsualizarSemestre, abrirSemestre, guardarHistorico, configurarFechasSemestre, descargarSemestre, obtenerListadoSemestre, obtenerPdfSemestre } from '../../../services/semestreService';
 
 const nombre = s => s ? `${s.numero}-${s.anio}` : '';
+const fecha = valor => valor ? valor.split('-').reverse().join('/') : 'Sin configurar';
 const etiquetas = { CAMBIO_DOCENTE: 'Cambio de docente', GRUPO_NUEVO: 'Grupo nuevo', GRUPO_RETIRADO: 'Grupo retirado', SIN_CAMBIOS: 'Sin cambios' };
 function Diferencias({ filas = [] }) {
   const [todos, setTodos] = useState(false);
@@ -23,6 +24,7 @@ export default function HistorialSemestres({ onCambio }) {
   const [periodo, setPeriodo] = useState(''), [archivo, setArchivo] = useState(null), [observaciones, setObservaciones] = useState(''), [previa, setPrevia] = useState(null);
   const [seleccion, setSeleccion] = useState(null), [listado, setListado] = useState([]), [busqueda, setBusqueda] = useState(''), [cargandoListado, setCargandoListado] = useState(false);
   const [visor, setVisor] = useState(null), [cargandoPdf, setCargandoPdf] = useState(false);
+  const [fechaInicio,setFechaInicio]=useState(''),[fechaFin,setFechaFin]=useState('');
   const cierre = useRef(null);
   useEffect(() => { if (panel?.actual) setSeleccion(panel.actual); }, [panel?.actual?.id]);
   useEffect(() => {
@@ -39,16 +41,17 @@ export default function HistorialSemestres({ onCambio }) {
   };
   useEffect(() => { let vivo = true; listarSemestres().then(p => vivo && setPanel(p)).catch(e => vivo && setError(e.message)); return () => { vivo = false; }; }, []);
   useEffect(() => { if (modal) cierre.current?.focus(); }, [modal]);
-  const abrir = tipo => { setError(''); setMensaje(''); setPeriodo(''); setArchivo(null); setObservaciones(''); setPrevia(null); setModal(tipo); };
-  const datos = () => { const f = new FormData(); f.append('nombre', periodo); f.append('observaciones', observaciones); if (archivo) f.append('archivo', archivo); return f; };
+  const abrir = tipo => { setError(''); setMensaje(''); setPeriodo(tipo === 'fechas' ? nombre(panel.actual) : ''); setFechaInicio(tipo === 'fechas' ? panel.actual.fechaInicio || '' : '');setFechaFin(tipo === 'fechas' ? panel.actual.fechaFin || '' : '');setArchivo(null); setObservaciones(''); setPrevia(null); setModal(tipo); };
+  const datos = () => { const f = new FormData(); f.append('nombre', periodo); f.append('fechaInicio',fechaInicio);f.append('fechaFin',fechaFin);f.append('observaciones', observaciones); if (archivo) f.append('archivo', archivo); return f; };
   const guardar = async e => {
     e.preventDefault(); setOcupado(true); setError('');
     try {
       const f = datos();
       if (modal === 'cambio' && !previa) { setPrevia(await previsualizarSemestre(f)); return; }
       if (previa) f.append('confirmacion', previa.confirmacion);
-      const p = await (modal === 'cambio' ? abrirSemestre(f) : guardarHistorico(f));
+      const p = await (modal === 'cambio' ? abrirSemestre(f) : modal === 'fechas' ? configurarFechasSemestre(f) : guardarHistorico(f));
       setPanel(p); setModal(null); setDetalle(null); setMensaje('Semestre guardado correctamente.');
+      if (modal === 'fechas') setMensaje('Fechas del semestre actualizadas.');
       onCambio?.();
     } catch (e) { setError(e.message); setPrevia(null); } finally { setOcupado(false); }
   };
@@ -58,11 +61,14 @@ export default function HistorialSemestres({ onCambio }) {
   return <section className="space-y-6 pb-24">
     <div className="flex flex-wrap justify-between gap-4 items-center"><div><h1 className="text-2xl font-bold text-primary-navy">Historial de Semestres</h1><p className="text-slate-500">Asignaturas, grupos y docentes conservados por semestre.</p></div><button className={boton} onClick={() => abrir('cambio')} disabled={!panel || ocupado}>Cambiar semestre</button></div>
     {panel && <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex gap-3"><CalendarDays className="text-primary-blue" /><div><strong>Semestre actual: {nombre(panel.actual)}</strong><p className="text-sm">Los usuarios se vinculan al semestre a traves de sus grupos. Las cuentas se conservan.</p>
+      <p className="text-sm mt-2">Inicio: {fecha(panel.actual.fechaInicio)} · Fin: {fecha(panel.actual.fechaFin)} (incluye todo el último día, hora de Bolivia).</p>
+      {panel.actual.archivadoEn ? <p className="text-sm font-semibold text-primary-navy">Semestre vencido: el PDF y sus asignaciones quedaron archivados. Abra el siguiente semestre para continuar registrando.</p> : <button type="button" className="underline text-sm mt-2 text-primary-blue" onClick={() => abrir('fechas')} disabled={ocupado}>Configurar fechas del semestre</button>}
       <div className="flex flex-wrap gap-3 mt-3"><button className={boton} onClick={() => verPdf(panel.actual)} disabled={cargandoPdf}>Ver PDF actual</button><button className={boton} onClick={() => descargar(panel.actual)}>Descargar listado actual</button><button className="underline text-sm" onClick={() => setSeleccion(panel.actual)}>Ver docentes actuales</button></div></div></div>}
     {error && <p role="alert" className="p-4 rounded-xl bg-red-50 text-red-700">{error}</p>}
     {mensaje && <p role="status" className="p-4 bg-emerald-50 text-emerald-700 rounded-xl">{mensaje}</p>}
     {!panel && !error && <p role="status">Cargando semestres…</p>}
     <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">{panel?.historial.map(s => <article key={s.id} onClick={e => { if (!e.target.closest("button") && !ocupado) void comparar(s.id); }} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+      <p className="text-sm text-slate-500">{fecha(s.fechaInicio)} — {fecha(s.fechaFin)}</p>
       <button className="block text-left w-full rounded-lg focus-visible:outline-primary-blue" onClick={() => comparar(s.id)} disabled={ocupado}><h2 className="text-xl font-bold text-primary-navy">{nombre(s)}</h2><p className="text-sm text-slate-500">{s.simulado ? 'Datos simulados · ejemplo' : 'Semestre finalizado'}</p><p className="text-sm mt-2">{s.observaciones}</p><span className="block text-primary-blue mt-3 font-semibold">Comparar con {nombre(panel.actual)} →</span></button>
       <button className={`${boton} flex gap-2 items-center`} onClick={() => descargar(s)}><Download size={16} />Descargar listado</button><div className="flex gap-3"><button className="text-primary-blue underline text-sm" onClick={() => verPdf(s)} disabled={cargandoPdf}>Ver PDF</button><button className="text-primary-blue underline text-sm" onClick={() => setSeleccion(s)}>Ver listado</button></div>{s.original && <button className="text-sm text-primary-blue underline" onClick={() => descargar(s, true)}>Descargar PDF original</button>}
     </article>)}</div>
@@ -76,16 +82,18 @@ export default function HistorialSemestres({ onCambio }) {
     {detalle && <div className="bg-white border rounded-2xl p-5 space-y-4"><div className="flex justify-between gap-4"><h2 className="font-bold text-lg">{nombre(detalle.seleccionado)} frente a {nombre(detalle.actual)}</h2><button aria-label="Cerrar comparación" onClick={() => setDetalle(null)}><X /></button></div>{detalle.seleccionado.simulado && <p className="text-amber-700">Este histórico es un ejemplo ficticio; sus diferencias no representan cambios reales.</p>}<Diferencias filas={detalle.diferencias} /></div>}
     <button className="fixed bottom-6 right-6 rounded-full bg-primary-blue text-white p-4 shadow-xl z-30" aria-label="Registrar semestre finalizado" onClick={() => abrir('historico')} disabled={!panel}><Plus size={28} /></button>
     {modal && <div className="fixed inset-0 z-50 bg-slate-900/60 flex justify-center items-center p-4" onKeyDown={e => { if (e.key === 'Escape' && !ocupado) setModal(null); }}><div role="dialog" aria-modal="true" aria-labelledby="titulo-semestre" className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-auto p-6 space-y-4">
-      <div className="flex justify-between"><h2 id="titulo-semestre" className="text-xl font-bold">{modal === 'cambio' ? 'Abrir un nuevo semestre' : 'Registrar semestre finalizado'}</h2><button ref={cierre} aria-label="Cerrar formulario" disabled={ocupado} onClick={() => setModal(null)}><X /></button></div>
+      <div className="flex justify-between"><h2 id="titulo-semestre" className="text-xl font-bold">{modal === 'cambio' ? 'Abrir un nuevo semestre' : modal === 'fechas' ? 'Configurar fechas del semestre' : 'Registrar semestre finalizado'}</h2><button ref={cierre} aria-label="Cerrar formulario" disabled={ocupado} onClick={() => setModal(null)}><X /></button></div>
       {error && <p role="alert" className="text-red-700">{error}</p>}
       <form onSubmit={guardar} className="space-y-4">
         {modal === 'cambio' && <p className="bg-amber-50 p-4 rounded-xl">Al confirmar, {nombre(panel?.actual)} se conservará como histórico. Se crearán los grupos del nuevo semestre con sus docentes. Los estudiantes, ayudantes y exámenes anteriores permanecerán en el histórico y deberán registrarse nuevamente para el nuevo semestre.</p>}
-        <label className="block">Nombre del semestre<input className="block w-full border rounded-lg p-2 mt-1" placeholder="1-2027" pattern="[12]-20[0-9]{2}" required value={periodo} disabled={ocupado || !!previa} onChange={e => setPeriodo(e.target.value)} /></label>
-        <label className="block">PDF del horario general {modal === 'cambio' && '(opcional: conservar asignaciones actuales)'}<input type="file" accept=".pdf,application/pdf" className="block w-full border rounded-lg p-2 mt-1" required={modal === 'historico'} disabled={ocupado || !!previa} onChange={e => { setArchivo(e.target.files[0] || null); setPrevia(null); }} /></label>
+        <label className="block">Nombre del semestre<input className="block w-full border rounded-lg p-2 mt-1" placeholder="1-2027" pattern="[12]-20[0-9]{2}" required value={periodo} disabled={ocupado || !!previa || modal === 'fechas'} onChange={e => setPeriodo(e.target.value)} /></label>
+        <div className="grid sm:grid-cols-2 gap-4"><label className="block">Fecha de inicio<input type="date" required value={fechaInicio} disabled={ocupado || !!previa} onChange={e=>setFechaInicio(e.target.value)} className="block w-full border rounded-lg p-2 mt-1" /></label><label className="block">Fecha de fin<input type="date" required min={fechaInicio || undefined} value={fechaFin} disabled={ocupado || !!previa} onChange={e=>setFechaFin(e.target.value)} className="block w-full border rounded-lg p-2 mt-1" /></label></div>
+        {modal === 'fechas' && <p className="text-sm text-slate-600">Las fechas son administrables. Si guarda una fecha de fin ya pasada, el listado quedará archivado y no se podrán cambiar las asignaciones de ese semestre.</p>}
+        {modal !== 'fechas' && <label className="block">PDF del horario general {modal === 'cambio' && '(opcional: conservar asignaciones actuales)'}<input type="file" accept=".pdf,application/pdf" className="block w-full border rounded-lg p-2 mt-1" required={modal === 'historico'} disabled={ocupado || !!previa} onChange={e => { setArchivo(e.target.files[0] || null); setPrevia(null); }} /></label>}
         {archivo && <p className="text-sm">Seleccionado: {archivo.name}</p>}
-        <label className="block">Observaciones (opcional)<textarea className="block w-full border rounded-lg p-2 mt-1" maxLength={2000} value={observaciones} disabled={ocupado} onChange={e => setObservaciones(e.target.value)} /></label>
+        {modal !== 'fechas' && <label className="block">Observaciones (opcional)<textarea className="block w-full border rounded-lg p-2 mt-1" maxLength={2000} value={observaciones} disabled={ocupado} onChange={e => setObservaciones(e.target.value)} /></label>}
         {previa && <div className="space-y-3"><h3 className="font-bold">Revise los cambios antes de confirmar</h3>{previa.avisos.map((a, i) => <p key={i} className="text-amber-700">{a}</p>)}<Diferencias filas={previa.diferencias} /><button type="button" className="underline" onClick={() => setPrevia(null)}>Modificar selección</button></div>}
-        <div className="flex justify-end gap-3"><button type="button" disabled={ocupado} onClick={() => setModal(null)}>Cancelar</button><button className={boton} disabled={ocupado}>{ocupado ? 'Procesando…' : modal === 'historico' ? 'Guardar' : previa ? 'Confirmar cambio de semestre' : 'Revisar cambios'}</button></div>
+        <div className="flex justify-end gap-3"><button type="button" disabled={ocupado} onClick={() => setModal(null)}>Cancelar</button><button className={boton} disabled={ocupado}>{ocupado ? 'Procesando…' : modal === 'historico' || modal === 'fechas' ? 'Guardar' : previa ? 'Confirmar cambio de semestre' : 'Revisar cambios'}</button></div>
       </form>
     </div></div>}
   </section>;
