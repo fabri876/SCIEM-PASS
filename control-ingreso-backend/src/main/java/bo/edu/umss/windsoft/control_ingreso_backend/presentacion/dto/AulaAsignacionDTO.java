@@ -12,5 +12,7 @@ public record AulaAsignacionDTO(
         /** null si no hay operador asignado y activo para esta aula. */
         Integer idOperadorAsignado,
         String nombreOperador,
-        String apellidoOperador
+        String apellidoOperador,
+        String apellidoDesde,
+        String apellidoHasta
 ) {}

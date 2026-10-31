@@ -43,7 +43,8 @@ export function calcularBackoffMs(intentos = 0) {
  * No se llama dentro de sincronizarPendientes.
  */
 export async function iniciarSync() {
-  return await asistenciaRepo.revertirSyncingHuerfanos();
+  await asistenciaRepo.revertirSyncingHuerfanos();
+  await asistenciaRepo.recuperarErrores();
 }
 
 /**
@@ -277,6 +278,7 @@ export async function sincronizarPendientes({
 
         try {
           respuesta = await enviarLote(payload);
+          console.log('[syncQueueService] Respuesta cruda del servidor batch-sync:', respuesta);
         } catch (error) {
           const status = error.status;
 
@@ -421,6 +423,7 @@ export async function sincronizarPendientes({
 
         for (const item of lote) {
           const resItem = mapaResultados.get(item.clientUuid);
+          console.log('[syncQueueService] Procesando ítem:', { clientUuid: item.clientUuid, codigoSis: item.codigoSis, estadoServidor: resItem?.estado, resItem });
 
           if (!resItem) {
             fallidosLote++;
@@ -453,6 +456,13 @@ export async function sincronizarPendientes({
             fallidosLote++;
             erroresTotal++;
             const strCausa = resItem.mensaje || resItem.codigo || estadoServidor || 'ERROR';
+            console.warn('[syncQueueService] Ítem falló:', {
+              clientUuid: item.clientUuid,
+              codigoSis: item.codigoSis,
+              estadoServidor,
+              mensaje: strCausa,
+              resItem
+            });
             if (!reintentable) {
               await asistenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.ERROR, {
                 ultimoError: strCausa

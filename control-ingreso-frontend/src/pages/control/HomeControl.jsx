@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Header from "../../components/layout/Header";
 import OperadorProvider from "./OperadorProvider";
@@ -5,59 +6,39 @@ import { useOperador } from "./operadorContexto";
 import ModalCierreSesion from "./components/ModalCierreSesion";
 import ToastOperador from "./components/ToastOperador";
 import ToastSyncConfirmacion from "./components/ToastSyncConfirmacion";
+import BarraLateralAyudante, { PestanasAyudante } from "./components/BarraLateralAyudante";
+import { LayoutAyudanteContexto } from "./layoutAyudanteContexto";
 
+// Panel del ayudante: perfil y menú a la izquierda (como el docente) y la sección elegida a la derecha.
+// El conmutador Online / Offline (HU07) ahora lo pone cada pantalla en su lugar:
+// en el banner de Inicio y arriba de la pantalla de registro (ver SelectorConexion).
+// En la pantalla de registro de ingreso el menú lateral se oculta (pantalla completa).
 function ContenidoOperador() {
+  const [boolPantallaCompleta, setBoolPantallaCompleta] = useState(false);
   const {
     fnCerrarSesion,
     logoutConfirmVisible, logoutMensaje, fnCancelarLogout,
     sesionCerradaVisible, resumenSesion,
-    estadoRed, fnCambiarRed,
   } = useOperador();
 
-  const boolEnLinea = estadoRed.net !== "offline";
-
   return (
-    <div className="min-h-screen bg-[#F1F5F9] text-slate-800 font-nunito pb-16">
-      <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200/80 shadow-xs">
+    <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-800 font-nunito">
+      <div className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-slate-200">
         <Header strRutaActiva="Inicio" />
       </div>
 
-      <main className="max-w-[1200px] w-full mx-auto pt-[115px] px-4 sm:px-6 space-y-5">
-        <div className="flex items-center gap-4 flex-wrap">
-          {/* Conmutador Online / Offline de la demo (la red real también actualiza el estado) */}
-          <div className="inline-flex items-center gap-1 p-1.5 rounded-2xl bg-white border border-[#CBD5E1] shadow-xs">
-            <button
-              type="button"
-              onClick={() => fnCambiarRed("online")}
-              aria-pressed={boolEnLinea}
-              className={
-                "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
-                (boolEnLinea ? "bg-[#003770] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
-              }
-            >
-              Online
-            </button>
-            <button
-              type="button"
-              onClick={() => fnCambiarRed("offline")}
-              aria-pressed={!boolEnLinea}
-              className={
-                "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
-                (!boolEnLinea ? "bg-[#B91C1C] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
-              }
-            >
-              Offline
-            </button>
-          </div>
-          <p className="text-xs font-bold text-[#64748B]">
-            Estado actual:{" "}
-            <span className={boolEnLinea ? "text-[#1860A3]" : "text-[#B91C1C]"}>
-              {boolEnLinea ? "Con red" : "Sin red"}
-            </span>
-          </p>
+      <div className="flex-1 w-full">
+        {/* Pantalla de registro: mismo ancho que el registro de ingreso del docente (1200px) */}
+        <div className={`flex pt-[115px] pb-10 ${boolPantallaCompleta ? "max-w-[1200px]" : "max-w-[1440px]"} mx-auto px-4 sm:px-6 gap-6`}>
+          {!boolPantallaCompleta && <BarraLateralAyudante />}
+          <main className="flex-1 min-w-0 space-y-5">
+            {!boolPantallaCompleta && <PestanasAyudante />}
+            <LayoutAyudanteContexto.Provider value={{ setBoolPantallaCompleta }}>
+              <Outlet />
+            </LayoutAyudanteContexto.Provider>
+          </main>
         </div>
-        <Outlet />
-      </main>
+      </div>
 
       <ModalCierreSesion
         visibleConfirm={logoutConfirmVisible}

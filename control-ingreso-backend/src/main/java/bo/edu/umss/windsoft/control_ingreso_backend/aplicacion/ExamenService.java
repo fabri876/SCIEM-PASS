@@ -20,6 +20,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -42,7 +44,10 @@ public class ExamenService {
     private final UsuarioRepository usuarioRepository;
     private final NormaGeneralRepository normaGeneralRepository;
     private final GrupoRepository grupoRepository;
+    private final DocenteGrupoRepository docenteGrupoRepository;
     private final HabilitacionRepository habilitacionRepository;
+    private final EstudianteGrupoRepository estudianteGrupoRepository;
+    private final EstudianteRepository estudianteRepository;
     private final IngresoRepository ingresoRepository;
 
     public ExamenService(
@@ -59,7 +64,10 @@ public class ExamenService {
             UsuarioRepository usuarioRepository,
             NormaGeneralRepository normaGeneralRepository,
             GrupoRepository grupoRepository,
+            DocenteGrupoRepository docenteGrupoRepository,
             HabilitacionRepository habilitacionRepository,
+            EstudianteGrupoRepository estudianteGrupoRepository,
+            EstudianteRepository estudianteRepository,
             IngresoRepository ingresoRepository,
             CambioExamenService cambiosExamen) {
 
@@ -77,7 +85,10 @@ public class ExamenService {
         this.usuarioRepository = usuarioRepository;
         this.normaGeneralRepository = normaGeneralRepository;
         this.grupoRepository = grupoRepository;
+        this.docenteGrupoRepository = docenteGrupoRepository;
         this.habilitacionRepository = habilitacionRepository;
+        this.estudianteGrupoRepository = estudianteGrupoRepository;
+        this.estudianteRepository = estudianteRepository;
         this.ingresoRepository = ingresoRepository;
     }
 
@@ -161,6 +172,8 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "El docente no dicta esa asignatura."));
 
+        validarGrupoSolicitado(request.getIdGrupo(), request.getIdAsignatura(), request.getIdUsuario());
+
         TipoExamen tipoExamen = tipoExamenRepository.findById(request.getIdTipoExamen())
                 .orElseThrow(() -> new IllegalArgumentException("Tipo de examen no encontrado."));
 
@@ -171,8 +184,11 @@ public class ExamenService {
                     "Debe especificar el detalle del tipo de examen.");
         }
 
-        List<Integer> tiposYaUsados = examenRepository.findTiposUsadosByAsignaturaAndDocente(
-                request.getIdAsignatura(), request.getCodsisDocente());
+        List<Integer> tiposYaUsados = request.getIdGrupo() != null
+                ? examenRepository.findTiposUsadosByGrupo(
+                        request.getIdAsignatura(), request.getCodsisDocente(), request.getIdGrupo())
+                : examenRepository.findTiposUsadosByAsignaturaAndDocente(
+                        request.getIdAsignatura(), request.getCodsisDocente());
         boolean yaExisteEseTipo = tiposYaUsados.contains(request.getIdTipoExamen());
         boolean esElMismoExamenConMismoTipo = examenAActualizar != null
                 && examenAActualizar.getIdTipoExamen().equals(request.getIdTipoExamen());
@@ -256,12 +272,20 @@ public class ExamenService {
         }
         examen.setEstadoExamen(request.getEstadoExamen());
         examen.setIdAsignatura(request.getIdAsignatura());
+        examen.setIdGrupo(request.getIdGrupo());
         examen.setIdTipoExamen(request.getIdTipoExamen());
         examen.setDetalleTipoExamen(request.getDetalleTipoExamen());
         examen.setIdUsuario(request.getIdUsuario());
         examen.setCodsisDocente(request.getCodsisDocente());
 
         Examen examenGuardado = examenRepository.save(examen);
+
+        // Las habilitaciones son por examen. Al crear un examen nuevo deben
+        // generarse aunque los estudiantes ya estuvieran inscritos antes.
+        // En una edición no se ejecuta para preservar decisiones previas del docente.
+        if (examenAActualizar == null) {
+            crearHabilitacionesDelExamen(examenGuardado);
+        }
 
         guardarAmbiente(examenGuardado, idAula, idHorarioRegularUsado, horaInicio, horaFin, request.getTipoHorario());
 
@@ -294,6 +318,53 @@ public class ExamenService {
         }
 
         return examenGuardado;
+    }
+
+    private void crearHabilitacionesDelExamen(Examen examen) {
+        List<Integer> idsGrupo = examen.getIdGrupo() != null
+                ? List.of(examen.getIdGrupo())
+                : grupoRepository.findByIdAsignatura(examen.getIdAsignatura()).stream()
+                        .map(Grupo::getIdGrupo)
+                        .toList();
+
+        if (idsGrupo.isEmpty()) return;
+
+        Map<Integer, Integer> codSisPorUsuario = new LinkedHashMap<>();
+        for (Integer idGrupo : idsGrupo) {
+            estudianteGrupoRepository.findByIdGrupo(idGrupo).forEach(eg ->
+                    codSisPorUsuario.putIfAbsent(eg.getIdUsuario(), eg.getCodSisEstudiante()));
+        }
+
+        if (codSisPorUsuario.isEmpty()) return;
+
+        estudianteRepository.findByIdusuarioIn(new ArrayList<>(codSisPorUsuario.keySet())).forEach(estudiante -> {
+            boolean existe = habilitacionRepository
+                    .existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(
+                            examen.getIdAsignatura(), examen.getIdExamen(), estudiante.getCodsisestudiante());
+            if (existe) return;
+
+            Habilitacion habilitacion = new Habilitacion();
+            habilitacion.setEstudiante(estudiante);
+            habilitacion.setIdUsuario(estudiante.getIdusuario());
+            habilitacion.setIdAsignatura(examen.getIdAsignatura());
+            habilitacion.setIdExamen(examen.getIdExamen());
+            habilitacion.setEstadohabilitacion(true);
+            habilitacion.setObservacionhabilitacion(null);
+            habilitacionRepository.save(habilitacion);
+        });
+    }
+
+    /** Valida el grupo únicamente cuando el cliente ya lo envía. */
+    private void validarGrupoSolicitado(Integer idGrupo, Integer idAsignatura, Integer idUsuario) {
+        if (idGrupo == null) return;
+        Grupo grupo = grupoRepository.findById(idGrupo)
+                .orElseThrow(() -> new IllegalArgumentException("El grupo no existe o no pertenece al semestre actual."));
+        if (!Objects.equals(grupo.getIdAsignatura(), idAsignatura)) {
+            throw new IllegalArgumentException("El grupo no pertenece a la asignatura seleccionada.");
+        }
+        if (idUsuario != null && !docenteGrupoRepository.existsByIdUsuarioAndIdGrupo(idUsuario, idGrupo)) {
+            throw new IllegalArgumentException("El docente no está asignado al grupo seleccionado.");
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -397,6 +468,7 @@ public class ExamenService {
             dto.setFechaCreacionExamen(examen.getFechaCreacionExamen());
             dto.setEstadoExamen(examen.getEstadoExamen());
             dto.setIdAsignatura(examen.getIdAsignatura());
+            dto.setIdGrupo(examen.getIdGrupo());
             dto.setIdTipoExamen(examen.getIdTipoExamen());
             dto.setIdUsuario(examen.getIdUsuario());
             dto.setCodsisDocente(examen.getCodsisDocente());
@@ -418,7 +490,9 @@ public class ExamenService {
                 dto.setNombreDocente(usuario.getNombreusuario() + " " + usuario.getApellidousuario());
             }
 
-            List<Grupo> grupos = gruposPorAsignatura.getOrDefault(examen.getIdAsignatura(), List.of());
+            List<Grupo> grupos = examen.getIdGrupo() != null
+                    ? grupoRepository.findById(examen.getIdGrupo()).map(List::of).orElse(List.of())
+                    : gruposPorAsignatura.getOrDefault(examen.getIdAsignatura(), List.of());
             if (!grupos.isEmpty()) {
                 String nombresGrupos = grupos.stream().map(Grupo::getNombreGrupo).collect(Collectors.joining(", "));
                 dto.setNombreGrupo(nombresGrupos);
@@ -485,8 +559,10 @@ public class ExamenService {
     // TIPOS USADOS
     // -------------------------------------------------------------------------
 
-    public List<Integer> obtenerTiposUsados(Integer idAsignatura, Integer codsisDocente) {
-        return examenRepository.findTiposUsadosByAsignaturaAndDocente(idAsignatura, codsisDocente);
+    public List<Integer> obtenerTiposUsados(Integer idAsignatura, Integer codsisDocente, Integer idGrupo) {
+        return idGrupo != null
+                ? examenRepository.findTiposUsadosByGrupo(idAsignatura, codsisDocente, idGrupo)
+                : examenRepository.findTiposUsadosByAsignaturaAndDocente(idAsignatura, codsisDocente);
     }
 
     // -------------------------------------------------------------------------

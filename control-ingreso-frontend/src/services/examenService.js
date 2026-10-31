@@ -131,6 +131,9 @@ export async function obtenerMisExamenes() {
     const res = await cargarExamenesConRespaldo({
         clave: "mis-examenes",
         usuarioId: usuario?.idUsuario ?? null,
+    // Esta consulta puede tardar más cuando el docente tiene varios grupos,
+    // ambientes y habilitaciones. Evitar cancelarla a los 5 s.
+    timeoutMs: 20000,
         fetcher: async ({ signal }) => {
             const response = await fetch(`${strApiBaseUrl}/api/examenes/mis-examenes`, {
                 headers: construirHeaders(),

@@ -18,6 +18,10 @@ public class ExamenRequest {
 
     @NotNull
     private Integer idAsignatura;
+
+    // Opcional durante la migración; cuando se envía, se validará que
+    // pertenezca a la asignatura y al docente solicitante.
+    private Integer idGrupo;
     
     // TODO(seguridad): reemplazar por el usuario autenticado (JWT), ver nota arriba.
     @NotNull
@@ -56,6 +60,8 @@ public class ExamenRequest {
     public void setEstadoExamen(Boolean estadoExamen) { this.estadoExamen = estadoExamen; }
     public Integer getIdAsignatura() { return idAsignatura; }
     public void setIdAsignatura(Integer idAsignatura) { this.idAsignatura = idAsignatura; }
+    public Integer getIdGrupo() { return idGrupo; }
+    public void setIdGrupo(Integer idGrupo) { this.idGrupo = idGrupo; }
     public Integer getIdUsuario() { return idUsuario; }
     public void setIdUsuario(Integer idUsuario) { this.idUsuario = idUsuario; }
     public Integer getCodsisDocente() { return codsisDocente; }

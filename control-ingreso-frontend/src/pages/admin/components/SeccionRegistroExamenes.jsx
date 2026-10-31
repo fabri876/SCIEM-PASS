@@ -18,7 +18,15 @@ import ExamenFormAdmin from "./ExamenFormAdmin";
 import DetalleExamenAdmin from "./DetalleExamenAdmin";
 import MenuIngresoExamen from "./MenuIngresoExamen";
 import AsignarOperadoresDocente from "../../docente/operadores/AsignarOperadoresDocente";
-import PanelListaOficial from "../../control/ingreso/componentes/PanelListaOficial";
+import PanelIngresosExamen from "../../control/ingreso/componentes/PanelIngresosExamen";
+// "Seguridad de Sistemas · Primer Parcial · 24 oct" para el panel de ingresos
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function subtituloIngresos(strMateria, strTipo, strFecha) {
+  const m = String(strFecha || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+  const strDia = m ? `${Number(m[3])} ${MESES_CORTOS[Number(m[2]) - 1]}` : "";
+  return [strMateria, strTipo, strDia].filter(Boolean).join(" · ");
+}
+
 import {
     ESTILOS_ESTADO,
     estadoDeExamen,
@@ -387,7 +395,10 @@ export default function SeccionRegistroExamenes() {
 
     function handleAbrirControl(ex) {
         navigate(`/admin/examenes/${ex.idExamen}/control-ingreso`, {
-            state: { nombreDocente: ex._docente },
+            // El control necesita asignatura y ambiente para cargar el examen
+            // seleccionado. Antes solo se enviaba el nombre del docente y la
+            // vista intentaba buscarlo como si fuera un examen delegado.
+            state: { nombreDocente: ex._docente, examen: ex },
         });
     }
 
@@ -506,7 +517,7 @@ export default function SeccionRegistroExamenes() {
         });
     }, [arrNormasParticulares, mapExamenPorId, mapDocentePorId]);
 
-    // ===================== Asignar / ver operadores =====================
+    // ===================== Asignar / ver ayudantes =====================
 
     if (examenOperadores) {
         const strDocenteOp = examenOperadores._docente;
@@ -540,7 +551,8 @@ export default function SeccionRegistroExamenes() {
                 </div>
             </div>
 
-            <div className="flex gap-4 sm:gap-6 border-b border-[#EEF1F8] mb-5 overflow-x-auto whitespace-nowrap">
+            {/* overflow-y-hidden: evita la barrita de desplazamiento vertical que salía a la derecha */}
+            <div className="flex gap-4 sm:gap-6 border-b border-[#EEF1F8] mb-5 overflow-x-auto overflow-y-hidden whitespace-nowrap">
                 <button
                     type="button"
                     onClick={() => setStrTabActiva("examenes")}
@@ -985,13 +997,12 @@ export default function SeccionRegistroExamenes() {
                 )}
             </VentanaEmergente>
 
-            {/* Lista oficial de estudiantes (solo lectura para el administrador) */}
-            <PanelListaOficial
+            {/* "Ver ingresos": todos los estudiantes con su estado, hora y quién registró (solo lectura) */}
+            <PanelIngresosExamen
                 boolAbierto={!!examenLista}
                 onCerrar={() => setExamenLista(null)}
                 idExamen={examenLista ? examenLista.idExamen : null}
-                numVersion={0}
-                strUltimoRegistrado={null}
+                strSubtitulo={examenLista ? subtituloIngresos(examenLista.nombreAsignatura, examenLista.nombreTipoExamen, examenLista.fechaExamen) : ""}
             />
         </div>
     );

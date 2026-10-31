@@ -1,4 +1,4 @@
-// Título de la página (saludo / "Control de ingreso") + acciones a la derecha
+// Botón volver, saludo opcional y avisos de conexión (offline, almacenamiento y sincronización)
 import { ArrowLeft, HardDrive } from "lucide-react";
 
 function fechaDeHoy() {
@@ -91,11 +91,14 @@ function SyncProgress({ net, pend, syncTotal, lote, enviados }) {
 }
 
 export default function EncabezadoControl({
-  strTitulo, strDetalle = "Control de ingreso", onVolver, strTextoVolver = "Mis exámenes", children,
+  strTitulo, strDetalle = "", onVolver, strTextoVolver = "Mis exámenes", children,
   net = "online", pend = 0, enviados = 0, spacePrc = 100,
 }) {
   const syncTotal = 30;
   const lote = Math.ceil((syncTotal - pend) / 10) || 1;
+  // "En línea" ya se ve en la franja de estado: aquí solo se avisa si está sincronizando o la red está lenta
+  const boolMostrarBadge = net === "syncing" || net === "slow";
+  const boolMostrarFila = Boolean(strTitulo) || boolMostrarBadge || Boolean(children);
 
   return (
     <div className="space-y-3">
@@ -103,22 +106,26 @@ export default function EncabezadoControl({
         <button
           type="button"
           onClick={onVolver}
-          className="inline-flex items-center gap-1.5 mb-2.5 text-[13px] font-medium text-[#1860A3] hover:underline cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#1860A3] hover:underline cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> {strTextoVolver}
         </button>
       )}
 
-      <div className="flex flex-wrap items-end justify-between gap-3.5">
-        <div>
-          <h1 className="m-0 text-[22px] max-md:text-xl font-bold text-[#08264A]">{strTitulo}</h1>
-          <p className="mt-1 text-[13px] text-[#64748B]">{fechaDeHoy()} · {strDetalle}</p>
+      {boolMostrarFila && (
+        <div className="flex flex-wrap items-end justify-between gap-3.5">
+          {strTitulo ? (
+            <div>
+              <h1 className="m-0 text-[22px] max-md:text-xl font-bold text-[#08264A]">{strTitulo}</h1>
+              <p className="mt-1 text-[13px] text-[#64748B]">{fechaDeHoy()}{strDetalle ? ` · ${strDetalle}` : ""}</p>
+            </div>
+          ) : <span />}
+          <div className="flex flex-wrap items-center gap-2.5 max-md:w-full">
+            {boolMostrarBadge && <BadgeConexion net={net} pend={pend} />}
+            {children}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2.5 max-md:w-full">
-          <BadgeConexion net={net} pend={pend} />
-          {children}
-        </div>
-      </div>
+      )}
 
       <BannerOffline net={net} pend={pend} />
       <BannerStorage spacePrc={spacePrc} />

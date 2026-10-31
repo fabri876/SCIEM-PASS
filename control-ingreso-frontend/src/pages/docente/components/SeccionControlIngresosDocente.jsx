@@ -1,190 +1,172 @@
-import { useEffect, useState } from "react";
+// Sección "Control de ingreso" del docente: lo operativo de cada examen
+// (ayudantes, nómina para trabajar sin internet, entrar a controlar y revisar los ingresos).
+// Orden: en curso, próximos (el más cercano primero) y finalizados (el más reciente primero).
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, CalendarDays, Clock, Users, Download } from "lucide-react";
+import { Download, Check } from "lucide-react";
 import { obtenerAsignacionIngreso } from "../../../services/asignacionOperadoresService";
 import { useNominaLocal } from "../../../offline";
+import PanelIngresosExamen from "../../control/ingreso/componentes/PanelIngresosExamen";
+// "Seguridad de Sistemas · Primer Parcial · 24 oct" para el panel de ingresos
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function subtituloIngresos(strMateria, strTipo, strFecha) {
+  const m = String(strFecha || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+  const strDia = m ? `${Number(m[3])} ${MESES_CORTOS[Number(m[2]) - 1]}` : "";
+  return [strMateria, strTipo, strDia].filter(Boolean).join(" · ");
+}
 
-const ESTADOS = {
-  EN_CURSO: { texto: "En curso", clase: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]" },
-  PROXIMO: { texto: "Próximo", clase: "bg-slate-100 text-slate-600 border-slate-200" },
-  FINALIZADO: { texto: "Finalizado", clase: "bg-slate-100 text-slate-500 border-slate-200" },
-};
+import { estadoExamen, esHoy, puedeControlarIngreso, marcaTiempo } from "../utilidadesExamenDocente";
+import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
 
-const MESES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+const FILTROS = [
+  { clave: "TODOS", etiqueta: "Todos" },
+  { clave: "EN_CURSO", etiqueta: "En curso" },
+  { clave: "PROXIMO", etiqueta: "Próximos" },
+  { clave: "FINALIZADO", etiqueta: "Finalizados" },
 ];
-const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-function parsearFecha(fecha) {
-  if (!fecha) return null;
-  if (fecha instanceof Date && !Number.isNaN(fecha.getTime())) return fecha;
-  const m = String(fecha).match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return null;
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+const ORDEN_ESTADO = { EN_CURSO: 0, PROXIMO: 1, SIN_FECHA: 2, FINALIZADO: 3 };
+const MESES = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
+
+function partesFecha(strFecha) {
+  const m = String(strFecha || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+  return m ? { strDia: String(Number(m[3])), strMes: MESES[Number(m[2]) - 1] } : null;
 }
 
-function parsearHora(hora) {
-  const m = String(hora || "").match(/(\d{1,2}):(\d{2})/);
-  if (!m) return null;
-  return { h: Number(m[1]), min: Number(m[2]) };
+// "Aula 690B" o "Aulas 691A y 691B"
+function textoAulas(examen) {
+  const list = (examen.ambientes || [])
+    .map((a) => String(a.nombreAmbiente || a.nombreAula || "").replace(/^aula\s*/i, "").trim())
+    .filter(Boolean);
+  if (list.length === 0) return examen.aulaNombre && examen.aulaNombre !== "Aula por definir" ? examen.aulaNombre : "Aula por definir";
+  if (list.length === 1) return `Aula ${list[0]}`;
+  return `Aulas ${list.slice(0, -1).join(", ")} y ${list[list.length - 1]}`;
 }
 
-function estadoExamen(examen) {
-  if (examen.estado === "EN_CURSO" || examen.estado === "PROXIMO" || examen.estado === "FINALIZADO") {
-    return examen.estado;
-  }
-  const d = parsearFecha(examen.fechaExamen);
-  const inicio = parsearHora(examen.horaInicio);
-  const fin = parsearHora(examen.horaFin);
-  if (!d) return "PROXIMO";
+const BOTON = "w-full inline-flex items-center justify-center gap-1.5 font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap";
+const BOTON_PRINCIPAL = BOTON + " bg-[#003770] hover:bg-[#124B83] text-white";
+const BOTON_SECUNDARIO = BOTON + " bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#1A365D]";
 
-  const ahora = new Date();
-  const tInicio = new Date(d);
-  if (inicio) tInicio.setHours(inicio.h, inicio.min, 0, 0);
-  else tInicio.setHours(0, 0, 0, 0);
-
-  const tFin = new Date(d);
-  if (fin) tFin.setHours(fin.h, fin.min, 0, 0);
-  else tFin.setHours(23, 59, 59, 999);
-
-  if (ahora > tFin) return "FINALIZADO";
-  if (ahora >= tInicio && ahora <= tFin) return "EN_CURSO";
-  return "PROXIMO";
-}
-
-function formatearFechaLarga(fecha) {
-  const d = parsearFecha(fecha);
-  if (!d) return "Fecha por definir";
-  return `${DIAS[d.getDay()]}, ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
-}
-
-function horaCorta(hora) {
-  if (!hora) return "--:--";
-  return String(hora).substring(0, 5);
-}
-
-function TarjetaExamenDocente({ examen, objAsignaciones, onAsignarOperadores }) {
+function TarjetaControlDocente({ examen, objAsig, dateAhora, onAsignarOperadores, onVerIngresos }) {
   const navigate = useNavigate();
   const nomina = useNominaLocal(examen.idExamen);
 
-  const estado = estadoExamen(examen);
-  const estilo = ESTADOS[estado] || ESTADOS.PROXIMO;
-  const total = examen.totalInscritos || 0;
-  const ingresados = examen.ingresados || 0;
-  const porcentaje = total > 0 ? Math.round((ingresados / total) * 100) : 0;
-  const aula = examen.aulaNombre || examen.aula || "Aula por definir";
-  const bloque = examen.bloque ? ` · ${examen.bloque}` : "";
-  const objAsig = objAsignaciones[examen.idExamen];
-  const boolBloqueada = estado === "EN_CURSO" || estado === "FINALIZADO";
-  const boolHayAsignacion = Boolean(objAsig?.hay);
+  const strEstado = estadoExamen(examen, dateAhora);
+  const boolEnCurso = strEstado === "EN_CURSO";
+  const boolFinalizado = strEstado === "FINALIZADO";
+  const boolHoy = esHoy(examen, dateAhora);
+  const boolControl = puedeControlarIngreso(examen, dateAhora);
+  const objFecha = partesFecha(examen.fechaExamen);
 
-  const strEstadoNomi = nomina.estado.lista ? "listo" : nomina.descargando ? "descargando" : "ninguna";
-  const boolDescargando = nomina.descargando;
-  const boolListo = strEstadoNomi === "listo";
+  const numResponsables = objAsig?.responsables || 0;
+  const boolHayAsignacion = Boolean(objAsig?.hay) && numResponsables > 0;
+  const boolNominaLista = Boolean(nomina.estado?.lista);
+
+  const objBadge = boolEnCurso
+    ? { strTexto: "● En curso", strClase: "bg-[#003770] text-white" }
+    : strEstado === "PROXIMO"
+      ? { strTexto: boolHoy ? "Hoy" : "Próximo", strClase: "bg-[#E8F1FB] text-[#003770]" }
+      : boolFinalizado
+        ? { strTexto: "Finalizado", strClase: "bg-[#F1F5F9] text-[#64748B]" }
+        : null;
+
+  const strGrupo = textoGrupoExamen(examen.grupo);
+  const strDetalle = [strGrupo, examen.horario, textoAulas(examen)].filter(Boolean).join(" · ");
 
   const fnDescargar = () => {
     nomina.descargar({ completa: true }).catch(() => {});
   };
 
-  return (
-    <article key={examen.idExamen} className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-[#1A365D] text-white flex items-center justify-center shrink-0 shadow-xs">
-            <BookOpen className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="font-black text-sm text-[#1A365D] uppercase tracking-tight">
-                {examen.nombreExamen}
-              </h4>
-              <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${estilo.clase}`}>
-                {estilo.texto}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 font-semibold mt-1">
-              {aula}{bloque}
-            </p>
-            <p className="text-xs text-slate-500 font-medium mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
-                {formatearFechaLarga(examen.fechaExamen)}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                {horaCorta(examen.horaInicio)}
-              </span>
-            </p>
-            <p className="text-sm text-slate-600 font-medium mt-2 flex items-center gap-2">
-              <Users className="w-4 h-4 text-slate-500" />
-              {boolHayAsignacion ? (
-                <span><b>{objAsig.responsables} {objAsig.responsables === 1 ? "responsable asignado" : "responsables asignados"}</b></span>
-              ) : boolBloqueada ? (
-                <span>Sin operadores asignados · el docente atendió el ingreso</span>
-              ) : (
-                <span><b className="text-[#B91C1C]">Sin operadores asignados</b> · si no asignas, tú registras los ingresos</span>
-              )}
-            </p>
-          </div>
-        </div>
+  // Antes del examen se puede asignar/editar; después solo ver (la pantalla queda en solo lectura)
+  const strBotonAyudantes = boolEnCurso || boolFinalizado ? "Ver ayudantes" : boolHayAsignacion ? "Editar ayudantes" : "Asignar ayudantes";
 
-        <div className="flex flex-col gap-2 self-start lg:self-center lg:min-w-48">
-          {onAsignarOperadores && (
-            <button
-              type="button"
-              onClick={() => onAsignarOperadores(examen.idExamen)}
-              className={`font-bold text-sm py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap ${boolHayAsignacion || boolBloqueada
-                ? "bg-white border border-slate-300 hover:bg-slate-50 text-[#003770]"
-                : "bg-[#003770] hover:bg-[#002a55] text-white"
-                }`}
-            >
-              {boolBloqueada ? "Ver operadores" : boolHayAsignacion ? "Editar operadores" : "Asignar operadores"}
-            </button>
-          )}
+  return (
+    <article
+      className={
+        "border rounded-xl px-5 py-4 flex items-center gap-4 flex-wrap transition max-md:px-4 " +
+        (boolFinalizado ? "bg-[#FBFCFE] " : "bg-white ") +
+        (boolEnCurso ? "border-[#003770] shadow-[0_4px_14px_rgba(0,55,112,.08)]" : "border-[#CBD5E1]")
+      }
+    >
+      <div className={"w-14 h-14 rounded-[10px] flex flex-col items-center justify-center shrink-0 " + (boolFinalizado || !objFecha ? "bg-[#F1F5F9]" : "bg-[#E8F1FB]")}>
+        {objFecha ? (
+          <>
+            <b className={"text-xl leading-none font-black " + (boolFinalizado ? "text-[#64748B]" : "text-[#003770]")}>{objFecha.strDia}</b>
+            <span className={"mt-0.5 text-[10px] font-extrabold " + (boolFinalizado ? "text-[#64748B]" : "text-[#003770]")}>{objFecha.strMes}</span>
+          </>
+        ) : (
+          <b className="text-base text-[#94A3B8]">—</b>
+        )}
+      </div>
+
+      <div className="flex-1 min-w-[200px]">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h4 className="m-0 font-black text-sm text-[#08264A] uppercase">{examen.nombreExamen}</h4>
+          {objBadge && <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{objBadge.strTexto}</span>}
+        </div>
+        <p className="mt-0.5 text-xs font-bold text-[#64748B]">
+          {examen.tipoExamen && <span className="text-[#124B83]">{examen.tipoExamen}</span>}
+          {examen.tipoExamen && strDetalle ? " · " : ""}
+          {strDetalle}
+        </p>
+        <p className={"mt-1 text-xs " + (boolHayAsignacion ? "text-[#475569]" : "font-bold text-[#B91C1C]")}>
+          {boolHayAsignacion
+            ? `${numResponsables} ${numResponsables === 1 ? "ayudante asignado" : "ayudantes asignados"}`
+            : "Sin ayudantes asignados"}
+        </p>
+      </div>
+
+      {/* Botones apilados */}
+      <div className="flex flex-col gap-2 w-48 max-md:w-full">
+        {boolControl && (
           <button
             type="button"
             onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "control-ingresos", examen } })}
-            className={`font-bold text-sm py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap ${onAsignarOperadores && !boolHayAsignacion && !boolBloqueada
-              ? "bg-white border border-slate-300 hover:bg-slate-50 text-[#003770]"
-              : "bg-[#003770] hover:bg-[#002a55] text-white"
-              }`}
+            className={BOTON_PRINCIPAL}
           >
-            Control de ingreso →
+            Registrar ingreso
           </button>
+        )}
+        {boolFinalizado && (
+          <button type="button" onClick={() => onVerIngresos(examen)} className={BOTON_SECUNDARIO}>
+            Ver ingresos
+          </button>
+        )}
+        {onAsignarOperadores && (
           <button
             type="button"
-            onClick={fnDescargar}
-            disabled={boolDescargando || boolListo}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#267BC2] hover:bg-[#124B83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold px-4 py-2.5 transition-colors cursor-pointer whitespace-nowrap"
+            onClick={() => onAsignarOperadores(examen.idExamen)}
+            className={!boolControl && !boolFinalizado && !boolHayAsignacion ? BOTON_PRINCIPAL : BOTON_SECUNDARIO}
           >
-            <Download className="w-4 h-4" />
-            {boolDescargando ? "Descargando…" : boolListo ? "Nómina descargada" : "Descargar nómina"}
+            {strBotonAyudantes}
           </button>
-        </div>
-      </div>
-
-      <div>
-        <div className="flex justify-between text-[11px] font-bold text-slate-500 mb-1.5">
-          <span>Progreso de ingreso de estudiantes</span>
-          <span className="font-mono text-[#1A365D]">
-            {ingresados} / {total} ({porcentaje}%)
+        )}
+        {!boolFinalizado && (boolNominaLista ? (
+          <span className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#E8F1FB] text-[#1860A3] text-xs font-extrabold py-2.5 px-4">
+            <Check className="w-3.5 h-3.5" strokeWidth={3} /> Nómina descargada
           </span>
-        </div>
-        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-          <div
-            className="bg-[#2563EB] h-full rounded-full transition-all duration-500"
-            style={{ width: `${porcentaje}%` }}
-          />
-        </div>
+        ) : (
+          <button type="button" onClick={fnDescargar} disabled={nomina.descargando} className={BOTON_SECUNDARIO + " disabled:opacity-50 disabled:cursor-not-allowed"}>
+            <Download className="w-3.5 h-3.5" />
+            {nomina.descargando ? "Descargando…" : "Descargar nómina"}
+          </button>
+        ))}
       </div>
     </article>
   );
 }
 
 export default function SeccionControlIngresosDocente({ examenes = [], boolCargando = false, onAsignarOperadores }) {
-  const listExamenes = (examenes || []).filter((ex) => ex.esExamenReal !== false);
-  const numDisponibles = listExamenes.length;
+  const listExamenes = useMemo(() => (examenes || []).filter((ex) => ex.esExamenReal !== false), [examenes]);
+  const [strFiltro, setStrFiltro] = useState("TODOS");
+  const [objExamenLista, setObjExamenLista] = useState(null);
+
+  // Hora actual: se actualiza cada 30 s para que los botones aparezcan y desaparezcan solos
+  const [dateAhora, setDateAhora] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setDateAhora(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   const [objAsignaciones, setObjAsignaciones] = useState({});
   const strIdsExamenes = listExamenes.map((ex) => ex.idExamen).join(",");
@@ -198,10 +180,21 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
       )
     ).then((pares) => { if (!cancel) setObjAsignaciones(Object.fromEntries(pares)); });
     return () => { cancel = true; };
-  }, [strIdsExamenes]);
+  }, [strIdsExamenes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const listVisibles = useMemo(() => listExamenes
+    .map((e) => ({ examen: e, strEstado: estadoExamen(e, dateAhora) }))
+    .filter(({ strEstado }) => strFiltro === "TODOS" || strEstado === strFiltro)
+    .sort((a, b) => {
+      if (ORDEN_ESTADO[a.strEstado] !== ORDEN_ESTADO[b.strEstado]) return ORDEN_ESTADO[a.strEstado] - ORDEN_ESTADO[b.strEstado];
+      return a.strEstado === "FINALIZADO"
+        ? marcaTiempo(b.examen) - marcaTiempo(a.examen)
+        : marcaTiempo(a.examen) - marcaTiempo(b.examen);
+    })
+    .map(({ examen }) => examen), [listExamenes, strFiltro, dateAhora]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-black text-[#1A365D]">Control de ingreso</h1>
         <p className="text-xs text-slate-500 font-medium mt-1">
@@ -209,37 +202,54 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
         </p>
       </div>
 
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-          <h3 className="text-base font-black text-[#1A365D] flex items-center gap-2">
-            <CalendarDays className="w-4 h-4" />
-            Exámenes próximos
-          </h3>
-          <span className="text-[11px] font-extrabold text-[#1A365D] bg-slate-100 px-3 py-1 rounded-full">
-            {numDisponibles} {numDisponibles === 1 ? "examen disponible" : "exámenes disponibles"}
-          </span>
-        </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        {FILTROS.map((f) => (
+          <button
+            key={f.clave}
+            type="button"
+            onClick={() => setStrFiltro(f.clave)}
+            aria-pressed={strFiltro === f.clave}
+            className={`px-4 h-9 rounded-full text-xs font-bold border transition cursor-pointer ${strFiltro === f.clave
+              ? "bg-[#003770] text-white border-[#003770]"
+              : "bg-white text-[#1A365D] border-slate-300 hover:bg-slate-50"}`}
+          >
+            {f.etiqueta}
+          </button>
+        ))}
+      </div>
 
+      <div className="space-y-3">
         {boolCargando ? (
-          <div className="text-center py-10 text-slate-500 text-xs font-semibold animate-pulse">
+          <div className="text-center py-10 text-slate-500 text-xs font-semibold animate-pulse bg-white rounded-2xl border border-slate-200">
             Cargando exámenes del docente...
           </div>
-        ) : listExamenes.length === 0 ? (
-          <div className="text-center py-10 text-slate-500 text-xs font-semibold bg-[#F8FAFC] rounded-2xl border border-slate-200">
-            No tienes exámenes registrados para controlar ingresos.
+        ) : listVisibles.length === 0 ? (
+          <div className="text-center py-10 text-slate-500 text-xs font-semibold bg-white rounded-2xl border border-slate-200">
+            {listExamenes.length === 0
+              ? "No tienes exámenes registrados para controlar ingresos."
+              : "No hay exámenes que coincidan con el filtro."}
           </div>
         ) : (
-          <div className="space-y-4">
-            {listExamenes.map((examen) => (
-              <TarjetaExamenDocente
-                examen={examen}
-                objAsignaciones={objAsignaciones}
-                onAsignarOperadores={onAsignarOperadores}
-              />
-            ))}
-          </div>
+          listVisibles.map((examen) => (
+            <TarjetaControlDocente
+              key={examen.idExamen}
+              examen={examen}
+              objAsig={objAsignaciones[examen.idExamen]}
+              dateAhora={dateAhora}
+              onAsignarOperadores={onAsignarOperadores}
+              onVerIngresos={setObjExamenLista}
+            />
+          ))
         )}
       </div>
+
+      {/* "Ver ingresos" de un examen finalizado: todos los estudiantes con su estado, hora y quién registró */}
+      <PanelIngresosExamen
+        boolAbierto={Boolean(objExamenLista)}
+        onCerrar={() => setObjExamenLista(null)}
+        idExamen={objExamenLista ? Number(objExamenLista.idExamen) : null}
+        strSubtitulo={objExamenLista ? subtituloIngresos(objExamenLista.nombreExamen, objExamenLista.tipoExamen, objExamenLista.fechaExamen) : ""}
+      />
     </div>
   );
 }

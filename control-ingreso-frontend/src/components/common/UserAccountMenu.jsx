@@ -47,7 +47,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
             {strNombre} {strApellido}
           </span>
           <span className="text-[11px] text-primary-blue font-semibold leading-tight truncate">
-            {usuario?.rol || ""}
+            {usuario?.rol === "OPERADOR" ? "AYUDANTE" : (usuario?.rol || "")}
           </span>
         </div>
         <svg className="w-3.5 h-3.5 text-slate-400 ml-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -84,7 +84,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
         </div>
       )}
 
-      {cuentaAbierta && createPortal(<VentanaEmergente boolAbierto onCerrar={() => setCuentaAbierta(false)}><section role="dialog" aria-label="Mi Cuenta" className="p-6 space-y-4"><h2 className="font-bold text-xl">Mi Cuenta</h2><dl><dt>Nombre</dt><dd>{strNombre} {strApellido}</dd><dt>Correo</dt><dd className="break-all">{usuario?.correo}</dd><dt>Rol</dt><dd>{usuario?.rol}</dd></dl><p>Para corregir sus datos personales, contacte al administrador.</p><button type="button" onClick={() => { setCuentaAbierta(false); setBoolModalContrasenaAbierto(true); }}>Cambiar contraseña</button><button type="button" onClick={() => setCuentaAbierta(false)} className="ml-4">Cerrar</button></section></VentanaEmergente>, document.body)}
+      {cuentaAbierta && createPortal(<VentanaEmergente boolAbierto onCerrar={() => setCuentaAbierta(false)}><section role="dialog" aria-label="Mi Cuenta" className="p-6 space-y-4"><h2 className="font-bold text-xl">Mi Cuenta</h2><dl><dt>Nombre</dt><dd>{strNombre} {strApellido}</dd><dt>Correo</dt><dd className="break-all">{usuario?.correo}</dd><dt>Rol</dt><dd>{usuario?.rol === "OPERADOR" ? "AYUDANTE" : usuario?.rol}</dd></dl><p>Para corregir sus datos personales, contacte al administrador.</p><button type="button" onClick={() => { setCuentaAbierta(false); setBoolModalContrasenaAbierto(true); }}>Cambiar contraseña</button><button type="button" onClick={() => setCuentaAbierta(false)} className="ml-4">Cerrar</button></section></VentanaEmergente>, document.body)}
       <CambiarContrasenaModal
         boolAbierto={boolModalContrasenaAbierto}
         onCerrar={() => setBoolModalContrasenaAbierto(false)}

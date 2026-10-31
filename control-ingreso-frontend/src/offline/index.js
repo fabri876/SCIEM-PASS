@@ -24,6 +24,7 @@ export { generarUuid } from "./uuid.js";
 export { obtenerDeviceId } from "./deviceId.js";
 export { nominaRepo, CAMPOS_SERVIDOR, parsearIsoEpoch } from "./nominaRepo.js";
 export { asistenciaRepo } from "./asistenciaRepo.js";
+export { asignacionRepo } from "./asignacionRepo.js";
 export { syncLogRepo } from "./syncLogRepo.js";
 export { fotoRepo } from "./fotoRepo.js";
 export { configRepo, CONFIG_DEFAULTS } from "./configRepo.js";
@@ -77,6 +78,7 @@ export {
   eliminarNominaLocal,
   fetchPaginaPorDefecto,
 } from "./nominaLoader.js";
+export { descargarAsignacionesOperadores } from "./asignacionLoader.js";
 export { useNominaLocal } from "./useNominaLocal.js";
 export {
   ejecutarPurgaCompleta,
@@ -98,4 +100,6 @@ export {
   obtenerOrigenExamenes,
   suscribirOrigenExamenes,
 } from "./examenRepo.js";
+export { derivarHashPin, verificarPin } from "./pinCrypto.js";
+export { pinService } from "./pinService.js";
 

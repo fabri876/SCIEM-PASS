@@ -2,7 +2,7 @@ import Dexie from 'dexie';
 
 export const db = new Dexie('SciemPassOfflineDB');
 
-db.version(1).stores({
+db.version(2).stores({
   // Metadata del dispositivo y configuración local
   meta: 'clave',
 
@@ -19,7 +19,14 @@ db.version(1).stores({
   asistencias_pendientes: 'clientUuid, [syncStatus+nextRetryAt], [examenId+codigoSis], examenId, syncStatus',
 
   // Logs de auditoría con batchId
-  logs_sincronizacion: '++id, batchId, timestamp'
+  logs_sincronizacion: '++id, batchId, timestamp',
+
+  // Configuración de usuario (PIN, bloqueo por inactividad)
+  configUsuario: 'idUsuario',
+
+  // Asignaciones de operadores (ayudantes) por examen y aula
+  // Clave compuesta: [idExamen, idAmbiente, idUsuario] para no mezclar parciales
+  asignacionesOperadores: '[idExamen+idAmbiente+idUsuario], idExamen, idUsuario',
 });
 
 if (import.meta.env.DEV) {

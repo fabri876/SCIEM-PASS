@@ -1,6 +1,7 @@
 // Bloque completo del control de ingreso.
 // Sin examen elegido → "Mis exámenes". Con examen elegido → verificación.
 import "./controlIngreso.css";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Info } from "lucide-react";
 import { useOperador } from "../operadorContexto";
 import { db } from "../../../offline/db.js";
@@ -9,11 +10,51 @@ import TarjetaExamen from "./componentes/TarjetaExamen";
 import EstacionVerificacion from "./componentes/EstacionVerificacion";
 import TarjetaResultado from "./componentes/TarjetaResultado";
 import TablaUltimosIngresos from "./componentes/TablaUltimosIngresos";
+import { rangoExamen, aperturaControl } from "../../docente/utilidadesExamenDocente";
 
-export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true }) {
-  const { fnMostrarToast } = useOperador();
+// Franja de estado debajo del encabezado del examen.
+// Con internet: solo "En línea". Sin internet: el tramo de apellidos que registra este ayudante.
+function FranjaEstado({ boolSinRed, objFila }) {
+  if (!boolSinRed) {
+    return (
+      <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-[#F0F6FC] border border-[#D9E8F7] text-sm font-semibold text-[#124B83]">
+        <i className="w-2.5 h-2.5 rounded-full bg-[#1860A3] shrink-0" />
+        En línea
+      </div>
+    );
+  }
+  const numTotal = objFila?.total;
+  return (
+    <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-[#FEF2F2] border border-[#FEE2E2] text-sm text-[#B91C1C]">
+      <i className="w-2.5 h-2.5 rounded-full bg-[#B91C1C] shrink-0 mt-[5px]" />
+      <span>
+        <b className="font-bold">Sin conexión</b>
+        {objFila?.desde && objFila?.hasta ? (
+          <> · Registras los apellidos <b className="font-bold">{objFila.desde} – {objFila.hasta}</b>{numTotal ? ` (${numTotal} estudiantes)` : ""}.</>
+        ) : (
+          <> · Registras a los estudiantes de esta aula.</>
+        )}
+        {" "}Se sincroniza al volver el internet.
+      </span>
+    </div>
+  );
+}
+
+// nodoAcciones: botones dentro del encabezado azul (por ejemplo "Lista oficial del aula")
+// listAvisos: chips extra en el encabezado (por ejemplo "Registro desde las 19:15")
+// objFilaSinRed: tramo de apellidos guardado en el equipo (por ejemplo, el docente que también controla el ingreso)
+export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true, nodoAcciones = null, listAvisos = [], objFilaSinRed = null }) {
+  const { fnMostrarToast, fnDoForzar, setConfigurandoPin, estadoRed } = useOperador();
+
+  // Hora actual (cada 30 s): el registro solo se permite desde 15 min antes del inicio hasta el fin,
+  // con o sin internet, para el ayudante, el docente y el administrador
+  const [dateAhora, setDateAhora] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setDateAhora(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
   const {
-    listExamenes, boolCargandoExamenes, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
+    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
     boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
   } = ctrl;
 
@@ -44,6 +85,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         <ListaExamenesHoy
           listExamenes={listExamenes}
           boolCargando={boolCargandoExamenes}
+          sinRespaldoOffline={sinRespaldoOffline}
           onElegir={fnElegirExamen}
           boolSinRed={ctrl.boolOffline}
         />
@@ -51,9 +93,17 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     );
   }
 
-  const boolFinalizado = examenActual?.estado === "FINALIZADO";
+  const objRangoHorario = { fechaExamen: examenActual?.fecha, horaInicio: examenActual?.horaInicio, horaFin: examenActual?.horaFin };
+  const { fin: dateFin } = rangoExamen(objRangoHorario);
+  const dateApertura = aperturaControl(objRangoHorario);
+  const boolFinalizado = examenActual?.estado === "FINALIZADO" || (Boolean(dateFin) && dateAhora > dateFin);
+  const boolAunNoAbre = !boolFinalizado && Boolean(dateApertura) && dateAhora < dateApertura;
+  const strHoraApertura = dateApertura
+    ? `${String(dateApertura.getHours()).padStart(2, "0")}:${String(dateApertura.getMinutes()).padStart(2, "0")}`
+    : "";
   const boolOperador = strRol === "operador";
-  // Las filas por apellido solo aplican al operador: el docente puede registrar a cualquiera
+  // El tramo de apellidos solo aplica al ayudante y solo sin internet (motor offline).
+  // El docente puede registrar a cualquiera de su aula.
   const fnValidarRol = boolOperador
     ? fnValidar
     : (strValor, strMetodo, objOpciones = {}) => fnValidar(strValor, strMetodo, { ...objOpciones, ignorarFila: true });
@@ -67,10 +117,16 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
             onClick={fnVolverALista}
             className="self-start inline-flex items-center gap-1.5 text-[13px] font-medium text-[#1860A3] hover:underline cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4" /> Mis exámenes
+            <ArrowLeft className="w-4 h-4" /> Volver
           </button>
         )}
-        <TarjetaExamen examen={examenActual} objContador={objContador} boolMostrarFila={boolOperador} />
+        <TarjetaExamen examen={examenActual} objContador={objContador} listAvisos={listAvisos}>
+          {nodoAcciones}
+        </TarjetaExamen>
+        <FranjaEstado
+          boolSinRed={estadoRed?.net === "offline" || Boolean(ctrl.boolOffline)}
+          objFila={objContador?.fila || examenActual?.fila || objFilaSinRed || null}
+        />
       </div>
 
       {objNomina && (
@@ -96,20 +152,54 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               >
                 Resetear nómina local
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  fnDoForzar();
+                }}
+                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer"
+              >
+                Forzar sincronización
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfigurandoPin(true)}
+                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer"
+              >
+                Configurar PIN
+              </button>
             </>
           ) : (
             <>
               <span>Sin descargar</span>
               <button
                 type="button"
-                onClick={() => {
-                  fnDescargarNomina().catch((err) => {
+                onClick={async () => {
+                  try {
+                    await fnDescargarNomina();
+                  } catch (err) {
                     fnMostrarToast("Error al descargar la nómina: " + (err?.message || "intenta nuevamente con conexión a internet."));
-                  });
+                  }
                 }}
                 className="px-3 py-1 rounded-xl text-[11px] font-bold bg-[#003770] text-white hover:bg-[#124B83] transition-colors cursor-pointer"
               >
                 Descargar nómina
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  fnDoForzar();
+                }}
+                className="px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer ml-2"
+              >
+                Forzar sincronización
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfigurandoPin(true)}
+                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer"
+              >
+                Configurar PIN
               </button>
             </>
           )}
@@ -117,12 +207,23 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
       )}
 
       <section aria-labelledby="ci-t-verificacion">
-        <h2 id="ci-t-verificacion" className="m-0 mb-3 text-base font-bold text-[#08264A]">Verificación de ingreso</h2>
+        {/* El título "Verificación de ingreso" está dentro de la tarjeta de verificación */}
         {boolFinalizado ? (
-          <div className="flex items-start gap-2.5 px-4 py-3.5 rounded-xl bg-[#F1F5F9] border border-[#CBD5E1] text-sm text-[#475569]">
-            <Info className="w-[18px] h-[18px] shrink-0 mt-px" />
-            Este examen ya finalizó. Ya no se pueden registrar ingresos, pero puedes revisar los registrados.
-          </div>
+          <>
+            <h2 id="ci-t-verificacion" className="m-0 mb-3 text-lg font-bold text-[#08264A]">Verificación de ingreso</h2>
+            <div className="flex items-start gap-2.5 px-4 py-3.5 rounded-xl bg-[#F1F5F9] border border-[#CBD5E1] text-sm text-[#475569]">
+              <Info className="w-[18px] h-[18px] shrink-0 mt-px" />
+              Este examen ya finalizó. Ya no se pueden registrar ingresos, pero puedes revisar los registrados.
+            </div>
+          </>
+        ) : boolAunNoAbre ? (
+          <>
+            <h2 id="ci-t-verificacion" className="m-0 mb-3 text-lg font-bold text-[#08264A]">Verificación de ingreso</h2>
+            <div className="flex items-start gap-2.5 px-4 py-3.5 rounded-xl bg-[#F1F5F9] border border-[#CBD5E1] text-sm text-[#475569]">
+              <Info className="w-[18px] h-[18px] shrink-0 mt-px" />
+              El registro de ingreso se habilita a las {strHoraApertura} (15 minutos antes del inicio del examen).
+            </div>
+          </>
         ) : (
           <>
             <EstacionVerificacion onValidar={fnValidarRol} boolValidando={boolValidando} idExamen={idExamen} />
@@ -134,7 +235,13 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         )}
       </section>
 
-      <TablaUltimosIngresos listUltimos={listUltimos} strUltimoRegistrado={strUltimoRegistrado} strRol={strRol} />
+      <TablaUltimosIngresos
+        listUltimos={listUltimos}
+        strUltimoRegistrado={strUltimoRegistrado}
+        strRol={strRol}
+        numRegistrados={objContador?.ingresaron ?? null}
+        boolSinRed={estadoRed?.net === "offline" || Boolean(ctrl.boolOffline)}
+      />
     </div>
   );
 }
