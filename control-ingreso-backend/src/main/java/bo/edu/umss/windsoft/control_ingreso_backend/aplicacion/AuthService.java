@@ -104,6 +104,10 @@ public class AuthService {
                     "Contraseña incorrecta. Intento " + actualizado.getIntentosFallidos() + " de 5.");
         }
 
+        // Solo migrar despues de verificar la contrasena; nunca convertir un hash en otro hash.
+        if (passwordEncoder.upgradeEncoding(usuario.getContraseniausuario())) {
+            usuario.setContraseniausuario(passwordEncoder.encode(contrasena));
+        }
         usuario.reiniciarIntentosFallidos();
         usuarioRepository.save(usuario);
 

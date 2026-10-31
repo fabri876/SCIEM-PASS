@@ -37,13 +37,14 @@ public class CargaMasivaService {
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoriaService;
     private final TipoUsuarioResolver tipoUsuarioResolver;
+    private final CargaMasivaJdbcRepository escrituraLotes;
 
     public CargaMasivaService(UsuarioRepository usuarioRepository, AdminRepository adminRepository,
                                DocenteRepository docenteRepository, AyudanteRepository ayudanteRepository,
                                EstudianteRepository estudianteRepository, AsignaturaRepository asignaturaRepository,
                                GrupoRepository grupoRepository, GrupoService grupoService,
                                PasswordEncoder passwordEncoder, AuditoriaService auditoriaService,
-                               TipoUsuarioResolver tipoUsuarioResolver) {
+                               TipoUsuarioResolver tipoUsuarioResolver, CargaMasivaJdbcRepository escrituraLotes) {
         this.usuarioRepository = usuarioRepository;
         this.adminRepository = adminRepository;
         this.docenteRepository = docenteRepository;
@@ -55,6 +56,7 @@ public class CargaMasivaService {
         this.passwordEncoder = passwordEncoder;
         this.auditoriaService = auditoriaService;
         this.tipoUsuarioResolver = tipoUsuarioResolver;
+        this.escrituraLotes = escrituraLotes;
     }
 
     @Transactional(readOnly = true)
@@ -125,6 +127,7 @@ public class CargaMasivaService {
         Map<String, Optional<Asignatura>> materiasConsultadas = new HashMap<>();
         Map<String, Optional<Grupo>> gruposConsultados = new HashMap<>();
         Set<String> permisosValidados = new HashSet<>();
+        Map<String, AltaUsuarioLote> altasPendientes = new LinkedHashMap<>();
         List<String> cis = filas.stream().filter(f -> f.ci != null).map(f -> CiNormalizador.normalizar(f.ci)).distinct().toList();
         List<String> correos = filas.stream().filter(f -> f.correo != null).map(f -> f.correo.trim().toLowerCase()).distinct().toList();
         List<Integer> codigos = filas.stream().map(f -> f.codigoSis).filter(Objects::nonNull).distinct().toList();
@@ -187,7 +190,9 @@ public class CargaMasivaService {
                 var persona = docentesPorCi.computeIfAbsent(ci, usuarioRepository::findByCiusuario);
                 var docente = docentesPorSis.computeIfAbsent(codSis, docenteRepository::findByCodsisdocente);
                 if (persona.isPresent() && docente.isPresent()
-                        && persona.get().getIdusuario().equals(docente.get().getIdusuario())
+                        && Objects.equals(persona.get().getIdusuario(), docente.get().getIdusuario())
+                        && (persona.get().getIdusuario() != null || (altasPendientes.containsKey(ci)
+                            && Objects.equals(altasPendientes.get(ci).codigoSis(), codSis)))
                         && correo.equalsIgnoreCase(persona.get().getCorreousuario())) {
                     docenteExistente = persona.get();
                     if (!Boolean.TRUE.equals(docenteExistente.getEstadousuario()))
@@ -197,7 +202,8 @@ public class CargaMasivaService {
                 }
             }
 
-            if (TipoUsuarioResolver.ESTUDIANTE.equals(rolFila) && !ci.isBlank() && codSis != null) {
+            if (TipoUsuarioResolver.ESTUDIANTE.equals(rolFila) && !ci.isBlank() && codSis != null
+                    && (cisExistentes.contains(ci) || sisEstudiantes.contains(codSis) || correosExistentes.contains(correo))) {
                 var persona = usuarioRepository.findByCiusuario(ci);
                 var estudiante = estudianteRepository.findByCodsisestudiante(codSis);
                 if (persona.isPresent() && estudiante.isPresent()
@@ -311,6 +317,15 @@ public class CargaMasivaService {
                 errores.add(new CargaMasivaErrorFilaDto(fila.numeroFila, ci, correo, erroresFila));
             } else if (docenteExistente != null) {
                 int nuevas = 0;
+                if (docenteExistente.getIdusuario() == null) {
+                    // Docente nuevo repetido en este archivo: unir grupos antes de escribirlo una sola vez.
+                    var alta = altasPendientes.get(ci);
+                    for (Integer grupo : gruposResueltos) if (alta.grupos().add(grupo)) nuevas++;
+                    existentes++;
+                    avisos.add("Fila " + fila.numeroFila + ": docente repetido en el lote. Se incorporaron "
+                            + nuevas + " grupo(s) nuevos sin duplicar la cuenta.");
+                    continue;
+                }
                 for (Integer idGrupo : gruposResueltos) {
                     String claveAsignacion = docenteExistente.getIdusuario() + ":" + idGrupo;
                     if (asignacionesProcesadas.add(claveAsignacion)) {
@@ -328,9 +343,7 @@ public class CargaMasivaService {
                 // Registrar usuario con contraseña inicial = CI
                 String contrasenaHasheada = passwordEncoder.encode(ci);
                 Usuario nuevo = new Usuario(ci, nombre, apellido, fila.telefono, correo, contrasenaHasheada, true);
-                nuevo = usuarioRepository.save(nuevo);
-
-                crearFilaTablaHija(rolFila, nuevo.getIdusuario(), codSis, null);
+                altasPendientes.put(ci, new AltaUsuarioLote(nuevo, rolFila, codSis, gruposResueltos));
                 if (TipoUsuarioResolver.DOCENTE.equals(rolFila)) {
                     docentesPorCi.put(ci, Optional.of(nuevo));
                     Docente docenteCreado = new Docente();
@@ -338,21 +351,11 @@ public class CargaMasivaService {
                     docenteCreado.setCodsisdocente(codSis);
                     docentesPorSis.put(codSis, Optional.of(docenteCreado));
                 }
-                int sisFinal = codSis != null ? codSis : nuevo.getIdusuario();
-                for (Integer idGrupo : gruposResueltos) {
-                    switch (rolFila) {
-                        case TipoUsuarioResolver.DOCENTE -> {
-                            grupoService.asignarDocenteAGrupo(nuevo.getIdusuario(), sisFinal, idGrupo);
-                            asignacionesProcesadas.add(nuevo.getIdusuario() + ":" + idGrupo);
-                        }
-                        case TipoUsuarioResolver.ESTUDIANTE -> grupoService.inscribirEstudianteAGrupo(nuevo.getIdusuario(), sisFinal, idGrupo);
-                        case TipoUsuarioResolver.OPERADOR -> grupoService.asignarAyudanteAGrupo(nuevo.getIdusuario(), idGrupo);
-                        default -> throw new SolicitudInvalidaException("Ese rol no admite grupos académicos.");
-                    }
-                }
                 exitosos++;
             }
         }
+
+        if (!altasPendientes.isEmpty()) escrituraLotes.guardarNuevos(new ArrayList<>(altasPendientes.values()));
 
         auditoriaService.registrarEnTransaccion("CARGA_MASIVA_USUARIOS", executorCorreo, executorCorreo,
                 "Carga masiva procesada: " + exitosos + " nuevos, " + existentes + " existentes, " + fallidos + " fallidos de " + filas.size() + " filas.", ip);

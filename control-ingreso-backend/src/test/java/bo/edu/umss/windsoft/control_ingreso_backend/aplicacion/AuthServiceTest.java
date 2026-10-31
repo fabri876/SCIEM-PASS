@@ -51,6 +51,8 @@ class AuthServiceTest {
     private UsuarioRespuestaMapper usuarioRespuestaMapper;
     @Mock
     private TipoUsuarioResolver tipoUsuarioResolver;
+    @Mock
+    private UsuarioBloqueoService usuarioBloqueoService;
 
     @InjectMocks
     private AuthService authService;
@@ -123,6 +125,10 @@ class AuthServiceTest {
 
     @Test
     void testLoginContrasenaIncorrectaIncrementaIntentos() {
+        when(usuarioBloqueoService.registrarIntentoFallido(1)).thenAnswer(invocation -> {
+            usuarioActivo.registrarIntentoFallido();
+            return usuarioActivo;
+        });
         when(usuarioRepository.findByCorreousuario("admin@umss.edu"))
                 .thenReturn(Optional.of(usuarioActivo));
         when(passwordEncoder.matches("wrongPassword", "encodedPassword"))
@@ -134,13 +140,18 @@ class AuthServiceTest {
 
         assertTrue(exception.getMessage().contains("Intento 1 de 5"));
         assertEquals(1, usuarioActivo.getIntentosFallidos());
-        verify(usuarioRepository).save(usuarioActivo);
+        verify(usuarioBloqueoService).registrarIntentoFallido(1);
+        verify(usuarioRepository, never()).save(any());
         verify(auditoriaService).registrar(eq("LOGIN_FALLIDO"), eq("SISTEMA"), eq("admin@umss.edu"), anyString(), eq("127.0.0.1"));
     }
 
     @Test
     void testLoginBloqueoCuentaTrasCincoIntentosFallidos() {
         usuarioActivo.setIntentosFallidos(4);
+        when(usuarioBloqueoService.registrarIntentoFallido(1)).thenAnswer(invocation -> {
+            usuarioActivo.registrarIntentoFallido();
+            return usuarioActivo;
+        });
 
         when(usuarioRepository.findByCorreousuario("admin@umss.edu"))
                 .thenReturn(Optional.of(usuarioActivo));
@@ -154,7 +165,8 @@ class AuthServiceTest {
         assertTrue(exception.getMessage().contains("Cuenta bloqueada temporalmente por 5 intentos fallidos"));
         assertEquals(5, usuarioActivo.getIntentosFallidos());
         assertTrue(usuarioActivo.isBloqueado());
-        verify(usuarioRepository).save(usuarioActivo);
+        verify(usuarioBloqueoService).registrarIntentoFallido(1);
+        verify(usuarioRepository, never()).save(any());
         verify(auditoriaService).registrar(eq("CUENTA_BLOQUEADA"), eq("SISTEMA"), eq("admin@umss.edu"), anyString(), eq("127.0.0.1"));
     }
 
