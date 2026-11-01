@@ -112,7 +112,7 @@ public class RegistroUsuarioService {
             }
         }
 
-        // 5. Encriptar contraseña con BCrypt (si no se especifica, por defecto es el Carnet de Identidad)
+        // 5. Generar el hash con el PasswordEncoder configurado (por defecto, el CI es la clave inicial).
         String ciNormalizado = CiNormalizador.normalizar(dto.getCarnetIdentidad());
         String rawPassword = (dto.getContrasena() == null || dto.getContrasena().trim().isEmpty())
                 ? ciNormalizado
