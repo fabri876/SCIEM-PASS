@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, MapPin, Clock } from "lucide-react";
 import { obtenerHabilitaciones } from "../../../services/habilitacionService";
+import { estadoExamen } from "../utilidadesExamenDocente";
 import {
     obtenerOperadoresDisponibles,
     obtenerAsignacionIngreso,
@@ -111,7 +112,7 @@ export default function AsignarOperadoresDocente({
     onRegistrarOperador,
     numRecargaOperadores = 0,
     boolVistaAdmin = false,
-    strTextoVolver = "Control de ingresos",
+    strTextoVolver = "Control de Ingresos",
 }) {
     const aulas = useMemo(
         () =>
@@ -405,7 +406,7 @@ export default function AsignarOperadoresDocente({
     }
 
     const editando = Boolean(guardada);
-    const titulo = soloLectura ? "Ayudantes del examen" : editando ? "Editar ayudantes" : "Asignar ayudantes";
+    const titulo = soloLectura ? "Ayudantes del examen" : "Asignar ayudantes";
     const horaTxt = examen?.horaInicio || "la hora de inicio";
     const boolHayAulaSinAyudante = aulas.some((a, idx) => cantidades[idx] && !responsables[a.idAmbiente]);
 
@@ -458,7 +459,7 @@ export default function AsignarOperadoresDocente({
             {soloLectura && (
                 <div className="bg-[#F0F6FC] border border-[#D9E8F7] rounded-xl px-4 py-2.5 text-xs text-slate-700 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-[#003770] shrink-0" />
-                    La asignación está bloqueada porque el examen ya empezó.
+                    La asignación está bloqueada porque el examen ya {estadoExamen(examen) === "FINALIZADO" ? "finalizó" : "empezó"}.
                 </div>
             )}
 

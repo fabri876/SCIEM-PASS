@@ -38,7 +38,8 @@ function Contador({ numValor, strEtiqueta, boolRojo = false }) {
 
 // children: botones a la derecha (por ejemplo "Lista oficial del aula")
 // listAvisos: chips extra (por ejemplo "Registro desde las 19:15")
-export default function TarjetaExamen({ examen, objContador, children, listAvisos = [] }) {
+// strEstadoVivo: "vivo" (con internet, examen abierto), "finalizado" o null (sin internet)
+export default function TarjetaExamen({ examen, objContador, children, listAvisos = [], strEstadoVivo = null }) {
   if (!examen) {
     return (
       <section className="bg-[#003770] rounded-2xl px-6 py-6 text-sm text-white/80">
@@ -74,10 +75,17 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
           {children && <div className="flex flex-wrap justify-end gap-2 max-md:justify-start">{children}</div>}
           <div className="grid grid-cols-3 gap-2.5 max-md:gap-2">
             <Contador numValor={numIng} strEtiqueta="Ingresaron" />
-            <Contador numValor={numPend} strEtiqueta="Faltan" />
+            <Contador numValor={numPend} strEtiqueta="Ausentes" />
             <Contador numValor={numInh} strEtiqueta="Inhabilitados" boolRojo />
           </div>
-          <span className="text-[13px] text-white/75">
+          <span className="inline-flex items-center gap-2 text-[13px] text-white/75">
+            {strEstadoVivo === "vivo" && (
+              <>
+                <i className="w-2 h-2 rounded-full bg-[#7DD3FC] shadow-[0_0_0_4px_rgba(125,211,252,.25)] animate-pulse" />
+                <span>En vivo ·</span>
+              </>
+            )}
+            {strEstadoVivo === "finalizado" && <span>Examen finalizado ·</span>}
             {numHab} {numHab === 1 ? "estudiante habilitado" : "estudiantes habilitados"}
           </span>
         </div>

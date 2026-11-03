@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { obtenerListaOficial } from "../../../../services/ingresoService";
+import { textoNombre, nombreEstudiante } from "../../../../components/common/textoNombre";
 
 const ESTADOS = {
   INGRESO: { strTexto: "Ingresó", strClase: "bg-[#D9E8F7] text-[#124B83]" },
@@ -29,12 +30,8 @@ function estadoDe(f) {
 
 const hhmm = (v) => (v ? String(v).slice(0, 5) : "");
 
-// "MARCELO ANTEZANA" → "Marcelo Antezana" (solo si viene todo en mayúsculas)
-function nombreNormal(strNombre) {
-  const str = String(strNombre || "").trim();
-  if (!str || str !== str.toUpperCase()) return str;
-  return str.toLowerCase().replace(/(^|\s)\p{L}/gu, (l) => l.toUpperCase());
-}
+// Nombres siempre con mayúscula inicial ("caceres rengel fabricio" → "Caceres Rengel Fabricio")
+const nombreNormal = textoNombre;
 
 export default function PanelIngresosExamen({ boolAbierto, onCerrar, idExamen, strSubtitulo = "", numVersion = 0 }) {
   const [strBuscar, setStrBuscar] = useState("");
@@ -70,19 +67,12 @@ export default function PanelIngresosExamen({ boolAbierto, onCerrar, idExamen, s
 
   if (!boolAbierto) return null;
 
-  const listOrdenada = [...listFilas].sort((a, b) =>
-    `${a.apellidos || ""} ${a.nombres || ""}`.localeCompare(`${b.apellidos || ""} ${b.nombres || ""}`, "es"));
+  const listOrdenada = [...listFilas].sort((a, b) => nombreEstudiante(a).localeCompare(nombreEstudiante(b), "es"));
   const strTermino = strBuscar.trim().toLowerCase();
   const listBuscadas = strTermino
     ? listOrdenada.filter((f) => `${f.apellidos || ""} ${f.nombres || ""} ${f.sis || ""} ${f.ci || ""}`.toLowerCase().includes(strTermino))
     : listOrdenada;
 
-  const objTotal = {
-    TODOS: listFilas.length,
-    INGRESO: listFilas.filter((f) => estadoDe(f) === "INGRESO").length,
-    PENDIENTE: listFilas.filter((f) => estadoDe(f) === "PENDIENTE").length,
-    INHABILITADO: listFilas.filter((f) => estadoDe(f) === "INHABILITADO").length,
-  };
   const objConteo = {
     TODOS: listBuscadas.length,
     INGRESO: listBuscadas.filter((f) => estadoDe(f) === "INGRESO").length,
@@ -102,12 +92,6 @@ export default function PanelIngresosExamen({ boolAbierto, onCerrar, idExamen, s
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0 text-[#003770] hover:bg-[#F1F5F9] cursor-pointer">
             <X className="w-[22px] h-[22px]" />
           </button>
-        </div>
-
-        <div className="px-[22px] pt-3 flex flex-wrap gap-2">
-          <span className="px-2.5 py-1 rounded-full bg-[#E8F1FB] text-[#124B83] text-xs font-bold">Ingresaron {objTotal.INGRESO}</span>
-          <span className="px-2.5 py-1 rounded-full bg-[#F1F5F9] text-[#475569] text-xs font-bold">No ingresaron {objTotal.PENDIENTE}</span>
-          <span className="px-2.5 py-1 rounded-full bg-[#FEF2F2] text-[#B91C1C] text-xs font-bold">Inhabilitados {objTotal.INHABILITADO}</span>
         </div>
 
         <div className="px-[22px] pt-4 pb-6 flex-1">
@@ -162,7 +146,7 @@ export default function PanelIngresosExamen({ boolAbierto, onCerrar, idExamen, s
               return (
                 <li key={f.sis || f.ci} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3.5 items-center px-[18px] py-3 border-t border-[#CBD5E1] first:border-t-0">
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-[#08264A]">{f.apellidos} {f.nombres}</div>
+                    <div className="text-sm font-medium text-[#08264A]">{nombreEstudiante(f)}</div>
                     <div className="mt-px text-xs text-[#64748B]">
                       {[f.sis && `SIS ${f.sis}`, f.ci && `C.I. ${f.ci}`, strAula].filter(Boolean).join(" · ")}
                     </div>
