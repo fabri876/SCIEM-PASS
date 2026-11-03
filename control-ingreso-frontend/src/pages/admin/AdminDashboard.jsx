@@ -12,6 +12,7 @@ import AuditoriaTable from "./components/AuditoriaTable";
 import RolesTable from "./components/RolesTable";
 import SeccionRegistroExamenes from "./components/SeccionRegistroExamenes";
 import SeccionGestionHabilitacionesAdmin from "./components/SeccionGestionHabilitacionesAdmin";
+import CargaExamenesPasados from "./components/CargaExamenesPasados";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
@@ -279,6 +280,11 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     {activeMenu === "Habilitación de Estudiantes" && (
                         <SeccionGestionHabilitacionesAdmin />
                     )}
+
+                    {/* =================================================
+                        CARGA DE EXÁMENES PASADOS
+                        ================================================= */}
+                    {activeMenu === "Carga de Exámenes Pasados" && <CargaExamenesPasados />}
 
                     {/* =================================================
                         INCIDENCIAS E INGRESO EXCEPCIONAL (HU06)
