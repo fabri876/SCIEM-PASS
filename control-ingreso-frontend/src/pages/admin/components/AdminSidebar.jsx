@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Calendar, UserCheck, History, Shield, LogOut, AlertTriangle, BookOpen, Activity } from "lucide-react";
+import { Users, Calendar, UserCheck, History, Shield, LogOut, AlertTriangle, BookOpen, Activity, FileText } from "lucide-react";
 import { cerrarSesion } from "../../../services/authService";
 import { obtenerTotalIncidenciasAbiertas } from "../../../services/incidenciaService";
 
@@ -12,6 +12,7 @@ const baseMenuItems = [
     { id: "Gestión de Exámenes", label: "Gestión de Exámenes", icon: Calendar },
     { id: "Habilitación de Estudiantes", label: "Habilitación de Estudiantes", icon: UserCheck },
     { id: "Monitoreo de Asistencia", label: "Monitoreo de Asistencia", icon: Activity },
+    { id: "Reportes y Asistencia", label: "Reportes y Asistencia", icon: FileText },
     { id: "Incidencias", label: "Incidencias", icon: AlertTriangle, esIncidencia: true },
     { id: "Historial de Auditoría", label: "Historial de Auditoría", icon: History },
 ];
