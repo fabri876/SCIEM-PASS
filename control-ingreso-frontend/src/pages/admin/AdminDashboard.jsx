@@ -14,6 +14,7 @@ import SeccionRegistroExamenes from "./components/SeccionRegistroExamenes";
 import SeccionGestionHabilitacionesAdmin from "./components/SeccionGestionHabilitacionesAdmin";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
+import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
 import { obtenerUsuarioActual } from "../../services/authService";
 import {
     listarUsuarios,
@@ -291,6 +292,13 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                         ================================================= */}
                     {activeMenu === "Monitoreo de Asistencia" && (
                         <SeccionMonitoreo rol="ADMINISTRADOR" />
+                    )}
+
+                    {/* =================================================
+                        REPORTES Y ASISTENCIA (HU12)
+                        ================================================= */}
+                    {activeMenu === "Reportes y Asistencia" && (
+                        <SeccionReportesAsistencia strRol="ADMINISTRADOR" boolMostrarTitulo={false} />
                     )}
                 </main>
             </div>

@@ -18,7 +18,7 @@ function FranjaEstado({ boolSinRed, objFila }) {
   if (!boolSinRed) {
     return (
       <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-[#F0F6FC] border border-[#D9E8F7] text-sm font-semibold text-[#124B83]">
-        <i className="w-2.5 h-2.5 rounded-full bg-[#1860A3] shrink-0" />
+        <i className="w-2.5 h-2.5 rounded-full bg-[#1860A3] shrink-0 shadow-[0_0_0_4px_rgba(24,96,163,.18)] animate-pulse" />
         En línea
       </div>
     );
@@ -120,7 +120,12 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
             <ArrowLeft className="w-4 h-4" /> Volver
           </button>
         )}
-        <TarjetaExamen examen={examenActual} objContador={objContador} listAvisos={listAvisos}>
+        <TarjetaExamen
+          examen={examenActual}
+          objContador={objContador}
+          listAvisos={listAvisos}
+          strEstadoVivo={boolFinalizado ? "finalizado" : (estadoRed?.net === "offline" || ctrl.boolOffline) ? null : "vivo"}
+        >
           {nodoAcciones}
         </TarjetaExamen>
         <FranjaEstado

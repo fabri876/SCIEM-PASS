@@ -531,6 +531,7 @@ export default function SeccionRegistroExamenes() {
                     tipoExamen: examenOperadores._tipo,
                     horario: rangoHorario(examenOperadores),
                     horaInicio: tiempoDeExamen(examenOperadores).horaInicio,
+                    horaFin: tiempoDeExamen(examenOperadores).horaFin,
                     fechaExamen: examenOperadores.fechaExamen,
                     ambientes: examenOperadores.ambientes || [],
                 }}

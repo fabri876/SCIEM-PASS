@@ -1,4 +1,4 @@
-// Sección "Control de ingreso" del docente: lo operativo de cada examen
+// Sección "Control de Ingresos" del docente: lo operativo de cada examen
 // (ayudantes, nómina para trabajar sin internet, entrar a controlar y revisar los ingresos).
 // Orden: en curso, próximos (el más cercano primero) y finalizados (el más reciente primero).
 import { useEffect, useMemo, useState } from "react";
@@ -196,7 +196,7 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-black text-[#1A365D]">Control de ingreso</h1>
+        <h1 className="text-2xl font-black text-[#1A365D]">Control de Ingresos</h1>
         <p className="text-xs text-slate-500 font-medium mt-1">
           Selecciona el examen para gestionar el ingreso de los estudiantes.
         </p>
