@@ -12,6 +12,7 @@ import PaginaEnConstruccion from "./pages/PaginaEnConstruccion";
 
 // Páginas de Exámenes (próximos y pasados)
 import Examenes from "./pages/examenesHome/Examenes";
+import ExamenesPasados from "./pages/examenesHome/ExamenesPasados";
 
 
 // Páginas de Administrador
@@ -145,7 +146,7 @@ function App() {
             Notificaciones va a una página en blanco por ahora. */}
         <Route path="/inicio" element={<HomePage />} />
         <Route path="/examenes" element={<Examenes />} />
-        <Route path="/examenes/pasados" element={<Navigate to="/examenes" replace />} />
+        <Route path="/examenes/pasados" element={<ExamenesPasados />} />
         <Route path="/notificaciones" element={<PaginaEnConstruccion />} />
 
         {/* Ruta de Administrador */}
