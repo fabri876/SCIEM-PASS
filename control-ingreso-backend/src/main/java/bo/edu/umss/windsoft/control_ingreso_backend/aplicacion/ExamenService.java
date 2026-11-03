@@ -19,6 +19,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
@@ -388,6 +390,21 @@ public class ExamenService {
         Docente docente = docenteRepository.findByIdusuario(idUsuario)
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró el docente solicitado."));
         return obtenerExamenesDocenteEnriquecidos(idUsuario, docente.getCodsisdocente());
+    }
+
+    /** Solo exámenes finalizados, usado por el módulo de reportes. */
+    public List<ExamenRespuestaDto> obtenerExamenesFinalizadosDocente(Integer idUsuario) {
+        Docente docente = docenteRepository.findByIdusuario(idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el docente solicitado."));
+        List<Examen> propios = examenRepository.findByIdUsuarioAndCodsisDocente(idUsuario, docente.getCodsisdocente());
+        ZonedDateTime ahora = ZonedDateTime.now(ZoneId.of("America/La_Paz"));
+        List<Integer> ids = propios.stream().filter(e -> {
+            Ambiente ambiente = ambienteRepository.findByIdExamen(e.getIdExamen()).stream().findFirst().orElse(null);
+            return ambiente != null && (ahora.toLocalDate().isAfter(e.getFechaExamen())
+                    || (ahora.toLocalDate().equals(e.getFechaExamen()) && ahora.toLocalTime().isAfter(ambiente.getHoraFin())));
+        }).map(Examen::getIdExamen).toList();
+        if (ids.isEmpty()) return List.of();
+        return enriquecerLote(examenRepository.findAllById(ids));
     }
 
     /** Exámenes en los que el estudiante autenticado tiene habilitación. */

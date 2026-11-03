@@ -5,7 +5,7 @@
 // El archivo PDF / Excel lo genera el backend (ver services/reporteService.js).
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download } from "lucide-react";
-import { obtenerExamenesPorDocente, obtenerMisExamenes } from "../../services/examenService";
+import { obtenerExamenesFinalizadosDocente } from "../../services/examenService";
 import { obtenerDocentesAdmin } from "../../services/adminNormasService";
 import { obtenerListaOficial } from "../../services/ingresoService";
 import { descargarReporteAsistencia } from "../../services/reporteService";
@@ -291,7 +291,7 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
           setListDocentes(Array.isArray(listDoc) ? listDoc : []);
           setListExamenes([]);
         } else {
-          const listEx = await obtenerMisExamenes();
+          const listEx = await obtenerExamenesFinalizadosDocente();
           if (!boolVivo) return;
           setListExamenes(Array.isArray(listEx) ? listEx.map(normalizarExamen) : []);
         }
@@ -314,7 +314,7 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
     setStrErrorCarga("");
     setIdAsignatura("");
     setIdExamen("");
-    obtenerExamenesPorDocente(idDocente)
+    obtenerExamenesFinalizadosDocente(idDocente)
       .then((listEx) => { if (boolVivo) setListExamenes(Array.isArray(listEx) ? listEx.map(normalizarExamen) : []); })
       .catch(() => { if (boolVivo) setStrErrorCarga("No se pudieron cargar los exámenes del docente."); })
       .finally(() => { if (boolVivo) setBoolCargando(false); });

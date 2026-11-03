@@ -136,6 +136,15 @@ export async function obtenerExamenesPorDocente(idUsuario) {
     return response.json();
 }
 
+export async function obtenerExamenesFinalizadosDocente(idUsuario) {
+    const ruta = idUsuario
+        ? `/api/examenes/por-docente/${idUsuario}/finalizados`
+        : "/api/examenes/mis-examenes-finalizados";
+    const response = await fetch(`${strApiBaseUrl}${ruta}`, { headers: construirHeaders() });
+    if (!response.ok) throw new Error("No se pudieron obtener los exámenes finalizados");
+    return response.json();
+}
+
 export async function obtenerMisExamenes() {
     const usuario = obtenerUsuarioActual();
     const res = await cargarExamenesConRespaldo({
