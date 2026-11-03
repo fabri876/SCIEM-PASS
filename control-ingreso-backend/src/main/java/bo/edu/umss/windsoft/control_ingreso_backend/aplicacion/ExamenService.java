@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -382,6 +383,13 @@ public class ExamenService {
         return obtenerExamenesDocenteEnriquecidos(idUsuarioAutenticado, docente.getCodsisdocente());
     }
 
+    /** Exámenes enriquecidos de un docente solicitado por el administrador. */
+    public List<ExamenRespuestaDto> obtenerExamenesDocenteParaAdmin(Integer idUsuario) {
+        Docente docente = docenteRepository.findByIdusuario(idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el docente solicitado."));
+        return obtenerExamenesDocenteEnriquecidos(idUsuario, docente.getCodsisdocente());
+    }
+
     /** Exámenes en los que el estudiante autenticado tiene habilitación. */
     public List<ExamenRespuestaDto> obtenerExamenesEstudiante(Integer idUsuario) {
         List<Integer> ids = habilitacionRepository.findAllConDetalles().stream()
@@ -460,6 +468,18 @@ public class ExamenService {
                         .stream()
                         .collect(Collectors.groupingBy(Grupo::getIdAsignatura));
 
+        // Los exámenes que ya tienen grupo se resuelven en lote. Antes se hacía
+        // findById() dentro del map de cada examen (N+1 consultas).
+        List<Integer> idsGrupo = examenes.stream()
+                .map(Examen::getIdGrupo)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Integer, Grupo> gruposPorId = idsGrupo.isEmpty()
+                ? Map.of()
+                : grupoRepository.findAllById(idsGrupo).stream()
+                        .collect(Collectors.toMap(Grupo::getIdGrupo, g -> g));
+
         return examenes.stream().map(examen -> {
             ExamenRespuestaDto dto = new ExamenRespuestaDto();
             dto.setIdExamen(examen.getIdExamen());
@@ -491,7 +511,7 @@ public class ExamenService {
             }
 
             List<Grupo> grupos = examen.getIdGrupo() != null
-                    ? grupoRepository.findById(examen.getIdGrupo()).map(List::of).orElse(List.of())
+                    ? Optional.ofNullable(gruposPorId.get(examen.getIdGrupo())).map(List::of).orElse(List.of())
                     : gruposPorAsignatura.getOrDefault(examen.getIdAsignatura(), List.of());
             if (!grupos.isEmpty()) {
                 String nombresGrupos = grupos.stream().map(Grupo::getNombreGrupo).collect(Collectors.joining(", "));

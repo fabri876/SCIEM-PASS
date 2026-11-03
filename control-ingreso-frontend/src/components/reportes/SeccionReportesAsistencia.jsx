@@ -5,7 +5,7 @@
 // El archivo PDF / Excel lo genera el backend (ver services/reporteService.js).
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download } from "lucide-react";
-import { obtenerExamenes, obtenerMisExamenes } from "../../services/examenService";
+import { obtenerExamenesPorDocente, obtenerMisExamenes } from "../../services/examenService";
 import { obtenerDocentesAdmin } from "../../services/adminNormasService";
 import { obtenerListaOficial } from "../../services/ingresoService";
 import { descargarReporteAsistencia } from "../../services/reporteService";
@@ -277,7 +277,8 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
   const [objAviso, setObjAviso] = useState(null);
   const refDescargando = useRef(false);
 
-  // Exámenes (y docentes, para el admin)
+  // Para admin se carga primero solo el catálogo de docentes. Los exámenes se
+  // consultan al seleccionar uno, evitando traer todos los exámenes del semestre.
   useEffect(() => {
     let boolVivo = true;
     (async () => {
@@ -285,10 +286,10 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
       setStrErrorCarga("");
       try {
         if (boolAdmin) {
-          const [listDoc, listEx] = await Promise.all([obtenerDocentesAdmin(), obtenerExamenes()]);
+          const listDoc = await obtenerDocentesAdmin();
           if (!boolVivo) return;
           setListDocentes(Array.isArray(listDoc) ? listDoc : []);
-          setListExamenes(Array.isArray(listEx) ? listEx.map(normalizarExamen) : []);
+          setListExamenes([]);
         } else {
           const listEx = await obtenerMisExamenes();
           if (!boolVivo) return;
@@ -302,6 +303,23 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
     })();
     return () => { boolVivo = false; };
   }, [boolAdmin]);
+
+  useEffect(() => {
+    if (!boolAdmin || !idDocente) {
+      if (boolAdmin) setListExamenes([]);
+      return undefined;
+    }
+    let boolVivo = true;
+    setBoolCargando(true);
+    setStrErrorCarga("");
+    setIdAsignatura("");
+    setIdExamen("");
+    obtenerExamenesPorDocente(idDocente)
+      .then((listEx) => { if (boolVivo) setListExamenes(Array.isArray(listEx) ? listEx.map(normalizarExamen) : []); })
+      .catch(() => { if (boolVivo) setStrErrorCarga("No se pudieron cargar los exámenes del docente."); })
+      .finally(() => { if (boolVivo) setBoolCargando(false); });
+    return () => { boolVivo = false; };
+  }, [boolAdmin, idDocente]);
 
   // Solo exámenes finalizados (del docente elegido, si es el admin)
   const listFinalizados = useMemo(() => {
