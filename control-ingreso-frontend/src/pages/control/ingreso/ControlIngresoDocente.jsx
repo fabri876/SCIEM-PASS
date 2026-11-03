@@ -28,7 +28,7 @@ export default function ControlIngresoDocente() {
   const strNombreDocente = objUbicacion.state?.nombreDocente || "";
   // Sección del panel desde la que se entró (para que "Volver" regrese ahí)
   const strMenuOrigen = objUbicacion.state?.menuOrigen || "inicio";
-  const TEXTO_VOLVER = { inicio: "Inicio", "mis-examenes": "Mis exámenes", "control-ingresos": "Control de ingresos" };
+  const TEXTO_VOLVER = { inicio: "Inicio", "mis-examenes": "Mis exámenes", "control-ingresos": "Control de Ingresos" };
   const strTextoVolver = boolAdmin ? "Gestión de Exámenes" : (TEXTO_VOLVER[strMenuOrigen] || "Inicio");
   const fnVolver = () => {
     if (boolAdmin) navigate("/admin", { state: { menu: "Gestión de Exámenes" } });
@@ -57,7 +57,7 @@ export default function ControlIngresoDocente() {
 
   // El registro se habilita desde MINUTOS_ANTES_CONTROL_INGRESO antes del inicio.
   // Antes de eso se ve la pantalla, pero no se puede registrar.
-  const { inicio } = rangoExamen(examen ? { fechaExamen: examen.fecha, horaInicio: examen.horaInicio, horaFin: examen.horaFin } : null);
+  const { inicio, fin: dateFinExamen } = rangoExamen(examen ? { fechaExamen: examen.fecha, horaInicio: examen.horaInicio, horaFin: examen.horaFin } : null);
   const dateApertura = inicio ? new Date(inicio.getTime() - MINUTOS_ANTES_CONTROL_INGRESO * 60000) : null;
   const [dateAhora, setDateAhora] = useState(() => new Date());
   useEffect(() => {
@@ -174,6 +174,7 @@ export default function ControlIngresoDocente() {
           idExamen={Number(idExamen)}
           numVersion={ctrl.numVersion}
           strUltimoRegistrado={ctrl.strUltimoRegistrado}
+          boolFinalizado={Boolean(dateFinExamen) && new Date() > dateFinExamen}
         />
       )}
       <ToastSyncConfirmacion />

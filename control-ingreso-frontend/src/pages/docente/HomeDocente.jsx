@@ -9,6 +9,7 @@ import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services
 import { obtenerMisExamenes } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
+import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
 import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
 import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
 import { AlertTriangle, ScanLine, Activity } from "lucide-react";
@@ -288,7 +289,7 @@ export default function HomeDocente() {
                                     }`}
                             >
                                 <ScanLine className={`w-4 h-4 ${boolMenuControl ? "text-white" : "text-[#1A365D]"}`} />
-                                Control de ingresos
+                                Control de Ingresos
                             </button>
                             <button
                                 onClick={() => setStrMenuActivo("monitoreo")}
@@ -300,8 +301,14 @@ export default function HomeDocente() {
                                 <Activity className={`w-4 h-4 ${strMenuActivo === "monitoreo" ? "text-white" : "text-[#1A365D]"}`} />
                                 Monitoreo de Asistencia
                             </button>
-                            <button onClick={() => setStrMenuActivo("inicio")} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
-                                <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            <button
+                                onClick={() => setStrMenuActivo("reportes")}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "reportes"
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                                    }`}
+                            >
+                                <svg className={`w-4 h-4 ${strMenuActivo === "reportes" ? "text-white" : "text-[#1A365D]"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                                 Reportes y Asistencia
                             </button>
                             <button
@@ -333,7 +340,9 @@ export default function HomeDocente() {
 
                     {/* CONTENIDO CENTRAL */}
                     <main className="flex-1 min-w-0 space-y-6">
-                        {strMenuActivo === "incidencias" ? (
+                        {strMenuActivo === "reportes" ? (
+                            <SeccionReportesAsistencia strRol="DOCENTE" />
+                        ) : strMenuActivo === "incidencias" ? (
                             <SeccionIncidencias rol="DOCENTE" />
                         ) : strMenuActivo === "monitoreo" ? (
                             <SeccionMonitoreo rol="DOCENTE" />

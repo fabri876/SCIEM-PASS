@@ -45,7 +45,9 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
   const strEstado = boolReal ? estadoExamen(examen, dateAhora) : "SIN_FECHA";
   const boolHoy = esHoy(examen, dateAhora);
   const boolControl = boolReal && puedeControlarIngreso(examen, dateAhora);
-  const boolHabilitaciones = boolReal && strEstado === "PROXIMO";
+  // Las habilitaciones se pueden gestionar hasta que termine el examen,
+  // incluyendo la ventana en curso.
+  const boolHabilitaciones = boolReal && (strEstado === "PROXIMO" || strEstado === "EN_CURSO");
   const dateApertura = aperturaControl(examen);
   const boolAvisoApertura = boolReal && boolHoy && strEstado === "PROXIMO" && dateApertura && dateAhora < dateApertura;
   const objFecha = partesFecha(examen.fechaExamen);
