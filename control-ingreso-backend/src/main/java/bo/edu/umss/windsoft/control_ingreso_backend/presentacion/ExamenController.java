@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -82,6 +83,13 @@ public class ExamenController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Integer idUsuarioAutenticado = (Integer) auth.getDetails();
         return ResponseEntity.ok(examenService.obtenerMisExamenesEnriquecidos(idUsuarioAutenticado));
+    }
+
+    /** Consulta acotada para reportes del administrador; evita cargar todos los exámenes. */
+    @GetMapping("/por-docente/{idUsuario}")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public ResponseEntity<List<ExamenRespuestaDto>> obtenerExamenesPorDocente(@PathVariable Integer idUsuario) {
+        return ResponseEntity.ok(examenService.obtenerExamenesDocenteParaAdmin(idUsuario));
     }
 
     // FIX #5: para que el frontend deshabilite tipos de examen ya usados
