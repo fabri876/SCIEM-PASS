@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Header from "../../components/layout/Header";
 import ExamenCard from "../../components/examenes/examenesHome/ExamenCard";
 import { ExamenesSkeleton, ExamenesError, ExamenesVacio } from "../../components/examenes/examenesHome/ExamenesEstados";
@@ -41,7 +42,17 @@ export default function Examenes() {
             </p>
           </div>
 
-
+          <Link
+            to="/examenes/pasados"
+            className="inline-flex items-center justify-center gap-2 h-[42px] px-4 rounded-[10px] border border-[#B9CDF5] bg-[#F5F8FF] text-[#2563EB] text-[13px] font-bold whitespace-nowrap transition-colors duration-200 hover:bg-[#E3ECFF] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2"
+          >
+            <svg className="w-4 h-4 stroke-[#2563EB] fill-none stroke-2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+            Exámenes pasados
+          </Link>
         </div>
 
         {boolCargando && <ExamenesSkeleton intCantidad={4} />}

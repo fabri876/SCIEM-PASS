@@ -65,11 +65,8 @@ public class AuditoriaService {
     @Transactional
     public void registrarEnTransaccion(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
                                        String detalles, String ipOrigen) {
-        try {
-            guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen);
-        } catch (Exception e) {
-            logger.error("Error al registrar auditoría: {}", e.getMessage());
-        }
+        // Una operación crítica no debe confirmarse si su auditoría falla.
+        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen);
     }
 
     private void guardarRegistro(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
