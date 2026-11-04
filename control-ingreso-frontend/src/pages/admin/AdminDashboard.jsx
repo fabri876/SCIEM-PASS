@@ -8,7 +8,7 @@ import BulkUploadCard from "./components/BulkUploadCard";
 import GestionGruposAsignaturaCard from "./components/GestionAcademicaCard";
 import CatalogoAcademicoTable from "./components/CatalogoAcademicoTable";
 import UserTableCard from "./components/UserTableCard";
-import AuditoriaTable from "./components/AuditoriaTable";
+import HistorialInmodificable from "./components/HistorialInmodificable";
 import RolesTable from "./components/RolesTable";
 import SeccionRegistroExamenes from "./components/SeccionRegistroExamenes";
 import SeccionGestionHabilitacionesAdmin from "./components/SeccionGestionHabilitacionesAdmin";
@@ -24,7 +24,6 @@ import {
     cambiarRolUsuario,
     cambiarEstadoUsuario,
     eliminarUsuario,
-    listarAuditoria,
     listarRoles,
     cargarUsuariosMasivo
 } from "../../services/adminService";
@@ -40,10 +39,6 @@ export default function AdminDashboard({ onNavigateToLogin }) {
     const [usuarios, setUsuarios] = useState([]);
     const [boolCargandoUsuarios, setBoolCargandoUsuarios] = useState(true);
     const [strErrorUsuarios, setStrErrorUsuarios] = useState("");
-
-    const [auditoria, setAuditoria] = useState([]);
-    const [boolCargandoAuditoria, setBoolCargandoAuditoria] = useState(false);
-    const [strErrorAuditoria, setStrErrorAuditoria] = useState("");
 
     const [roles, setRoles] = useState([]);
     const [boolCargandoRoles, setBoolCargandoRoles] = useState(false);
@@ -66,36 +61,6 @@ export default function AdminDashboard({ onNavigateToLogin }) {
     useEffect(() => {
         fnCargarUsuarios();
     }, [fnCargarUsuarios]);
-
-    useEffect(() => {
-        if (activeMenu !== "Historial de Auditoría") return;
-
-        let cancelado = false;
-
-        setBoolCargandoAuditoria(true);
-        setStrErrorAuditoria("");
-
-        listarAuditoria()
-            .then((data) => {
-                if (!cancelado) {
-                    setAuditoria(data || []);
-                }
-            })
-            .catch((error) => {
-                if (!cancelado) {
-                    setStrErrorAuditoria(error.message);
-                }
-            })
-            .finally(() => {
-                if (!cancelado) {
-                    setBoolCargandoAuditoria(false);
-                }
-            });
-
-        return () => {
-            cancelado = true;
-        };
-    }, [activeMenu]);
 
     useEffect(() => {
         if (activeMenu !== "Roles y Permisos") return;
@@ -247,15 +212,15 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     </div>}
 
                     {/* =================================================
-                        HISTORIAL DE AUDITORÍA
+                        HISTORIAL DE SEMESTRES
                         ================================================= */}
                     {activeMenu === "Historial de Semestres" && <HistorialSemestres onCambio={() => { setRevisionAcademica(v => v + 1); void fnCargarUsuarios(); }} />}
-                    {activeMenu === "Historial de Auditoría" && (
-                        <AuditoriaTable
-                            registros={auditoria}
-                            boolCargando={boolCargandoAuditoria}
-                            strError={strErrorAuditoria}
-                        />
+
+                    {/* =================================================
+                        HISTORIAL INMODIFICABLE (HU15)
+                        ================================================= */}
+                    {(activeMenu === "Historial Inmodificable" || activeMenu === "Historial de Auditoría") && (
+                        <HistorialInmodificable />
                     )}
 
                     {/* =================================================
