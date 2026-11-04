@@ -476,7 +476,16 @@ export default function ExamenFormAdmin({
         // no se bloquea (un examen histórico puede seguir teniendo su fecha
         // real en el pasado; lo que no se permite es MOVER uno a una fecha
         // ya pasada al registrar uno nuevo).
-        const strHoyISO = new Date().toISOString().slice(0, 10);
+        const partesHoy = new Intl.DateTimeFormat("en", {
+            timeZone: "America/La_Paz",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).formatToParts(new Date()).reduce((acc, parte) => {
+            acc[parte.type] = parte.value;
+            return acc;
+        }, {});
+        const strHoyISO = `${partesHoy.year}-${partesHoy.month}-${partesHoy.day}`;
         if (!boolEditando && objFormData.fecha && objFormData.fecha < strHoyISO) {
             setStrMensaje("No se puede programar un examen en una fecha pasada.");
             return;

@@ -1,179 +1,125 @@
-// "Mi lista" del ayudante (panel lateral, solo lectura).
-// Muestra solo los estudiantes de SU aula y SU rango de apellidos.
-// - Con internet: lista oficial del servidor (al día, incluye ingresos de otros).
-// - Sin internet (o si el servidor no responde): nómina descargada en el equipo.
-// En ambos casos se suman los registros de este equipo que aún no se sincronizaron.
-// Solo LEE la base local; no modifica nada del modo sin conexión.
-import { useEffect, useState } from "react";
+// Lista oficial del aula (panel lateral, HU11): estado de ingreso de cada estudiante en tiempo real.
+// Se usa en el control del docente y en la vista del administrador.
+// - Se actualiza sola cada 10 s mientras está abierta (y apenas hay un ingreso nuevo).
+// - "En vivo · actualizado hace X s"; al terminar el examen deja de actualizarse ("Examen finalizado").
+// - Quien acaba de ingresar se resalta unos segundos con la etiqueta "NUEVO".
+// - Solo lectura: no se modifica nada desde aquí.
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { obtenerListaOficial } from "../../../../services/ingresoService";
-import { db } from "../../../../offline/db.js";
-import { ESTADO_SYNC } from "../../../../offline/constantes.js";
+import { nombreEstudiante } from "../../../../components/common/textoNombre";
 
+const INTERVALO_MS = 10000;
+const DURACION_NUEVO_MS = 8000;
+
+// Estados que devuelve el backend → etiqueta que se muestra
 const ESTADOS = {
-  INGRESO: { strTexto: "Ingreso registrado", strClase: "bg-[#D9E8F7] text-[#124B83]" },
-  SIN_SINCRONIZAR: { strTexto: "Registrado · sin sincronizar", strClase: "bg-[#FEF3C7] text-[#92400E]" },
-  PENDIENTE: { strTexto: "Sin registrar", strClase: "bg-[#F1F5F9] text-[#475569]" },
+  INGRESO: { strTexto: "Ingresó", strClase: "bg-[#D9E8F7] text-[#124B83]" },
+  PENDIENTE: { strTexto: "Ausente", strClase: "bg-[#F1F5F9] text-[#475569]" },
   INHABILITADO: { strTexto: "Inhabilitado", strClase: "bg-[#FEE2E2] text-[#B91C1C]" },
 };
 
 const FILTROS = [
   { strId: "TODOS", strTexto: "Todos" },
-  { strId: "PENDIENTE", strTexto: "Sin registrar" },
-  { strId: "INGRESO", strTexto: "Ingreso registrado" },
+  { strId: "PENDIENTE", strTexto: "Ausentes" },
+  { strId: "INGRESO", strTexto: "Ingresaron" },
   { strId: "INHABILITADO", strTexto: "Inhabilitados" },
 ];
 
-// Misma regla que el motor sin conexión: primera letra, sin tildes, en mayúscula
-function inicial(strTexto) {
-  return String(strTexto || "").trim().charAt(0).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-}
-
-function enRango(strApellido, objFila) {
-  if (!objFila?.desde || !objFila?.hasta) return true; // sin rango: toda el aula
-  const strLetra = inicial(strApellido);
-  if (!strLetra) return true;
-  return strLetra.localeCompare(inicial(objFila.desde), "es") >= 0 && strLetra.localeCompare(inicial(objFila.hasta), "es") <= 0;
-}
-
-function normalizarAula(strAula) {
-  return String(strAula || "").trim().replace(/^aula\s*/i, "").toLowerCase();
-}
-
-function enAula(strAulaEstudiante, strAulaExamen) {
-  if (!strAulaEstudiante || !strAulaExamen) return true; // sin aula asignada: no se descarta
-  return normalizarAula(strAulaEstudiante) === normalizarAula(strAulaExamen);
-}
-
-// La nómina local guarda "Nombres Apellidos" en un solo campo: se separa con el apellido paterno
-function separarNombreLocal(r) {
-  const strNombre = String(r.nombre || "").trim();
-  const strPaterno = String(r.apellidoPaterno || "").trim();
-  const numPos = strPaterno ? strNombre.toLowerCase().indexOf(strPaterno.toLowerCase()) : -1;
-  if (numPos > 0) {
-    return { apellidos: strNombre.slice(numPos).trim(), nombres: strNombre.slice(0, numPos).trim() };
-  }
-  return { apellidos: strNombre, nombres: "" };
-}
-
-function estadoServidor(strEstado) {
-  const str = String(strEstado || "").toUpperCase();
+function estadoDe(f) {
+  const str = String(f.estado || "").toUpperCase();
   if (str === "INGRESO") return "INGRESO";
   if (str === "INHABILITADO") return "INHABILITADO";
   return "PENDIENTE";
 }
 
-async function leerPendientesLocales(exId) {
-  const set = new Set();
-  try {
-    const list = await db.asistencias_pendientes.where("examenId").equals(exId).toArray();
-    list
-      .filter((a) => a.syncStatus === ESTADO_SYNC.PENDIENTE || a.syncStatus === ESTADO_SYNC.SYNCING || a.syncStatus === ESTADO_SYNC.ERROR)
-      .forEach((a) => set.add(String(a.codigoSis)));
-  } catch {
-    // sin base local: no hay pendientes que mostrar
-  }
-  return set;
+const claveDe = (f) => String(f.ci ?? f.sis ?? `${f.apellidos} ${f.nombres}`);
+const hhmm = (v) => (v ? String(v).slice(0, 5) : "");
+
+function textoHace(numSegundos) {
+  if (numSegundos < 60) return `hace ${numSegundos} s`;
+  return `hace ${Math.floor(numSegundos / 60)} min`;
 }
 
-async function leerNominaLocal(exId, setPendientes) {
-  const list = await db.nominas.where("examenId").equals(exId).toArray();
-  return list.map((r) => {
-    const sis = String(r.codigoSis || "");
-    let strEstado = "PENDIENTE";
-    if (!r.habilitado) strEstado = "INHABILITADO";
-    else if (setPendientes.has(sis)) strEstado = "SIN_SINCRONIZAR";
-    else if (r.marcadoLocal === 1) strEstado = "INGRESO";
-    return {
-      ...separarNombreLocal(r),
-      paterno: r.apellidoPaterno || "",
-      sis,
-      ci: r.ci || "",
-      aula: r.aulaAsignada || null,
-      estado: strEstado,
-    };
-  });
-}
-
-function fechaHora(valor) {
-  if (!valor) return "";
-  try {
-    return new Date(valor).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "";
-  }
-}
-
-export default function PanelMiLista({ boolAbierto, onCerrar, examen, idExamen, boolSinRed, numVersion, numPendientes, strUltimoRegistrado, strNominaDescargadaEn }) {
+export default function PanelListaOficial({ boolAbierto, onCerrar, idExamen, numVersion, strUltimoRegistrado, boolFinalizado = false }) {
   const [strBuscar, setStrBuscar] = useState("");
   const [strFiltro, setStrFiltro] = useState("TODOS");
   const [listFilas, setListFilas] = useState([]);
   const [boolCargando, setBoolCargando] = useState(false);
-  const [strOrigen, setStrOrigen] = useState("servidor"); // servidor | local | sinNomina
+  const [strError, setStrError] = useState("");
+  const [dateActualizado, setDateActualizado] = useState(null);
+  const [dateAhora, setDateAhora] = useState(() => new Date());
+  const [objNuevos, setObjNuevos] = useState({}); // clave → hora en que se marcó como nuevo
+  const refEstados = useRef(null); // estados de la última carga (para detectar ingresos nuevos)
 
-  // El docente abre este panel enviando idExamen directamente; el operador
-  // normalmente envía el objeto examen completo. Aceptar ambas formas evita
-  // que el panel quede sin realizar la consulta oficial.
-  const exId = Number(idExamen ?? examen?.idexamen);
-  const objFila = examen?.fila || null;
-  const strAula = examen?.aula || "";
+  // Al abrir: filtro "Todos", buscador vacío y sin datos viejos
+  useEffect(() => {
+    if (!boolAbierto) return;
+    setStrBuscar("");
+    setStrFiltro("TODOS");
+    setStrError("");
+    setObjNuevos({});
+    refEstados.current = null;
+  }, [boolAbierto, idExamen]);
+
+  // Carga inicial, recarga cada 10 s (mientras el examen no terminó) y cuando hay un ingreso nuevo
+  useEffect(() => {
+    if (!boolAbierto || idExamen == null) return undefined;
+    let boolVivo = true;
+
+    const fnCargar = () => {
+      setBoolCargando(true);
+      obtenerListaOficial(idExamen, "")
+        .then((list) => {
+          if (!boolVivo) return;
+          const listDatos = Array.isArray(list) ? list : [];
+          // Ingresos nuevos desde la carga anterior (no se marcan en la primera carga)
+          const objAntes = refEstados.current;
+          const objAhora = {};
+          const listNuevos = [];
+          for (const f of listDatos) {
+            const strClave = claveDe(f);
+            objAhora[strClave] = estadoDe(f);
+            if (objAntes && objAhora[strClave] === "INGRESO" && objAntes[strClave] !== "INGRESO") listNuevos.push(strClave);
+          }
+          refEstados.current = objAhora;
+          if (listNuevos.length) {
+            const numAhora = Date.now();
+            setObjNuevos((o) => ({ ...o, ...Object.fromEntries(listNuevos.map((k) => [k, numAhora])) }));
+          }
+          setListFilas(listDatos);
+          setStrError("");
+          setDateActualizado(new Date());
+        })
+        .catch(() => {
+          if (boolVivo) setStrError("No se pudo cargar la lista. Revisa tu conexión e intenta de nuevo.");
+        })
+        .finally(() => boolVivo && setBoolCargando(false));
+    };
+
+    fnCargar();
+    const t = boolFinalizado ? null : setInterval(fnCargar, INTERVALO_MS);
+    return () => { boolVivo = false; if (t) clearInterval(t); };
+  }, [boolAbierto, idExamen, numVersion, boolFinalizado]);
+
+  // Reloj para "actualizado hace X s" y para quitar la marca "NUEVO"
+  useEffect(() => {
+    if (!boolAbierto) return undefined;
+    const t = setInterval(() => setDateAhora(new Date()), 1000);
+    return () => clearInterval(t);
+  }, [boolAbierto]);
 
   useEffect(() => {
-    if (!boolAbierto || !Number.isInteger(exId) || exId <= 0) return undefined;
-    let boolVivo = true;
-    setBoolCargando(true);
-
-    (async () => {
-      const setPendientes = await leerPendientesLocales(exId);
-      let list = null;
-      let strFuente = "servidor";
-
-      if (!boolSinRed) {
-        try {
-          const resp = await obtenerListaOficial(exId, "");
-          if (Array.isArray(resp)) {
-            list = resp.map((f) => {
-              const sis = String(f.sis ?? f.codigoSis ?? "");
-              let strEstado = estadoServidor(f.estado);
-              if (strEstado === "PENDIENTE" && setPendientes.has(sis)) strEstado = "SIN_SINCRONIZAR";
-              return {
-                apellidos: f.apellidos || "",
-                nombres: f.nombres || "",
-                paterno: String(f.apellidos || "").trim().split(/\s+/)[0] || "",
-                sis,
-                ci: f.ci || "",
-                aula: f.aulaAsignada || null,
-                estado: strEstado,
-              };
-            });
-          }
-        } catch {
-          list = null;
-        }
-      }
-
-      if (!list) {
-        try {
-          list = await leerNominaLocal(exId, setPendientes);
-          strFuente = list.length ? "local" : "sinNomina";
-        } catch {
-          list = [];
-          strFuente = "sinNomina";
-        }
-      }
-
-      const listMias = list
-        .filter((f) => enAula(f.aula, strAula) && enRango(f.paterno || f.apellidos, objFila))
-        .sort((a, b) => `${a.apellidos} ${a.nombres}`.localeCompare(`${b.apellidos} ${b.nombres}`, "es"));
-
-      if (boolVivo) {
-        setListFilas(listMias);
-        setStrOrigen(strFuente);
-      }
-    })().finally(() => boolVivo && setBoolCargando(false));
-
-    return () => { boolVivo = false; };
-  }, [boolAbierto, exId, boolSinRed, numVersion, numPendientes, strAula, objFila?.desde, objFila?.hasta]);
+    const numAhora = dateAhora.getTime();
+    const listVencidos = Object.entries(objNuevos).filter(([, numDesde]) => numAhora - numDesde > DURACION_NUEVO_MS);
+    if (listVencidos.length) {
+      setObjNuevos((o) => {
+        const objCopia = { ...o };
+        for (const [k] of listVencidos) delete objCopia[k];
+        return objCopia;
+      });
+    }
+  }, [dateAhora, objNuevos]);
 
   // Cerrar con Esc
   useEffect(() => {
@@ -183,132 +129,128 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, idExamen, 
     return () => window.removeEventListener("keydown", fnTecla);
   }, [boolAbierto, onCerrar]);
 
+  const listOrdenadas = useMemo(
+    () => [...listFilas].sort((a, b) => nombreEstudiante(a).localeCompare(nombreEstudiante(b), "es")),
+    [listFilas]
+  );
+
   if (!boolAbierto) return null;
 
   const strTermino = strBuscar.trim().toLowerCase();
   const listBuscadas = strTermino
-    ? listFilas.filter((f) => `${f.apellidos} ${f.nombres} ${f.sis} ${f.ci}`.toLowerCase().includes(strTermino))
-    : listFilas;
+    ? listOrdenadas.filter((f) => `${f.apellidos || ""} ${f.nombres || ""} ${f.ci || ""} ${f.sis || ""}`.toLowerCase().includes(strTermino))
+    : listOrdenadas;
 
-  const fnEsIngreso = (f) => f.estado === "INGRESO" || f.estado === "SIN_SINCRONIZAR";
   const objConteo = {
     TODOS: listBuscadas.length,
-    PENDIENTE: listBuscadas.filter((f) => f.estado === "PENDIENTE").length,
-    INGRESO: listBuscadas.filter(fnEsIngreso).length,
-    INHABILITADO: listBuscadas.filter((f) => f.estado === "INHABILITADO").length,
+    PENDIENTE: listBuscadas.filter((f) => estadoDe(f) === "PENDIENTE").length,
+    INGRESO: listBuscadas.filter((f) => estadoDe(f) === "INGRESO").length,
+    INHABILITADO: listBuscadas.filter((f) => estadoDe(f) === "INHABILITADO").length,
   };
-  const listVisibles = strFiltro === "TODOS"
-    ? listBuscadas
-    : strFiltro === "INGRESO"
-      ? listBuscadas.filter(fnEsIngreso)
-      : listBuscadas.filter((f) => f.estado === strFiltro);
-
-  const strAulaTexto = String(strAula).replace(/^aula\s*/i, "").trim();
-  const listChips = [
-    strAulaTexto ? `Aula ${strAulaTexto}` : null,
-    objFila?.desde && objFila?.hasta ? `Apellidos ${objFila.desde}–${objFila.hasta}` : "Toda el aula",
-    `${listFilas.length} estudiantes`,
-  ].filter(Boolean);
+  const listVisibles = strFiltro === "TODOS" ? listBuscadas : listBuscadas.filter((f) => estadoDe(f) === strFiltro);
+  const numSegundos = dateActualizado ? Math.max(0, Math.round((dateAhora - dateActualizado) / 1000)) : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-[rgba(8,38,74,.45)]" onMouseDown={(e) => e.target === e.currentTarget && onCerrar()}>
-      <aside role="dialog" aria-modal="true" aria-labelledby="ci-t-milista" className="ci-deslizar h-full w-[min(540px,100vw)] bg-white overflow-y-auto flex flex-col">
+      <aside role="dialog" aria-modal="true" aria-labelledby="ci-t-lista" className="ci-deslizar h-full w-[min(540px,100vw)] bg-white overflow-y-auto">
         <div className="flex items-start justify-between gap-3 px-[22px] pt-[22px]">
           <div>
-            <h2 id="ci-t-milista" className="m-0 text-[19px] font-bold text-[#08264A]">Mi lista</h2>
-            <p className="mt-1 text-[13px] text-[#64748B]">Estudiantes que te toca registrar</p>
+            <h2 id="ci-t-lista" className="m-0 text-[19px] font-bold text-[#08264A]">Lista oficial del aula</h2>
+            <p className="mt-1 text-[13px] text-[#64748B]">Estudiantes que ingresaron y que faltan, en tiempo real</p>
+            {/* Mismo indicador que "Últimos ingresos" */}
+            {boolFinalizado ? (
+              <span className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F1F5F9] text-[#475569] text-xs font-extrabold">
+                <i className="w-2 h-2 rounded-full bg-[#94A3B8]" /> Examen finalizado
+              </span>
+            ) : (
+              <span className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#003770] text-white text-xs font-extrabold">
+                <i className="w-2 h-2 rounded-full bg-[#7DD3FC] shadow-[0_0_0_4px_rgba(125,211,252,.25)] animate-pulse" />
+                En vivo{dateActualizado ? ` · actualizado ${textoHace(numSegundos)}` : ""}
+              </span>
+            )}
           </div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0 text-[#003770] hover:bg-[#F1F5F9] cursor-pointer">
             <X className="w-[22px] h-[22px]" />
           </button>
         </div>
 
-        <div className="px-[22px] pt-3 flex flex-wrap gap-2">
-          {listChips.map((str) => (
-            <span key={str} className="px-2.5 py-1 rounded-full bg-[#E8F1FB] text-[#124B83] text-xs font-bold">{str}</span>
-          ))}
-        </div>
+        <div className="px-[22px] pt-4 pb-6">
+          <label htmlFor="ci-buscar" className="sr-only">Buscar en la lista oficial</label>
+          <input
+            id="ci-buscar"
+            value={strBuscar}
+            onChange={(e) => setStrBuscar(e.target.value)}
+            placeholder="Buscar por apellido, C.I. o SIS"
+            className="w-full mb-3 px-3.5 py-[11px] rounded-lg border-[1.5px] border-[#CBD5E1] text-[15px] text-[#08264A] outline-none focus:border-[#1860A3] focus:shadow-[0_0_0_4px_#D9E8F7]"
+          />
 
-        <div className="px-[22px] pt-4 pb-6 flex-1">
-          {strOrigen === "local" && (
-            <div className="mb-3 px-3.5 py-2.5 rounded-lg bg-[#FEF2F2] border border-[#FEE2E2] text-[13px] text-[#B91C1C]">
-              <b className="font-bold">{boolSinRed ? "Sin conexión" : "No se pudo cargar del servidor"}</b>: se muestra la nómina descargada
-              {strNominaDescargadaEn ? ` (${fechaHora(strNominaDescargadaEn)})` : ""} y tus registros de este equipo.
-            </div>
+          <div role="tablist" aria-label="Filtrar por estado" className="flex flex-wrap gap-2 mb-3.5">
+            {FILTROS.map((f) => {
+              const boolActivo = strFiltro === f.strId;
+              return (
+                <button
+                  key={f.strId}
+                  type="button"
+                  role="tab"
+                  aria-selected={boolActivo}
+                  onClick={() => setStrFiltro(f.strId)}
+                  className={
+                    "px-3 py-1.5 rounded-full text-[13px] font-semibold cursor-pointer transition-colors " +
+                    (boolActivo ? "bg-[#003770] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0]")
+                  }
+                >
+                  {f.strTexto} ({objConteo[f.strId]})
+                </button>
+              );
+            })}
+          </div>
+
+          {strError && (
+            <div role="alert" className="mb-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
           )}
 
-          {strOrigen === "sinNomina" && !boolCargando ? (
-            <div className="px-4 py-6 rounded-xl border border-[#CBD5E1] text-center text-sm text-[#475569]">
-              Descarga la nómina con internet para ver tu lista sin conexión.
-            </div>
-          ) : (
-            <>
-              <label htmlFor="ci-buscar-mia" className="sr-only">Buscar en mi lista</label>
-              <input
-                id="ci-buscar-mia"
-                value={strBuscar}
-                onChange={(e) => setStrBuscar(e.target.value)}
-                placeholder="Buscar por apellido, C.I. o SIS"
-                className="w-full mb-3 px-3.5 py-[11px] rounded-lg border-[1.5px] border-[#CBD5E1] text-[15px] text-[#08264A] outline-none focus:border-[#1860A3] focus:shadow-[0_0_0_4px_#D9E8F7]"
-              />
+          <ul className="m-0 p-0 list-none border border-[#CBD5E1] rounded-xl overflow-hidden">
+            {boolCargando && listFilas.length === 0 && !strError && (
+              <li className="text-center text-sm text-[#64748B] px-[18px] py-7">Cargando lista…</li>
+            )}
 
-              <div role="tablist" aria-label="Filtrar por estado" className="flex flex-wrap gap-2 mb-3.5">
-                {FILTROS.map((f) => {
-                  const boolActivo = strFiltro === f.strId;
-                  return (
-                    <button
-                      key={f.strId}
-                      type="button"
-                      role="tab"
-                      aria-selected={boolActivo}
-                      onClick={() => setStrFiltro(f.strId)}
-                      className={
-                        "px-3 py-1.5 rounded-full text-[13px] font-semibold cursor-pointer transition-colors " +
-                        (boolActivo ? "bg-[#003770] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0]")
-                      }
-                    >
-                      {f.strTexto} ({objConteo[f.strId]})
-                    </button>
-                  );
-                })}
-              </div>
+            {!boolCargando && !strError && listVisibles.length === 0 && (
+              <li className="text-center text-sm text-[#64748B] px-[18px] py-7">
+                {listBuscadas.length === 0 ? "Sin coincidencias en la lista." : "No hay estudiantes con este estado."}
+              </li>
+            )}
 
-              <ul className="m-0 p-0 list-none border border-[#CBD5E1] rounded-xl overflow-hidden">
-                {boolCargando && listFilas.length === 0 && (
-                  <li className="text-center text-sm text-[#64748B] px-[18px] py-7">Cargando lista…</li>
-                )}
-
-                {!boolCargando && listVisibles.length === 0 && (
-                  <li className="text-center text-sm text-[#64748B] px-[18px] py-7">
-                    {listBuscadas.length === 0 ? "Sin coincidencias en tu lista." : "No hay estudiantes con este estado."}
-                  </li>
-                )}
-
-                {listVisibles.map((f) => {
-                  const objEstado = ESTADOS[f.estado] || ESTADOS.PENDIENTE;
-                  const boolUltimo = strUltimoRegistrado && (f.ci === strUltimoRegistrado || f.sis === strUltimoRegistrado);
-                  return (
-                    <li
-                      key={f.sis || f.ci}
-                      className={"grid grid-cols-[minmax(0,1fr)_auto] gap-3.5 items-center px-[18px] py-3 border-t border-[#CBD5E1] first:border-t-0 " + (boolUltimo ? "bg-[#F0F6FC]" : "")}
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-[#08264A]">{f.apellidos} {f.nombres}</div>
-                        <div className="mt-px text-xs text-[#64748B]">SIS {f.sis}{f.ci ? ` · C.I. ${f.ci}` : ""}</div>
-                      </div>
-                      <span className={"justify-self-end px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap " + objEstado.strClase}>
-                        {objEstado.strTexto}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          )}
-        </div>
-
-        <div className="px-[22px] py-3 border-t border-[#E2E8F0] text-xs text-[#64748B]">
-          Solo lectura · El registro se hace desde Verificación de ingreso
+            {listVisibles.map((f) => {
+              const strEstado = estadoDe(f);
+              const objEstado = ESTADOS[strEstado];
+              const strClave = claveDe(f);
+              const boolNuevo = Boolean(objNuevos[strClave]);
+              const strMotivo = f.observacion || f.observacionHabilitacion || "";
+              return (
+                <li
+                  key={strClave}
+                  className={
+                    "grid grid-cols-[minmax(0,1fr)_auto] gap-3.5 items-center px-[18px] py-3 border-t border-[#CBD5E1] first:border-t-0 transition-colors " +
+                    (boolNuevo || f.ci === strUltimoRegistrado ? "bg-[#F0F6FC]" : "")
+                  }
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-[#08264A]">
+                      {nombreEstudiante(f)}
+                      {boolNuevo && <span className="ml-2 text-[10px] font-extrabold text-[#1860A3]">NUEVO</span>}
+                    </div>
+                    <div className="mt-px text-xs text-[#64748B]">SIS {f.sis} · C.I. {f.ci}</div>
+                    {strEstado === "INHABILITADO" && (
+                      <div className="mt-1 text-xs text-[#B91C1C]">Motivo: {strMotivo ? strMotivo.charAt(0).toLocaleUpperCase("es") + strMotivo.slice(1) : "sin motivo especificado"}</div>
+                    )}
+                  </div>
+                  <span className={"justify-self-end px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap " + objEstado.strClase}>
+                    {objEstado.strTexto}{strEstado === "INGRESO" && hhmm(f.horaIngreso) ? ` ${hhmm(f.horaIngreso)}` : ""}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </aside>
     </div>

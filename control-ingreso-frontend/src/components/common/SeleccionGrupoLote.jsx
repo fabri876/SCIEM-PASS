@@ -1,3 +1,4 @@
+import SelectorAsignatura from "./SelectorAsignatura";
 import React, { useEffect, useState } from "react";
 import { obtenerAsignaturas, obtenerGruposPorAsignatura, obtenerGruposPorDocente } from "../../services/grupoService";
 import { obtenerUsuarioActual } from "../../services/authService";
@@ -37,12 +38,8 @@ export default function SeleccionGrupoLote({ value, onChange, disabled = false, 
   return <fieldset disabled={disabled} className="space-y-3 rounded-xl border border-border p-4">
     <legend className="px-2 font-bold text-primary-navy">Asignatura y grupo *</legend>
     {error && <p role="alert" className="text-accent-red text-secondary">{error}</p>}
-    <label className="block text-secondary font-bold">Asignatura
-      <select aria-label="Asignatura del lote" value={materia} disabled={cargandoMaterias} onChange={e => { setMateria(e.target.value); setGrupos([]); onChange(null); }} className={estilo}>
-        <option value="">{cargandoMaterias ? "Cargando asignaturas…" : "Seleccione una asignatura"}</option>
-        {asignaturas.map(a => <option key={a.idAsignatura} value={a.idAsignatura}>{a.nombreAsignatura}</option>)}
-      </select>
-    </label>
+    <SelectorAsignatura value={materia} permitidas={asignaturas} disabled={disabled||cargandoMaterias} revision={revision}
+      onChange={valor=>{setMateria(valor);setGrupos([]);onChange(null);}} />
     <label className="block text-secondary font-bold">Grupo
       <select aria-label="Grupo del lote" value={value?.idGrupo || ""} disabled={!materia || cargandoGrupos} onChange={e => onChange(grupos.find(g => String(g.idGrupo) === e.target.value) || null)} className={estilo}>
         <option value="">{cargandoGrupos ? "Cargando grupos…" : "Seleccione un grupo"}</option>

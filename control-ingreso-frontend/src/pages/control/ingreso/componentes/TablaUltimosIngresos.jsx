@@ -1,7 +1,9 @@
 // Historial en vivo de los últimos ingresos (se actualiza solo cada pocos segundos)
 // Ayudante: "Mis últimos ingresos", sin la columna "Registró" (todos son suyos).
 // Docente / administrador: "Últimos ingresos", con quién registró cada ingreso y el total del aula.
-// boolSinRed (solo ayudante): "Sin conexión" en vez de "En vivo" y los registros de este equipo.
+// boolSinRed: "Sin conexión" en vez de "En vivo" y los registros de este equipo (ayudante y docente).
+import { obtenerUsuarioActual } from "../../../../services/authService";
+import { textoNombre } from "../../../../components/common/textoNombre";
 
 // Columnas de la tabla con CSS propio (no dependen de clases de Tailwind):
 // escritorio 4 columnas (3 para el ayudante) · celular: hora + estudiante, y método/registró debajo
@@ -13,12 +15,22 @@ const CSS_COLUMNAS = `
 }`;
 const FILA_BASE = "ci-hist-fila px-5 max-md:px-4 ";
 
-// "MARCELO ANTEZANA CAMACHO" → "Marcelo Antezana Camacho" (solo si viene todo en mayúsculas)
-function nombreNormal(strNombre) {
-  const str = String(strNombre || "").trim();
-  if (!str || str !== str.toUpperCase()) return str;
-  return str.toLowerCase().replace(/(^|\s)\p{L}/gu, (l) => l.toUpperCase());
+// Quién registró: el modo sin conexión guarda el id del usuario (por ejemplo "888"), no su nombre.
+// Si es el id del usuario actual se muestra su nombre; otro número suelto no dice nada, así que se muestra "—".
+function textoRegistro(valor) {
+  const str = String(valor ?? "").trim();
+  if (!str) return "";
+  if (/^\d+$/.test(str)) {
+    const usuario = obtenerUsuarioActual();
+    const strYo = String(usuario?.idUsuario ?? usuario?.idusuario ?? usuario?.id ?? "");
+    const strNombre = `${usuario?.nombre || ""} ${usuario?.apellido || ""}`.trim();
+    return str === strYo ? (textoNombre(strNombre) || "Tú") : "";
+  }
+  return nombreNormal(str);
 }
+
+// Nombres siempre con mayúscula inicial ("caceres rengel fabricio" → "Caceres Rengel Fabricio")
+const nombreNormal = textoNombre;
 
 export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegistrado, strRol = "operador", boolMostrarRegistro, numRegistrados = null, boolSinRed = false }) {
   const boolRegistro = boolMostrarRegistro ?? strRol !== "operador";
@@ -87,19 +99,14 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
                 <span className="md:hidden text-[#64748B]">Método: </span>{r.metodo}
               </span>
               {boolRegistro && (
-                <span className="min-w-0 truncate text-[13px] text-[#334155] max-md:col-start-2 max-md:text-xs" title={r.registradoPor || ""}>
-                  <span className="md:hidden text-[#64748B]">Registró: </span>{nombreNormal(r.registradoPor) || "—"}
+                <span className="min-w-0 truncate text-[13px] text-[#334155] max-md:col-start-2 max-md:text-xs" title={textoRegistro(r.registradoPor) || ""}>
+                  <span className="md:hidden text-[#64748B]">Registró: </span>{textoRegistro(r.registradoPor) || "—"}
                 </span>
               )}
             </li>
           );
         })}
 
-        {boolSinRed && (
-          <li className="block px-5 py-2.5 border-t border-[#E2E8F0] text-xs text-[#64748B] bg-[#F8FAFC]">
-            Sin conexión: solo se ven los registros de este equipo. Los de otros ayudantes aparecen al volver el internet.
-          </li>
-        )}
       </ul>
     </section>
   );

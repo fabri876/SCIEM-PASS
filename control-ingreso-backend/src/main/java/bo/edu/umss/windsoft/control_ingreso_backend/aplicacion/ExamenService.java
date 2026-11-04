@@ -19,10 +19,15 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,6 +49,8 @@ public class ExamenService {
     private final GrupoRepository grupoRepository;
     private final DocenteGrupoRepository docenteGrupoRepository;
     private final HabilitacionRepository habilitacionRepository;
+    private final EstudianteGrupoRepository estudianteGrupoRepository;
+    private final EstudianteRepository estudianteRepository;
     private final IngresoRepository ingresoRepository;
 
     public ExamenService(
@@ -62,6 +69,8 @@ public class ExamenService {
             GrupoRepository grupoRepository,
             DocenteGrupoRepository docenteGrupoRepository,
             HabilitacionRepository habilitacionRepository,
+            EstudianteGrupoRepository estudianteGrupoRepository,
+            EstudianteRepository estudianteRepository,
             IngresoRepository ingresoRepository,
             CambioExamenService cambiosExamen) {
 
@@ -81,6 +90,8 @@ public class ExamenService {
         this.grupoRepository = grupoRepository;
         this.docenteGrupoRepository = docenteGrupoRepository;
         this.habilitacionRepository = habilitacionRepository;
+        this.estudianteGrupoRepository = estudianteGrupoRepository;
+        this.estudianteRepository = estudianteRepository;
         this.ingresoRepository = ingresoRepository;
     }
 
@@ -272,6 +283,13 @@ public class ExamenService {
 
         Examen examenGuardado = examenRepository.save(examen);
 
+        // Las habilitaciones son por examen. Al crear un examen nuevo deben
+        // generarse aunque los estudiantes ya estuvieran inscritos antes.
+        // En una edición no se ejecuta para preservar decisiones previas del docente.
+        if (examenAActualizar == null) {
+            crearHabilitacionesDelExamen(examenGuardado);
+        }
+
         guardarAmbiente(examenGuardado, idAula, idHorarioRegularUsado, horaInicio, horaFin, request.getTipoHorario());
 
         if (aulasAdicionales != null) {
@@ -305,6 +323,40 @@ public class ExamenService {
         return examenGuardado;
     }
 
+    private void crearHabilitacionesDelExamen(Examen examen) {
+        List<Integer> idsGrupo = examen.getIdGrupo() != null
+                ? List.of(examen.getIdGrupo())
+                : grupoRepository.findByIdAsignatura(examen.getIdAsignatura()).stream()
+                        .map(Grupo::getIdGrupo)
+                        .toList();
+
+        if (idsGrupo.isEmpty()) return;
+
+        Map<Integer, Integer> codSisPorUsuario = new LinkedHashMap<>();
+        for (Integer idGrupo : idsGrupo) {
+            estudianteGrupoRepository.findByIdGrupo(idGrupo).forEach(eg ->
+                    codSisPorUsuario.putIfAbsent(eg.getIdUsuario(), eg.getCodSisEstudiante()));
+        }
+
+        if (codSisPorUsuario.isEmpty()) return;
+
+        estudianteRepository.findByIdusuarioIn(new ArrayList<>(codSisPorUsuario.keySet())).forEach(estudiante -> {
+            boolean existe = habilitacionRepository
+                    .existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(
+                            examen.getIdAsignatura(), examen.getIdExamen(), estudiante.getCodsisestudiante());
+            if (existe) return;
+
+            Habilitacion habilitacion = new Habilitacion();
+            habilitacion.setEstudiante(estudiante);
+            habilitacion.setIdUsuario(estudiante.getIdusuario());
+            habilitacion.setIdAsignatura(examen.getIdAsignatura());
+            habilitacion.setIdExamen(examen.getIdExamen());
+            habilitacion.setEstadohabilitacion(true);
+            habilitacion.setObservacionhabilitacion(null);
+            habilitacionRepository.save(habilitacion);
+        });
+    }
+
     /** Valida el grupo únicamente cuando el cliente ya lo envía. */
     private void validarGrupoSolicitado(Integer idGrupo, Integer idAsignatura, Integer idUsuario) {
         if (idGrupo == null) return;
@@ -331,6 +383,28 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No se encontró un docente para el usuario autenticado."));
         return obtenerExamenesDocenteEnriquecidos(idUsuarioAutenticado, docente.getCodsisdocente());
+    }
+
+    /** Exámenes enriquecidos de un docente solicitado por el administrador. */
+    public List<ExamenRespuestaDto> obtenerExamenesDocenteParaAdmin(Integer idUsuario) {
+        Docente docente = docenteRepository.findByIdusuario(idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el docente solicitado."));
+        return obtenerExamenesDocenteEnriquecidos(idUsuario, docente.getCodsisdocente());
+    }
+
+    /** Solo exámenes finalizados, usado por el módulo de reportes. */
+    public List<ExamenRespuestaDto> obtenerExamenesFinalizadosDocente(Integer idUsuario) {
+        Docente docente = docenteRepository.findByIdusuario(idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el docente solicitado."));
+        List<Examen> propios = examenRepository.findByIdUsuarioAndCodsisDocente(idUsuario, docente.getCodsisdocente());
+        ZonedDateTime ahora = ZonedDateTime.now(ZoneId.of("America/La_Paz"));
+        List<Integer> ids = propios.stream().filter(e -> {
+            Ambiente ambiente = ambienteRepository.findByIdExamen(e.getIdExamen()).stream().findFirst().orElse(null);
+            return ambiente != null && (ahora.toLocalDate().isAfter(e.getFechaExamen())
+                    || (ahora.toLocalDate().equals(e.getFechaExamen()) && ahora.toLocalTime().isAfter(ambiente.getHoraFin())));
+        }).map(Examen::getIdExamen).toList();
+        if (ids.isEmpty()) return List.of();
+        return enriquecerLote(examenRepository.findAllById(ids));
     }
 
     /** Exámenes en los que el estudiante autenticado tiene habilitación. */
@@ -411,6 +485,18 @@ public class ExamenService {
                         .stream()
                         .collect(Collectors.groupingBy(Grupo::getIdAsignatura));
 
+        // Los exámenes que ya tienen grupo se resuelven en lote. Antes se hacía
+        // findById() dentro del map de cada examen (N+1 consultas).
+        List<Integer> idsGrupo = examenes.stream()
+                .map(Examen::getIdGrupo)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Integer, Grupo> gruposPorId = idsGrupo.isEmpty()
+                ? Map.of()
+                : grupoRepository.findAllById(idsGrupo).stream()
+                        .collect(Collectors.toMap(Grupo::getIdGrupo, g -> g));
+
         return examenes.stream().map(examen -> {
             ExamenRespuestaDto dto = new ExamenRespuestaDto();
             dto.setIdExamen(examen.getIdExamen());
@@ -442,7 +528,7 @@ public class ExamenService {
             }
 
             List<Grupo> grupos = examen.getIdGrupo() != null
-                    ? grupoRepository.findById(examen.getIdGrupo()).map(List::of).orElse(List.of())
+                    ? Optional.ofNullable(gruposPorId.get(examen.getIdGrupo())).map(List::of).orElse(List.of())
                     : gruposPorAsignatura.getOrDefault(examen.getIdAsignatura(), List.of());
             if (!grupos.isEmpty()) {
                 String nombresGrupos = grupos.stream().map(Grupo::getNombreGrupo).collect(Collectors.joining(", "));

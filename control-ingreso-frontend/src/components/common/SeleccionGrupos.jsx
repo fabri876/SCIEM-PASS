@@ -1,3 +1,4 @@
+import SelectorAsignatura from "./SelectorAsignatura";
 import React, { useState, useEffect } from "react";
 import { obtenerAsignaturas, obtenerGruposPorAsignatura, obtenerGruposPorDocente } from "../../services/grupoService";
 import { obtenerUsuarioActual } from "../../services/authService";
@@ -36,14 +37,8 @@ export default function SeleccionGrupos({ value = [], onChange, disabled = false
     <legend className="px-2 font-bold text-primary-navy">Asignaturas y grupos{required ? " *" : ""}</legend>
     <p className="text-secondary">{unGrupoPorAsignatura ? "Seleccione un solo grupo por asignatura. Para cambiarlo, quite primero el grupo seleccionado. Puede añadir otras asignaturas." : "Seleccione una materia y marque sus grupos. Se añaden al instante; puede repetir con otras materias."}</p>
     {error && <p role="alert" className="text-accent-red">{error}</p>}
-    <label className="block text-sm font-bold">Asignatura
-      <select disabled={cargandoAsignaturas} value={asignatura} onChange={e => {
-        setAsignatura(e.target.value); setGrupos([]); setError(""); setCargando(Boolean(e.target.value));
-      }} className="w-full mt-1 p-2.5 border border-border rounded-xl bg-bg-app text-primary-navy focus:outline-none focus:ring-2 focus:ring-primary-blue/30">
-        <option value="">{cargandoAsignaturas ? "Cargando asignaturas…" : "Seleccione una asignatura"}</option>
-        {asignaturas.map(a => <option key={a.idAsignatura} value={a.idAsignatura}>{a.nombreAsignatura}</option>)}
-      </select>
-    </label>
+    <SelectorAsignatura value={asignatura} permitidas={asignaturas} disabled={disabled||cargandoAsignaturas}
+      onChange={valor=>{setAsignatura(valor);setGrupos([]);setError("");setCargando(Boolean(valor));}} />
     {cargando ? <p>Cargando grupos…</p> : asignatura && <div className="flex flex-wrap gap-3">
       {grupos.filter(g => g.estadoGrupo).map(g => <label key={g.idGrupo} className={`flex items-center gap-2 rounded-xl border px-3 py-2 cursor-pointer ${value.some(v => v.idGrupo === g.idGrupo) ? "border-primary-blue bg-primary-blue/10 text-primary-navy" : "border-border"}`}>
         <input type="checkbox" className="accent-primary-blue" checked={value.some(v => v.idGrupo === g.idGrupo)}
@@ -55,7 +50,7 @@ export default function SeleccionGrupos({ value = [], onChange, disabled = false
     </div>}
     <p className="text-secondary font-semibold text-primary-navy">{value.length ? `${value.length} grupo(s) seleccionados` : required ? "Seleccione al menos un grupo para poder registrar." : "Sin grupos seleccionados (opcional)."}</p>
     {value.map(g => <div key={g.idGrupo} className="flex justify-between gap-3 text-sm bg-bg-app p-2 rounded-lg">
-      <span>{g.nombreAsignatura} · Grupo {g.nombreGrupo}</span>
+      <span>{g.nombreAsignatura} · {asignaturas.find(a=>a.idAsignatura===g.idAsignatura)?.codigoOficial ? `Código ${asignaturas.find(a=>a.idAsignatura===g.idAsignatura).codigoOficial}` : `ID ${g.idAsignatura}`} · Grupo {g.nombreGrupo}</span>
       <button type="button" aria-label={`Quitar ${g.nombreAsignatura}, grupo ${g.nombreGrupo}`} onClick={() => onChange(value.filter(v => v.idGrupo !== g.idGrupo))}>Quitar</button>
     </div>)}
   </fieldset>;

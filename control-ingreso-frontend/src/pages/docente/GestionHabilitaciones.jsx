@@ -14,6 +14,7 @@ import Paginacion from "./components/Paginacion";
 import SelectorEstado from "./components/SelectorEstado";
 import SeccionMotivo from "./components/SeccionMotivo";
 import ModalConfirmacion from "./components/ModalConfirmacion";
+import { estadoExamen } from "./utilidadesExamenDocente";
 
 const MOTIVOS_PREDEFINIDOS = [
     "Incompatibilidad de prerrequisitos curriculares reglamentarios",
@@ -117,6 +118,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                     let hora = '---';
                     let duracionTexto = '---';
                     let ambiente = 'Aula por definir';
+                    // Fecha y horas del examen, para saber si ya terminó
+                    let objRango = null;
 
                     if (exData) {
                         // "Materia · Tipo de examen" (ej. "Ingeniería de Software · Primer parcial")
@@ -125,6 +128,11 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                             : '';
                         nombreExamen = [exData.nombreAsignatura, strTipo].filter(Boolean).join(' · ') || 'Examen Oficial';
                         fecha = exData.fechaExamen || '---';
+                        objRango = {
+                            fechaExamen: exData.fechaExamen,
+                            horaInicio: exData.ambientes?.[0]?.horaInicio,
+                            horaFin: exData.ambientes?.[0]?.horaFin,
+                        };
 
                         if (exData.ambientes && exData.ambientes.length > 0) {
                             const a0 = exData.ambientes[0];
@@ -181,6 +189,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         hora,
                         duracion: duracionTexto,
                         ambiente,
+                        objRango,
                     });
                 }
 
@@ -280,6 +289,9 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
             mostrarToast('success', 'Estudiante quitado de la lista del examen.');
         } catch (err) { mostrarToast('error', err.message || 'No se pudo quitar la asociación.'); }
     };
+
+    // Cuando el examen ya terminó, las habilitaciones ya no se pueden modificar
+    const boolFinalizado = Boolean(infoExamen.objRango) && estadoExamen(infoExamen.objRango) === 'FINALIZADO';
 
     const totalEstudiantes = estudiantes.length;
     const totalHabilitados = estudiantes.filter((e) => e.estadoHabilitacion).length;
@@ -405,6 +417,12 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         ))}
                     </div>
 
+                    {boolFinalizado && (
+                        <div className="px-4 py-3 rounded-xl bg-[#F1F5F9] border border-[#CBD5E1] text-[13.5px] text-[#475569]">
+                            <b className="font-bold text-[#08264A]">Este examen ya terminó.</b> Las habilitaciones ya no se pueden modificar.
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                         {metricas.map((m) => <DocenteMetricsCards key={m.titulo} {...m} />)}
                     </div>
@@ -476,8 +494,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                                     key={est.idHabilitacion}
                                                     est={est}
                                                     numeroFila={(paginaActual - 1) * ELEMENTOS_POR_PAGINA + index + 1}
-                                                    onGestionar={abrirDrawer}
-                                                    onEliminar={eliminarEstudiante}
+                                                    onGestionar={boolFinalizado ? null : abrirDrawer}
+                                                    onEliminar={boolFinalizado ? null : eliminarEstudiante}
                                                 />
                                             ))}
                                         </tbody>
@@ -491,8 +509,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                             key={est.idHabilitacion}
                                             est={est}
                                             numeroFila={(paginaActual - 1) * ELEMENTOS_POR_PAGINA + index + 1}
-                                            onGestionar={abrirDrawer}
-                                            onEliminar={eliminarEstudiante}
+                                            onGestionar={boolFinalizado ? null : abrirDrawer}
+                                            onEliminar={boolFinalizado ? null : eliminarEstudiante}
                                         />
                                     ))}
                                 </div>

@@ -84,17 +84,33 @@ export async function obtenerQrExamen(idExamen) {
     return { ...objQr, estado: calcularEstadoQr(objQr) };
 }
 
+// Aplica la regla de horario al QR que devuelve el backend:
+// antes de las 24 horas previas no se muestra, y después de la hora de fin del examen queda vencido.
+export function ajustarQrPorHorario(objQr, examen) {
+    if (!objQr || !examen?.fecha) return objQr;
+    const objEstado = estadoQrPorFecha(examen.fecha, examen.horaInicio, true, examen.horaFin);
+    if (objEstado.estado === "VENCIDO") {
+        return { ...objQr, contenidoQr: null, estado: "VENCIDO", mensaje: "El examen ya terminó." };
+    }
+    if (objEstado.estado === "PENDIENTE") {
+        return { ...objQr, contenidoQr: null, estado: "PENDIENTE", validoDesde: objEstado.desde.toISOString() };
+    }
+    // Disponible: vale hasta la hora de fin del examen ("Válido hasta …")
+    return objEstado.hasta ? { ...objQr, validoHasta: objEstado.hasta.toISOString() } : objQr;
+}
+
 export async function regenerarQrExamen(idExamen) {
     const d = await pedir(`/api/v1/estudiante/examenes/${idExamen}/qr/regenerar`, { method: "POST" });
     return { ...d, contenidoQr: d?.contenidoQr || null, estado: calcularEstadoQr(d || {}) };
 }
 
-// Estado aproximado del QR para la lista (sin pedir el QR de cada examen):
-// misma regla que el backend (desde el día anterior 00:00 hasta el fin del día del examen)
-export function estadoQrPorFecha(strFecha, strHoraInicio = "00:00", boolHabilitado = true) {
+// Estado del QR para la lista (sin pedir el QR de cada examen):
+// se muestra desde 24 horas antes del inicio y vence cuando termina el examen (hora de fin).
+// Si el examen no trae hora de fin, vence al terminar el día.
+export function estadoQrPorFecha(strFecha, strHoraInicio = "00:00", boolHabilitado = true, strHoraFin = "") {
     if (!boolHabilitado) return { estado: "INHABILITADO" };
     if (!strFecha) return { estado: "NO_DISPONIBLE" };
-    const fin = new Date(`${strFecha}T23:59:59`);
+    const fin = strHoraFin ? new Date(`${strFecha}T${String(strHoraFin).slice(0, 5)}:00`) : new Date(`${strFecha}T23:59:59`);
     const inicioExamen = new Date(`${strFecha}T${strHoraInicio || "00:00"}:00`);
     const ini = new Date(inicioExamen.getTime() - 24 * 60 * 60 * 1000);
     const ahora = new Date();

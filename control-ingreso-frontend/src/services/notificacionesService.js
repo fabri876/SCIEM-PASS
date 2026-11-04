@@ -1,4 +1,5 @@
-import { obtenerExamenesProximos, obtenerCambiosExamenes } from "./examenService";
+import { strApiBaseUrl } from "./apiConfig";
+import { obtenerToken } from "./authService";
 
 /** Avisos derivados del calendario real; no representan mensajes personales ni estados de lectura. */
 export function crearAvisosExamenes(examenes, ahora = new Date()) {
@@ -23,7 +24,11 @@ export function crearAvisosExamenes(examenes, ahora = new Date()) {
 }
 
 export async function obtenerAvisosExamenes() {
-  const [examenes, cambios] = await Promise.all([obtenerExamenesProximos(), obtenerCambiosExamenes()]);
+  const token=obtenerToken();
+  if(!token) return [];
+  const respuesta=await fetch(`${strApiBaseUrl}/api/notificaciones`,{headers:{Authorization:`Bearer ${token}`}});
+  if(!respuesta.ok) throw new Error(respuesta.status===401?"Inicie sesión para ver sus notificaciones.":"No se pudieron cargar sus notificaciones.");
+  const {examenes,cambios}=await respuesta.json();
   return [...crearAvisosCambios(cambios), ...crearAvisosExamenes(examenes)];
 }
 

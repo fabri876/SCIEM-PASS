@@ -15,10 +15,12 @@ public class AcademicoAdminController {
     public AcademicoAdminController(CatalogoAcademicoService catalogo, HorarioImportacionService importador) {
         this.catalogo = catalogo; this.importador = importador;
     }
-    public record AsignaturaRequest(Integer codigo, String nombre, String sigla) {}
+    public record AsignaturaRequest(Integer codigo, String nombre, String sigla,Integer idCarrera,Integer idNivel) {
+        public AsignaturaRequest(Integer codigo,String nombre,String sigla){this(codigo,nombre,sigla,null,null);}
+    }
     @PostMapping("/asignaturas")
     public Asignatura crear(@RequestBody AsignaturaRequest datos) {
-        return catalogo.crear(datos.codigo(), datos.nombre(), datos.sigla());
+        return catalogo.crear(datos.codigo(), datos.nombre(), datos.sigla(),datos.idCarrera(),datos.idNivel());
     }
     @PostMapping("/horario/vista-previa")
     public VistaPrevia preview(@RequestParam("archivo") MultipartFile archivo) { return importador.previsualizar(archivo); }

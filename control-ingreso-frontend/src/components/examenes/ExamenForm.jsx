@@ -370,7 +370,16 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
         }
 
         // No se puede programar un examen en una fecha ya pasada.
-        const strHoyISO = new Date().toISOString().slice(0, 10);
+        const partesHoy = new Intl.DateTimeFormat("en", {
+            timeZone: "America/La_Paz",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).formatToParts(new Date()).reduce((acc, parte) => {
+            acc[parte.type] = parte.value;
+            return acc;
+        }, {});
+        const strHoyISO = `${partesHoy.year}-${partesHoy.month}-${partesHoy.day}`;
         if (objFormData.fecha && objFormData.fecha < strHoyISO) {
             setStrMensaje("No se puede programar un examen en una fecha pasada.");
             return;

@@ -1,6 +1,7 @@
 // Página del DOCENTE (y del ADMINISTRADOR): mismo control de ingreso + lista oficial del aula (solo lectura)
 // Sin internet: si el docente se asignó un tramo de apellidos, ve su tramo en la franja y "Mi lista";
 // si no, la lista muestra toda el aula con la nómina descargada (antes no cargaba sin internet).
+// Sin internet, "Últimos ingresos" muestra los registros guardados en este equipo (igual que el ayudante).
 // Rutas: /home/docente/examenes/:idExamen/control-ingreso  (docente)
 //        /admin/examenes/:idExamen/control-ingreso         (administrador)
 import { useCallback, useEffect, useState } from "react";
@@ -14,6 +15,7 @@ import EncabezadoControl from "./componentes/EncabezadoControl";
 import PanelListaOficial from "./componentes/PanelListaOficial";
 import PanelMiLista from "./componentes/PanelMiLista";
 import useRangoLocal from "./useRangoLocal";
+import useUltimosLocales from "./useUltimosLocales";
 import ToastSyncConfirmacion from "../components/ToastSyncConfirmacion";
 import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilidadesExamenDocente";
 
@@ -26,7 +28,7 @@ export default function ControlIngresoDocente() {
   const strNombreDocente = objUbicacion.state?.nombreDocente || "";
   // Sección del panel desde la que se entró (para que "Volver" regrese ahí)
   const strMenuOrigen = objUbicacion.state?.menuOrigen || "inicio";
-  const TEXTO_VOLVER = { inicio: "Inicio", "mis-examenes": "Mis exámenes", "control-ingresos": "Control de ingresos" };
+  const TEXTO_VOLVER = { inicio: "Inicio", "mis-examenes": "Mis exámenes", "control-ingresos": "Control de Ingresos" };
   const strTextoVolver = boolAdmin ? "Gestión de Exámenes" : (TEXTO_VOLVER[strMenuOrigen] || "Inicio");
   const fnVolver = () => {
     if (boolAdmin) navigate("/admin", { state: { menu: "Gestión de Exámenes" } });
@@ -50,10 +52,12 @@ export default function ControlIngresoDocente() {
   const idExamenLocal = examen?.idexamen ?? Number(idExamen);
   // Tramo del docente guardado en el equipo (solo se usa sin internet)
   const objRangoDocente = useRangoLocal(idExamenLocal, examen?.idambiente ?? idAmbiente, boolSinRed);
+  // Historial sin internet: registros guardados en este equipo
+  const listUltimosLocales = useUltimosLocales(idExamenLocal, boolSinRed, ctrl.numVersion, estadoRed.pend);
 
   // El registro se habilita desde MINUTOS_ANTES_CONTROL_INGRESO antes del inicio.
   // Antes de eso se ve la pantalla, pero no se puede registrar.
-  const { inicio } = rangoExamen(examen ? { fechaExamen: examen.fecha, horaInicio: examen.horaInicio, horaFin: examen.horaFin } : null);
+  const { inicio, fin: dateFinExamen } = rangoExamen(examen ? { fechaExamen: examen.fecha, horaInicio: examen.horaInicio, horaFin: examen.horaFin } : null);
   const dateApertura = inicio ? new Date(inicio.getTime() - MINUTOS_ANTES_CONTROL_INGRESO * 60000) : null;
   const [dateAhora, setDateAhora] = useState(() => new Date());
   useEffect(() => {
@@ -119,7 +123,7 @@ export default function ControlIngresoDocente() {
 
         <div>
           <SeccionControlIngreso
-            ctrl={ctrl}
+            ctrl={boolSinRed ? { ...ctrl, listUltimos: listUltimosLocales } : ctrl}
             strRol="docente"
             boolPermitirVolver={false}
             objFilaSinRed={boolSinRed ? objRangoDocente : null}
@@ -170,6 +174,7 @@ export default function ControlIngresoDocente() {
           idExamen={Number(idExamen)}
           numVersion={ctrl.numVersion}
           strUltimoRegistrado={ctrl.strUltimoRegistrado}
+          boolFinalizado={Boolean(dateFinExamen) && new Date() > dateFinExamen}
         />
       )}
       <ToastSyncConfirmacion />
