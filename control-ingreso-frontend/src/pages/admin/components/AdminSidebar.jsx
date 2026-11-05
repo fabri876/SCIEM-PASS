@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Calendar, UserCheck, History, Shield, AlertTriangle, BookOpen, Activity, FileText, Upload } from "lucide-react";
+import { Users, Calendar, UserCheck, History, Shield, AlertTriangle, BookOpen, Activity, FileText, Upload, XCircle } from "lucide-react";
 import { obtenerTotalIncidenciasAbiertas } from "../../../services/incidenciaService";
 
 const baseMenuItems = [
@@ -12,6 +12,7 @@ const baseMenuItems = [
     { id: "Carga de Exámenes Pasados", label: "Carga de Exámenes Pasados", icon: Upload },
     { id: "Monitoreo de Asistencia", label: "Monitoreo de Asistencia", icon: Activity },
     { id: "Reportes y Asistencia", label: "Reportes y Asistencia", icon: FileText },
+    { id: "Reporte de Intentos Incorrectos", label: "Intentos Incorrectos (HU13)", icon: XCircle },
     { id: "Incidencias", label: "Incidencias", icon: AlertTriangle, esIncidencia: true },
     { id: "Historial Inmodificable", label: "Historial Inmodificable", icon: History },
 ];
