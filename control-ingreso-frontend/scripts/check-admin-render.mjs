@@ -56,7 +56,14 @@ try {
   const { default: Examenes } = await server.ssrLoadModule("/src/pages/examenesHome/Examenes.jsx");
   const htmlExamenes = renderToString(React.createElement(MemoryRouter, null, React.createElement(Examenes)));
   assert.ok(htmlExamenes.includes("Exámenes próximos"));
-  assert.ok(!htmlExamenes.includes("/examenes/pasados"));
+  assert.ok(htmlExamenes.includes("/examenes/pasados"));
+  const { default: CargaPasados } = await server.ssrLoadModule("/src/pages/admin/components/CargaExamenesPasados.jsx");
+  const htmlCarga = renderToString(React.createElement(CargaPasados));
+  assert.ok(htmlCarga.includes("Guardar documento"));
+  assert.ok(htmlCarga.includes('name="strPeriodo"'));
+  assert.ok(!htmlCarga.includes('name="strIdDocente"'));
+  const { default: Pasados } = await server.ssrLoadModule("/src/pages/examenesHome/ExamenesPasados.jsx");
+  assert.ok(renderToString(React.createElement(MemoryRouter, null, React.createElement(Pasados))).includes("Exámenes pasados"));
   const { default: Panel } = await server.ssrLoadModule("/src/pages/admin/AdminDashboard.jsx");
   const html = renderToString(React.createElement(MemoryRouter, null, React.createElement(Panel)));
   assert.ok(html.includes("Administración de Usuarios y Roles"));

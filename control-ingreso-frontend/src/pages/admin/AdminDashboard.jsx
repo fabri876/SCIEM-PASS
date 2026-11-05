@@ -16,6 +16,7 @@ import CargaExamenesPasados from "./components/CargaExamenesPasados";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
+import SeccionReporteIntentosIncorrectos from "../../components/reportes/SeccionReporteIntentosIncorrectos";
 import { obtenerUsuarioActual } from "../../services/authService";
 import {
     listarUsuarios,
@@ -288,6 +289,13 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                         ================================================= */}
                     {activeMenu === "Reportes y Asistencia" && (
                         <SeccionReportesAsistencia strRol="ADMINISTRADOR" boolMostrarTitulo={false} />
+                    )}
+
+                    {/* =================================================
+                        REPORTE DE INTENTOS INCORRECTOS (HU13)
+                        ================================================= */}
+                    {activeMenu === "Reporte de Intentos Incorrectos" && (
+                        <SeccionReporteIntentosIncorrectos strRol="ADMINISTRADOR" />
                     )}
                 </main>
             </div>

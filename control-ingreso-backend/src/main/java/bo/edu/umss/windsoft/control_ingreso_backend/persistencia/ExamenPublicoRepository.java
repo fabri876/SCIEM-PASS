@@ -26,11 +26,12 @@ public class ExamenPublicoRepository {
             LEFT JOIN usuario u ON u.idusuario = e.idusuario
             LEFT JOIN ambiente am ON am.idexamen = e.idexamen AND am.idasignatura = e.idasignatura
             LEFT JOIN aula au ON au.idaula = am.idaula
-            WHERE e.idsemestre=(SELECT idsemestre FROM semestre WHERE estado='ACTUAL') AND e.estadoexamen = true AND e.fechaexamen >= ?
+            WHERE e.idsemestre=(SELECT idsemestre FROM semestre WHERE estado='ACTUAL') AND e.estadoexamen = true AND e.fechaexamen BETWEEN ? AND ?
               AND (e.fechaexamen > ? OR am.horafin IS NULL OR am.horafin > ?)
             ORDER BY e.fechaexamen, am.horainicio NULLS LAST, e.idexamen, am.idambiente
             """;
-        var argumentos=new java.util.ArrayList<Object>(java.util.List.of(hoy,hoy,hora));
+        // Dias calendario inclusivos: hoy, manana y pasado manana, en la fecha boliviana del servicio.
+        var argumentos=new java.util.ArrayList<Object>(java.util.List.of(hoy,hoy.plusDays(2),hoy,hora));
         if(id!=null) {
             sql=sql.replace("ORDER BY",VisibilidadExamenSql.FILTRO+" ORDER BY");
             argumentos.addAll(java.util.Arrays.asList(VisibilidadExamenSql.parametros(id,rol)));

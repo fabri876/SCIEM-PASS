@@ -1,7 +1,10 @@
+import { useRegisterBackHandler } from "../../../hooks/useAndroidBackButton";
 export default function ModalCierreSesion({
   visibleConfirm, mensajeConfirm, visibleCerrada, resumen,
   onConfirmar, onCancelar, onReiniciar,
 }) {
+  useRegisterBackHandler(Boolean(visibleConfirm || visibleCerrada), onCancelar);
+
   if (!visibleConfirm && !visibleCerrada) return null;
 
   return (
