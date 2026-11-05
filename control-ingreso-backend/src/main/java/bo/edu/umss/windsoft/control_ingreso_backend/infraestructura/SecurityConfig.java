@@ -44,7 +44,7 @@ public class SecurityConfig {
                         // falla como error de CORS sin ni siquiera intentar autenticar.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/registro", "/api/auth/registro-personal").denyAll()
-                        .requestMatchers(HttpMethod.GET, "/api/publico/examenes/proximos", "/api/publico/examenes/cambios").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/publico/examenes/proximos", "/api/publico/examenes/cambios", "/api/publico/examenes/pasados", "/api/publico/examenes/pasados/*/pdf").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/ping",
