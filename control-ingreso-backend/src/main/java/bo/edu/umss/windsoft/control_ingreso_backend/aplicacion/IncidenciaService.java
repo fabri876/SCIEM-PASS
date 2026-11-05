@@ -191,11 +191,16 @@ public class IncidenciaService {
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
         String afectado = estudiante != null ? estudiante.usuario().getCorreousuario() : usuario.correo();
         String contexto = info.asignatura() + " · examen " + ambiente.getIdExamen() + " · " + info.aula();
-        auditoriaService.registrar("INCIDENCIA_REGISTRADA", usuario.correo(), afectado,
-                incidencia.getCodigo() + " · " + tipo.name() + " · " + severidad.name() + " · " + contexto, ip);
-        if (expulsion != null) {
-            auditoriaService.registrar("EXPULSION_REGISTRADA", usuario.correo(), afectado,
-                    incidencia.getCodigo() + " · ingreso #" + ingresoARetirar.getIdIngreso() + " retirado · " + contexto, ip);
+        try {
+            auditoriaService.registrarEnTransaccion("INCIDENCIA_REGISTRADA", usuario.correo(), afectado,
+                    incidencia.getCodigo() + " · " + tipo.name() + " · " + severidad.name() + " · " + contexto, ip);
+            if (expulsion != null) {
+                auditoriaService.registrarEnTransaccion("EXPULSION_REGISTRADA", usuario.correo(), afectado,
+                        incidencia.getCodigo() + " · ingreso #" + ingresoARetirar.getIdIngreso() + " retirado · " + contexto, ip);
+            }
+        } catch (RuntimeException e) {
+            evidenciaService.eliminarSinFallar(evidencia);
+            throw e;
         }
 
         return armarDetalle(incidencia, ambiente);
@@ -306,7 +311,7 @@ public class IncidenciaService {
         incidencia.setIdUsuarioRevisa(usuario.idUsuario());
         incidencia = incidenciaRepository.save(incidencia);
 
-        auditoriaService.registrar("INCIDENCIA_EN_REVISION", usuario.correo(), correoAfectado(incidencia, usuario),
+        auditoriaService.registrarEnTransaccion("INCIDENCIA_EN_REVISION", usuario.correo(), correoAfectado(incidencia, usuario),
                 incidencia.getCodigo() + " · ABIERTA → EN_REVISION", ip);
         return armarDetalle(incidencia, ambiente);
     }
@@ -334,7 +339,7 @@ public class IncidenciaService {
         incidencia.setIdUsuarioResuelve(usuario.idUsuario());
         incidencia = incidenciaRepository.save(incidencia);
 
-        auditoriaService.registrar("INCIDENCIA_CERRADA", usuario.correo(), correoAfectado(incidencia, usuario),
+        auditoriaService.registrarEnTransaccion("INCIDENCIA_CERRADA", usuario.correo(), correoAfectado(incidencia, usuario),
                 incidencia.getCodigo() + " · " + anterior.name() + " → CERRADA · resolución: " + resolucionLimpia, ip);
         return armarDetalle(incidencia, ambiente);
     }

@@ -52,6 +52,7 @@ public class ExamenService {
     private final EstudianteGrupoRepository estudianteGrupoRepository;
     private final EstudianteRepository estudianteRepository;
     private final IngresoRepository ingresoRepository;
+    private final AuditoriaService auditoriaService;
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -72,7 +73,8 @@ public class ExamenService {
             EstudianteGrupoRepository estudianteGrupoRepository,
             EstudianteRepository estudianteRepository,
             IngresoRepository ingresoRepository,
-            CambioExamenService cambiosExamen) {
+            CambioExamenService cambiosExamen,
+            AuditoriaService auditoriaService) {
 
         this.cambiosExamen = cambiosExamen;
         this.examenRepository = examenRepository;
@@ -93,6 +95,7 @@ public class ExamenService {
         this.estudianteGrupoRepository = estudianteGrupoRepository;
         this.estudianteRepository = estudianteRepository;
         this.ingresoRepository = ingresoRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     // -------------------------------------------------------------------------
@@ -100,7 +103,7 @@ public class ExamenService {
     // -------------------------------------------------------------------------
 
     @Transactional
-    public Examen registrarExamen(ExamenRequest request) {
+    public Examen registrarExamen(ExamenRequest request, String ip) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean esAdmin = auth.getAuthorities().stream()
@@ -115,7 +118,10 @@ public class ExamenService {
             request.setCodsisDocente(docente.getCodsisdocente());
         }
 
-        return crearOActualizarExamen(null, request);
+        Examen creado = crearOActualizarExamen(null, request);
+        auditoriaService.registrarEnTransaccion("CREACION_EXAMEN", auth.getName(), null,
+                "examen=" + creado.getIdExamen() + ", asignatura=" + creado.getIdAsignatura(), ip);
+        return creado;
     }
 
     // -------------------------------------------------------------------------
@@ -123,7 +129,7 @@ public class ExamenService {
     // -------------------------------------------------------------------------
 
     @Transactional
-    public ExamenRespuestaDto actualizarExamen(Integer idExamen, ExamenRequest request) {
+    public ExamenRespuestaDto actualizarExamen(Integer idExamen, ExamenRequest request, String ip) {
 
         Examen examenExistente = examenRepository.findById(idExamen)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -157,6 +163,8 @@ public class ExamenService {
         ambienteRepository.flush();
         cambiosExamen.registrar(idExamen, antes,
                 cambiosExamen.estado(actualizado.getFechaExamen(), ambienteRepository.findByIdExamen(idExamen)));
+        auditoriaService.registrarEnTransaccion("EDICION_EXAMEN", auth.getName(), null,
+                "examen=" + idExamen + ", asignatura=" + actualizado.getIdAsignatura(), ip);
         return enriquecerExamen(actualizado);
     }
 
@@ -201,6 +209,15 @@ public class ExamenService {
                             + tipoExamen.getNombreTipoExamen() + "' para esta asignatura.");
         }
 
+        if ("Segundo Parcial".equalsIgnoreCase(tipoExamen.getNombreTipoExamen())
+                && !esElMismoExamenConMismoTipo) {
+            TipoExamen primero = tipoExamenRepository.findByNombreTipoExamenIgnoreCase("Primer Parcial")
+                    .orElseThrow(() -> new IllegalArgumentException("No está configurado el Primer Parcial."));
+            if (!tiposYaUsados.contains(primero.getIdTipoExamen())) {
+                throw new IllegalArgumentException("Debe registrar el Primer Parcial antes del Segundo Parcial.");
+            }
+        }
+
         Integer idAula;
         LocalTime horaInicio;
         LocalTime horaFin;
@@ -235,6 +252,9 @@ public class ExamenService {
             idAula = request.getIdAula();
             horaInicio = request.getHoraInicio();
             horaFin = request.getHoraFin();
+            if (horaInicio.isBefore(LocalTime.of(6, 45)) || horaFin.isAfter(LocalTime.of(21, 45))) {
+                throw new IllegalArgumentException("El horario eventual debe estar entre 06:45 y 21:45.");
+            }
         }
 
         Duration duracion = Duration.between(horaInicio, horaFin);
@@ -260,6 +280,8 @@ public class ExamenService {
 
         Integer idExamenActual = examenAActualizar != null ? examenAActualizar.getIdExamen() : null;
         LocalDate fechaDelExamen = request.getFechaExamen().toLocalDate();
+        validarSinSolapamientoDocente(request.getIdUsuario(), request.getCodsisDocente(), fechaDelExamen,
+                horaInicio, horaFin, idExamenActual);
         validarSinSolapamiento(idAula, fechaDelExamen, horaInicio, horaFin, idExamenActual);
         if (aulasAdicionales != null) {
             for (Integer idAulaAdicional : aulasAdicionales) {
@@ -732,6 +754,22 @@ public class ExamenService {
                         "El aula con id " + idAula + " ya está ocupada el " + fecha
                                 + " entre " + existente.getHoraInicio() + " y " + existente.getHoraFin()
                                 + " (examen id " + existente.getIdExamen() + ").");
+            }
+        }
+    }
+
+    private void validarSinSolapamientoDocente(Integer idUsuario, Integer codsisDocente, LocalDate fecha,
+                                                LocalTime inicio, LocalTime fin, Integer idExamenAExcluir) {
+        List<Integer> ids = examenRepository.findByIdUsuarioAndCodsisDocente(idUsuario, codsisDocente).stream()
+                .filter(examen -> fecha.equals(examen.getFechaExamen()))
+                .map(Examen::getIdExamen)
+                .filter(id -> id != null && !id.equals(idExamenAExcluir))
+                .toList();
+        if (ids.isEmpty()) return;
+        for (Ambiente ambiente : ambienteRepository.findByIdExamenIn(ids)) {
+            if (ambiente.getHoraInicio() != null && ambiente.getHoraFin() != null
+                    && inicio.isBefore(ambiente.getHoraFin()) && fin.isAfter(ambiente.getHoraInicio())) {
+                throw new IllegalArgumentException("El docente ya tiene un examen programado en ese horario.");
             }
         }
     }
