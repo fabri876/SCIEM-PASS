@@ -10,6 +10,7 @@ import { obtenerMisExamenes } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
+import SeccionReporteIntentosIncorrectos from "../../components/reportes/SeccionReporteIntentosIncorrectos";
 import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
 import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
 import { AlertTriangle, ScanLine, Activity } from "lucide-react";
@@ -312,6 +313,16 @@ export default function HomeDocente() {
                                 Reportes y Asistencia
                             </button>
                             <button
+                                onClick={() => setStrMenuActivo("intentos-incorrectos")}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "intentos-incorrectos"
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                                    }`}
+                            >
+                                <svg className={`w-4 h-4 ${strMenuActivo === "intentos-incorrectos" ? "text-white" : "text-[#1A365D]"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path></svg>
+                                Intentos Incorrectos (HU13)
+                            </button>
+                            <button
                                 onClick={() => setStrMenuActivo("incidencias")}
                                 className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "incidencias"
                                     ? "bg-[#1A365D] text-white shadow-xs"
@@ -342,6 +353,8 @@ export default function HomeDocente() {
                     <main className="flex-1 min-w-0 space-y-6">
                         {strMenuActivo === "reportes" ? (
                             <SeccionReportesAsistencia strRol="DOCENTE" />
+                        ) : strMenuActivo === "intentos-incorrectos" ? (
+                            <SeccionReporteIntentosIncorrectos strRol="DOCENTE" />
                         ) : strMenuActivo === "incidencias" ? (
                             <SeccionIncidencias rol="DOCENTE" />
                         ) : strMenuActivo === "monitoreo" ? (
