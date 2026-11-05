@@ -420,13 +420,17 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró el docente solicitado."));
         List<Examen> propios = examenRepository.findByIdUsuarioAndCodsisDocente(idUsuario, docente.getCodsisdocente());
         ZonedDateTime ahora = ZonedDateTime.now(ZoneId.of("America/La_Paz"));
+        Map<Integer, Ambiente> ambientePorExamen = ambienteRepository.findByIdExamenIn(
+                        propios.stream().map(Examen::getIdExamen).toList())
+                .stream()
+                .collect(Collectors.toMap(Ambiente::getIdExamen, a -> a, (a, b) -> a));
         List<Integer> ids = propios.stream().filter(e -> {
-            Ambiente ambiente = ambienteRepository.findByIdExamen(e.getIdExamen()).stream().findFirst().orElse(null);
+            Ambiente ambiente = ambientePorExamen.get(e.getIdExamen());
             return ambiente != null && (ahora.toLocalDate().isAfter(e.getFechaExamen())
                     || (ahora.toLocalDate().equals(e.getFechaExamen()) && ahora.toLocalTime().isAfter(ambiente.getHoraFin())));
         }).map(Examen::getIdExamen).toList();
         if (ids.isEmpty()) return List.of();
-        return enriquecerLote(examenRepository.findAllById(ids));
+        return enriquecerLote(examenRepository.findAllById(ids), false);
     }
 
     /** Exámenes en los que el estudiante autenticado tiene habilitación. */
@@ -458,6 +462,11 @@ public class ExamenService {
      * una consulta por examen. Evita el patrón N+1.
      */
     private List<ExamenRespuestaDto> enriquecerLote(List<Examen> examenes) {
+        return enriquecerLote(examenes, true);
+    }
+
+    /** Enriquecimiento liviano para selectores que no necesitan contadores ni normas. */
+    private List<ExamenRespuestaDto> enriquecerLote(List<Examen> examenes, boolean incluirResumen) {
         if (examenes.isEmpty()) {
             return List.of();
         }
@@ -489,7 +498,8 @@ public class ExamenService {
                 .collect(Collectors.groupingBy(Ambiente::getIdExamen));
 
         // --- NUEVO: batch de normas generales ---
-        List<ExamenNormaGeneral> todasRelaciones = examenNormaGeneralRepository.findByIdIdExamenIn(idsExamen);
+        List<ExamenNormaGeneral> todasRelaciones = incluirResumen
+                ? examenNormaGeneralRepository.findByIdIdExamenIn(idsExamen) : List.of();
         List<Integer> idsNormaGeneral = todasRelaciones.stream()
                 .map(rel -> rel.getId().getIdNormaGeneral()).distinct().toList();
         Map<Integer, NormaGeneral> normasGeneralesPorId = idsNormaGeneral.isEmpty()
@@ -582,16 +592,18 @@ public class ExamenService {
             }).collect(Collectors.toList());
             dto.setAmbientes(ambientesDto);
 
-            int totalHabilitados = (int) habilitacionRepository
-                    .countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(examen.getIdAsignatura(), examen.getIdExamen());
-            int inhabilitados = (int) habilitacionRepository
-                    .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(examen.getIdAsignatura(), examen.getIdExamen());
-            int ingresados = (int) ingresoRepository
-                    .countByIdAsignaturaAndIdExamenAndIdExpulsionIsNull(examen.getIdAsignatura(), examen.getIdExamen());
-            dto.setIngresados(ingresados);
-            dto.setInhabilitados(inhabilitados);
-            dto.setTotalInscritos(totalHabilitados);
-            dto.setNoLlegan(Math.max(0, totalHabilitados - ingresados));
+            if (incluirResumen) {
+                int totalHabilitados = (int) habilitacionRepository
+                        .countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(examen.getIdAsignatura(), examen.getIdExamen());
+                int inhabilitados = (int) habilitacionRepository
+                        .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(examen.getIdAsignatura(), examen.getIdExamen());
+                int ingresados = (int) ingresoRepository
+                        .countByIdAsignaturaAndIdExamenAndIdExpulsionIsNull(examen.getIdAsignatura(), examen.getIdExamen());
+                dto.setIngresados(ingresados);
+                dto.setInhabilitados(inhabilitados);
+                dto.setTotalInscritos(totalHabilitados);
+                dto.setNoLlegan(Math.max(0, totalHabilitados - ingresados));
+            }
 
             // --- NUEVO: poblar normasGenerales del DTO ---
             List<ExamenNormaGeneral> relacionesDeEsteExamen = relacionesPorExamen.getOrDefault(examen.getIdExamen(),

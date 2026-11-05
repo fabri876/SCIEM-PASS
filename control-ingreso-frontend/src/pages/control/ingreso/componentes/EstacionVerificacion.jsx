@@ -37,8 +37,6 @@ function PanelQR({ onValidar, boolValidando, idExamen }) {
   const refLector = useRef(null);
   const refLeido = useRef(false);
 
-  useRegisterBackHandler(strEstado === "leyendo", fnDetener);
-
   const fnDetener = async () => {
     const lector = refLector.current;
     refLector.current = null;
@@ -47,6 +45,9 @@ function PanelQR({ onValidar, boolValidando, idExamen }) {
     }
     setStrEstado("inactivo");
   };
+
+  // La función debe existir antes de registrarla en el hook de navegación.
+  useRegisterBackHandler(strEstado === "leyendo", fnDetener);
 
   useEffect(() => () => { fnDetener(); }, []);
 

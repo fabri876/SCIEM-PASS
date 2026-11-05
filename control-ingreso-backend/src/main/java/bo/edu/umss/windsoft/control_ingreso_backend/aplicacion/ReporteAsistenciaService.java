@@ -62,19 +62,31 @@ public class ReporteAsistenciaService {
 
     private byte[] excel(Examen examen, List<EstudianteListaOficialDTO> filas, Map<Integer, Ingreso> ingresos, Set<String> secciones) {
         try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            var sheet = wb.createSheet("Asistencia");
-            int r = 0;
-            Row titulo = sheet.createRow(r++); titulo.createCell(0).setCellValue("Reporte de asistencia - Examen " + examen.getIdExamen());
-            Row h = sheet.createRow(r++); String[] cab = {"Código SIS", "C.I.", "Estudiante", "Estado", "Hora ingreso", "Observación"};
-            for (int i=0;i<cab.length;i++) h.createCell(i).setCellValue(cab[i]);
-            for (EstudianteListaOficialDTO f : filas) {
-                Row row = sheet.createRow(r++); Ingreso ing = ingresos.get(f.getCodigoSis());
-                String estado = ing != null ? "ASISTIÓ" : ("INHABILITADO".equalsIgnoreCase(f.getEstado()) ? "INHABILITADO" : "AUSENTE");
-                String hora = ing == null || ing.getHoraIngreso() == null ? "" : ing.getHoraIngreso().toLocalTime().toString();
-                String[] vals = {String.valueOf(f.getCodigoSis()), Objects.toString(f.getCi(),""), Objects.toString(f.getNombre(), f.getApellidos()), estado, hora, Objects.toString(f.getObservacion(),"")};
-                for (int i=0;i<vals.length;i++) row.createCell(i).setCellValue(vals[i]);
+            if (secciones.contains("resumen")) {
+                var sheet = wb.createSheet("Resumen");
+                Row h = sheet.createRow(0); String[] cab = {"Examen", "Inscritos", "Asistieron", "Ausentes", "Inhabilitados", "% asistencia"};
+                for (int i=0;i<cab.length;i++) h.createCell(i).setCellValue(cab[i]);
+                long asistieron = filas.stream().filter(f -> ingresos.containsKey(f.getCodigoSis())).count();
+                long inh = filas.stream().filter(f -> "INHABILITADO".equalsIgnoreCase(f.getEstado())).count();
+                String[] vals = {String.valueOf(examen.getIdExamen()), String.valueOf(filas.size()), String.valueOf(asistieron), String.valueOf(filas.size()-asistieron-inh), String.valueOf(inh), filas.isEmpty()?"0%":String.format("%.0f%%", asistieron * 100.0 / filas.size())};
+                Row row = sheet.createRow(1); for (int i=0;i<vals.length;i++) row.createCell(i).setCellValue(vals[i]);
             }
-            for (int i=0;i<6;i++) sheet.autoSizeColumn(i);
+            if (secciones.stream().anyMatch(s -> Set.of("asistentes", "ausentes", "inhabilitados").contains(s))) {
+                var sheet = wb.createSheet("Detalle"); int r = 0;
+                Row h = sheet.createRow(r++); String[] cab = {"Código SIS", "C.I.", "Estudiante", "Estado", "Hora ingreso", "Observación"};
+                for (int i=0;i<cab.length;i++) h.createCell(i).setCellValue(cab[i]);
+                for (EstudianteListaOficialDTO f : filas) {
+                    Ingreso ing = ingresos.get(f.getCodigoSis());
+                    boolean inh = "INHABILITADO".equalsIgnoreCase(f.getEstado());
+                    boolean aus = ing == null && !inh;
+                    boolean asi = ing != null;
+                    if (!(asi && secciones.contains("asistentes") || aus && secciones.contains("ausentes") || inh && secciones.contains("inhabilitados"))) continue;
+                    Row row = sheet.createRow(r++); String estado = asi ? "ASISTIÓ" : (inh ? "INHABILITADO" : "AUSENTE");
+                    String hora = ing == null || ing.getHoraIngreso() == null ? "" : ing.getHoraIngreso().toLocalTime().toString();
+                    String[] vals = {String.valueOf(f.getCodigoSis()), Objects.toString(f.getCi(),""), Objects.toString(f.getNombre(), f.getApellidos()), estado, hora, Objects.toString(f.getObservacion(),"")};
+                    for (int i=0;i<vals.length;i++) row.createCell(i).setCellValue(vals[i]);
+                }
+            }
             wb.write(out); return out.toByteArray();
         } catch (Exception e) { throw new IllegalStateException("No se pudo generar el Excel.", e); }
     }
@@ -88,9 +100,12 @@ public class ReporteAsistenciaService {
                 long asistieron = filas.stream().filter(f -> ingresos.containsKey(f.getCodigoSis())).count();
                 long inh = filas.stream().filter(f -> "INHABILITADO".equalsIgnoreCase(f.getEstado())).count();
                 cs.beginText(); cs.newLineAtOffset(40, 708); cs.showText("Asistieron: " + asistieron + "   Ausentes: " + (filas.size()-asistieron-inh) + "   Inhabilitados: " + inh); cs.endText();
-                int y = 680; cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD), 8); cs.beginText(); cs.newLineAtOffset(40, y); cs.showText("SIS        C.I.       ESTUDIANTE                         ESTADO        HORA"); cs.endText(); y -= 16;
+                int y = 680;
+                if (secciones.contains("resumen")) { cs.beginText(); cs.newLineAtOffset(40, y); cs.showText("Resumen: inscritos " + filas.size() + ", asistieron " + asistieron + ", ausentes " + (filas.size()-asistieron-inh) + ", inhabilitados " + inh); cs.endText(); y -= 20; }
+                boolean detalle = secciones.stream().anyMatch(s -> Set.of("asistentes", "ausentes", "inhabilitados").contains(s));
+                if (detalle) { cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD), 8); cs.beginText(); cs.newLineAtOffset(40, y); cs.showText("SIS        C.I.       ESTUDIANTE                         ESTADO        HORA"); cs.endText(); y -= 16; }
                 cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 8);
-                for (EstudianteListaOficialDTO f : filas) { if (y < 45) break; Ingreso ing=ingresos.get(f.getCodigoSis()); String estado=ing!=null?"ASISTIO":("INHABILITADO".equalsIgnoreCase(f.getEstado())?"INHABILITADO":"AUSENTE"); String nombre=Objects.toString(f.getNombre(),f.getApellidos()); if(nombre.length()>30) nombre=nombre.substring(0,30); String txt=String.format("%-10s %-10s %-32s %-12s %s", f.getCodigoSis(), Objects.toString(f.getCi(),""), nombre, estado, ing==null?"":ing.getHoraIngreso().toLocalTime()); cs.beginText(); cs.newLineAtOffset(40,y); cs.showText(txt); cs.endText(); y-=13; }
+                if (detalle) for (EstudianteListaOficialDTO f : filas) { if (y < 45) break; Ingreso ing=ingresos.get(f.getCodigoSis()); boolean inhFila="INHABILITADO".equalsIgnoreCase(f.getEstado()), aus=ing==null&&!inhFila, asi=ing!=null; if (!(asi&&secciones.contains("asistentes")||aus&&secciones.contains("ausentes")||inhFila&&secciones.contains("inhabilitados"))) continue; String estado=asi?"ASISTIO":(inhFila?"INHABILITADO":"AUSENTE"); String nombre=Objects.toString(f.getNombre(),f.getApellidos()); if(nombre.length()>30) nombre=nombre.substring(0,30); String txt=String.format("%-10s %-10s %-32s %-12s %s", f.getCodigoSis(), Objects.toString(f.getCi(),""), nombre, estado, ing==null?"":ing.getHoraIngreso().toLocalTime()); cs.beginText(); cs.newLineAtOffset(40,y); cs.showText(txt); cs.endText(); y-=13; }
             }
             doc.save(out); return out.toByteArray();
         } catch (Exception e) { throw new IllegalStateException("No se pudo generar el PDF.", e); }
