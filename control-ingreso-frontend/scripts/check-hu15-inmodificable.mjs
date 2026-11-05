@@ -49,11 +49,10 @@ const server = await createServer({
 });
 
 try {
-  console.log("1. Probando servicios criptográficos y encadenamiento SHA-256...");
+  console.log("1. Probando consulta y verificación del historial...");
   const {
     calcularSha256,
-    obtenerTextoCanonicoBloque,
-    generarBloquesSemilla,
+    listarHistorialInmodificable,
     verificarIntegridadBloque,
     verificarCadenaCompleta,
   } = await server.ssrLoadModule("/src/services/historialInmodificableService.js");
@@ -64,34 +63,24 @@ try {
   assert.equal(hashTest.length, 64);
   console.log("   ✓ Cálculo SHA-256 correcto (longitud 64 hex):", hashTest.slice(0, 16) + "...");
 
-  // Prueba de encadenamiento con bloques semilla
-  const bloques = await generarBloquesSemilla();
-  assert.ok(bloques.length >= 7, "Debe generar al menos 7 bloques de prueba forense");
-  console.log(`   ✓ Generados ${bloques.length} bloques con encadenamiento SHA-256`);
-
-  // Verificar integridad individual de cada bloque
-  for (const b of bloques) {
-    const res = await verificarIntegridadBloque(b);
-    assert.equal(res.esValido, true, `El bloque #${b.idBloque} debe tener un sello válido`);
-  }
-  console.log("   ✓ Todos los bloques individuales tienen sellos criptográficos válidos");
-
-  // Verificar la cadena completa
-  const resCadena = await verificarCadenaCompleta(bloques);
-  assert.equal(resCadena.esValido, true, "La cadena completa debe ser 100% íntegra");
-  console.log("   ✓ Cadena completa verificada con éxito:", resCadena.mensaje);
-
-  // Probar detección de manipulación / alteración maliciosa (Criterio 18)
-  const bloquesAlterados = JSON.parse(JSON.stringify(bloques));
-  bloquesAlterados[2].detalles = "Texto modificado de forma maliciosa en la base de datos";
-  const resAlterado = await verificarIntegridadBloque(bloquesAlterados[2]);
-  assert.equal(resAlterado.esValido, false, "Debe detectar que el hash fue violado");
-  console.log("   ✓ Detección de alteración de bloque exitosa:", resAlterado.motivo);
-
-  // Probar detección de eslabón roto en la cadena (Criterio 19)
-  const resCadenaRota = await verificarCadenaCompleta(bloquesAlterados);
-  assert.equal(resCadenaRota.esValido, false, "Debe detectar la ruptura de la cadena");
-  console.log("   ✓ Detección de ruptura en cadena exitosa:", resCadenaRota.motivo);
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => String(url).includes("/verificar")
+        ? { esValido: false, mensaje: "Sin punto de control externo" }
+        : [],
+    };
+  };
+  assert.deepEqual(await listarHistorialInmodificable(), [], "Una lista vacía no debe contener datos ficticios");
+  const sinSello = await verificarIntegridadBloque({ idBloque: 1 });
+  assert.equal(sinSello.esValido, false, "Un evento sin sello no es verificable");
+  const resCadena = await verificarCadenaCompleta([]);
+  assert.equal(resCadena.esValido, false);
+  assert.ok(urls.some((url) => url.includes("/historial-inmodificable/verificar")));
+  console.log("   ✓ Sin registros ficticios; la verificación completa consulta al backend");
 
   console.log("2. Probando renderizado del componente HistorialInmodificable...");
   const { default: HistorialInmodificable } = await server.ssrLoadModule(
@@ -105,8 +94,8 @@ try {
     "Debe contener el título oficial de HU15"
   );
   assert.ok(
-    html.includes("WORM"),
-    "Debe contener mención de almacenamiento WORM"
+    !html.includes("WORM Activo"),
+    "No debe afirmar que WORM está activo sin verificar la configuración"
   );
   assert.ok(
     html.includes("Exportar Registro Completo (CSV)"),
@@ -136,7 +125,7 @@ try {
   console.log("   ✓ El componente HistorialInmodificable renderiza todos los elementos requeridos");
 
   console.log("\n=======================================================");
-  console.log("✅ TODAS LAS PRUEBAS DE HU15 FRONTEND PASARON CON ÉXITO");
+  console.log("✅ COMPROBACIONES BÁSICAS DE HU15 FRONTEND COMPLETADAS");
   console.log("=======================================================");
 } finally {
   await server.close();

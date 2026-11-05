@@ -79,6 +79,8 @@ export default function HistorialInmodificable() {
       }
       setIntPaginaActual(1);
     } catch (err) {
+      setArrBloques([]);
+      setBloqueSeleccionado(null);
       setStrError(err.message || "Error al recuperar el historial inmodificable.");
     } finally {
       setBoolCargando(false);
@@ -234,11 +236,11 @@ export default function HistorialInmodificable() {
             </h1>
             <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <ShieldCheck className="w-3.5 h-3.5" />
-              WORM Activo
+              Auditoría
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-            Registro forense auditado con garantías WORM (Write Once, Read Many) y encadenamiento criptográfico SHA-256.
+            Consulta de eventos y sellos disponibles. La integridad depende de la configuración y verificación del servidor.
           </p>
         </div>
 
@@ -402,7 +404,7 @@ export default function HistorialInmodificable() {
               Registro de Eventos y Bloques Criptográficos
             </h2>
             <p className="text-[11px] text-slate-400 font-medium">
-              Cadena inmutable de bloques encadenados por hash criptográfico SHA-256 (orden cronológico inverso).
+              Eventos registrados en orden cronológico inverso; los sellos solo se muestran cuando existen.
             </p>
           </div>
           <div className="text-[11px] font-bold text-slate-500">
@@ -436,7 +438,7 @@ export default function HistorialInmodificable() {
                   <td colSpan="7" className="py-12 text-center text-xs text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="w-5 h-5 animate-spin text-primary-blue" />
-                      <span>Cargando eventos y verificando hashes SHA-256...</span>
+                      <span>Cargando eventos...</span>
                     </div>
                   </td>
                 </tr>
@@ -504,9 +506,8 @@ export default function HistorialInmodificable() {
 
                       {/* Sello SHA-256 */}
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          {bloque.selloSha256 ? `${bloque.selloSha256.slice(0, 6)}...${bloque.selloSha256.slice(-4)}` : "VERIFICADO"}
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-slate-50 text-slate-700 border border-slate-200">
+                          {bloque.selloSha256 ? `${bloque.selloSha256.slice(0, 6)}...${bloque.selloSha256.slice(-4)}` : "SIN SELLO"}
                         </span>
                       </td>
                     </tr>
@@ -587,7 +588,7 @@ export default function HistorialInmodificable() {
                   Inspección Forense de Bloque Auditable #{bloqueSeleccionado.idBloque}
                 </h3>
                 <p className="text-[11px] text-slate-400 font-medium">
-                  Evidencia forense inmutable y vinculación criptográfica verificada en tiempo real.
+                  Datos registrados y estado del sello individual, cuando está disponible.
                 </p>
               </div>
             </div>
@@ -606,7 +607,7 @@ export default function HistorialInmodificable() {
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-rose-50 text-rose-700 border border-rose-300">
                   <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
-                  DISCREPANCIA CRIPTOGRÁFICA
+                  {bloqueSeleccionado.selloSha256 ? "SELLO NO CONFIRMADO" : "SIN SELLO: NO VERIFICABLE"}
                 </span>
               )}
             </div>
@@ -667,7 +668,7 @@ export default function HistorialInmodificable() {
               <div className="flex items-center gap-2">
                 <Lock className="w-4 h-4 text-emerald-400" />
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300">
-                  Cadena Criptográfica de Integridad (SHA-256 WORM Chaining)
+                  Cadena criptográfica de integridad (SHA-256)
                 </span>
               </div>
               <span className="text-[10px] font-mono text-slate-400">
@@ -708,7 +709,7 @@ export default function HistorialInmodificable() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-slate-300 font-semibold">
-                  Hash bloque anterior (#{Math.max(1, bloqueSeleccionado.idBloque - 1)}):
+                  Hash del bloque anterior:
                 </span>
                 <button
                   type="button"
@@ -734,7 +735,7 @@ export default function HistorialInmodificable() {
             </div>
 
             <p className="text-[10px] text-slate-400 leading-normal border-t border-slate-700/80 pt-2.5">
-              Cada bloque encadena criptográficamente el hash de su predecesor. Si un registro histórico fuese alterado en la base de datos, todos los hashes subsiguientes quedarían invalidados automáticamente, detectando la manipulación de inmediato.
+              Los eventos sin sello previo no pueden verificarse. La cadena interna tampoco sustituye un punto de control externo protegido.
             </p>
           </div>
         </div>
@@ -756,7 +757,7 @@ export default function HistorialInmodificable() {
                     Verificación Forense de la Cadena
                   </h4>
                   <p className="text-[11px] text-slate-400">
-                    Comprobación de enlaces SHA-256 e inmutabilidad
+                    Comprobación de enlaces internos SHA-256
                   </p>
                 </div>
               </div>
@@ -786,7 +787,7 @@ export default function HistorialInmodificable() {
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                       <span className="text-xs font-black uppercase tracking-wide">
-                        Cadena Criptográfica 100% Íntegra
+                        Cadena interna consistente
                       </span>
                     </div>
                     <p className="text-xs leading-relaxed text-emerald-900">
@@ -798,7 +799,7 @@ export default function HistorialInmodificable() {
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
                       <span className="text-xs font-black uppercase tracking-wide">
-                        Inconsistencia Detectada en la Cadena
+                        No se pudo confirmar la integridad
                       </span>
                     </div>
                     <p className="text-xs leading-relaxed text-rose-900">
@@ -809,16 +810,16 @@ export default function HistorialInmodificable() {
 
                 <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-2 text-slate-600">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Total bloques analizados:</span>
-                    <span className="font-bold text-slate-800">{resVerificacionCadena.totalBloques || arrBloques.length}</span>
+                    <span className="text-slate-400">Eventos sellados comprobados:</span>
+                    <span className="font-bold text-slate-800">{resVerificacionCadena.totalBloques ?? "—"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Algoritmo de enlace:</span>
-                    <span className="font-mono font-bold text-slate-800">SHA-256 WORM</span>
+                    <span className="font-mono font-bold text-slate-800">SHA-256</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Estado de inmutabilidad:</span>
-                    <span className="font-bold text-emerald-700">INALTERADO / AUDITABLE</span>
+                    <span className="text-slate-400">Estado de la cadena interna:</span>
+                    <span className="font-bold text-slate-700">{resVerificacionCadena.esValido ? "CONSISTENTE" : "NO CONFIRMADO"}</span>
                   </div>
                 </div>
 

@@ -39,18 +39,21 @@ public class HabilitacionService {
     private final MotivoInhabilitacionRepository motivoInhabilitacionRepository;
     private final EstudianteRepository estudianteRepository;
     private final ExamenRepository examenRepository;
+    private final AuditoriaService auditoriaService;
 
     public HabilitacionService(
             HabilitacionRepository habilitacionRepository,
             UsuarioRepository usuarioRepository,
             MotivoInhabilitacionRepository motivoInhabilitacionRepository,
             EstudianteRepository estudianteRepository,
-            ExamenRepository examenRepository) {
+            ExamenRepository examenRepository,
+            AuditoriaService auditoriaService) {
         this.habilitacionRepository = habilitacionRepository;
         this.usuarioRepository = usuarioRepository;
         this.motivoInhabilitacionRepository = motivoInhabilitacionRepository;
         this.estudianteRepository = estudianteRepository;
         this.examenRepository = examenRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     @Transactional
@@ -123,10 +126,12 @@ public class HabilitacionService {
     }
 
     @Transactional
-    public HabilitacionResponseDto actualizarHabilitacion(Integer idHabilitacion, HabilitacionRequestDto request) {
+    public HabilitacionResponseDto actualizarHabilitacion(Integer idHabilitacion, HabilitacionRequestDto request,
+                                                          String ejecutor, String ip) {
         Habilitacion habilitacion = habilitacionRepository.findById(idHabilitacion)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró la habilitación con ID: " + idHabilitacion));
 
+        Boolean estadoAnterior = habilitacion.getEstadohabilitacion();
         Boolean nuevoEstado = request.resolverEstado();
         if (nuevoEstado != null) {
             habilitacion.setEstadohabilitacion(nuevoEstado);
@@ -148,6 +153,10 @@ public class HabilitacionService {
         }
 
         Habilitacion guardada = habilitacionRepository.save(habilitacion);
+        auditoriaService.registrarEnTransaccion("CAMBIO_HABILITACION", ejecutor, null,
+                "habilitacion=" + idHabilitacion + ", estudiante=" + guardada.getIdUsuario()
+                        + ", examen=" + guardada.getIdExamen() + ", estado_anterior=" + estadoAnterior
+                        + ", estado_nuevo=" + guardada.getEstadohabilitacion(), ip);
         return mapearADto(guardada);
     }
 

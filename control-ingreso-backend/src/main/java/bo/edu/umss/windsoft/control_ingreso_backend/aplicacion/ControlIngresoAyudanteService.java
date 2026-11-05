@@ -81,6 +81,7 @@ public class ControlIngresoAyudanteService {
     // dashboard
     private final AsignacionAulaService asignacionAulaService;
     private final IntentoIngresoService intentoIngresoService;
+    private final AuditoriaService auditoriaService;
 
     // Prefijo de seguridad para identificar escaneos QR del sistema
     private static final String PREFIJO_QR = "SCIEMPASS:1:";
@@ -98,9 +99,11 @@ public class ControlIngresoAyudanteService {
             GrupoRepository grupoRepository,
             CredencialRepository credencialRepository,
             AsignacionAulaService asignacionAulaService,
-            IntentoIngresoService intentoIngresoService) {
+            IntentoIngresoService intentoIngresoService,
+            AuditoriaService auditoriaService) {
         this.asignacionAulaService = asignacionAulaService;
         this.intentoIngresoService = intentoIngresoService;
+        this.auditoriaService = auditoriaService;
         this.ayudanteExamenRepository = ayudanteExamenRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.examenRepository = examenRepository;
@@ -291,14 +294,14 @@ public class ControlIngresoAyudanteService {
     }
 
     @Transactional
-    public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador) {
-        return registrarIngreso(dto, idOperador, null, null);
+    public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador, String ip) {
+        return registrarIngreso(dto, idOperador, null, null, ip);
     }
 
     /** Variante HU7: conserva la hora declarada por el dispositivo offline. */
     @Transactional
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
-            LocalDateTime horaMarcacion, String clientUuid) {
+            LocalDateTime horaMarcacion, String clientUuid, String ip) {
         validarAsignacionDeControl(dto, idOperador);
 
         // El horario se valida únicamente para registros online. Las marcas
@@ -552,6 +555,13 @@ public class ControlIngresoAyudanteService {
             }
             throw ex;
         }
+
+        String ejecutor = idOperador == null ? null : usuarioRepository.findById(idOperador)
+                .map(Usuario::getCorreousuario).orElse(null);
+        auditoriaService.registrarEnTransaccion("REGISTRO_INGRESO", ejecutor, usuario.getCorreousuario(),
+                "estudiante=" + usuario.getIdusuario() + ", examen=" + dto.idexamen()
+                        + ", ambiente=" + dto.idambiente() + ", operador=" + idOperador
+                        + ", hora_ingreso=" + nuevoIngreso.getHoraIngreso(), ip);
 
         ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
                 "PERMITIDO",
