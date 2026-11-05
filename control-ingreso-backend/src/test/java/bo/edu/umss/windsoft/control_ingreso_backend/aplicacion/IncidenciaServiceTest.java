@@ -168,7 +168,7 @@ class IncidenciaServiceTest {
         assertEquals("ABIERTA", dto.estado());
         assertEquals("Aula 601", dto.aula());
         assertEquals(1, dto.lineaTiempo().size());
-        verify(auditoriaService).registrar(eq("INCIDENCIA_REGISTRADA"), eq("ana.rocha@umss.edu"), anyString(),
+        verify(auditoriaService).registrarEnTransaccion(eq("INCIDENCIA_REGISTRADA"), eq("ana.rocha@umss.edu"), anyString(),
                 contains("INC-014"), eq("ip"));
     }
 
@@ -282,7 +282,7 @@ class IncidenciaServiceTest {
 
         assertEquals(5, ingreso.getIdExpulsion());
         verify(ingresoRepository).saveAndFlush(ingreso);
-        verify(auditoriaService).registrar(eq("EXPULSION_REGISTRADA"), anyString(), eq("j.perez@est.umss.edu"),
+        verify(auditoriaService).registrarEnTransaccion(eq("EXPULSION_REGISTRADA"), anyString(), eq("j.perez@est.umss.edu"),
                 contains("ingreso #1203"), anyString());
     }
 
@@ -308,7 +308,7 @@ class IncidenciaServiceTest {
         IncidenciaDetalleDto dto = service.cerrar(14, "Se devolvió el celular al terminar.", "ip");
         assertEquals("CERRADA", dto.estado());
         assertEquals(ID_DOCENTE, incidencia.getIdUsuarioResuelve());
-        verify(auditoriaService).registrar(eq("INCIDENCIA_CERRADA"), anyString(), anyString(),
+        verify(auditoriaService).registrarEnTransaccion(eq("INCIDENCIA_CERRADA"), anyString(), anyString(),
                 contains("EN_REVISION → CERRADA"), anyString());
     }
 
@@ -330,7 +330,7 @@ class IncidenciaServiceTest {
 
         assertEquals("EN_REVISION", dto.estado());
         assertEquals(2, dto.lineaTiempo().size());
-        verify(auditoriaService).registrar(eq("INCIDENCIA_EN_REVISION"), anyString(), anyString(), anyString(), anyString());
+        verify(auditoriaService).registrarEnTransaccion(eq("INCIDENCIA_EN_REVISION"), anyString(), anyString(), anyString(), anyString());
     }
 
     private Incidencia incidenciaGuardada(EstadoIncidencia estado) {

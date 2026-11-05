@@ -245,8 +245,13 @@ public class IngresoExcepcionalService {
             throw e;
         }
 
-        auditoriaService.registrar("INGRESO_EXCEPCIONAL", usuario.correo(), correoEstudiante,
-                contexto + " · ingreso #" + ingreso.getIdIngreso(), ip);
+        try {
+            auditoriaService.registrarEnTransaccion("INGRESO_EXCEPCIONAL", usuario.correo(), correoEstudiante,
+                    contexto + " · ingreso #" + ingreso.getIdIngreso(), ip);
+        } catch (RuntimeException e) {
+            evidenciaService.eliminarSinFallar(evidencia);
+            throw e;
+        }
 
         return aDto(ingreso, info, est.nombreCompleto(), ambienteExamenService.aforo(idAmbiente));
     }

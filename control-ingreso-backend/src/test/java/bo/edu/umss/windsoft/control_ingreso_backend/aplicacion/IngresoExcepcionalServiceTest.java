@@ -167,8 +167,19 @@ class IngresoExcepcionalServiceTest {
         assertEquals("Ana Rocha Villarroel", dto.autorizadoPor());
         assertEquals("Aula 601", dto.aula());
         verify(ingresoRepository).bloquearAmbiente(ID_AMBIENTE);
-        verify(auditoriaService).registrar(eq("INGRESO_EXCEPCIONAL"), eq("ana.rocha@umss.edu"),
+        verify(auditoriaService).registrarEnTransaccion(eq("INGRESO_EXCEPCIONAL"), eq("ana.rocha@umss.edu"),
                 eq("c.ramos@est.umss.edu"), contains("NO_FIGURA_EN_LISTA"), eq("10.0.0.1"));
+    }
+
+    @Test
+    @DisplayName("Un fallo de auditoria impide confirmar el ingreso excepcional")
+    void autorizar_falloAuditoriaPropagaError() {
+        doThrow(new IllegalStateException("fallo de auditoria"))
+                .when(auditoriaService).registrarEnTransaccion(eq("INGRESO_EXCEPCIONAL"), anyString(),
+                        anyString(), anyString(), anyString());
+        assertThrows(IllegalStateException.class, () -> service.autorizar(
+                ID_AMBIENTE, CODSIS, "NO_FIGURA_EN_LISTA", OBSERVACION, null, "10.0.0.1"));
+        verify(evidenciaService).eliminarSinFallar(null);
     }
 
     @Test

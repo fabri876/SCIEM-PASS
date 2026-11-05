@@ -16,6 +16,7 @@ import CargaExamenesPasados from "./components/CargaExamenesPasados";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
+import SeccionReporteIntentosIncorrectos from "../../components/reportes/SeccionReporteIntentosIncorrectos";
 import { obtenerUsuarioActual } from "../../services/authService";
 import {
     listarUsuarios,
@@ -33,6 +34,7 @@ export default function AdminDashboard({ onNavigateToLogin }) {
     // navigate("/admin", { state: { menu: "Gestión de Exámenes" } })
     const objUbicacion = useLocation();
     const [activeMenu, setActiveMenu] = useState(objUbicacion.state?.menu || "Gestión de Usuarios");
+    const [menuAdminMovilAbierto, setMenuAdminMovilAbierto] = useState(false);
     const [revisionAcademica, setRevisionAcademica] = useState(0);
     const usuarioSesion = obtenerUsuarioActual();
 
@@ -157,6 +159,23 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     ==================================================== */}
                 <main className="flex-1 min-w-0 p-4 lg:p-8 space-y-6 overflow-x-hidden">
 
+                    <div className="lg:hidden">
+                        <button type="button" aria-expanded={menuAdminMovilAbierto}
+                            aria-controls="menu-administracion-movil"
+                            onClick={() => setMenuAdminMovilAbierto(abierto => !abierto)}
+                            className="rounded-xl bg-primary-navy px-4 py-2 text-sm font-bold text-white">
+                            {menuAdminMovilAbierto ? "Cerrar menú de administración" : "Menú de administración"}
+                        </button>
+                        {menuAdminMovilAbierto && (
+                            <nav id="menu-administracion-movil" aria-label="Menú de administración" className="mt-2 rounded-xl overflow-hidden">
+                                <AdminSidebar activeMenu={activeMenu} setActiveMenu={menu => {
+                                    setActiveMenu(menu);
+                                    setMenuAdminMovilAbierto(false);
+                                }} />
+                            </nav>
+                        )}
+                    </div>
+
                     <div className="flex justify-between items-start">
                         <div>
                             <h1 className="text-xl lg:text-h2 font-extrabold text-primary-navy tracking-tight leading-none">
@@ -270,6 +289,13 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                         ================================================= */}
                     {activeMenu === "Reportes y Asistencia" && (
                         <SeccionReportesAsistencia strRol="ADMINISTRADOR" boolMostrarTitulo={false} />
+                    )}
+
+                    {/* =================================================
+                        REPORTE DE INTENTOS INCORRECTOS (HU13)
+                        ================================================= */}
+                    {activeMenu === "Reporte de Intentos Incorrectos" && (
+                        <SeccionReporteIntentosIncorrectos strRol="ADMINISTRADOR" />
                     )}
                 </main>
             </div>
