@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { BackButtonProvider } from "./hooks/useAndroidBackButton";
+import { useNativeLifecycle } from "./hooks/useNativeLifecycle";
 import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, registrarActividad, estaSesionExpirada, cerrarSesion, setModoOfflineForzado } from "./services/authService";
 import { configRepo } from "./offline/configRepo.js";
 
@@ -120,6 +122,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <AppRouterWrapper>
       <Routes>
         {/* Rutas Públicas (Redirigen al Home si el usuario ya inició sesión) */}
         <Route
@@ -230,7 +233,19 @@ function App() {
         {/* Redirección por defecto: ahora entra directo al Home */}
         <Route path="/" element={<Navigate to="/inicio" replace />} />
       </Routes>
+      </AppRouterWrapper>
     </BrowserRouter>
+  );
+}
+
+function AppRouterWrapper({ children }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  useNativeLifecycle();
+  return (
+    <BackButtonProvider navigate={navigate} pathname={location.pathname}>
+      {children}
+    </BackButtonProvider>
   );
 }
 
