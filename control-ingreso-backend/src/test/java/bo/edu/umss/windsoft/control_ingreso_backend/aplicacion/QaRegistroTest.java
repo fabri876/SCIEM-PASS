@@ -37,7 +37,7 @@ class QaRegistroTest {
  @Test void cargaRechazaCiSisCorreoYTelefonoInvalidosSinGuardar() throws Exception {
   var usuarios=mock(UsuarioRepository.class);var roles=mock(TipoUsuarioResolver.class);var grupos=mock(GrupoService.class);
   Usuario admin=new Usuario();admin.setIdusuario(1);when(usuarios.findByCorreousuario("admin@test.bo")).thenReturn(Optional.of(admin));when(roles.resolver(1)).thenReturn("ADMINISTRADOR");
-  var servicio=new CargaMasivaService(usuarios,mock(AdminRepository.class),mock(DocenteRepository.class),mock(AyudanteRepository.class),mock(EstudianteRepository.class),mock(AsignaturaRepository.class),mock(GrupoRepository.class),grupos,mock(PasswordEncoder.class),mock(AuditoriaService.class),roles);
+  var servicio=new CargaMasivaService(usuarios,mock(AdminRepository.class),mock(DocenteRepository.class),mock(AyudanteRepository.class),mock(EstudianteRepository.class),mock(AsignaturaRepository.class),mock(GrupoRepository.class),grupos,mock(PasswordEncoder.class),mock(AuditoriaService.class),roles,mock(CargaMasivaJdbcRepository.class));
   try(var w=new XSSFWorkbook();var out=new ByteArrayOutputStream()){
    var hoja=w.createSheet();String[] cols={"CODSIS","CORREO","CI","APELLIDOS","NOMBRES","TELEFONO"};var h=hoja.createRow(0);var fila=hoja.createRow(1);String[] datos={"20230160","sin.dominio@","ABCDEFG","Prueba","QA","12ab"};for(int i=0;i<cols.length;i++){h.createCell(i).setCellValue(cols[i]);fila.createCell(i).setCellValue(datos[i]);}w.write(out);
    var resultado=servicio.procesarCargaMasiva(new MockMultipartFile("archivo","lista.xlsx","application/octet-stream",out.toByteArray()),"ESTUDIANTE","admin@test.bo","local",7);

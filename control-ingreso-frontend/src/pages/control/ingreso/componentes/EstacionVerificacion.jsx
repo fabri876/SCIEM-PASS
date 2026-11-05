@@ -100,8 +100,7 @@ function PanelQR({ onValidar, boolValidando, idExamen }) {
       <div className="flex-1 basis-[300px] min-w-0 max-md:flex-none max-md:basis-auto max-md:text-center">
         <h3 className="m-0 text-[17px] font-bold text-[#08264A]">Escanear QR de la credencial</h3>
         <p className="mt-1.5 mb-4 text-sm leading-relaxed text-[#64748B]">
-          Presiona «Leer QR» y acerca la credencial del estudiante a la cámara. Al reconocer el código, el sistema valida al
-          estudiante y registra la fecha y hora de ingreso.
+          Acerca la credencial del estudiante a la cámara.
         </p>
         {boolLeyendo ? (
           <button type="button" onClick={fnDetener} className={CLASE_BOTON + " max-md:w-full max-md:min-h-[52px]"}>

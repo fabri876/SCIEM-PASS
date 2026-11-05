@@ -1,7 +1,7 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +11,7 @@ import java.util.Map;
 
 /**
  * Endpoints para configuración y validación de PIN de desbloqueo offline (F3-06).
- * Guarda el hash SHA-256/BCrypt del PIN en tabla configuracion_usuario.
+ * Guarda el hash del PIN con el PasswordEncoder compartido en configuracion_usuario.
  *
  * NOTA: Ajusta la inyección de JdbcTemplate o reemplázala por tu repositorio JPA
  * según la configuración actual de tu proyecto.
@@ -24,7 +24,7 @@ public class UsuarioPinController {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private BCryptPasswordEncoder passwordEncoder;
+    private PasswordEncoder passwordEncoder;
 
     @PostMapping("/validar-pin")
     public ResponseEntity<?> validarPin(@RequestBody PinRequest request) {

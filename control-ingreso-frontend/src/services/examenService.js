@@ -126,11 +126,33 @@ export async function obtenerExamenes() {
     return response.json();
 }
 
+export async function obtenerExamenesPorDocente(idUsuario) {
+    const response = await fetch(`${strApiBaseUrl}/api/examenes/por-docente/${idUsuario}`, {
+        headers: construirHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error("No se pudieron obtener los exámenes del docente");
+    }
+    return response.json();
+}
+
+export async function obtenerExamenesFinalizadosDocente(idUsuario) {
+    const ruta = idUsuario
+        ? `/api/examenes/por-docente/${idUsuario}/finalizados`
+        : "/api/examenes/mis-examenes-finalizados";
+    const response = await fetch(`${strApiBaseUrl}${ruta}`, { headers: construirHeaders() });
+    if (!response.ok) throw new Error("No se pudieron obtener los exámenes finalizados");
+    return response.json();
+}
+
 export async function obtenerMisExamenes() {
     const usuario = obtenerUsuarioActual();
     const res = await cargarExamenesConRespaldo({
         clave: "mis-examenes",
         usuarioId: usuario?.idUsuario ?? null,
+    // Esta consulta puede tardar más cuando el docente tiene varios grupos,
+    // ambientes y habilitaciones. Evitar cancelarla a los 5 s.
+    timeoutMs: 20000,
         fetcher: async ({ signal }) => {
             const response = await fetch(`${strApiBaseUrl}/api/examenes/mis-examenes`, {
                 headers: construirHeaders(),

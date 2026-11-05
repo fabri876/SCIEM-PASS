@@ -4,17 +4,27 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.FilaListadoDocente;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import java.util.*;
+import java.time.LocalDate;
+import java.time.Instant;
 @Repository
 public class SemestreRepository {
- public record Resumen(int id,int anio,int numero,String estado,String observaciones,boolean simulado,boolean original){public String nombre(){return numero+"-"+anio;}}
+ public record Resumen(int id,int anio,int numero,String estado,String observaciones,boolean simulado,boolean original,
+                       LocalDate fechaInicio,LocalDate fechaFin,Instant archivadoEn){
+  public Resumen(int id,int anio,int numero,String estado,String observaciones,boolean simulado,boolean original){this(id,anio,numero,estado,observaciones,simulado,original,null,null,null);}
+  public String nombre(){return numero+"-"+anio;}
+ }
  public record Docente(int id,int sis,String nombre,String apellido) {}
  public record CargaGrupo(FilaSemestre fila,List<Docente> docentes) {}
  private final JdbcTemplate jdbc;
  public SemestreRepository(JdbcTemplate jdbc){this.jdbc=jdbc;}
- private Resumen map(java.sql.ResultSet r,int n)throws java.sql.SQLException{return new Resumen(r.getInt("idsemestre"),r.getInt("anio"),r.getInt("numero"),r.getString("estado"),r.getString("observaciones"),r.getBoolean("simulado"),r.getBoolean("original"));}
- public Resumen actual(boolean bloquear){return jdbc.queryForObject("SELECT idsemestre,anio,numero,estado,observaciones,simulado,(pdf_original IS NOT NULL) original FROM semestre WHERE estado='ACTUAL'"+(bloquear?" FOR UPDATE":""),this::map);}
- public List<Resumen> historial(){return jdbc.query("SELECT idsemestre,anio,numero,estado,observaciones,simulado,(pdf_original IS NOT NULL) original FROM semestre s WHERE estado='FINALIZADO' AND (NOT simulado OR NOT EXISTS(SELECT 1 FROM semestre r WHERE r.anio=s.anio AND r.numero=s.numero AND NOT r.simulado)) ORDER BY anio DESC,numero DESC,simulado LIMIT 5",this::map);}
- public Resumen obtener(int id){var encontrados=jdbc.query("SELECT idsemestre,anio,numero,estado,observaciones,simulado,(pdf_original IS NOT NULL) original FROM semestre WHERE idsemestre=?",this::map,id);if(encontrados.isEmpty())throw new bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException("Semestre no encontrado.");return encontrados.getFirst();}
+ public void guardarFechas(int id,LocalDate inicio,LocalDate fin){jdbc.update("UPDATE semestre SET fecha_inicio=?,fecha_fin=? WHERE idsemestre=? AND archivado_en IS NULL",inicio,fin,id);}
+ public void marcarArchivado(int id){jdbc.update("UPDATE semestre SET archivado_en=CURRENT_TIMESTAMP WHERE idsemestre=? AND archivado_en IS NULL",id);}
+ public int idPeriodo(int anio,int numero){return jdbc.queryForObject("SELECT idsemestre FROM semestre WHERE anio=? AND numero=? AND simulado=false",Integer.class,anio,numero);}
+ public boolean haySolapamiento(int excluir,LocalDate inicio,LocalDate fin){return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM semestre WHERE idsemestre<>? AND NOT simulado AND fecha_inicio<=? AND fecha_fin>=?)",Boolean.class,excluir,fin,inicio));}
+ private Resumen map(java.sql.ResultSet r,int n)throws java.sql.SQLException{return new Resumen(r.getInt("idsemestre"),r.getInt("anio"),r.getInt("numero"),r.getString("estado"),r.getString("observaciones"),r.getBoolean("simulado"),r.getBoolean("original"),r.getObject("fecha_inicio",LocalDate.class),r.getObject("fecha_fin",LocalDate.class),r.getTimestamp("archivado_en")==null?null:r.getTimestamp("archivado_en").toInstant());}
+ public Resumen actual(boolean bloquear){return jdbc.queryForObject("SELECT idsemestre,anio,numero,estado,observaciones,simulado,fecha_inicio,fecha_fin,archivado_en,(pdf_original IS NOT NULL) original FROM semestre WHERE estado='ACTUAL'"+(bloquear?" FOR UPDATE":""),this::map);}
+ public List<Resumen> historial(){return jdbc.query("SELECT idsemestre,anio,numero,estado,observaciones,simulado,fecha_inicio,fecha_fin,archivado_en,(pdf_original IS NOT NULL) original FROM semestre s WHERE estado='FINALIZADO' AND (NOT simulado OR NOT EXISTS(SELECT 1 FROM semestre r WHERE r.anio=s.anio AND r.numero=s.numero AND NOT r.simulado)) ORDER BY anio DESC,numero DESC,simulado LIMIT 5",this::map);}
+ public Resumen obtener(int id){var encontrados=jdbc.query("SELECT idsemestre,anio,numero,estado,observaciones,simulado,fecha_inicio,fecha_fin,archivado_en,(pdf_original IS NOT NULL) original FROM semestre WHERE idsemestre=?",this::map,id);if(encontrados.isEmpty())throw new bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException("Semestre no encontrado.");return encontrados.getFirst();}
  public List<FilaSemestre> filasActuales(){return jdbc.query("""
   SELECT COALESCE(a.codigooficial,'ID:'||a.idasignatura) codigo,a.nombreasignatura,g.nombregrupo,
   COALESCE(string_agg(DISTINCT trim(u.nombreusuario||' '||u.apellidousuario),';;' ORDER BY trim(u.nombreusuario||' '||u.apellidousuario)),'') docentes

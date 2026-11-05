@@ -9,8 +9,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer; // <-- ESTA ES LA LÍNEA QUE FALTABA
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -30,11 +28,6 @@ public class SecurityConfig {
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults())
@@ -51,7 +44,7 @@ public class SecurityConfig {
                         // falla como error de CORS sin ni siquiera intentar autenticar.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/registro", "/api/auth/registro-personal").denyAll()
-                        .requestMatchers(HttpMethod.GET, "/api/publico/examenes/proximos", "/api/publico/examenes/cambios").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/publico/examenes/proximos", "/api/publico/examenes/cambios", "/api/publico/examenes/pasados", "/api/publico/examenes/pasados/*/pdf").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/ping",

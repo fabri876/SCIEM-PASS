@@ -1,4 +1,4 @@
-// Sección "Control de ingreso" del docente: lo operativo de cada examen
+// Sección "Control de Ingresos" del docente: lo operativo de cada examen
 // (ayudantes, nómina para trabajar sin internet, entrar a controlar y revisar los ingresos).
 // Orden: en curso, próximos (el más cercano primero) y finalizados (el más reciente primero).
 import { useEffect, useMemo, useState } from "react";
@@ -6,8 +6,17 @@ import { useNavigate } from "react-router-dom";
 import { Download, Check } from "lucide-react";
 import { obtenerAsignacionIngreso } from "../../../services/asignacionOperadoresService";
 import { useNominaLocal } from "../../../offline";
-import PanelListaOficial from "../../control/ingreso/componentes/PanelListaOficial";
+import PanelIngresosExamen from "../../control/ingreso/componentes/PanelIngresosExamen";
+// "Seguridad de Sistemas · Primer Parcial · 24 oct" para el panel de ingresos
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function subtituloIngresos(strMateria, strTipo, strFecha) {
+  const m = String(strFecha || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+  const strDia = m ? `${Number(m[3])} ${MESES_CORTOS[Number(m[2]) - 1]}` : "";
+  return [strMateria, strTipo, strDia].filter(Boolean).join(" · ");
+}
+
 import { estadoExamen, esHoy, puedeControlarIngreso, marcaTiempo } from "../utilidadesExamenDocente";
+import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
 
 const FILTROS = [
   { clave: "TODOS", etiqueta: "Todos" },
@@ -61,7 +70,7 @@ function TarjetaControlDocente({ examen, objAsig, dateAhora, onAsignarOperadores
         ? { strTexto: "Finalizado", strClase: "bg-[#F1F5F9] text-[#64748B]" }
         : null;
 
-  const strGrupo = examen.grupo ? `Grupo ${String(examen.grupo).replace(/^grupo\s*/i, "")}` : "";
+  const strGrupo = textoGrupoExamen(examen.grupo);
   const strDetalle = [strGrupo, examen.horario, textoAulas(examen)].filter(Boolean).join(" · ");
 
   const fnDescargar = () => {
@@ -187,7 +196,7 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-black text-[#1A365D]">Control de ingreso</h1>
+        <h1 className="text-2xl font-black text-[#1A365D]">Control de Ingresos</h1>
         <p className="text-xs text-slate-500 font-medium mt-1">
           Selecciona el examen para gestionar el ingreso de los estudiantes.
         </p>
@@ -234,12 +243,12 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
         )}
       </div>
 
-      {/* "Ver ingresos" de un examen finalizado: lista oficial con el estado de cada estudiante */}
-      <PanelListaOficial
+      {/* "Ver ingresos" de un examen finalizado: todos los estudiantes con su estado, hora y quién registró */}
+      <PanelIngresosExamen
         boolAbierto={Boolean(objExamenLista)}
         onCerrar={() => setObjExamenLista(null)}
         idExamen={objExamenLista ? Number(objExamenLista.idExamen) : null}
-        numVersion={0}
+        strSubtitulo={objExamenLista ? subtituloIngresos(objExamenLista.nombreExamen, objExamenLista.tipoExamen, objExamenLista.fechaExamen) : ""}
       />
     </div>
   );

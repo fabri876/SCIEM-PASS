@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { obtenerHabilitaciones, actualizarHabilitacion, exportarListaOficial, asociarEstudianteAExamen, eliminarAsociacionExamen } from "../../services/habilitacionService";
+import { ArrowLeft, X } from "lucide-react";
+import { obtenerHabilitaciones, actualizarHabilitacion, exportarListaOficial, eliminarAsociacionExamen } from "../../services/habilitacionService";
 import { obtenerExamenPorId } from "../../services/examenService";
 import { obtenerExamenPorAsignatura } from "../../services/asignaturaService";
-import { listarUsuarios } from "../../services/adminService";
-import Icono from "./components/Icono";
 import Toast from "./components/Toast";
 import DocenteHeader from "./components/DocenteHeader";
 import CabeceraModulo from "./components/CabeceraModulo";
@@ -15,6 +14,7 @@ import Paginacion from "./components/Paginacion";
 import SelectorEstado from "./components/SelectorEstado";
 import SeccionMotivo from "./components/SeccionMotivo";
 import ModalConfirmacion from "./components/ModalConfirmacion";
+import { estadoExamen } from "./utilidadesExamenDocente";
 
 const MOTIVOS_PREDEFINIDOS = [
     "Incompatibilidad de prerrequisitos curriculares reglamentarios",
@@ -69,13 +69,6 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     const [filtroEstado, setFiltroEstado] = useState('todos');
     const [paginaActual, setPaginaActual] = useState(1);
     const [toast, setToast] = useState(null);
-    const [codigoNuevo, setCodigoNuevo] = useState('');
-    const [asociando, setAsociando] = useState(false);
-    const [mostrarPanelAsociar, setMostrarPanelAsociar] = useState(false);
-    const [codigosMasivos, setCodigosMasivos] = useState('');
-    const [estudiantesDisponibles, setEstudiantesDisponibles] = useState([]);
-    const [seleccionados, setSeleccionados] = useState([]);
-    const [cargandoDisponibles, setCargandoDisponibles] = useState(false);
     const toastTimer = useRef(null);
 
     const mostrarToast = (type, message) => {
@@ -88,7 +81,6 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
                 if (mostrarModalConfirmacion) setMostrarModalConfirmacion(false);
-                else if (mostrarPanelAsociar) setMostrarPanelAsociar(false);
                 else if (estudianteSeleccionado) setEstudianteSeleccionado(null);
             }
         };
@@ -126,23 +118,29 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                     let hora = '---';
                     let duracionTexto = '---';
                     let ambiente = 'Aula por definir';
+                    // Fecha y horas del examen, para saber si ya terminó
+                    let objRango = null;
 
                     if (exData) {
-                        nombreExamen = exData.nombreTipoExamen
+                        // "Materia · Tipo de examen" (ej. "Ingeniería de Software · Primer parcial")
+                        const strTipo = exData.nombreTipoExamen
                             ? `${exData.nombreTipoExamen}${exData.detalleTipoExamen ? ' (' + exData.detalleTipoExamen + ')' : ''}`
-                            : (exData.nombreAsignatura || 'Examen Oficial');
+                            : '';
+                        nombreExamen = [exData.nombreAsignatura, strTipo].filter(Boolean).join(' · ') || 'Examen Oficial';
                         fecha = exData.fechaExamen || '---';
+                        objRango = {
+                            fechaExamen: exData.fechaExamen,
+                            horaInicio: exData.ambientes?.[0]?.horaInicio,
+                            horaFin: exData.ambientes?.[0]?.horaFin,
+                        };
 
                         if (exData.ambientes && exData.ambientes.length > 0) {
                             const a0 = exData.ambientes[0];
                             if (a0.horaInicio && a0.horaFin) {
                                 hora = `${a0.horaInicio.substring(0, 5)} - ${a0.horaFin.substring(0, 5)}`;
                             }
-                            ambiente = exData.ambientes.map(a => {
-                                const nom = a.nombreAmbiente || a.nombreAula || 'Aula';
-                                const ubi = a.ubicacionAmbiente || a.bloque || a.ubicacionAula || '';
-                                return ubi ? `${nom} · ${ubi}` : nom;
-                            }).join(' + ');
+                            // Solo el aula, sin la ubicación (facultad)
+                            ambiente = exData.ambientes.map(a => a.nombreAmbiente || a.nombreAula || 'Aula').join(' + ');
                         }
 
                         if (exData.duracionExamen) {
@@ -169,7 +167,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                             hora = asigData.hora;
                         }
                         if ((ambiente === 'Aula por definir' || ambiente === 'Aula') && asigData.ambiente && asigData.ambiente !== '---') {
-                            ambiente = asigData.ambiente;
+                            ambiente = String(asigData.ambiente).split(' · ')[0];
                         }
                         if (duracionTexto === '---' && asigData.duracion && asigData.duracion !== '---') {
                             const durStr = String(asigData.duracion);
@@ -191,6 +189,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         hora,
                         duracion: duracionTexto,
                         ambiente,
+                        objRango,
                     });
                 }
 
@@ -282,60 +281,6 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
         }
     };
 
-    const asociarNuevoEstudiante = async (e) => {
-        e.preventDefault();
-        if (!/^\d+$/.test(codigoNuevo.trim())) {
-            mostrarToast('error', 'Ingresa un Código SIS válido.');
-            return;
-        }
-        try {
-            setAsociando(true);
-            const nuevo = await asociarEstudianteAExamen({
-                codigoSis: codigoNuevo.trim(),
-                idAsignatura: infoExamen.idAsignatura,
-                idExamen: Number(examenIdActivo),
-            });
-            setEstudiantes((prev) => [...prev, normalizarHabilitaciones([nuevo])[0]]);
-            setCodigoNuevo('');
-            mostrarToast('success', 'Estudiante asociado al examen.');
-        } catch (err) {
-            mostrarToast('error', err.message || 'No se pudo asociar el estudiante.');
-        } finally { setAsociando(false); }
-    };
-
-    const asociarEstudiantesMasivos = async (e, codigosEntrada = codigosMasivos) => {
-        e.preventDefault();
-        const codigos = [...new Set(codigosEntrada.split(/[\s,;]+/).map((v) => v.trim()).filter(Boolean))];
-        if (!codigos.length || codigos.some((codigo) => !/^\d+$/.test(codigo))) {
-            mostrarToast('error', 'Ingresa únicamente Códigos SIS numéricos, separados por espacios, comas o saltos de línea.');
-            return;
-        }
-        try {
-            setAsociando(true);
-            const resultados = await Promise.allSettled(codigos.map((codigoSis) => asociarEstudianteAExamen({
-                codigoSis,
-                idAsignatura: infoExamen.idAsignatura,
-                idExamen: Number(examenIdActivo),
-            })));
-            const nuevos = resultados.filter((r) => r.status === 'fulfilled').map((r) => normalizarHabilitaciones([r.value])[0]);
-            if (nuevos.length) setEstudiantes((prev) => [...prev, ...nuevos]);
-            const fallidos = resultados.length - nuevos.length;
-            setCodigosMasivos('');
-            mostrarToast(fallidos ? 'info' : 'success', fallidos
-                ? `${nuevos.length} estudiante(s) asociado(s); ${fallidos} no se pudieron asociar.`
-                : `${nuevos.length} estudiante(s) asociado(s) al examen.`);
-        } finally {
-            setAsociando(false);
-        }
-    };
-
-    const asociarSeleccionados = async (e) => {
-        e.preventDefault();
-        if (!seleccionados.length) { mostrarToast('error', 'Selecciona al menos un estudiante.'); return; }
-        await asociarEstudiantesMasivos({ preventDefault: () => {} }, seleccionados.join('\n'));
-        setSeleccionados([]);
-    };
-
     const eliminarEstudiante = async (est) => {
         if (!window.confirm(`¿Quitar a ${est.nombreEstudiante} ${est.apellidoEstudiante} de este examen?`)) return;
         try {
@@ -345,29 +290,19 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
         } catch (err) { mostrarToast('error', err.message || 'No se pudo quitar la asociación.'); }
     };
 
-    useEffect(() => {
-        if (!mostrarPanelAsociar) return;
-        let vivo = true;
-        setCargandoDisponibles(true);
-        listarUsuarios({ rol: 'ESTUDIANTE', estado: true })
-            .then((usuarios) => vivo && setEstudiantesDisponibles(Array.isArray(usuarios) ? usuarios : []))
-            .catch((err) => vivo && mostrarToast('error', err.message || 'No se pudo cargar la tabla de estudiantes.'))
-            .finally(() => vivo && setCargandoDisponibles(false));
-        return () => { vivo = false; };
-    }, [mostrarPanelAsociar]);
-
-    const codigosAsociados = new Set(estudiantes.map((e) => String(e.codSisEstudiante)));
-    const disponiblesSeleccionables = estudiantesDisponibles.filter((e) => e.codigoSis != null && !codigosAsociados.has(String(e.codigoSis)));
+    // Cuando el examen ya terminó, las habilitaciones ya no se pueden modificar
+    const boolFinalizado = Boolean(infoExamen.objRango) && estadoExamen(infoExamen.objRango) === 'FINALIZADO';
 
     const totalEstudiantes = estudiantes.length;
     const totalHabilitados = estudiantes.filter((e) => e.estadoHabilitacion).length;
     const totalInhabilitados = estudiantes.filter((e) => !e.estadoHabilitacion).length;
     const porcentaje = (n) => (totalEstudiantes > 0 ? Math.round((n / totalEstudiantes) * 100) : 0);
 
+    // Los estudiantes se asocian solos al registrarlos en la asignatura (ya no hay "Asociar estudiante")
     const metricas = [
-        { titulo: 'TOTAL ESTUDIANTES', valor: totalEstudiantes, icono: 'estudiantes', detalle: <span className="text-[13px] text-slate-500 font-medium">registrados</span>, claseNumero: 'text-[#003770]', claseIcono: 'bg-blue-50 text-[#003770]' },
-        { titulo: 'HABILITADOS', valor: totalHabilitados, icono: 'habilitado', detalle: <span className="text-[13px] text-[#003770] font-bold bg-[#EFF6FF] px-2 py-0.5 rounded-md">{porcentaje(totalHabilitados)}%</span>, claseNumero: 'text-[#003770]', claseIcono: 'bg-[#EFF6FF] text-[#003770]' },
-        { titulo: 'INHABILITADOS', valor: totalInhabilitados, icono: 'inhabilitado', detalle: <span className="text-[13px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">{porcentaje(totalInhabilitados)}%</span>, claseNumero: 'text-rose-600', claseIcono: 'bg-rose-50 text-rose-600' },
+        { titulo: 'TOTAL ESTUDIANTES', valor: totalEstudiantes, detalle: 'registrados', claseNumero: 'text-[#003770]' },
+        { titulo: 'HABILITADOS', valor: totalHabilitados, detalle: 'estudiantes', porcentaje: `${porcentaje(totalHabilitados)} % del total`, claseNumero: 'text-[#003770]', clasePorcentaje: 'bg-[#E8F1FB] text-[#003770]' },
+        { titulo: 'INHABILITADOS', valor: totalInhabilitados, detalle: 'estudiantes', porcentaje: `${porcentaje(totalInhabilitados)} % del total`, claseNumero: 'text-[#B91C1C]', clasePorcentaje: 'bg-[#FEF2F2] text-[#B91C1C]' },
     ];
 
     const obtenerDuracionCalculada = (dur, hor) => {
@@ -437,12 +372,16 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
             <div className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-[78px] md:pt-[106px]">
                 <main className="w-full space-y-4 sm:space-y-5">
 
-                    {/* "Volver a Mis Examenes" replaces a "Volver a Materias"
-                        del admin: el docente no tiene seccion de materias, su
-                        pantalla de listado es la de examenes. */}
+                    {/* Volver: solo texto con flecha, arriba a la izquierda (como en los otros paneles) */}
+                    <button
+                        type="button"
+                        onClick={() => navegar('/home/docente', { state: { menu: 'mis-examenes' } })}
+                        className="mt-3 sm:mt-4 inline-flex items-center gap-1.5 text-[13.5px] font-bold text-[#1860A3] hover:underline cursor-pointer"
+                    >
+                        <ArrowLeft className="w-4 h-4" /> Volver a Mis exámenes
+                    </button>
+
                     <CabeceraModulo
-                        onVolver={() => navegar('/home/docente', { state: { menu: 'mis-examenes' } })}
-                        textoVolver="Volver a Mis Exámenes"
                         onExportar={async () => {
                             try {
                                 mostrarToast('info', 'Generando lista oficial...');
@@ -462,14 +401,6 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         }}
                     />
 
-                    <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between gap-3">
-                        <div>
-                            <p className="text-sm font-extrabold text-[#003770]">Asociación de estudiantes</p>
-                            <p className="text-xs text-slate-500">Agrega uno o varios estudiantes a este examen.</p>
-                        </div>
-                        <button type="button" onClick={() => setMostrarPanelAsociar(true)} className="bg-[#003770] text-white rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-blue-800 transition">Asociar estudiante</button>
-                    </div>
-
                     {/* Los separadores van con border-l explicito en "lg" y no con
                         divide-x: las clases divide-* de Tailwind v4 no pintaban
                         nada aqui (medido: 0px en los 5 hijos). Ademas con
@@ -477,77 +408,94 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         vertical fantasma al inicio de cada fila. En "lg" los 5
                         campos caen en una sola fila, que es donde el separador
                         tiene sentido. */}
-                    <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="bg-white p-4 sm:px-6 rounded-2xl shadow-xs border border-[#CBD5E1] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4">
                         {filasExamen.map((f) => (
-                            <div key={f.etiqueta} className="flex items-center gap-3 pt-3 sm:pt-0 sm:px-3 first:pl-0 lg:border-l lg:border-slate-100 first:lg:border-l-0">
-                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#003770] flex items-center justify-center flex-shrink-0">
-                                    <Icono nombre={f.icono} />
-                                </div>
-                                <div className="min-w-0">
-                                    <span className="text-[13px] font-black uppercase text-slate-400 tracking-wider block">{f.etiqueta}</span>
-                                    <p className="text-[13px] font-extrabold text-[#003770] break-words line-clamp-2" title={f.valor}>{f.valor || '---'}</p>
-                                </div>
+                            <div key={f.etiqueta} className="min-w-0 sm:px-4 first:pl-0 lg:border-l lg:border-[#E2E8F0] first:lg:border-l-0">
+                                <span className="text-[11px] font-extrabold uppercase tracking-[.6px] text-[#64748B] block">{f.etiqueta}</span>
+                                <p className="mt-0.5 text-[14.5px] font-extrabold text-[#08264A] break-words line-clamp-2" title={f.valor}>{f.valor || '---'}</p>
                             </div>
                         ))}
                     </div>
+
+                    {boolFinalizado && (
+                        <div className="px-4 py-3 rounded-xl bg-[#F1F5F9] border border-[#CBD5E1] text-[13.5px] text-[#475569]">
+                            <b className="font-bold text-[#08264A]">Este examen ya terminó.</b> Las habilitaciones ya no se pueden modificar.
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                         {metricas.map((m) => <DocenteMetricsCards key={m.titulo} {...m} />)}
                     </div>
 
-                    <div className="bg-white p-4 sm:p-6 rounded-3xl shadow-xs border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
-                        <div className="relative w-full sm:flex-1 sm:min-w-[280px]">
-                            <input
-                                type="text"
-                                value={busqueda}
-                                onChange={(e) => { setBusqueda(e.target.value); setPaginaActual(1); }}
-                                placeholder="Buscar por Nombre, Cédula (CI) o Código SIS..."
-                                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-[13px] font-medium text-[#003770] focus:outline-none focus:border-[#003770]"
-                            />
+                    <div className="bg-white rounded-2xl shadow-xs border border-[#CBD5E1] overflow-hidden">
+                        <div className="p-4 sm:px-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                            <div className="relative w-full sm:flex-1 sm:min-w-[280px]">
+                                <input
+                                    type="text"
+                                    value={busqueda}
+                                    onChange={(e) => { setBusqueda(e.target.value); setPaginaActual(1); }}
+                                    placeholder="Buscar por nombre, C.I. o código SIS"
+                                    aria-label="Buscar estudiante"
+                                    className="w-full h-11 bg-white border border-[#CBD5E1] rounded-[10px] pl-3.5 pr-11 text-[14.5px] text-[#08264A] outline-none focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
+                                />
+                                {busqueda && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setBusqueda(''); setPaginaActual(1); }}
+                                        aria-label="Borrar búsqueda"
+                                        title="Borrar búsqueda"
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#475569] flex items-center justify-center cursor-pointer"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2 overflow-x-auto">
+                                {filtros.map((f) => (
+                                    <button
+                                        key={f.key}
+                                        type="button"
+                                        onClick={() => { setFiltroEstado(f.key); setPaginaActual(1); }}
+                                        aria-pressed={filtroEstado === f.key}
+                                        className={`px-4 h-9 rounded-full text-[13px] font-bold border whitespace-nowrap transition cursor-pointer ${filtroEstado === f.key
+                                            ? 'bg-[#003770] text-white border-[#003770]'
+                                            : 'bg-white text-[#1A365D] border-[#CBD5E1] hover:bg-slate-50'}`}
+                                    >
+                                        {f.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1 bg-[#F8FAFC] border border-slate-200 rounded-xl p-1 w-full sm:w-auto overflow-x-auto">
-                            {filtros.map((f) => (
-                                <button
-                                    key={f.key}
-                                    onClick={() => { setFiltroEstado(f.key); setPaginaActual(1); }}
-                                    className={`text-[13px] font-bold px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap transition cursor-pointer ${filtroEstado === f.key ? 'bg-[#003770] text-white shadow-xs' : 'text-slate-600 hover:bg-white'}`}
-                                >
-                                    {f.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
 
-                    <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
                         {cargando ? (
-                            <div className="p-12 text-center text-[13px] font-bold text-slate-500">Cargando estudiantes desde el servidor...</div>
+                            <div className="p-12 text-center text-[13.5px] font-semibold text-slate-500 border-t border-[#E2E8F0]">Cargando estudiantes...</div>
                         ) : estudiantesFiltrados.length === 0 ? (
-                            <div className="p-12 text-center text-[13px] font-bold text-slate-500">No se encontraron estudiantes registrados o con ese criterio de búsqueda.</div>
+                            <div className="p-12 text-center text-[13.5px] font-semibold text-slate-500 border-t border-[#E2E8F0]">No se encontraron estudiantes con ese criterio de búsqueda.</div>
                         ) : (
                             <>
                                 {/* Tabla: visible desde md hacia arriba */}
                                 <div className="hidden md:block overflow-x-auto">
-                                    <table className="w-full min-w-[760px] text-left text-[13px]">
+                                    <table className="w-full min-w-[760px] text-left text-[14px]">
                                         <thead>
-                                            <tr className="text-slate-400 border-b border-slate-100 font-bold uppercase text-[13px] tracking-wider bg-[#F8FAFC]">
+                                            <tr className="text-[#124B83] border-y border-[#CBD5E1] font-extrabold uppercase text-[11px] tracking-[.6px] bg-[#E8F1FB]">
                                                 <th className="py-3.5 px-3 sm:px-6">N°</th>
                                                 <th className="py-3.5 px-3 sm:px-6">Estudiante</th>
 
-                                                <th className="py-3.5 px-3 sm:px-6">CI</th>
+                                                <th className="py-3.5 px-3 sm:px-6">C.I.</th>
                                                 <th className="py-3.5 px-3 sm:px-6">Código SIS</th>
-                                                <th className="py-3.5 px-3 sm:px-6">Estado de habilitación</th>
+                                                <th className="py-3.5 px-3 sm:px-6">Estado</th>
                                                 <th className="py-3.5 px-3 sm:px-6">Motivo</th>
                                                 <th className="py-3.5 px-3 sm:px-6 text-right">Acciones</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-100 font-medium">
+                                        <tbody className="divide-y divide-[#E2E8F0]">
                                             {estudiantesPaginados.map((est, index) => (
                                                 <FilaEstudiante
                                                     key={est.idHabilitacion}
                                                     est={est}
                                                     numeroFila={(paginaActual - 1) * ELEMENTOS_POR_PAGINA + index + 1}
-                                                    onGestionar={abrirDrawer}
-                                                    onEliminar={eliminarEstudiante}
+                                                    onGestionar={boolFinalizado ? null : abrirDrawer}
+                                                    onEliminar={boolFinalizado ? null : eliminarEstudiante}
                                                 />
                                             ))}
                                         </tbody>
@@ -555,14 +503,14 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                 </div>
 
                                 {/* Tarjetas: visibles solo en móvil (menos de md) */}
-                                <div className="md:hidden divide-y divide-slate-100">
+                                <div className="md:hidden divide-y divide-[#E2E8F0] border-t border-[#E2E8F0]">
                                     {estudiantesPaginados.map((est, index) => (
                                         <TarjetaEstudiante
                                             key={est.idHabilitacion}
                                             est={est}
                                             numeroFila={(paginaActual - 1) * ELEMENTOS_POR_PAGINA + index + 1}
-                                            onGestionar={abrirDrawer}
-                                            onEliminar={eliminarEstudiante}
+                                            onGestionar={boolFinalizado ? null : abrirDrawer}
+                                            onEliminar={boolFinalizado ? null : eliminarEstudiante}
                                         />
                                     ))}
                                 </div>
@@ -575,48 +523,6 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
             </div>
 
             <div
-                onClick={(e) => { if (e.target === e.currentTarget) setMostrarPanelAsociar(false); }}
-                className={`fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-300 ${mostrarPanelAsociar ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-            >
-                <aside className={`w-full max-w-md bg-white h-full shadow-2xl border-l border-slate-200 p-5 overflow-y-auto transition-transform duration-300 ${mostrarPanelAsociar ? 'translate-x-0' : 'translate-x-full'}`}>
-                    <div className="flex items-start justify-between border-b border-slate-100 pb-4 mb-5">
-                        <div>
-                            <span className="text-[11px] font-black uppercase tracking-wider text-[#003770]">GESTIÓN DE HABILITACIONES</span>
-                            <h2 className="text-lg font-black text-[#003770] mt-1">Asociar estudiantes</h2>
-                            <p className="text-xs text-slate-500 mt-1">Examen: {infoExamen.nombreExamen}</p>
-                        </div>
-                        <button type="button" onClick={() => setMostrarPanelAsociar(false)} className="text-slate-400 hover:text-[#003770] text-xl font-bold">✕</button>
-                    </div>
-
-                    <form onSubmit={asociarNuevoEstudiante} className="space-y-3 border-b border-slate-100 pb-6 mb-6">
-                        <h3 className="text-sm font-extrabold text-[#003770]">Asociación individual</h3>
-                        <p className="text-xs text-slate-500">Ingresa un Código SIS.</p>
-                        <input value={codigoNuevo} onChange={(e) => setCodigoNuevo(e.target.value)} inputMode="numeric" placeholder="Código SIS" className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm" />
-                        <button disabled={asociando} className="w-full bg-[#003770] text-white rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50">{asociando ? 'Asociando…' : 'Asociar estudiante'}</button>
-                    </form>
-
-                    <form onSubmit={asociarSeleccionados} className="space-y-3">
-                        <h3 className="text-sm font-extrabold text-[#003770]">Asociación masiva</h3>
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                            <span>{seleccionados.length} seleccionado(s)</span>
-                            <button type="button" onClick={() => setSeleccionados(seleccionados.length === disponiblesSeleccionables.length ? [] : disponiblesSeleccionables.map((e) => String(e.codigoSis)))} className="font-bold text-[#003770]">{seleccionados.length === disponiblesSeleccionables.length && disponiblesSeleccionables.length ? 'Quitar todos' : 'Seleccionar todos'}</button>
-                        </div>
-                        <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
-                            {cargandoDisponibles ? <p className="p-4 text-xs text-slate-500">Cargando estudiantes…</p> : estudiantesDisponibles.map((est) => {
-                                const codigo = String(est.codigoSis ?? '');
-                                const bloqueado = !codigo || codigosAsociados.has(codigo);
-                                return <label key={est.idUsuario} className={`flex items-center gap-3 px-3 py-2.5 text-sm ${bloqueado ? 'opacity-50 bg-slate-50' : 'cursor-pointer hover:bg-blue-50'}`}>
-                                    <input type="checkbox" disabled={bloqueado} checked={!bloqueado && seleccionados.includes(codigo)} onChange={() => setSeleccionados((prev) => prev.includes(codigo) ? prev.filter((v) => v !== codigo) : [...prev, codigo])} />
-                                    <span className="min-w-0 flex-1"><b>{est.apellido}, {est.nombre}</b><small className="block text-xs text-slate-500">SIS {codigo}{bloqueado ? ' · Ya asociado' : ''}</small></span>
-                                </label>;
-                            })}
-                        </div>
-                        <button disabled={asociando || !seleccionados.length} className="w-full border border-[#003770] text-[#003770] rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-blue-50 disabled:opacity-50">{asociando ? 'Asociando…' : 'Asociar seleccionados'}</button>
-                    </form>
-                </aside>
-            </div>
-
-            <div
                 onClick={(e) => { if (e.target === e.currentTarget) setEstudianteSeleccionado(null); }}
                 className={`fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-300 ease-out ${estudianteSeleccionado ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
             >
@@ -625,27 +531,27 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         <div>
                             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-5">
                                 <div>
-                                    <span className="text-[13px] font-black uppercase text-[#003770] tracking-wider block">GESTIÓN INDIVIDUAL</span>
-                                    <h3 className="font-black text-sm text-[#003770]">Detalle de habilitación</h3>
+                                    <span className="text-[11px] font-extrabold uppercase text-[#64748B] tracking-[.6px] block">MODIFICAR ESTADO</span>
+                                    <h3 className="font-black text-[17px] text-[#1A365D]">Detalle de habilitación</h3>
                                 </div>
                                 <button onClick={() => setEstudianteSeleccionado(null)} className="text-slate-400 hover:text-[#003770] font-bold p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">✕</button>
                             </div>
 
-                            <div className="bg-[#F8FAFC] border border-slate-200 p-3.5 rounded-2xl mb-5 flex items-start gap-3">
+                            <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-3.5 rounded-xl mb-5 flex items-start gap-3">
                                 <span className="w-9 h-9 rounded-xl bg-[#003770] text-white flex items-center justify-center font-black text-[13px] flex-shrink-0">
                                     {`${estudianteSeleccionado.nombreEstudiante?.[0] || ''}${estudianteSeleccionado.apellidoEstudiante?.[0] || ''}`.toUpperCase()}
                                 </span>
                                 <div className="min-w-0">
-                                    <h4 className="font-extrabold text-[13px] text-[#003770] truncate">{`${estudianteSeleccionado.nombreEstudiante} ${estudianteSeleccionado.apellidoEstudiante}`}</h4>
+                                    <h4 className="font-extrabold text-[14px] text-[#08264A] truncate">{`${estudianteSeleccionado.nombreEstudiante} ${estudianteSeleccionado.apellidoEstudiante}`}</h4>
                                     {estudianteSeleccionado.carreraEstudiante && (
                                         <p className="text-[13px] text-[#003770] font-semibold">{estudianteSeleccionado.carreraEstudiante}</p>
                                     )}
-                                    <p className="text-[13px] text-slate-500 font-medium mt-0.5">{estudianteSeleccionado.codSisEstudiante} &bull; {estudianteSeleccionado.ciEstudiante}</p>
+                                    <p className="text-[12.5px] text-slate-500 font-medium mt-0.5">SIS {estudianteSeleccionado.codSisEstudiante} &middot; C.I. {estudianteSeleccionado.ciEstudiante}</p>
                                 </div>
                             </div>
 
                             <div className="mb-5">
-                                <label className="block text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">ESTADO DE HABILITACIÓN</label>
+                                <label className="block text-[11px] font-extrabold text-[#64748B] uppercase tracking-[.6px] mb-2">ESTADO DE HABILITACIÓN</label>
                                 <SelectorEstado
                                     habilitado={estudianteSeleccionado.estadoHabilitacion}
                                     onHabilitar={() => { setEstudianteSeleccionado({ ...estudianteSeleccionado, estadoHabilitacion: true, nombreMotivo: '-' }); setMotivoSelectValue(''); setMotivoPersonalizado(''); }}
@@ -676,7 +582,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
 
                     {estudianteSeleccionado && (
                         <div className="pt-3 border-t border-slate-100 space-y-2.5">
-                            <button type="button" onClick={prepararGuardado} disabled={guardando} className="w-full bg-[#003770] hover:bg-blue-700 text-white font-bold text-[13px] py-2.5 rounded-xl transition shadow-xs cursor-pointer flex items-center justify-center disabled:opacity-50">
+                            <button type="button" onClick={prepararGuardado} disabled={guardando} className="w-full h-11 bg-[#003770] hover:bg-[#124B83] text-white font-bold text-[14px] rounded-[10px] transition shadow-xs cursor-pointer flex items-center justify-center disabled:opacity-50">
                                 {guardando ? 'Guardando...' : 'Guardar cambios'}
                             </button>
                             <button type="button" onClick={() => setEstudianteSeleccionado(null)} disabled={guardando} className="w-full text-center text-[13px] font-bold text-slate-500 hover:text-[#003770] py-1 cursor-pointer transition disabled:opacity-50">

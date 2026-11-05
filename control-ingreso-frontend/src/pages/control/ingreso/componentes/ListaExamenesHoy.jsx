@@ -2,6 +2,8 @@
 import { useMemo, useState } from "react";
 import { GraduationCap, Clock, ArrowLeft, Search, Download, RefreshCw, CheckCircle } from "lucide-react";
 import PildoraFila from "./PildoraFila";
+import PanelSincronizacion from "../../components/PanelSincronizacion";
+import { textoGrupoExamen } from "../../../../components/examenes/textoGrupoExamen";
 import { useNominaLocal, useConectividad, sincronizarAhora } from "../../../../offline";
 
 const ESTADOS = {
@@ -78,8 +80,8 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
 
   if (strEstado === "lista") {
     return (
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#D9E8F7] text-[#124B83]">
+      <div className="flex-1 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#D9E8F7] text-[#124B83]">
           <CheckCircle className="w-3.5 h-3.5" />
           Disponible sin internet{objNomina.total ? ` · ${objNomina.total} estudiantes` : ""}
         </span>
@@ -87,10 +89,11 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
           type="button"
           onClick={handleForzar}
           disabled={forzando}
-          className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-xs font-semibold cursor-pointer disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 min-h-7 px-2.5 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
         </button>
+        <PanelSincronizacion />
         {toast && (
           <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-xs font-semibold shadow-lg animate-slide-up ${toast.tipo === "ok" ? "bg-[#267BC2] text-white" : "bg-[#1860A3] text-white"
             }`}>
@@ -115,7 +118,7 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
           type="button"
           onClick={handleForzar}
           disabled={forzando || boolSinRed}
-          className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-xs font-semibold cursor-pointer disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 min-h-7 px-2.5 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
         </button>
@@ -133,7 +136,7 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
           type="button"
           onClick={handleForzar}
           disabled={forzando}
-          className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-xs font-semibold cursor-pointer disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 min-h-7 px-2.5 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
         </button>
@@ -149,7 +152,7 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
         onClick={() => boolConectado && fnDescargarNomina(examen)}
         disabled={!boolConectado}
         title={boolConectado ? "" : "La descarga se habilita cuando se conecte con el modo sin conexión"}
-        className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg border border-[#CBD5E1] bg-white text-[#003770] text-xs font-semibold hover:border-[#003770] cursor-pointer disabled:text-[#9AA8BA] disabled:hover:border-[#CBD5E1] disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1.5 min-h-7 px-2.5 rounded-lg border border-[#CBD5E1] bg-white text-[#003770] text-[11px] font-semibold hover:border-[#003770] cursor-pointer disabled:text-[#9AA8BA] disabled:hover:border-[#CBD5E1] disabled:cursor-not-allowed"
       >
         <Download className="w-3.5 h-3.5" /> Descargar nómina
       </button>
@@ -157,7 +160,7 @@ function EstadoNomina({ examen, objNomina, boolSinRed, fnDescargarNomina }) {
         type="button"
         onClick={handleForzar}
         disabled={forzando}
-        className="inline-flex items-center gap-1.5 min-h-8 px-3 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-xs font-semibold cursor-pointer disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1.5 min-h-7 px-2.5 rounded-lg bg-[#003770] hover:bg-[#124B83] disabled:bg-[#9AA8BA] text-white text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed"
       >
         <RefreshCw className={`w-3.5 h-3.5 ${forzando ? "animate-spin" : ""}`} /> Forzar
       </button>
@@ -188,7 +191,7 @@ export function FilaNominaSinConexion({ examen, boolSinRed }) {
     nomina.descargar({ incluirFotos: false }).catch(() => { });
   };
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
+    <div className="w-full flex flex-wrap items-baseline gap-x-2 gap-y-2 text-xs">
       <span className="font-semibold text-[#475569]">Modo sin conexión:</span>
       <EstadoNomina examen={examen} objNomina={objNomina} boolSinRed={boolSinRedReal} fnDescargarNomina={fnDescargarNomina} />
     </div>
@@ -233,7 +236,7 @@ function TarjetaExamenHoy({ examen, onElegir, boolSinRed }) {
               </span>
             </div>
             <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-[#64748B]">
-              <span>Aula {examen.aula}{examen.grupo ? ` · Grupo ${examen.grupo}` : ""}</span>
+              <span>Aula {String(examen.aula || "").replace(/^aula\s*/i, "")}{textoGrupoExamen(examen.grupo) ? ` · ${textoGrupoExamen(examen.grupo)}` : ""}</span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-[#9AA8BA]" />
@@ -312,7 +315,7 @@ function FilaExamen({ examen, onElegir }) {
       <div className="min-w-0">
         <div className="text-sm font-semibold text-[#08264A] truncate">{examen.tipo} · {examen.materia}</div>
         <div className="mt-px text-xs text-[#64748B] truncate">
-          Aula {examen.aula}{examen.grupo ? ` · Grupo ${examen.grupo}` : ""}{examen.fila ? ` · Sin internet: apellidos ${examen.fila.desde} – ${examen.fila.hasta}` : ""}
+          Aula {String(examen.aula || "").replace(/^aula\s*/i, "")}{textoGrupoExamen(examen.grupo) ? ` · ${textoGrupoExamen(examen.grupo)}` : ""}{examen.fila ? ` · Sin internet: apellidos ${examen.fila.desde} – ${examen.fila.hasta}` : ""}
           <span className={"ml-2 inline-flex items-center gap-1 px-2 py-px rounded-full text-[11px] font-semibold " + objEstado.strClase}>
             <i className={"w-[6px] h-[6px] rounded-full " + objEstado.strPunto} />{objEstado.strTexto}
           </span>

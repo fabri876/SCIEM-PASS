@@ -6,9 +6,11 @@ import BulkUploadCard from "../admin/components/BulkUploadCard";
 import UsuarioFormFields from "../admin/components/UsuarioFormFields";
 import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
-import { obtenerMisExamenes, obtenerAsignaturasPorDocente } from "../../services/examenService";
+import { obtenerMisExamenes } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
+import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
+import SeccionReporteIntentosIncorrectos from "../../components/reportes/SeccionReporteIntentosIncorrectos";
 import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
 import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
 import { AlertTriangle, ScanLine, Activity } from "lucide-react";
@@ -93,7 +95,7 @@ export default function HomeDocente() {
             setBoolCargando(true);
             try {
                 const dataExamenes = await obtenerMisExamenes();
-                if (!cancel && Array.isArray(dataExamenes) && dataExamenes.length > 0) {
+                if (!cancel && Array.isArray(dataExamenes)) {
                     const mapeados = dataExamenes.map((ex) => {
                         const primerAmb = ex.ambientes && ex.ambientes.length > 0 ? ex.ambientes[0] : null;
                         const horaInicio = (ex.horaInicio || primerAmb?.horaInicio || "").toString().substring(0, 5);
@@ -139,42 +141,9 @@ export default function HomeDocente() {
                         };
                     });
                     setExamenes(mapeados);
-                    setBoolCargando(false);
-                    return;
                 }
             } catch (err) {
                 console.warn("No se pudieron cargar exámenes desde /mis-examenes:", err);
-            }
-
-            // Fallback: Si no hay exámenes aún, cargar las asignaturas reales asociadas a este docente
-            try {
-                const current = usuario || obtenerUsuarioActual();
-                if (current?.idUsuario && current?.codigoSis) {
-                    const asigs = await obtenerAsignaturasPorDocente(current.idUsuario, current.codigoSis);
-                    if (!cancel && Array.isArray(asigs) && asigs.length > 0) {
-                        const mapeadosAsig = asigs.map((a, idx) => {
-                            const total = a.totalEstudiantes || (a.cantidadHabilitados || 0) + (a.cantidadInhabilitados || 0);
-                            const hab = a.cantidadHabilitados || 0;
-                            const inhab = a.cantidadInhabilitados || 0;
-                            return {
-                                idExamen: a.idAsignatura || idx + 1,
-                                idAsignatura: a.idAsignatura,
-                                nombreExamen: a.nombreAsignatura || a.nombre,
-                                siglaAsignatura: a.siglaAsignatura || a.codigo || '',
-                                aula: 'Asignatura Asignada · UMSS',
-                                horario: 'Gestión Oficial',
-                                ingresados: hab,
-                                noLlegan: Math.max(0, total - hab - inhab),
-                                inhabilitados: inhab,
-                                totalInscritos: total,
-                                esExamenReal: false,
-                            };
-                        });
-                        setExamenes(mapeadosAsig);
-                    }
-                }
-            } catch (errAsig) {
-                console.warn("No se pudieron cargar asignaturas del docente:", errAsig);
             } finally {
                 if (!cancel) setBoolCargando(false);
             }
@@ -321,7 +290,7 @@ export default function HomeDocente() {
                                     }`}
                             >
                                 <ScanLine className={`w-4 h-4 ${boolMenuControl ? "text-white" : "text-[#1A365D]"}`} />
-                                Control de ingresos
+                                Control de Ingresos
                             </button>
                             <button
                                 onClick={() => setStrMenuActivo("monitoreo")}
@@ -333,9 +302,25 @@ export default function HomeDocente() {
                                 <Activity className={`w-4 h-4 ${strMenuActivo === "monitoreo" ? "text-white" : "text-[#1A365D]"}`} />
                                 Monitoreo de Asistencia
                             </button>
-                            <button onClick={() => setStrMenuActivo("inicio")} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer">
-                                <svg className="w-4 h-4 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            <button
+                                onClick={() => setStrMenuActivo("reportes")}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "reportes"
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                                    }`}
+                            >
+                                <svg className={`w-4 h-4 ${strMenuActivo === "reportes" ? "text-white" : "text-[#1A365D]"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                                 Reportes y Asistencia
+                            </button>
+                            <button
+                                onClick={() => setStrMenuActivo("intentos-incorrectos")}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "intentos-incorrectos"
+                                    ? "bg-[#1A365D] text-white shadow-xs"
+                                    : "text-slate-700 hover:bg-slate-50"
+                                    }`}
+                            >
+                                <svg className={`w-4 h-4 ${strMenuActivo === "intentos-incorrectos" ? "text-white" : "text-[#1A365D]"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path></svg>
+                                Intentos Incorrectos (HU13)
                             </button>
                             <button
                                 onClick={() => setStrMenuActivo("incidencias")}
@@ -366,7 +351,11 @@ export default function HomeDocente() {
 
                     {/* CONTENIDO CENTRAL */}
                     <main className="flex-1 min-w-0 space-y-6">
-                        {strMenuActivo === "incidencias" ? (
+                        {strMenuActivo === "reportes" ? (
+                            <SeccionReportesAsistencia strRol="DOCENTE" />
+                        ) : strMenuActivo === "intentos-incorrectos" ? (
+                            <SeccionReporteIntentosIncorrectos strRol="DOCENTE" />
+                        ) : strMenuActivo === "incidencias" ? (
                             <SeccionIncidencias rol="DOCENTE" />
                         ) : strMenuActivo === "monitoreo" ? (
                             <SeccionMonitoreo rol="DOCENTE" />

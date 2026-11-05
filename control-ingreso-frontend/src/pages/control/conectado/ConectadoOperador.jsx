@@ -1,13 +1,21 @@
 // Inicio del ayudante.
-// Sin examen elegido: banner (con el conmutador Online/Offline de Yuri), "Mis exámenes de hoy",
-// Con examen elegido: pantalla de registro de ingreso (verificación, resultado y últimos ingresos).
-import { useEffect, useMemo, useState } from "react";
+// Sin examen elegido: banner (igual al de los otros paneles), "Mis exámenes de hoy" (con el conmutador
+// Online/Offline de Yuri en su encabezado), calendario y próximo examen.
+// Con examen elegido: pantalla de registro de ingreso (verificación, resultado y últimos ingresos)
+// y el botón de lista: con internet "Lista oficial" (toda su aula); sin internet "Mi lista" (solo su rango).
+// En la pantalla de registro se oculta el menú lateral y, sin internet, "Mis últimos ingresos"
+// muestra los registros guardados en este equipo.
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ListChecks } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { obtenerUsuarioActual } from "../../../services/authService";
 import { useOperador } from "../operadorContexto";
 import useControlIngreso from "../ingreso/useControlIngreso";
+import useUltimosLocales from "../ingreso/useUltimosLocales";
+import { useLayoutAyudante } from "../layoutAyudanteContexto";
 import SeccionControlIngreso from "../ingreso/SeccionControlIngreso";
 import EncabezadoControl from "../ingreso/componentes/EncabezadoControl";
+import PanelMiLista from "../ingreso/componentes/PanelMiLista";
 import SelectorConexion from "../components/SelectorConexion";
 import TarjetaHoyAyudante from "../inicio/TarjetaHoyAyudante";
 import CalendarioExamenes from "../../credencial/componentes/CalendarioExamenes";
@@ -26,6 +34,18 @@ export default function ConectadoOperador() {
   const ctrl = useControlIngreso(objUbicacion.state?.idExamen ?? null);
   const { estadoRed } = useOperador();
   const strNombre = (obtenerUsuarioActual()?.nombre || "").split(" ")[0];
+  const [boolMiListaAbierta, setBoolMiListaAbierta] = useState(false);
+  const fnCerrarMiLista = useCallback(() => setBoolMiListaAbierta(false), []);
+  const boolSinRed = estadoRed.net === "offline" || Boolean(ctrl.boolOffline);
+  const listUltimosLocales = useUltimosLocales(ctrl.examenActual?.idexamen, ctrl.idExamen != null && boolSinRed, ctrl.numVersion, estadoRed.pend);
+
+  // Pantalla de registro: sin menú lateral (pantalla completa)
+  const { setBoolPantallaCompleta } = useLayoutAyudante();
+  const boolEnRegistro = ctrl.idExamen != null;
+  useEffect(() => {
+    setBoolPantallaCompleta(boolEnRegistro);
+    return () => setBoolPantallaCompleta(false);
+  }, [boolEnRegistro, setBoolPantallaCompleta]);
 
   // Hora actual: cada 30 s, para que el botón "Registrar ingreso" aparezca solo a la hora indicada
   const [dateAhora, setDateAhora] = useState(() => new Date());
@@ -63,7 +83,29 @@ export default function ConectadoOperador() {
           enviados={estadoRed.enviados}
           spacePrc={estadoRed.spacePrc}
         />
-        <SeccionControlIngreso ctrl={ctrl} strRol="operador" />
+        <SeccionControlIngreso
+          ctrl={boolSinRed ? { ...ctrl, listUltimos: listUltimosLocales } : ctrl}
+          strRol="operador"
+          nodoAcciones={
+            <button
+              type="button"
+              onClick={() => setBoolMiListaAbierta(true)}
+              className="min-h-10 px-4 rounded-lg bg-white text-[#003770] text-[14px] font-bold inline-flex items-center justify-center gap-2 hover:bg-[#F0F6FC] cursor-pointer max-md:w-full"
+            >
+              <ListChecks className="w-4 h-4" /> {boolSinRed ? "Mi lista" : "Lista oficial"}
+            </button>
+          }
+        />
+        <PanelMiLista
+          boolAbierto={boolMiListaAbierta}
+          onCerrar={fnCerrarMiLista}
+          examen={ctrl.examenActual}
+          boolSinRed={boolSinRed}
+          numVersion={ctrl.numVersion}
+          numPendientes={estadoRed.pend}
+          strUltimoRegistrado={ctrl.strUltimoRegistrado}
+          strNominaDescargadaEn={ctrl.objNomina?.descargadaEn}
+        />
       </div>
     );
   }
@@ -71,23 +113,18 @@ export default function ConectadoOperador() {
   // ---- Inicio ----
   return (
     <div className="space-y-6">
-      {/* Banner de bienvenida con el conmutador Online/Offline de Yuri arriba a la derecha */}
+      {/* Banner de bienvenida: igual al de los paneles de docente y estudiante */}
       <div
-        className="w-full text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 min-h-[130px]"
+        className="w-full text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]"
         style={{ backgroundImage: "linear-gradient(to right, #1A365D, #2563EB, #DC2626)" }}
       >
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1 block">
-            ¡HOLA{strNombre ? `, ${strNombre.toUpperCase()}` : ""}!
-          </span>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">Te damos la bienvenida a SCIEM-PASS</h1>
-          <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
-            Aquí registras el ingreso de los estudiantes a los exámenes que tienes asignados.
-          </p>
-        </div>
-        <div className="self-start shrink-0">
-          <SelectorConexion boolEnBanner />
-        </div>
+        <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
+          ¡HOLA{strNombre ? `, ${strNombre.toUpperCase()}` : ""}!
+        </span>
+        <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">Te damos la bienvenida a SCIEM-PASS</h1>
+        <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
+          Aquí registras el ingreso de los estudiantes a los exámenes que tienes asignados.
+        </p>
       </div>
 
       {/* Avisos de conexión de Yuri (sin red, almacenamiento, sincronización) */}
@@ -106,9 +143,13 @@ export default function ConectadoOperador() {
         {/* MIS EXÁMENES DE HOY */}
         <div className="w-full xl:flex-1 min-w-0">
           <div className="bg-white rounded-2xl border border-[#CBD5E1] shadow-xs overflow-hidden">
-            <div className="px-5 pt-4 pb-3 border-b border-[#E2E8F0]">
-              <h3 className="text-base font-black text-[#08264A]">Mis exámenes de hoy</h3>
-              <p className="text-xs font-bold text-slate-500 mt-0.5">{fechaDeHoy()}</p>
+            {/* Encabezado: título a la izquierda y el conmutador Online/Offline de Yuri a la derecha */}
+            <div className="px-5 pt-4 pb-3 border-b border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h3 className="text-base font-black text-[#08264A]">Mis exámenes de hoy</h3>
+                <p className="text-xs font-bold text-slate-500 mt-0.5">{fechaDeHoy()}</p>
+              </div>
+              <SelectorConexion />
             </div>
             <div className="px-5 py-4 space-y-2.5">
               {ctrl.boolCargandoExamenes && listHoy.length === 0 ? (

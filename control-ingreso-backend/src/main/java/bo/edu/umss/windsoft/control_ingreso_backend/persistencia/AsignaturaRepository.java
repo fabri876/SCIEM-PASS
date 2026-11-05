@@ -12,4 +12,5 @@ public interface AsignaturaRepository extends JpaRepository<Asignatura, Integer>
     Optional<Asignatura> findBySiglaAsignatura(String siglaAsignatura);
     Optional<Asignatura> findByNombreAsignatura(String nombreAsignatura);
     Optional<Asignatura> findByNombreAsignaturaIgnoreCase(String nombreAsignatura);
+    java.util.List<Asignatura> findAllByNombreAsignaturaIgnoreCase(String nombreAsignatura);
 }

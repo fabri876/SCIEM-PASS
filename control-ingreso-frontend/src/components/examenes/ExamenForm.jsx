@@ -8,7 +8,8 @@ import {
     obtenerTiposExamen,
 } from "../../services/examenService";
 import { obtenerUsuarioActual } from "../../services/authService";
-import { obtenerTiposUsados } from "../../services/adminNormasService";
+import { obtenerTiposUsadosPorGrupo } from "../../services/grupoExamenService";
+import { useGruposDocente, useAulasOcupadas, textoGrupo } from "./useGrupoYAulas";
 
 
 //ExamenForm.jsx
@@ -36,30 +37,25 @@ function diaSemanaDeFecha(strFechaYYYYMMDD) {
     return js === 0 ? 7 : js;
 }
 
-function IconoDocumento() {
+// Una opción del buscador de aulas: las ocupadas en ese horario salen en gris y no se pueden elegir
+function OpcionAula({ aula, boolOcupada, onElegir }) {
+    if (boolOcupada) {
+        return (
+            <div className="px-3 py-2 text-[13px] flex items-center justify-between gap-2 bg-[#F8FAFC] text-gray-400 cursor-not-allowed">
+                {aula.nombreAula}
+                <span className="text-[11px] font-bold bg-[#F1F5F9] text-[#64748B] rounded-full px-2 py-0.5 whitespace-nowrap">
+                    No disponible en este horario
+                </span>
+            </div>
+        );
+    }
     return (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />
-        </svg>
-    );
-}
-
-function IconoInfo() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <circle cx="12" cy="12" r="9" />
-            <path strokeLinecap="round" d="M12 8h.01M11 12h1v4h1" />
-        </svg>
-    );
-}
-
-function IconoNormas() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 3.75h6a1 1 0 011 1v1.25H8V4.75a1 1 0 011-1z" />
-            <rect x="6" y="5" width="12" height="15" rx="1.5" />
-            <path strokeLinecap="round" d="M9 11h6M9 14.5h6M9 18h3.5" />
-        </svg>
+        <div
+            onMouseDown={() => onElegir(aula)}
+            className="px-3 py-2 text-[13px] flex items-center justify-between gap-2 cursor-pointer hover:bg-[#EFF6FF]"
+        >
+            {aula.nombreAula}
+        </div>
     );
 }
 
@@ -81,7 +77,8 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
     const [arrAsignaturas, setArrAsignaturas] = useState([]);
     const [arrTiposExamen, setArrTiposExamen] = useState([]);
     const [arrIdTiposUsados, setArrIdTiposUsados] = useState([]);
-    const [arrHorariosRegulares, setArrHorariosRegulares] = useState([]);
+    // Todos los horarios regulares del docente en la asignatura; abajo se filtran por grupo
+    const [arrHorariosTodos, setArrHorariosRegulares] = useState([]);
     const [strTipoHorario, setStrTipoHorario] = useState("REGULAR");
     const [idHorarioRegularSeleccionado, setIdHorarioRegularSeleccionado] = useState("");
 
@@ -110,6 +107,17 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
 
     const [boolEnviando, setBoolEnviando] = useState(false);
     const [strMensaje, setStrMensaje] = useState("");
+
+    // Grupo del examen: solo los grupos que el docente dicta en la asignatura (si es uno, se elige solo)
+    const { arrGrupos, boolCargandoGrupos, idGrupo, setIdGrupo } = useGruposDocente(
+        objFormData.idAsignatura,
+        objUsuario?.idUsuario
+    );
+    const boolPideGrupo = arrGrupos.length > 0;
+    // Cuando el backend mande el grupo de cada horario (idGrupo), solo se muestran los del grupo elegido
+    const arrHorariosRegulares = arrHorariosTodos.filter(
+        (h) => h.idGrupo == null || !idGrupo || String(h.idGrupo) === String(idGrupo)
+    );
     const [strTipoMensaje, setStrTipoMensaje] = useState("error"); // "error" | "exito"
 
     // El mensaje de arriba (error o éxito) no debe quedarse pegado cuando el
@@ -118,6 +126,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
         setStrMensaje("");
     }, [
         objFormData,
+        idGrupo,
         strTipoHorario,
         idHorarioRegularSeleccionado,
         arrIdAulasSeleccionadas,
@@ -170,18 +179,17 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
             .catch(() => setArrHorariosRegulares([]));
     }, [objFormData.idAsignatura, intCodsisDocente]);
 
-    // Tipos de examen ya registrados por este docente en esta asignatura
-    // (el backend igual bloquea repetir uno al guardar; esto es para
-    // deshabilitarlo directamente en el selector).
+    // Tipos de examen ya registrados en este grupo (cada grupo tiene los suyos).
+    // Mientras el backend no filtre por grupo, cuenta como antes (asignatura y docente).
     useEffect(() => {
         if (!objFormData.idAsignatura || !intCodsisDocente) {
             setArrIdTiposUsados([]);
             return;
         }
-        obtenerTiposUsados(objFormData.idAsignatura, intCodsisDocente)
+        obtenerTiposUsadosPorGrupo(objFormData.idAsignatura, intCodsisDocente, idGrupo)
             .then((tipos) => setArrIdTiposUsados(tipos || []))
             .catch(() => setArrIdTiposUsados([]));
-    }, [objFormData.idAsignatura, intCodsisDocente]);
+    }, [objFormData.idAsignatura, intCodsisDocente, idGrupo]);
 
     // Al elegir un horario regular: precarga su aula (la fecha queda vacía, sin sugerencia)
     useEffect(() => {
@@ -217,6 +225,13 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
         objFormData.fecha &&
         diaSemanaDeFecha(objFormData.fecha) !== objHorarioSeleccionado.diaSemana;
 
+    // Aulas con otro examen que se cruza en esa fecha y horario (se muestran en gris)
+    const mapAulasOcupadas = useAulasOcupadas({
+        fecha: objFormData.fecha,
+        horaInicio: strTipoHorario === "REGULAR" ? objHorarioSeleccionado?.horaInicio : objEventual.horaInicio,
+        horaFin: strTipoHorario === "REGULAR" ? objHorarioSeleccionado?.horaFin : objEventual.horaFin,
+    });
+
     // Aula principal real para REGULAR: la del horario por defecto, salvo que
     // se haya elegido un reemplazo (idAulaSeleccionadaRegular).
     const intIdAulaPrincipalRegular = idAulaSeleccionadaRegular
@@ -249,8 +264,18 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
         setObjFormData((prev) => ({ ...prev, [name]: value }));
     }
 
+    function handleChangeGrupo(e) {
+        // Otro grupo: el tipo y el horario elegidos ya no tienen por qué corresponder
+        setIdGrupo(e.target.value);
+        setObjFormData((prev) => ({ ...prev, idTipoExamen: "", detalleTipoExamen: "", fecha: "" }));
+        setIdHorarioRegularSeleccionado("");
+        setIdAulaSeleccionadaRegular(null);
+        setArrIdAulasSeleccionadas([]);
+    }
+
     function handleChangeAsignatura(e) {
         const strValor = e.target.value;
+        setIdGrupo("");
         // Al cambiar de asignatura, el tipo/horario/fecha/ambientes elegidos
         // ya no tienen por qué corresponder — se limpian para forzar a
         // elegir de nuevo (antes se quedaban pegados de la asignatura anterior).
@@ -269,6 +294,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
     }
 
     function handleAgregarAula(aula) {
+        if (mapAulasOcupadas.has(Number(aula.idAula))) return;
         setArrIdAulasSeleccionadas((prev) =>
             prev.includes(aula.idAula) ? prev : [...prev, aula.idAula]
         );
@@ -281,6 +307,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
     }
 
     function handleElegirAulaPrincipal(aula) {
+        if (mapAulasOcupadas.has(Number(aula.idAula))) return;
         setIdAulaSeleccionadaRegular(String(aula.idAula));
         setStrBusquedaAulaPrincipal("");
         setBoolCambiandoAulaRegular(false);
@@ -343,9 +370,23 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
         }
 
         // No se puede programar un examen en una fecha ya pasada.
-        const strHoyISO = new Date().toISOString().slice(0, 10);
+        const partesHoy = new Intl.DateTimeFormat("en", {
+            timeZone: "America/La_Paz",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).formatToParts(new Date()).reduce((acc, parte) => {
+            acc[parte.type] = parte.value;
+            return acc;
+        }, {});
+        const strHoyISO = `${partesHoy.year}-${partesHoy.month}-${partesHoy.day}`;
         if (objFormData.fecha && objFormData.fecha < strHoyISO) {
             setStrMensaje("No se puede programar un examen en una fecha pasada.");
+            return;
+        }
+
+        if (boolPideGrupo && !idGrupo) {
+            setStrMensaje("Debe seleccionar el grupo.");
             return;
         }
 
@@ -415,6 +456,15 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
             setStrMensaje("Especifique el tipo de examen.");
             return;
         }
+        const arrIdAulasDelExamen = [
+            ...(strTipoHorario === "REGULAR" && intIdAulaPrincipalRegular ? [intIdAulaPrincipalRegular] : []),
+            ...arrIdAulasSeleccionadas,
+        ];
+        const objAulaOcupada = arrAulas.find((a) => arrIdAulasDelExamen.includes(a.idAula) && mapAulasOcupadas.has(Number(a.idAula)));
+        if (objAulaOcupada) {
+            setStrMensaje(`El aula ${objAulaOcupada.nombreAula} no está disponible en este horario. Elija otra aula.`);
+            return;
+        }
 
         setBoolEnviando(true);
 
@@ -426,6 +476,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
             codsisDocente: intCodsisDocente,
             tipoHorario: strTipoHorario,
             idTipoExamen: parseInt(objFormData.idTipoExamen, 10),
+            ...(idGrupo ? { idGrupo: parseInt(idGrupo, 10) } : {}),
             idsNormasGenerales: arrIdNormasSeleccionadas,
             normasEspecificas: arrNormasEspecificas,
         };
@@ -475,26 +526,21 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
     return (
         <form onSubmit={handleSubmit} className="bg-white rounded-lg overflow-hidden">
             <div className="flex items-center gap-3 p-6 pb-0">
-                <div className="w-10 h-10 rounded-lg bg-[#003770] flex items-center justify-center text-white">
-                    <IconoDocumento />
-                </div>
                 <div>
-                    <h2 className="text-[19px] font-bold text-[#003770]">Registrar examen</h2>
-                    <p className="text-[13px] text-gray-500">
+                    <h2 className="text-[19px] font-black text-[#08264A]">Registrar examen</h2>
+                    <p className="text-[13.5px] text-[#64748B] mt-0.5">
                         Complete el formulario para programar la evaluación académica
                     </p>
                 </div>
             </div>
 
-            <div className="bg-[#EFF6FF] px-6 py-2.5 mt-4 font-bold text-[13px] text-[#003770] flex items-center gap-2">
-                <IconoInfo />
-                Información del examen
+            <div className="px-6 pt-5 font-black text-[13px] text-[#003770]">Información del examen
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="px-6 pt-3 pb-6 space-y-4">
                 <div className="grid grid-cols-2 gap-3.5">
                     <div>
-                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                             Asignatura <span className="text-red-600">*</span>
                         </label>
                         <select
@@ -502,7 +548,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                             value={objFormData.idAsignatura}
                             onChange={handleChangeAsignatura}
                             required
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] px-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
+                            className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3.5 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                         >
                             <option value="" disabled>Seleccione una asignatura</option>
                             {arrAsignaturas.map((a) => (
@@ -513,7 +559,39 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
+                            Grupo {boolPideGrupo && <span className="text-red-600">*</span>}
+                        </label>
+                        <select
+                            name="idGrupo"
+                            value={idGrupo}
+                            onChange={handleChangeGrupo}
+                            required={boolPideGrupo}
+                            disabled={!objFormData.idAsignatura || !boolPideGrupo}
+                            className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3.5 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15 disabled:opacity-50 disabled:bg-gray-50"
+                        >
+                            <option value="" disabled>
+                                {boolCargandoGrupos ? "Cargando grupos..." : "Seleccione el grupo"}
+                            </option>
+                            {arrGrupos.map((g) => (
+                                <option key={g.idGrupo} value={g.idGrupo}>
+                                    {textoGrupo(g)}
+                                </option>
+                            ))}
+                        </select>
+                        {objFormData.idAsignatura && !boolCargandoGrupos && (
+                            <p className="text-[12.5px] text-[#64748B] mt-1">
+                                {boolPideGrupo
+                                    ? "Solo los grupos que dicta en esta asignatura"
+                                    : "No tiene grupos registrados en esta asignatura"}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                <div>
+                    <div>
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                             Tipo de Examen <span className="text-red-600">*</span>
                         </label>
                         <select
@@ -521,8 +599,8 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                             value={objFormData.idTipoExamen}
                             onChange={handleChange}
                             required
-                            disabled={!objFormData.idAsignatura}
-                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] px-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15 disabled:opacity-50 disabled:bg-gray-50"
+                            disabled={!objFormData.idAsignatura || (boolPideGrupo && !idGrupo)}
+                            className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3.5 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15 disabled:opacity-50 disabled:bg-gray-50"
                         >
                             <option value="" disabled>Seleccione el tipo</option>
                             {arrTiposExamen.map((tipo) => {
@@ -537,7 +615,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                 return (
                                     <option key={tipo.idTipoExamen} value={tipo.idTipoExamen} disabled={boolDeshabilitado}>
                                         {tipo.nombreTipoExamen}
-                                        {boolYaUsado ? " (ya registrado)" : ""}
+                                        {boolYaUsado ? (idGrupo ? " (ya registrado en este grupo)" : " (ya registrado)") : ""}
                                     </option>
                                 );
                             })}
@@ -546,14 +624,14 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                 </div>
 
                 {!objFormData.idAsignatura && (
-                    <p className="text-[13px] text-gray-500 -mt-2.5">
+                    <p className="text-[12.5px] text-[#64748B] -mt-2.5">
                         Seleccione una asignatura para continuar.
                     </p>
                 )}
 
                 {boolRequiereDescripcion && (
                     <div>
-                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                             Especifique tipo de examen <span className="text-red-600">*</span>
                         </label>
                         <input
@@ -564,23 +642,23 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                             onChange={handleChange}
                             required
                             placeholder="Ej. Tercer parcial, Examen extraordinario, etc."
-                            className="h-[42px] w-full border border-[#003770] rounded-md text-[14.5px] px-3 bg-[#003770]/[0.06] focus:ring-3 focus:ring-[#003770]/15"
+                            className="h-11 w-full border border-[#003770] rounded-[10px] text-[14.5px] px-3.5 bg-[#003770]/[0.06] focus:ring-3 focus:ring-[#003770]/15"
                         />
-                        <p className="text-[13px] text-gray-500 text-right mt-1">
+                        <p className="text-[12.5px] text-[#64748B] text-right mt-1">
                             {objFormData.detalleTipoExamen.length}/60
                         </p>
                     </div>
                 )}
 
-                <fieldset disabled={!objFormData.idAsignatura} className="space-y-4 disabled:opacity-50">
+                <fieldset disabled={!objFormData.idAsignatura || (boolPideGrupo && !idGrupo)} className="space-y-4 disabled:opacity-50">
                     <div>
-                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                             Horario <span className="text-red-600">*</span>
                         </label>
 
                         {arrHorariosRegulares.length > 0 && (
                             <div className="flex gap-4 mb-2.5">
-                                <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                                <label className="flex items-center gap-1.5 text-[14px] text-[#334155] cursor-pointer">
                                     <input
                                         type="radio"
                                         checked={strTipoHorario === "REGULAR"}
@@ -589,7 +667,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                     />
                                     Horario regular
                                 </label>
-                                <label className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                                <label className="flex items-center gap-1.5 text-[14px] text-[#334155] cursor-pointer">
                                     <input
                                         type="radio"
                                         checked={strTipoHorario === "EVENTUAL"}
@@ -606,7 +684,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                 value={idHorarioRegularSeleccionado}
                                 onChange={(e) => setIdHorarioRegularSeleccionado(e.target.value)}
                                 required
-                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] px-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
+                                className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3.5 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                             >
                                 <option value="" disabled>Seleccione un horario</option>
                                 {arrHorariosRegulares.map((h) => (
@@ -620,7 +698,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                         {strTipoHorario === "EVENTUAL" && (
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-[13px] text-gray-500 mb-1">Hora inicio</label>
+                                    <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">Hora inicio</label>
                                     <input
                                         type="time"
                                         name="horaInicio"
@@ -629,11 +707,11 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                         required
                                         min={HORA_ACADEMICA_INICIO}
                                         max={HORA_ACADEMICA_FIN}
-                                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] px-3"
+                                        className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[13px] text-gray-500 mb-1">Hora fin</label>
+                                    <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">Hora fin</label>
                                     <input
                                         type="time"
                                         name="horaFin"
@@ -642,24 +720,24 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                         required
                                         min={HORA_ACADEMICA_INICIO}
                                         max={HORA_ACADEMICA_FIN}
-                                        className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] px-3"
+                                        className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] px-3"
                                     />
                                 </div>
-                                <p className="text-[13px] text-gray-500 col-span-2">
+                                <p className="text-[12.5px] text-[#64748B] col-span-2">
                                     Dentro del horario académico ({HORA_ACADEMICA_INICIO} - {HORA_ACADEMICA_FIN}).
                                 </p>
                             </div>
                         )}
 
                         {arrHorariosRegulares.length === 0 && objFormData.idAsignatura && (
-                            <p className="text-[13px] text-gray-500 mt-1.5">
+                            <p className="text-[12.5px] text-[#64748B] mt-1.5">
                                 No tiene un horario regular para esta asignatura, complete un horario eventual.
                             </p>
                         )}
                     </div>
 
                     <div>
-                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                             Fecha del Examen <span className="text-red-600">*</span>
                         </label>
                         <input
@@ -669,20 +747,20 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                             onChange={handleChange}
                             required
                             min={new Date().toISOString().slice(0, 10)}
-                            className={`h-[42px] w-full border rounded-md text-[14.5px] px-3 focus:ring-3 ${boolFechaNoCoincide
+                            className={`h-11 w-full border rounded-[10px] text-[14.5px] px-3.5 focus:ring-3 ${boolFechaNoCoincide
                                 ? "border-red-400 focus:border-red-500 focus:ring-red-400/15"
                                 : "border-[#C8D6E8] focus:border-[#003770] focus:ring-[#003770]/15"
                                 }`}
                         />
                         {boolFechaNoCoincide && (
-                            <p className="text-[13px] text-red-600 mt-1">
+                            <p className="text-[12.5px] text-red-600 mt-1">
                                 La fecha no corresponde a {DIAS_SEMANA[objHorarioSeleccionado.diaSemana]}, el día de ese horario regular.
                             </p>
                         )}
                     </div>
 
                     <div className="relative">
-                        <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                             Ambiente(s) {strTipoHorario === "EVENTUAL" && <span className="text-red-600">*</span>}
                         </label>
 
@@ -697,6 +775,11 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                     >
                                         {strNombreAulaPrincipalRegular || "Aula del horario"}
                                     </span>
+                                    {intIdAulaPrincipalRegular && mapAulasOcupadas.has(Number(intIdAulaPrincipalRegular)) && (
+                                        <span className="text-[12.5px] font-semibold text-red-600">
+                                            No disponible en este horario · use "Cambiar aula"
+                                        </span>
+                                    )}
                                     {!boolCambiandoAulaRegular && (
                                         <button
                                             type="button"
@@ -710,7 +793,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                         <button
                                             type="button"
                                             onClick={handleRestablecerAulaPrincipal}
-                                            className="text-[13px] text-gray-500 font-semibold"
+                                            className="text-[12.5px] text-[#64748B] font-semibold"
                                         >
                                             Usar la aula del horario
                                         </button>
@@ -728,22 +811,21 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                             onFocus={() => setBoolSugerenciasAulaPrincipalVisibles(true)}
                                             onBlur={() => setTimeout(() => setBoolSugerenciasAulaPrincipalVisibles(false), 150)}
                                             autoFocus
-                                            className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] pl-9 pr-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
+                                            className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] pl-9 pr-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                                         />
                                         {boolSugerenciasAulaPrincipalVisibles && (
                                             <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
                                                 {arrAulasFiltradasPrincipal.length > 0 ? (
                                                     arrAulasFiltradasPrincipal.map((aula) => (
-                                                        <div
+                                                        <OpcionAula
                                                             key={aula.idAula}
-                                                            onMouseDown={() => handleElegirAulaPrincipal(aula)}
-                                                            className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EFF6FF]"
-                                                        >
-                                                            {aula.nombreAula}
-                                                        </div>
+                                                            aula={aula}
+                                                            boolOcupada={mapAulasOcupadas.has(Number(aula.idAula))}
+                                                            onElegir={handleElegirAulaPrincipal}
+                                                        />
                                                     ))
                                                 ) : (
-                                                    <div className="px-3 py-2 text-[13px] text-gray-500">
+                                                    <div className="px-3 py-2 text-[12.5px] text-[#64748B]">
                                                         No se encontraron aulas.
                                                     </div>
                                                 )}
@@ -752,7 +834,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                         <button
                                             type="button"
                                             onClick={() => setBoolCambiandoAulaRegular(false)}
-                                            className="text-[13px] text-gray-500 font-semibold mt-1.5"
+                                            className="text-[12.5px] text-[#64748B] font-semibold mt-1.5"
                                         >
                                             Cancelar
                                         </button>
@@ -770,22 +852,21 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                 onChange={(e) => setStrBusquedaAula(e.target.value)}
                                 onFocus={() => setBoolSugerenciasAulaVisibles(true)}
                                 onBlur={() => setTimeout(() => setBoolSugerenciasAulaVisibles(false), 150)}
-                                className="h-[42px] w-full border border-[#C8D6E8] rounded-md text-[14.5px] pl-9 pr-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
+                                className="h-11 w-full border border-[#C8D6E8] rounded-[10px] text-[14.5px] pl-9 pr-3 focus:border-[#003770] focus:ring-3 focus:ring-[#003770]/15"
                             />
                             {boolSugerenciasAulaVisibles && (
                                 <div className="absolute left-0 right-0 top-[44px] bg-white border border-[#C8D6E8] rounded-b-md shadow-lg z-10 max-h-40 overflow-y-auto">
                                     {arrAulasFiltradas.length > 0 ? (
                                         arrAulasFiltradas.map((aula) => (
-                                            <div
+                                            <OpcionAula
                                                 key={aula.idAula}
-                                                onMouseDown={() => handleAgregarAula(aula)}
-                                                className="px-3 py-2 text-[13px] cursor-pointer hover:bg-[#EFF6FF]"
-                                            >
-                                                {aula.nombreAula}
-                                            </div>
+                                                aula={aula}
+                                                boolOcupada={mapAulasOcupadas.has(Number(aula.idAula))}
+                                                onElegir={handleAgregarAula}
+                                            />
                                         ))
                                     ) : (
-                                        <div className="px-3 py-2 text-[13px] text-gray-500">
+                                        <div className="px-3 py-2 text-[12.5px] text-[#64748B]">
                                             No se encontraron aulas.
                                         </div>
                                     )}
@@ -796,12 +877,18 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                             {arrIdAulasSeleccionadas.map((idAula) => {
                                 const aula = arrAulas.find((a) => a.idAula === idAula);
                                 if (!aula) return null;
+                                const boolOcupada = mapAulasOcupadas.has(Number(idAula));
                                 return (
                                     <span
                                         key={idAula}
-                                        className="inline-flex items-center gap-1.5 bg-[#EFF6FF] text-[#003770] border border-[#BFDBFE] px-2.5 py-1 rounded-full text-[13px] font-semibold"
+                                        title={boolOcupada ? "No disponible en este horario" : undefined}
+                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-semibold border ${boolOcupada
+                                            ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
+                                            : "bg-[#EFF6FF] text-[#003770] border-[#BFDBFE]"
+                                            }`}
                                     >
                                         {aula.nombreAula}
+                                        {boolOcupada && <span className="font-normal">· No disponible</span>}
                                         <button
                                             type="button"
                                             onClick={() => handleQuitarAula(idAula)}
@@ -817,19 +904,17 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                 </fieldset>
             </div>
 
-            <div className="bg-[#EFF6FF] px-6 py-2.5 font-bold text-[13px] text-[#003770] flex items-center gap-2">
-                <IconoNormas />
-                Normas e indicaciones
+            <div className="px-6 pt-5 font-black text-[13px] text-[#003770]">Normas e indicaciones
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="px-6 pt-3 pb-6 space-y-4">
                 <div>
-                    <label className="block text-[13px] font-semibold text-[#003770] mb-2">
+                    <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-2">
                         Normas generales
                     </label>
                     <div className="flex flex-col gap-2">
                         {arrNormasGeneralesCatalogo.map((norma) => (
-                            <label key={norma.idNormaGeneral} className="flex items-start gap-2 text-[13px] text-gray-700 cursor-pointer">
+                            <label key={norma.idNormaGeneral} className="flex items-start gap-2 text-[14px] text-[#334155] cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={arrIdNormasSeleccionadas.includes(norma.idNormaGeneral)}
@@ -843,7 +928,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                 </div>
 
                 <div>
-                    <label className="block text-[13px] font-semibold text-[#003770] mb-1.5">
+                    <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
                         Normas particulares
                     </label>
                     <div className="flex gap-2 mb-2">
@@ -857,7 +942,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                                     ? "Edite la indicación"
                                     : "Escriba una indicación y presione Agregar"
                             }
-                            className={`h-[38px] flex-1 border rounded-md text-[13px] px-3 ${intIndexNormaEnEdicion !== null
+                            className={`h-11 flex-1 border rounded-[10px] text-[14px] px-3.5 ${intIndexNormaEnEdicion !== null
                                 ? "border-[#003770] bg-[#003770]/[0.06]"
                                 : "border-[#C8D6E8]"
                                 }`}
@@ -865,7 +950,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                         <button
                             type="button"
                             onClick={handleAgregarNormaEspecifica}
-                            className="h-[38px] px-4 rounded-md border border-[#003770] text-[#003770] text-[13px] font-semibold"
+                            className="h-11 px-4 rounded-[10px] border border-[#003770] text-[#003770] text-[13px] font-semibold"
                         >
                             {intIndexNormaEnEdicion !== null ? "Guardar cambios" : "Agregar"}
                         </button>
@@ -873,7 +958,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                             <button
                                 type="button"
                                 onClick={handleCancelarEdicionNormaEspecifica}
-                                className="h-[38px] px-4 rounded-md border border-[#C8D6E8] text-gray-500 text-[13px] font-semibold"
+                                className="h-11 px-4 rounded-[10px] border border-[#C8D6E8] text-gray-500 text-[13px] font-semibold"
                             >
                                 Cancelar
                             </button>
@@ -883,7 +968,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                         {arrNormasEspecificas.map((norma, index) => (
                             <div
                                 key={index}
-                                className={`flex items-center justify-between border rounded-md px-3 py-1.5 text-[13px] text-gray-700 ${intIndexNormaEnEdicion === index
+                                className={`flex items-center justify-between border rounded-[10px] px-3 py-2 text-[13.5px] text-[#334155] ${intIndexNormaEnEdicion === index
                                     ? "bg-[#003770]/[0.06] border-[#003770]"
                                     : "bg-[#F4F7FB] border-[#E2E8F0]"
                                     }`}
@@ -922,7 +1007,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
             )}
 
             <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100">
-                <span className="text-[13px] text-gray-500">
+                <span className="text-[12.5px] text-[#64748B]">
                     Campos con (<span className="text-red-600">*</span>) son obligatorios
                 </span>
                 <div className="flex gap-2.5">

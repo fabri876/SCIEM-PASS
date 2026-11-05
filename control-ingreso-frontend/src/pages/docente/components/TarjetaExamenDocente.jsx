@@ -1,9 +1,20 @@
 // Tarjeta de un examen en "Mis exámenes" del docente.
 // - "Registrar ingreso": desde 15 minutos antes del inicio hasta que termina el examen.
 // - "Habilitaciones": solo antes de que empiece el examen (después ya no se pueden editar).
-// - Finalizado: sin botones.
+// - Finalizado: "Ver ingresos" (todos los estudiantes con su estado, solo lectura).
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { estadoExamen, esHoy, puedeControlarIngreso, aperturaControl } from "../utilidadesExamenDocente";
+import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
+import PanelIngresosExamen from "../../control/ingreso/componentes/PanelIngresosExamen";
+// "Seguridad de Sistemas · Primer Parcial · 24 oct" para el panel de ingresos
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function subtituloIngresos(strMateria, strTipo, strFecha) {
+  const m = String(strFecha || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+  const strDia = m ? `${Number(m[3])} ${MESES_CORTOS[Number(m[2]) - 1]}` : "";
+  return [strMateria, strTipo, strDia].filter(Boolean).join(" · ");
+}
+
 
 const MESES = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
 
@@ -29,11 +40,14 @@ const BOTON_SECUNDARIO = "bg-white border border-[#CBD5E1] hover:bg-slate-50 tex
 
 export default function TarjetaExamenDocente({ examen, boolResaltado = false, dateAhora = new Date() }) {
   const navigate = useNavigate();
+  const [boolIngresosAbierto, setBoolIngresosAbierto] = useState(false);
   const boolReal = examen.esExamenReal !== false;
   const strEstado = boolReal ? estadoExamen(examen, dateAhora) : "SIN_FECHA";
   const boolHoy = esHoy(examen, dateAhora);
   const boolControl = boolReal && puedeControlarIngreso(examen, dateAhora);
-  const boolHabilitaciones = boolReal && strEstado === "PROXIMO";
+  // Las habilitaciones se pueden gestionar hasta que termine el examen,
+  // incluyendo la ventana en curso.
+  const boolHabilitaciones = boolReal && (strEstado === "PROXIMO" || strEstado === "EN_CURSO");
   const dateApertura = aperturaControl(examen);
   const boolAvisoApertura = boolReal && boolHoy && strEstado === "PROXIMO" && dateApertura && dateAhora < dateApertura;
   const objFecha = partesFecha(examen.fechaExamen);
@@ -48,7 +62,7 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
         ? { strTexto: "Finalizado", strClase: "bg-[#F1F5F9] text-[#64748B]" }
         : null;
 
-  const strGrupo = examen.grupo ? `Grupo ${String(examen.grupo).replace(/^grupo\s*/i, "")}` : "";
+  const strGrupo = textoGrupoExamen(examen.grupo);
   const strDetalle = [strGrupo, examen.horario, textoAulas(examen)].filter(Boolean).join(" · ");
 
   return (
@@ -86,6 +100,14 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
         )}
       </div>
 
+      {boolFinalizado && boolReal && (
+        <div className="flex items-center gap-2 flex-wrap max-md:w-full">
+          <button type="button" onClick={() => setBoolIngresosAbierto(true)} className={BOTON_SECUNDARIO}>
+            Ver ingresos
+          </button>
+        </div>
+      )}
+
       {(boolControl || boolHabilitaciones) && (
         <div className="flex items-center gap-2 flex-wrap max-md:w-full">
           {boolControl && (
@@ -108,6 +130,13 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
           )}
         </div>
       )}
+
+      <PanelIngresosExamen
+        boolAbierto={boolIngresosAbierto}
+        onCerrar={() => setBoolIngresosAbierto(false)}
+        idExamen={boolIngresosAbierto ? Number(examen.idExamen) : null}
+        strSubtitulo={subtituloIngresos(examen.nombreExamen, examen.tipoExamen, examen.fechaExamen)}
+      />
     </div>
   );
 }

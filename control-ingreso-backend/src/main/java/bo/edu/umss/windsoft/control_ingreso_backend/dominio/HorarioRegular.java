@@ -27,6 +27,10 @@ public class HorarioRegular {
     @Column(name = "idasignatura", nullable = false)
     private Integer idAsignatura;
 
+    // Opcional para conservar compatibilidad con horarios ya registrados.
+    @Column(name = "idgrupo")
+    private Integer idGrupo;
+
     @Column(name = "idaula", nullable = false)
     private Integer idAula;
 
@@ -52,6 +56,8 @@ public class HorarioRegular {
     public void setCodsisDocente(Integer codsisDocente) { this.codsisDocente = codsisDocente; }
     public Integer getIdAsignatura() { return idAsignatura; }
     public void setIdAsignatura(Integer idAsignatura) { this.idAsignatura = idAsignatura; }
+    public Integer getIdGrupo() { return idGrupo; }
+    public void setIdGrupo(Integer idGrupo) { this.idGrupo = idGrupo; }
     public Integer getIdAula() { return idAula; }
     public void setIdAula(Integer idAula) { this.idAula = idAula; }
     public Short getDiaSemana() { return diaSemana; }

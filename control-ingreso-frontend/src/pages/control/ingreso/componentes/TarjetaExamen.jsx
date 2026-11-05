@@ -1,5 +1,6 @@
 // Encabezado del examen que se está controlando (bloque azul):
 // tipo de examen, materia, fecha · horario · aula, botón de acciones y contadores
+import { textoGrupoExamen } from "../../../../components/examenes/textoGrupoExamen";
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
@@ -37,7 +38,8 @@ function Contador({ numValor, strEtiqueta, boolRojo = false }) {
 
 // children: botones a la derecha (por ejemplo "Lista oficial del aula")
 // listAvisos: chips extra (por ejemplo "Registro desde las 19:15")
-export default function TarjetaExamen({ examen, objContador, children, listAvisos = [] }) {
+// strEstadoVivo: "vivo" (con internet, examen abierto), "finalizado" o null (sin internet)
+export default function TarjetaExamen({ examen, objContador, children, listAvisos = [], strEstadoVivo = null }) {
   if (!examen) {
     return (
       <section className="bg-[#003770] rounded-2xl px-6 py-6 text-sm text-white/80">
@@ -50,7 +52,7 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
   const numHab = objContador?.habilitados ?? 0;
   const numPend = objContador?.pendientes ?? Math.max(0, numHab - numIng);
   const numInh = objContador?.inhabilitados ?? 0;
-  const strGrupo = examen.grupo ? String(examen.grupo).split(",")[0] : "";
+  const strGrupo = textoGrupoExamen(examen.grupo);
   const strHorario = examen.horaInicio && examen.horaFin ? `${examen.horaInicio} – ${examen.horaFin}` : examen.horaInicio || "";
 
   return (
@@ -58,7 +60,7 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
       <div className="flex flex-wrap items-start justify-between gap-5">
         <div className="min-w-0 flex-1 basis-[320px]">
           <span className="block text-xs font-bold uppercase tracking-[.8px] text-white/75">
-            Control de ingreso · {examen.tipo}{strGrupo ? ` · Grupo ${strGrupo}` : ""}
+            Control de ingreso · {examen.tipo}{strGrupo ? ` · ${strGrupo}` : ""}
           </span>
           <h1 className="m-0 mt-1 text-[28px] max-md:text-[22px] font-bold leading-tight">{examen.materia}</h1>
           <div className="mt-3.5 flex flex-wrap gap-2">
@@ -73,10 +75,17 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
           {children && <div className="flex flex-wrap justify-end gap-2 max-md:justify-start">{children}</div>}
           <div className="grid grid-cols-3 gap-2.5 max-md:gap-2">
             <Contador numValor={numIng} strEtiqueta="Ingresaron" />
-            <Contador numValor={numPend} strEtiqueta="Faltan" />
+            <Contador numValor={numPend} strEtiqueta="Ausentes" />
             <Contador numValor={numInh} strEtiqueta="Inhabilitados" boolRojo />
           </div>
-          <span className="text-[13px] text-white/75">
+          <span className="inline-flex items-center gap-2 text-[13px] text-white/75">
+            {strEstadoVivo === "vivo" && (
+              <>
+                <i className="w-2 h-2 rounded-full bg-[#7DD3FC] shadow-[0_0_0_4px_rgba(125,211,252,.25)] animate-pulse" />
+                <span>En vivo ·</span>
+              </>
+            )}
+            {strEstadoVivo === "finalizado" && <span>Examen finalizado ·</span>}
             {numHab} {numHab === 1 ? "estudiante habilitado" : "estudiantes habilitados"}
           </span>
         </div>

@@ -2,6 +2,7 @@
 // Usa las mismas reglas que el docente (utilidadesExamenDocente): el registro se habilita
 // 15 minutos antes del inicio y se cierra cuando termina el examen.
 import { estadoExamen, esHoy, puedeControlarIngreso, aperturaControl, marcaTiempo } from "../docente/utilidadesExamenDocente";
+import { textoGrupoExamen } from "../../components/examenes/textoGrupoExamen";
 
 // El examen del ayudante trae "fecha"; las reglas del docente esperan "fechaExamen"
 const aDocente = (e) => ({ fechaExamen: e?.fecha, horaInicio: e?.horaInicio, horaFin: e?.horaFin, esExamenReal: true });
@@ -25,10 +26,9 @@ export function textoAula(strAula) {
   return str ? `Aula ${str}` : "";
 }
 
-// "1, 2, 3" → "Grupo 1" (se muestra el primero, como en la pantalla de registro)
+// "C1" → "Grupo C1". Exámenes antiguos sin grupo ("A, B, C1") → "" (ver textoGrupoExamen)
 export function textoGrupo(strGrupo) {
-  const str = String(strGrupo || "").split(",")[0].replace(/^grupo\s*/i, "").trim();
-  return str ? `Grupo ${str}` : "";
+  return textoGrupoExamen(strGrupo);
 }
 
 // Orden: en curso → próximos (el más cercano primero) → finalizados (el más reciente primero)
