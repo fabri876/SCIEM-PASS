@@ -28,11 +28,23 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.IncidenciaL
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.IncidenciaResumenDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.OpcionCatalogoDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.TotalesIncidenciasDto;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -56,6 +68,8 @@ public class IncidenciaService {
 
     private static final int DESCRIPCION_MIN = 15;
     private static final int DESCRIPCION_MAX = 500;
+    private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter FORMATO_HORA = DateTimeFormatter.ofPattern("HH:mm");
 
     private final IncidenciaRepository incidenciaRepository;
     private final IngresoRepository ingresoRepository;
@@ -149,6 +163,25 @@ public class IncidenciaService {
                             "El estudiante no ingresó a este examen; no se puede retirar."));
             if (ingresoARetirar.estaRetirado()) {
                 throw new ConflictoEstadoException("El estudiante ya fue retirado de este examen.");
+            }
+
+            // Validar que el examen esté en curso para poder registrar una expulsión.
+            AmbienteInfo infoExpulsion = ambienteExamenService.describir(ambiente);
+            LocalDate hoy = HoraOficial.hoy();
+            LocalTime ahora = HoraOficial.ahora().toLocalTime();
+            LocalDate fechaExamen = infoExpulsion.fechaExamen();
+            LocalTime horaInicio = ambiente.getHoraInicio();
+            LocalTime horaFin = ambiente.getHoraFin();
+
+            if (fechaExamen != null && horaInicio != null && horaFin != null) {
+                boolean aunNoEmpieza = fechaExamen.isAfter(hoy)
+                        || (fechaExamen.equals(hoy) && ahora.isBefore(horaInicio));
+                boolean yaTermino = fechaExamen.isBefore(hoy)
+                        || (fechaExamen.equals(hoy) && ahora.isAfter(horaFin));
+                if (aunNoEmpieza || yaTermino) {
+                    throw new ConflictoEstadoException(
+                            "No se puede registrar una expulsión: el examen no está en curso.");
+                }
             }
         }
 
@@ -290,6 +323,73 @@ public class IncidenciaService {
         }).toList();
 
         return new IncidenciaListaDto(totales, filas);
+    }
+
+    /**
+     * Exporta a Excel (.xlsx) exactamente las filas del filtro actual.
+     * `soloExpulsiones` se aplica sobre el mismo listado visible.
+     */
+    @Transactional(readOnly = true)
+    public byte[] exportarExcel(Integer idExamen, Integer idAmbiente, String tipoTexto, String estadoTexto,
+                                boolean soloExpulsiones, String ip) {
+        List<IncidenciaResumenDto> filas = listar(idExamen, idAmbiente, tipoTexto, estadoTexto, ip).incidencias();
+        if (soloExpulsiones) {
+            filas = filas.stream().filter(IncidenciaResumenDto::estudianteRetirado).toList();
+        }
+
+        String[] cabeceras = {"Código", "Fecha", "Hora", "Aula", "Asignatura", "Tipo", "Severidad",
+                "Reportado por", "Estudiante", "Expulsión", "Estado"};
+        try (Workbook libro = new XSSFWorkbook(); ByteArrayOutputStream salida = new ByteArrayOutputStream()) {
+            Sheet hoja = libro.createSheet("Incidencias");
+
+            CellStyle estiloCabecera = libro.createCellStyle();
+            Font fuenteCabecera = libro.createFont();
+            fuenteCabecera.setBold(true);
+            fuenteCabecera.setColor(IndexedColors.WHITE.getIndex());
+            estiloCabecera.setFont(fuenteCabecera);
+            estiloCabecera.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+            estiloCabecera.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            Row filaCabecera = hoja.createRow(0);
+            for (int i = 0; i < cabeceras.length; i++) {
+                var celda = filaCabecera.createCell(i);
+                celda.setCellValue(cabeceras[i]);
+                celda.setCellStyle(estiloCabecera);
+            }
+
+            int numeroFila = 1;
+            for (IncidenciaResumenDto fila : filas) {
+                Row row = hoja.createRow(numeroFila++);
+                String[] valores = {
+                        valor(fila.codigo()),
+                        fila.fechaHora() == null ? "" : FORMATO_FECHA.format(fila.fechaHora()),
+                        fila.fechaHora() == null ? "" : FORMATO_HORA.format(fila.fechaHora()),
+                        valor(fila.aula()),
+                        valor(fila.asignatura()),
+                        valor(fila.tipoEtiqueta()),
+                        valor(fila.severidadEtiqueta()),
+                        valor(fila.reportadoPor()),
+                        valor(fila.estudiante()),
+                        fila.estudianteRetirado() ? "Sí" : "No",
+                        valor(fila.estadoEtiqueta())
+                };
+                for (int i = 0; i < valores.length; i++) {
+                    row.createCell(i).setCellValue(valores[i]);
+                }
+            }
+
+            for (int i = 0; i < cabeceras.length; i++) {
+                hoja.autoSizeColumn(i);
+            }
+            libro.write(salida);
+            return salida.toByteArray();
+        } catch (Exception e) {
+            throw new IllegalStateException("No se pudo generar el Excel de incidencias.", e);
+        }
+    }
+
+    private static String valor(String texto) {
+        return texto == null ? "" : texto;
     }
 
     @Transactional(readOnly = true)

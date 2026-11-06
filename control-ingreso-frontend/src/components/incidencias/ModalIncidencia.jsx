@@ -3,6 +3,9 @@ import {
   AlertTriangle,
   Upload,
   CheckCircle2,
+  Check,
+  UserMinus,
+  FileText,
   X,
   Search,
   Building,
@@ -47,6 +50,8 @@ function nuevaClaveSolicitud() {
  *
  * - aulasDisponibles: aulas de examen ASIGNADAS al usuario (GET /api/incidencias/aulas-asignadas).
  *   Se puede registrar el día del examen o después.
+ * - boolAulaFija: cuando se abre desde el control de ingreso de un examen, el
+ *   examen/aula ya está decidido y se muestra como dato fijo (sin selector).
  * - estudianteInicial: viene de "Registrar incidencia" en el ingreso excepcional
  *   ({ nombreCompleto, ci, codSis, estado, horaIngresoPrevio }).
  */
@@ -55,6 +60,8 @@ export default function ModalIncidencia({
   onCerrar,
   aulasDisponibles = [],
   aulaPreseleccionada = null,
+  boolAulaFija = false,
+  boolExamenActivo = true,
   estudianteInicial = null,
   onExito,
 }) {
@@ -81,7 +88,7 @@ export default function ModalIncidencia({
   const [strHoraActual, setStrHoraActual] = useState("");
   const [retirarEstudiante, setRetirarEstudiante] = useState(false);
   const [boolEsExpulsion, setBoolEsExpulsion] = useState(false);
-  const [strResolucionExpulsion, setStrResolucionExpulsion] = useState("");
+  const [strOtroDetalle, setStrOtroDetalle] = useState("");
   const [boolCerrandoExpulsion, setBoolCerrandoExpulsion] = useState(false);
 
   // Se reinicia SOLO al abrir. Antes dependía también de las listas que manda
@@ -103,7 +110,7 @@ export default function ModalIncidencia({
     setBoolGuardando(false);
     setRetirarEstudiante(false);
     setBoolEsExpulsion(false);
-    setStrResolucionExpulsion("");
+    setStrOtroDetalle("");
     setBoolCerrandoExpulsion(false);
 
     setAulaSeleccionada(aulaPreseleccionada || aulasDisponibles[0] || null);
@@ -111,6 +118,11 @@ export default function ModalIncidencia({
     if (estudianteInicial) {
       setEstudianteInvolucrado(estudianteInicial);
       setStrBusquedaEstudiante(estudianteInicial.ci || String(estudianteInicial.codSis || ""));
+      // Si el estudiante inicial ya fue retirado, no se puede expulsar de nuevo.
+      if (estudianteInicial.estado === "RETIRADO") {
+        setBoolEsExpulsion(false);
+        setRetirarEstudiante(false);
+      }
     } else {
       setEstudianteInvolucrado(null);
       setStrBusquedaEstudiante("");
@@ -118,18 +130,44 @@ export default function ModalIncidencia({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boolAbierto]);
 
+  // Cerrar con ESC, igual que "Cancelar".
+  useEffect(() => {
+    if (!boolAbierto) return;
+    const fnTecla = (e) => {
+      if (e.key === "Escape" && !boolGuardando) {
+        e.preventDefault();
+        if (onCerrar) onCerrar();
+      }
+    };
+    window.addEventListener("keydown", fnTecla);
+    return () => window.removeEventListener("keydown", fnTecla);
+  }, [boolAbierto, boolGuardando, onCerrar]);
+
   if (!boolAbierto) return null;
 
   const idAmbienteActual = aulaSeleccionada?.idAmbiente ?? null;
+  const estudianteYaRetirado = estudianteInvolucrado?.estado === "RETIRADO";
   const descripcionValida = strDescripcion.trim().length >= DESCRIPCION_MIN;
-  const resolucionValida = strResolucionExpulsion.trim().length > 0;
+  const otroValido = strOtroDetalle.trim().length > 0;
+  const strDetalleOtro = strOtroDetalle.trim();
+  const strDetalleOtroCapitalizado = strDetalleOtro
+    ? strDetalleOtro.charAt(0).toUpperCase() + strDetalleOtro.slice(1)
+    : "";
+  const prefijoOtro =
+    tipoSeleccionado === "OTRO" && strDetalleOtroCapitalizado
+      ? `${strDetalleOtroCapitalizado}. `
+      : "";
+  const maxDescripcion = Math.max(DESCRIPCION_MIN, DESCRIPCION_MAX - prefijoOtro.length);
+  const strDescripcionFinal = `${prefijoOtro}${strDescripcion.trim()}`;
   const faltantes = [
     !idAmbienteActual && "el aula del examen",
     !tipoSeleccionado && "el tipo",
+    tipoSeleccionado === "OTRO" && !otroValido && "la especificación del tipo Otro",
     !severidadSeleccionada && "la severidad",
     !descripcionValida && `una descripción de al menos ${DESCRIPCION_MIN} caracteres`,
     retirarEstudiante && !estudianteInvolucrado && "el estudiante a retirar",
-    boolEsExpulsion && !resolucionValida && "la resolución de la expulsión",
+    retirarEstudiante && estudianteYaRetirado && "no se puede expulsar a un estudiante ya retirado",
+    retirarEstudiante && boolAulaFija && !boolExamenActivo && "el examen debe estar en curso para registrar una expulsión",
   ].filter(Boolean);
   const puedeRegistrar = faltantes.length === 0 && !boolGuardando && !strExito;
 
@@ -139,6 +177,8 @@ export default function ModalIncidencia({
     // El estado del estudiante (si ingresó o no) depende del examen: se vuelve a buscar.
     setEstudianteInvolucrado(null);
     setStrErrorBusquedaEstudiante("");
+    setBoolEsExpulsion(false);
+    setRetirarEstudiante(false);
   };
 
   const fnBuscarEstudianteInvolucrado = async (e) => {
@@ -149,6 +189,8 @@ export default function ModalIncidencia({
     setBoolBuscandoEstudiante(true);
     setStrErrorBusquedaEstudiante("");
     setEstudianteInvolucrado(null);
+    setBoolEsExpulsion(false);
+    setRetirarEstudiante(false);
 
     try {
       const data = await consultarEstudianteIncidencia(idAmbienteActual, query);
@@ -160,6 +202,11 @@ export default function ModalIncidencia({
           estado: data.estado,
           horaIngresoPrevio: data.horaIngresoPrevio,
         });
+        // Si ya fue retirado no se puede volver a expulsar.
+        if (data.estado === "RETIRADO") {
+          setBoolEsExpulsion(false);
+          setRetirarEstudiante(false);
+        }
       } else {
         setStrErrorBusquedaEstudiante("Estudiante no encontrado");
       }
@@ -199,28 +246,39 @@ export default function ModalIncidencia({
       return;
     }
 
+    // Expulsión solo permitida si el examen está en curso (solo aplica en control de ingreso con aula fija).
+    if (retirarEstudiante && boolAulaFija && !boolExamenActivo) {
+      setStrError("No se puede registrar la expulsión: el examen no está en curso.");
+      return;
+    }
+
     setBoolGuardando(true);
     setStrError("");
+
+    // Nunca volver a expulsar a un estudiante ya retirado (el backend también lo valida).
+    const boolRetirarAhora = retirarEstudiante && !estudianteYaRetirado;
 
     const datosIncidencia = {
       idAmbiente: idAmbienteActual,
       tipo: tipoSeleccionado,
       severidad: severidadSeleccionada,
-      descripcion: strDescripcion.trim(),
+      descripcion: strDescripcionFinal,
       codSisEstudiante: estudianteInvolucrado?.codSis || null,
-      retirarEstudiante,
+      retirarEstudiante: boolRetirarAhora,
       registradoEn: new Date().toISOString(),
     };
     const guardarOffline = async () => {
       const clientUuid = await incidenciaRepo.encolar(datosIncidencia);
-      if (retirarEstudiante) {
+      if (boolRetirarAhora) {
         await incidenciaRepo.encolarExpulsion({
           incidenciaClientUuid: clientUuid,
           codSisEstudiante: estudianteInvolucrado?.codSis,
           examenId: aulaSeleccionada?.idExamen,
         });
       }
-      setStrExito("Sin conexión. La incidencia se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal.");
+      setStrExito(boolRetirarAhora
+        ? "Sin conexión. La expulsión se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal."
+        : "Sin conexión. La incidencia se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal.");
       notificarCambioIncidencias();
       setTimeout(() => {
         if (onExito) onExito({ clientUuid, offline: true });
@@ -240,11 +298,11 @@ export default function ModalIncidencia({
         evidencia: archivoFoto,
       });
 
-      if (boolEsExpulsion) {
+      if (boolEsExpulsion && boolRetirarAhora) {
         setBoolCerrandoExpulsion(true);
         try {
-          await cerrarIncidencia(respuesta.idIncidencia, strResolucionExpulsion.trim());
-          setStrExito(`Expulsión ${respuesta?.codigo || ""} registrada y cerrada.`.replace("  ", " "));
+          await cerrarIncidencia(respuesta.idIncidencia, strDescripcionFinal);
+          setStrExito(`Expulsión ${respuesta?.codigo || ""} registrada y cerrada. El estudiante fue retirado del examen.`.replace("  ", " "));
         } catch (errCerrar) {
           setStrError(`Expulsión registrada pero no se pudo cerrar: ${errCerrar.message || "error desconocido"}.`);
           setBoolCerrandoExpulsion(false);
@@ -288,15 +346,17 @@ export default function ModalIncidencia({
             </div>
             <div className="min-w-0">
               <h3 className="text-base font-black text-[#003770]">Registrar Incidencia</h3>
-              <p className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <Building className="w-3 h-3 text-slate-400 shrink-0" />
-                <span>
-                  {aulaSeleccionada
-                    ? `${aulaSeleccionada.aula} · ${aulaSeleccionada.asignatura} · ${formatearFecha(aulaSeleccionada.fechaExamen)}`
-                    : "Sin aula seleccionada"}
-                  {` · ${strHoraActual} (automático)`}
-                </span>
-              </p>
+              {!boolAulaFija && (
+                <p className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <Building className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>
+                    {aulaSeleccionada
+                      ? `${aulaSeleccionada.aula} · ${aulaSeleccionada.asignatura} · ${formatearFecha(aulaSeleccionada.fechaExamen)}`
+                      : "Sin aula seleccionada"}
+                    {` · ${strHoraActual} (automático)`}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -320,6 +380,14 @@ export default function ModalIncidencia({
               <p className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs font-bold">
                 No tienes exámenes asignados que ya se hayan tomado. Primero debe estar asignado el examen.
               </p>
+            ) : boolAulaFija ? (
+              <div className="flex items-center gap-2 bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800">
+                <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="min-w-0">{etiquetaAula(aulaSeleccionada)}</span>
+                <span className="ml-auto shrink-0 text-[9.5px] uppercase tracking-wider text-slate-400">
+                  Examen actual
+                </span>
+              </div>
             ) : (
               <select
                 value={idAmbienteActual ?? ""}
@@ -359,14 +427,28 @@ export default function ModalIncidencia({
                 );
               })}
             </div>
+            {tipoSeleccionado === "OTRO" && (
+              <div className="mt-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#1A365D]">
+                  <FileText className="w-3.5 h-3.5" />
+                  Especifica el tipo <span className="text-[#DC2626]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={strOtroDetalle}
+                  onChange={(e) => setStrOtroDetalle(e.target.value)}
+                  maxLength={80}
+                  placeholder="Describe brevemente el tipo de incidencia..."
+                  className="mt-1.5 w-full bg-white border border-[#BFDBFE] rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB] transition"
+                />
+              </div>
+            )}
           </div>
 
-          {/* Severidad */}
           <div>
             <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1.5">
               Severidad <span className="text-rose-600">*</span>
-            </label>
-            <div className="grid grid-cols-3 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 p-1 gap-1">
+            </label>            <div className="grid grid-cols-3 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 p-1 gap-1">
               {CATALOGO_SEVERIDADES.map((sev) => {
                 const isSelected = severidadSeleccionada === sev.codigo;
                 const esExpulsion = boolEsExpulsion && sev.codigo !== "ALTA";
@@ -437,6 +519,8 @@ export default function ModalIncidencia({
                   type="button"
                   onClick={() => {
                     setEstudianteInvolucrado(null);
+                    setBoolEsExpulsion(false);
+                    setRetirarEstudiante(false);
                   }}
                   className="text-emerald-700 hover:text-emerald-900 p-0.5 shrink-0"
                   title="Quitar estudiante"
@@ -445,48 +529,72 @@ export default function ModalIncidencia({
                 </button>
               </div>
             )}
-            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
-              <label className="flex items-start gap-3 cursor-pointer">
+            <div
+              className={`mt-3 rounded-xl border transition-colors ${
+                boolEsExpulsion ? "border-[#1A365D] bg-[#EFF6FF]" : "border-slate-200 bg-white"
+              }`}
+            >
+              <label
+                className={`flex items-start gap-3 p-3 ${
+                  !estudianteInvolucrado || estudianteYaRetirado
+                    ? "opacity-55 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
+              >
                 <input
                   type="checkbox"
                   checked={boolEsExpulsion}
-                  disabled={!estudianteInvolucrado}
+                  disabled={!estudianteInvolucrado || estudianteYaRetirado}
                   onChange={(e) => {
-                    setBoolEsExpulsion(e.target.checked);
-                    if (e.target.checked) {
-                      setRetirarEstudiante(true);
+                    const marcado = e.target.checked;
+                    setBoolEsExpulsion(marcado);
+                    setRetirarEstudiante(marcado);
+                    if (marcado) {
                       setSeveridadSeleccionada("ALTA");
                     }
                   }}
-                  className="mt-0.5 shrink-0"
+                  className="sr-only"
                 />
-                <div>
-                  <div className="flex items-center gap-1 text-xs font-bold text-rose-800">
-                    <span>🚫</span>
-                    <span>Expulsar al estudiante del examen</span>
+                <span
+                  className={`mt-0.5 w-[18px] h-[18px] rounded-[5px] border-2 flex items-center justify-center shrink-0 transition-colors ${
+                    boolEsExpulsion
+                      ? "bg-[#1A365D] border-[#1A365D]"
+                      : "bg-white border-slate-300"
+                  }`}
+                >
+                  {boolEsExpulsion && <Check className="w-3 h-3 text-white" strokeWidth={3.5} />}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <UserMinus
+                      className={`w-3.5 h-3.5 shrink-0 ${
+                        boolEsExpulsion ? "text-[#DC2626]" : "text-slate-400"
+                      }`}
+                    />
+                    <span
+                      className={`text-xs font-extrabold ${
+                        boolEsExpulsion ? "text-[#1A365D]" : "text-slate-700"
+                      }`}
+                    >
+                      Expulsar al estudiante del examen
+                    </span>
                   </div>
-                  <p className="text-[10px] text-rose-600 font-semibold mt-0.5 leading-relaxed">
-                    Acción definitiva: el estudiante quedará bloqueado para reingresar y la incidencia se cerrará inmediatamente. Requiere resolución obligatoria.
+                  <p className="text-[10px] font-semibold text-slate-500 mt-0.5 leading-relaxed">
+                    Acción definitiva: el estudiante no podrá reingresar y la incidencia se cerrará
+                    inmediatamente usando la descripción como resolución.
                   </p>
-                </div>
-              </label>
-              {boolEsExpulsion && (
-                <div className="mt-2.5">
-                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">
-                    Resolución de la expulsión <span className="text-rose-600">*</span>
-                  </label>
-                  <textarea
-                    value={strResolucionExpulsion}
-                    onChange={(e) => setStrResolucionExpulsion(e.target.value)}
-                    placeholder="Justifique la expulsión..."
-                    rows={2}
-                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB] transition"
-                  />
-                  {!resolucionValida && (
-                    <p className="text-[10px] text-rose-600 font-bold mt-1">La resolución es obligatoria para expulsar.</p>
+                  {!estudianteInvolucrado && (
+                    <p className="text-[10px] font-bold text-slate-400 mt-1">
+                      Busca y selecciona un estudiante para habilitar esta opción.
+                    </p>
+                  )}
+                  {estudianteYaRetirado && (
+                    <p className="text-[10px] font-bold text-rose-600 mt-1">
+                      Este estudiante ya fue retirado de este examen; no se puede volver a expulsar.
+                    </p>
                   )}
                 </div>
-              )}
+              </label>
             </div>
           </div>
 
@@ -497,13 +605,13 @@ export default function ModalIncidencia({
                 Descripción <span className="text-rose-600">*</span>
               </label>
               <span className={`text-[10px] font-mono font-bold ${descripcionValida ? "text-slate-400" : "text-rose-600"}`}>
-                {strDescripcion.length}/{DESCRIPCION_MAX} {!descripcionValida && `(mín. ${DESCRIPCION_MIN})`}
+                {strDescripcion.length}/{maxDescripcion} {!descripcionValida && `(mín. ${DESCRIPCION_MIN})`}
               </span>
             </div>
             <textarea
               value={strDescripcion}
               onChange={(e) => setStrDescripcion(e.target.value)}
-              maxLength={DESCRIPCION_MAX}
+              maxLength={maxDescripcion}
               placeholder="Describe qué ocurrió..."
               rows={3}
               className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB] transition"
@@ -570,7 +678,7 @@ export default function ModalIncidencia({
               {boolGuardando || boolCerrandoExpulsion ? (
                 <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
               ) : boolEsExpulsion ? (
-                <span className="w-4 h-4 text-rose-500">🚫</span>
+                <UserMinus className="w-4 h-4 text-white" />
               ) : (
                 <AlertTriangle className="w-4 h-4 text-amber-400" />
               )}

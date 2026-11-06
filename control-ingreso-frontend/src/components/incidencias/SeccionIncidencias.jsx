@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   UserCheck,
+  UserMinus,
   Plus,
   BookOpen,
   Search,
   FileText,
   ExternalLink,
   RefreshCw,
+  Download,
 } from "lucide-react";
 import {
   obtenerAulasAsignadas,
   obtenerAmbientesDelDia,
   listarIncidencias,
+  exportarIncidenciasExcel,
   obtenerDetalleIncidencia,
   marcarEnRevisionIncidencia,
   cerrarIncidencia,
@@ -55,6 +58,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const [filtroAula, setFiltroAula] = useState(TODOS);
   const [filtroEstado, setFiltroEstado] = useState(TODOS);
   const [filtroTipo, setFiltroTipo] = useState(TODOS);
+  const [filtroMateria, setFiltroMateria] = useState(TODOS);
   const [boolSoloExpulsiones, setBoolSoloExpulsiones] = useState(false);
   const [strBusquedaExcepcionales, setStrBusquedaExcepcionales] = useState("");
 
@@ -76,6 +80,10 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const [strResolucionInput, setStrResolucionInput] = useState("");
   const [boolGuardandoResolucion, setBoolGuardandoResolucion] = useState(false);
   const [strMensajeFeedback, setStrMensajeFeedback] = useState("");
+
+  // Exportación a Excel del filtro activo
+  const [boolExportando, setBoolExportando] = useState(false);
+  const [strErrorExportar, setStrErrorExportar] = useState("");
 
   // La incidencia seleccionada se guarda en un ref para que elegir una fila no
   // vuelva a disparar la recarga de toda la lista.
@@ -102,22 +110,39 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
     fnCargarAulas();
   }, [fnCargarAulas]);
 
-  // Exámenes únicos a partir de las aulas asignadas (más recientes primero)
-  const examenes = [];
-  const idsVistos = new Set();
+  // Materias únicas a partir de las aulas asignadas (más recientes primero)
+  const materias = [];
+  const idsMateriaVistos = new Set();
   aulasAsignadas.forEach((aula) => {
-    if (!idsVistos.has(aula.idExamen)) {
-      idsVistos.add(aula.idExamen);
-      examenes.push({
-        idExamen: aula.idExamen,
-        etiqueta: `${aula.asignatura} · ${formatearFecha(aula.fechaExamen)}`,
+    if (!idsMateriaVistos.has(aula.idAsignatura)) {
+      idsMateriaVistos.add(aula.idAsignatura);
+      materias.push({
+        idAsignatura: aula.idAsignatura,
+        etiqueta: aula.asignatura,
       });
     }
   });
 
+  // Exámenes de la materia seleccionada
+  const examenesDeMateria = [];
+  const idsExamenVistos = new Set();
+  aulasAsignadas
+    .filter((a) => filtroMateria === TODOS || String(a.idAsignatura) === String(filtroMateria))
+    .forEach((aula) => {
+      if (!idsExamenVistos.has(aula.idExamen)) {
+        idsExamenVistos.add(aula.idExamen);
+        examenesDeMateria.push({
+          idExamen: aula.idExamen,
+          etiqueta: `${aula.asignatura} · ${formatearFecha(aula.fechaExamen)}`,
+        });
+      }
+    });
+
+  // Aulas del examen seleccionado
   const aulasDelExamen = aulasAsignadas.filter(
     (a) => strIdExamen === TODOS || String(a.idExamen) === strIdExamen
   );
+
   // Se incluyen también las aulas de hoy con el ingreso ya cerrado: si alguien
   // intenta un ingreso excepcional ahí, el backend explica el motivo y lo audita.
   const aulasHoyDelExamen = aulasHoy.filter(
@@ -256,9 +281,40 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   };
 
   // Filtro adicional de expulsiones (estudiante retirado) aplicado en frontend.
-  const incidenciasMostradas = boolSoloExpulsiones
-    ? incidencias.filter((i) => i.estudianteRetirado === true)
-    : incidencias;
+  const incidenciasMostradas = incidencias.filter((i) => {
+    const coincideExpulsion = !boolSoloExpulsiones || i.estudianteRetirado === true;
+    const coincideMateria =
+      filtroMateria === TODOS || i.asignatura === materias.find((m) => m.idAsignatura === Number(filtroMateria))?.etiqueta;
+    return coincideExpulsion && coincideMateria;
+  });
+
+  // Descarga en Excel exactamente lo que se ve con los filtros activos.
+  const fnExportarExcel = async () => {
+    if (boolExportando || incidenciasMostradas.length === 0) return;
+    setBoolExportando(true);
+    setStrErrorExportar("");
+    try {
+      const blobExcel = await exportarIncidenciasExcel({
+        idExamen: strIdExamen !== TODOS ? strIdExamen : null,
+        idAmbiente: filtroAula !== TODOS ? filtroAula : null,
+        tipo: filtroTipo !== TODOS ? filtroTipo : null,
+        estado: filtroEstado !== TODOS ? filtroEstado : null,
+        soloExpulsiones: boolSoloExpulsiones,
+      });
+      const urlArchivo = window.URL.createObjectURL(blobExcel);
+      const enlace = document.createElement("a");
+      enlace.href = urlArchivo;
+      enlace.download = `incidencias-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.URL.revokeObjectURL(urlArchivo);
+    } catch (err) {
+      setStrErrorExportar(err.message || "No se pudieron exportar las incidencias.");
+    } finally {
+      setBoolExportando(false);
+    }
+  };
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -298,15 +354,33 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           </div>
 
           <select
+            value={filtroMateria}
+            onChange={(e) => {
+              setFiltroMateria(e.target.value);
+              setStrIdExamen(TODOS);
+              setFiltroAula(TODOS);
+            }}
+            className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-full"
+          >
+            <option value={TODOS}>Materia: Todas</option>
+            {materias.map((m) => (
+              <option key={m.idAsignatura} value={String(m.idAsignatura)}>
+                {m.etiqueta}
+              </option>
+            ))}
+          </select>
+
+          <select
             value={strIdExamen}
             onChange={(e) => {
               setStrIdExamen(e.target.value);
               setFiltroAula(TODOS);
             }}
-            className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-full"
+            disabled={filtroMateria === TODOS}
+            className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <option value={TODOS}>Examen: Todos</option>
-            {examenes.map((ex) => (
+            {examenesDeMateria.map((ex) => (
               <option key={ex.idExamen} value={String(ex.idExamen)}>{ex.etiqueta}</option>
             ))}
           </select>
@@ -385,9 +459,12 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           {/* Pills de Estado con Totales Reales de la API */}
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setFiltroEstado("TODOS")}
+              onClick={() => {
+                setFiltroEstado("TODOS");
+                setBoolSoloExpulsiones(false);
+              }}
               className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer ${
-                filtroEstado === "TODOS"
+                filtroEstado === "TODOS" && !boolSoloExpulsiones
                   ? "bg-[#003770] text-white"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
@@ -396,7 +473,10 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             </button>
 
             <button
-              onClick={() => setFiltroEstado("ABIERTA")}
+              onClick={() => {
+                setFiltroEstado("ABIERTA");
+                setBoolSoloExpulsiones(false);
+              }}
               className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
                 filtroEstado === "ABIERTA"
                   ? "bg-rose-600 text-white"
@@ -408,7 +488,10 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             </button>
 
             <button
-              onClick={() => setFiltroEstado("EN_REVISION")}
+              onClick={() => {
+                setFiltroEstado("EN_REVISION");
+                setBoolSoloExpulsiones(false);
+              }}
               className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
                 filtroEstado === "EN_REVISION"
                   ? "bg-amber-600 text-white"
@@ -420,7 +503,10 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             </button>
 
             <button
-              onClick={() => setFiltroEstado("CERRADA")}
+              onClick={() => {
+                setFiltroEstado("CERRADA");
+                setBoolSoloExpulsiones(false);
+              }}
               className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
                 filtroEstado === "CERRADA"
                   ? "bg-slate-700 text-white"
@@ -440,9 +526,29 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
-              <span>Solo expulsiones</span>
+              <span>Expulsiones</span>
+            </button>
+
+            <button
+              onClick={fnExportarExcel}
+              disabled={boolCargando || boolExportando || incidenciasMostradas.length === 0}
+              title={
+                incidenciasMostradas.length === 0
+                  ? "No hay incidencias para exportar con el filtro actual"
+                  : "Exportar a Excel el filtro actual"
+              }
+              className="ml-auto bg-white hover:bg-emerald-50 disabled:opacity-45 disabled:cursor-not-allowed text-emerald-700 border border-emerald-300 px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+            >
+              <Download className={`w-3.5 h-3.5 ${boolExportando ? "animate-pulse" : ""}`} />
+              <span>{boolExportando ? "Exportando..." : "Exportar"}</span>
             </button>
           </div>
+
+          {strErrorExportar && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-2xl text-xs font-bold">
+              ✕ {strErrorExportar}
+            </div>
+          )}
 
           {/* Grilla: Tabla a la izquierda + Detalle de incidencia a la derecha */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
@@ -453,7 +559,9 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                 {boolCargando ? (
                   <p className="py-8 text-center text-slate-400 text-xs font-semibold animate-pulse">Cargando incidencias...</p>
                 ) : incidenciasMostradas.length === 0 ? (
-                  <p className="py-8 px-4 text-center text-slate-400 text-xs font-semibold">No hay incidencias con los filtros seleccionados.</p>
+                  <p className="py-8 px-4 text-center text-slate-400 text-xs font-semibold">
+                    {boolSoloExpulsiones ? "No se encontraron expulsiones con los filtros seleccionados." : "No hay incidencias con los filtros seleccionados."}
+                  </p>
                 ) : (
                   incidenciasMostradas.map((item) => (
                     <button
@@ -488,7 +596,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                       </p>
                       {item.estudianteRetirado && (
                         <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1">
-                          <span>🚫</span> Expulsión
+                          <UserMinus className="w-3 h-3" /> Expulsión
                         </p>
                       )}
                     </button>
@@ -519,7 +627,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                     ) : incidenciasMostradas.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="py-8 text-center text-slate-400 font-semibold">
-                          No hay incidencias con los filtros seleccionados.
+                          {boolSoloExpulsiones ? "No se encontraron expulsiones con los filtros seleccionados." : "No hay incidencias con los filtros seleccionados."}
                         </td>
                       </tr>
                     ) : (
@@ -567,11 +675,9 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                             </td>
                             <td className="py-3 px-2 text-center">
                               {item.estudianteRetirado ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600">
-                                  <span>🚫</span> Sí
-                                </span>
+                                <span className="text-[10px] font-bold text-rose-600">Sí</span>
                               ) : (
-                                <span className="text-[10px] text-slate-400">—</span>
+                                <span className="text-[10px] text-slate-400">No</span>
                               )}
                             </td>
                             <td className="py-3 px-3.5 whitespace-nowrap">
@@ -656,6 +762,19 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                       <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block">Aula</span>
                       <span className="font-black text-slate-800">
                         {incidenciaSeleccionada.aula} · {incidenciaSeleccionada.asignatura}
+                      </span>
+                    </div>
+                    <div className="col-span-2 flex items-center justify-between rounded-lg bg-[#F8FAFC] border border-slate-200 px-3 py-2">
+                      <span className="text-[10.5px] uppercase font-extrabold text-slate-400">
+                        Expulsión
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 text-xs font-black ${
+                          incidenciaSeleccionada.estudianteRetirado ? "text-rose-600" : "text-slate-500"
+                        }`}
+                      >
+                        {incidenciaSeleccionada.estudianteRetirado && <UserMinus className="w-3.5 h-3.5" />}
+                        {incidenciaSeleccionada.estudianteRetirado ? "Sí" : "No"}
                       </span>
                     </div>
                     {incidenciaSeleccionada.estudiante && (
