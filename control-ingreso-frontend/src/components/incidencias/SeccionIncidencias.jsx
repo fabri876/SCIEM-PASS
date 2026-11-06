@@ -55,6 +55,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const [filtroAula, setFiltroAula] = useState(TODOS);
   const [filtroEstado, setFiltroEstado] = useState(TODOS);
   const [filtroTipo, setFiltroTipo] = useState(TODOS);
+  const [boolSoloExpulsiones, setBoolSoloExpulsiones] = useState(false);
   const [strBusquedaExcepcionales, setStrBusquedaExcepcionales] = useState("");
 
   // Datos
@@ -254,6 +255,11 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
     setBoolModalIncidencia(true);
   };
 
+  // Filtro adicional de expulsiones (estudiante retirado) aplicado en frontend.
+  const incidenciasMostradas = boolSoloExpulsiones
+    ? incidencias.filter((i) => i.estudianteRetirado === true)
+    : incidencias;
+
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
 
@@ -424,6 +430,18 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
               <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
               <span>Cerradas {totalesIncidencias.cerradas}</span>
             </button>
+
+            <button
+              onClick={() => setBoolSoloExpulsiones((prev) => !prev)}
+              className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
+                boolSoloExpulsiones
+                  ? "bg-rose-100 text-rose-700 border border-rose-200"
+                  : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+              <span>Solo expulsiones</span>
+            </button>
           </div>
 
           {/* Grilla: Tabla a la izquierda + Detalle de incidencia a la derecha */}
@@ -434,10 +452,10 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
               <div className="md:hidden divide-y divide-slate-100">
                 {boolCargando ? (
                   <p className="py-8 text-center text-slate-400 text-xs font-semibold animate-pulse">Cargando incidencias...</p>
-                ) : incidencias.length === 0 ? (
+                ) : incidenciasMostradas.length === 0 ? (
                   <p className="py-8 px-4 text-center text-slate-400 text-xs font-semibold">No hay incidencias con los filtros seleccionados.</p>
                 ) : (
-                  incidencias.map((item) => (
+                  incidenciasMostradas.map((item) => (
                     <button
                       key={item.idIncidencia}
                       type="button"
@@ -468,6 +486,11 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                       <p className="text-[11px] text-slate-500 font-semibold">
                         {formatearHora(item.fechaHora)} · {item.aula} · {item.reportadoPor}
                       </p>
+                      {item.estudianteRetirado && (
+                        <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1">
+                          <span>🚫</span> Expulsión
+                        </p>
+                      )}
                     </button>
                   ))
                 )}
@@ -482,24 +505,25 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                       <th className="py-3 px-3">Tipo</th>
                       <th className="py-3 px-2">Severidad</th>
                       <th className="py-3 px-3">Reportado por</th>
+                      <th className="py-3 px-2 text-center">Expulsión</th>
                       <th className="py-3 px-3.5">Estado</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {boolCargando ? (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-400 font-semibold animate-pulse">
+                        <td colSpan={8} className="py-8 text-center text-slate-400 font-semibold animate-pulse">
                           Cargando incidencias del servidor...
                         </td>
                       </tr>
-                    ) : incidencias.length === 0 ? (
+                    ) : incidenciasMostradas.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-400 font-semibold">
+                        <td colSpan={8} className="py-8 text-center text-slate-400 font-semibold">
                           No hay incidencias con los filtros seleccionados.
                         </td>
                       </tr>
                     ) : (
-                      incidencias.map((item) => {
+                      incidenciasMostradas.map((item) => {
                         const isSelected =
                           incidenciaSeleccionada?.idIncidencia === item.idIncidencia;
 
@@ -540,6 +564,15 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                             </td>
                             <td className="py-3 px-3 font-bold text-slate-600 truncate max-w-[130px]">
                               {item.reportadoPor}
+                            </td>
+                            <td className="py-3 px-2 text-center">
+                              {item.estudianteRetirado ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600">
+                                  <span>🚫</span> Sí
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400">—</span>
+                              )}
                             </td>
                             <td className="py-3 px-3.5 whitespace-nowrap">
                               <span

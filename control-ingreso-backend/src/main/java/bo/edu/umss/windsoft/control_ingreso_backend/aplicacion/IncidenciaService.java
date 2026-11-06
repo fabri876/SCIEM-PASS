@@ -254,6 +254,17 @@ public class IncidenciaService {
                 .filter(i -> estado == null || i.getEstado() == estado)
                 .toList();
 
+        // IDs de incidencias que tienen una expulsión asociada (para la columna de filtro).
+        Set<Integer> idsConExpulsion = new HashSet<>();
+        if (!visibles.isEmpty()) {
+            Set<Integer> idsVisibles = visibles.stream()
+                    .map(Incidencia::getIdIncidencia)
+                    .collect(Collectors.toSet());
+            List<Integer> idsConExp = expulsionRepository.findIdIncidenciaByIdIncidenciaIn(
+                    new ArrayList<>(idsVisibles));
+            idsConExpulsion.addAll(idsConExp);
+        }
+
         Set<Integer> idsUsuarios = new HashSet<>();
         visibles.forEach(i -> {
             idsUsuarios.add(i.getIdUsuarioReporta());
@@ -271,7 +282,8 @@ public class IncidenciaService {
                     i.getSeveridad().name(), i.getSeveridad().getEtiqueta(),
                     i.getEstado().name(), i.getEstado().getEtiqueta(),
                     nombre(usuarios.get(i.getIdUsuarioReporta())),
-                    nombre(usuarios.get(i.getIdUsuarioEstudiante())));
+                    nombre(usuarios.get(i.getIdUsuarioEstudiante())),
+                    idsConExpulsion.contains(i.getIdIncidencia()));
         }).toList();
 
         return new IncidenciaListaDto(totales, filas);

@@ -10,6 +10,7 @@ import {
 import {
   consultarEstudianteIncidencia,
   registrarIncidencia,
+  cerrarIncidencia,
   notificarCambioIncidencias,
 } from "../../services/incidenciaService";
 import { formatearFecha, formatearHora, validarImagen, etiquetaAula } from "./utilidadesIncidencias";
@@ -79,6 +80,9 @@ export default function ModalIncidencia({
   const [strExito, setStrExito] = useState("");
   const [strHoraActual, setStrHoraActual] = useState("");
   const [retirarEstudiante, setRetirarEstudiante] = useState(false);
+  const [boolEsExpulsion, setBoolEsExpulsion] = useState(false);
+  const [strResolucionExpulsion, setStrResolucionExpulsion] = useState("");
+  const [boolCerrandoExpulsion, setBoolCerrandoExpulsion] = useState(false);
 
   // Se reinicia SOLO al abrir. Antes dependía también de las listas que manda
   // la sección (que se recrean en cada render) y el formulario se borraba solo
@@ -98,6 +102,9 @@ export default function ModalIncidencia({
     setStrErrorBusquedaEstudiante("");
     setBoolGuardando(false);
     setRetirarEstudiante(false);
+    setBoolEsExpulsion(false);
+    setStrResolucionExpulsion("");
+    setBoolCerrandoExpulsion(false);
 
     setAulaSeleccionada(aulaPreseleccionada || aulasDisponibles[0] || null);
 
@@ -115,12 +122,14 @@ export default function ModalIncidencia({
 
   const idAmbienteActual = aulaSeleccionada?.idAmbiente ?? null;
   const descripcionValida = strDescripcion.trim().length >= DESCRIPCION_MIN;
+  const resolucionValida = strResolucionExpulsion.trim().length > 0;
   const faltantes = [
     !idAmbienteActual && "el aula del examen",
     !tipoSeleccionado && "el tipo",
     !severidadSeleccionada && "la severidad",
     !descripcionValida && `una descripción de al menos ${DESCRIPCION_MIN} caracteres`,
     retirarEstudiante && !estudianteInvolucrado && "el estudiante a retirar",
+    boolEsExpulsion && !resolucionValida && "la resolución de la expulsión",
   ].filter(Boolean);
   const puedeRegistrar = faltantes.length === 0 && !boolGuardando && !strExito;
 
@@ -231,7 +240,22 @@ export default function ModalIncidencia({
         evidencia: archivoFoto,
       });
 
-      setStrExito(`Incidencia ${respuesta?.codigo || ""} registrada.`.replace("  ", " "));
+      if (boolEsExpulsion) {
+        setBoolCerrandoExpulsion(true);
+        try {
+          await cerrarIncidencia(respuesta.idIncidencia, strResolucionExpulsion.trim());
+          setStrExito(`Expulsión ${respuesta?.codigo || ""} registrada y cerrada.`.replace("  ", " "));
+        } catch (errCerrar) {
+          setStrError(`Expulsión registrada pero no se pudo cerrar: ${errCerrar.message || "error desconocido"}.`);
+          setBoolCerrandoExpulsion(false);
+          return;
+        } finally {
+          setBoolCerrandoExpulsion(false);
+        }
+      } else {
+        setStrExito(`Incidencia ${respuesta?.codigo || ""} registrada.`.replace("  ", " "));
+      }
+
       notificarCambioIncidencias();
       setTimeout(() => {
         if (onExito) onExito(respuesta);
@@ -345,14 +369,16 @@ export default function ModalIncidencia({
             <div className="grid grid-cols-3 border border-slate-200 rounded-xl overflow-hidden bg-slate-50 p-1 gap-1">
               {CATALOGO_SEVERIDADES.map((sev) => {
                 const isSelected = severidadSeleccionada === sev.codigo;
+                const esExpulsion = boolEsExpulsion && sev.codigo !== "ALTA";
                 return (
                   <button
                     key={sev.codigo}
                     type="button"
                     onClick={() => setSeveridadSeleccionada(sev.codigo)}
+                    disabled={esExpulsion}
                     className={`py-2 text-xs font-extrabold rounded-lg transition text-center cursor-pointer ${
                       isSelected ? sev.color + " shadow-xs" : "text-slate-600 hover:text-slate-900"
-                    }`}
+                    } ${esExpulsion ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     {sev.etiqueta}
                   </button>
@@ -419,16 +445,49 @@ export default function ModalIncidencia({
                 </button>
               </div>
             )}
-            <label className="mt-3 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={retirarEstudiante}
-                disabled={!estudianteInvolucrado}
-                onChange={(e) => setRetirarEstudiante(e.target.checked)}
-                className="mt-0.5"
-              />
-              <span>Retirar al estudiante del examen. Requiere un estudiante involucrado.</span>
-            </label>
+            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={boolEsExpulsion}
+                  disabled={!estudianteInvolucrado}
+                  onChange={(e) => {
+                    setBoolEsExpulsion(e.target.checked);
+                    if (e.target.checked) {
+                      setRetirarEstudiante(true);
+                      setSeveridadSeleccionada("ALTA");
+                    }
+                  }}
+                  className="mt-0.5 shrink-0"
+                />
+                <div>
+                  <div className="flex items-center gap-1 text-xs font-bold text-rose-800">
+                    <span>🚫</span>
+                    <span>Expulsar al estudiante del examen</span>
+                  </div>
+                  <p className="text-[10px] text-rose-600 font-semibold mt-0.5 leading-relaxed">
+                    Acción definitiva: el estudiante quedará bloqueado para reingresar y la incidencia se cerrará inmediatamente. Requiere resolución obligatoria.
+                  </p>
+                </div>
+              </label>
+              {boolEsExpulsion && (
+                <div className="mt-2.5">
+                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">
+                    Resolución de la expulsión <span className="text-rose-600">*</span>
+                  </label>
+                  <textarea
+                    value={strResolucionExpulsion}
+                    onChange={(e) => setStrResolucionExpulsion(e.target.value)}
+                    placeholder="Justifique la expulsión..."
+                    rows={2}
+                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB] transition"
+                  />
+                  {!resolucionValida && (
+                    <p className="text-[10px] text-rose-600 font-bold mt-1">La resolución es obligatoria para expulsar.</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Descripción */}
@@ -508,12 +567,14 @@ export default function ModalIncidencia({
               disabled={!puedeRegistrar}
               className="flex-[1.5] bg-[#1A365D] hover:bg-[#132743] disabled:opacity-45 disabled:cursor-not-allowed text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
             >
-              {boolGuardando ? (
+              {boolGuardando || boolCerrandoExpulsion ? (
                 <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+              ) : boolEsExpulsion ? (
+                <span className="w-4 h-4 text-rose-500">🚫</span>
               ) : (
                 <AlertTriangle className="w-4 h-4 text-amber-400" />
               )}
-              <span>Registrar incidencia</span>
+              <span>{boolEsExpulsion ? "Registrar y cerrar expulsión" : "Registrar incidencia"}</span>
             </button>
           </div>
         </form>
