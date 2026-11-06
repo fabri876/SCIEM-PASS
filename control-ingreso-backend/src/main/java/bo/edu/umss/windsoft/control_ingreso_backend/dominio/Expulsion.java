@@ -40,7 +40,7 @@ public class Expulsion {
     @Column(name = "horaexpulsion", nullable = false)
     private LocalDateTime horaExpulsion;
 
-    @Column(name = "idincidencia")
+    @Column(name = "idincidencia", nullable = false)
     private Integer idIncidencia;
 
     // ---- Campos HU14 ----

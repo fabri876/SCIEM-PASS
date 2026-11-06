@@ -92,6 +92,11 @@ public class IncidenciaService {
                 Arrays.stream(MotivoExcepcion.values()).map(m -> new OpcionCatalogoDto(m.name(), m.getEtiqueta())).toList());
     }
 
+    @Transactional(readOnly = true)
+    public boolean existeClaveSolicitud(String claveSolicitudTexto) {
+        return incidenciaRepository.existsByClaveSolicitud(leerClave(claveSolicitudTexto));
+    }
+
     // -------------------------------------------------------------------------
     // REGISTRAR
     // -------------------------------------------------------------------------
@@ -167,13 +172,23 @@ public class IncidenciaService {
             incidencia = incidenciaRepository.saveAndFlush(incidencia);
 
             if (ingresoARetirar != null) {
+                Integer idIncidencia = incidencia.getIdIncidencia();
+                if (idIncidencia == null) {
+                    throw new IllegalArgumentException("No se puede crear una expulsión sin una incidencia asociada.");
+                }
+                Incidencia incidenciaAbierta = incidenciaRepository.findById(idIncidencia)
+                        .orElseThrow(() -> new IllegalArgumentException("Incidencia no encontrada: " + idIncidencia));
+                if (incidenciaAbierta.getEstado() != EstadoIncidencia.ABIERTA) {
+                    throw new IllegalStateException("Solo se puede expulsar con una incidencia en estado ABIERTA.");
+                }
+
                 expulsion = new Expulsion();
                 expulsion.setIdIngreso(ingresoARetirar.getIdIngreso());
                 expulsion.setIdUsuario(usuario.idUsuario());
                 expulsion.setMotivoExpulsion(tipo.getEtiqueta() + ": " + descripcionLimpia);
                 expulsion.setFechaExpulsion(HoraOficial.hoy());
                 expulsion.setHoraExpulsion(HoraOficial.ahora());
-                expulsion.setIdIncidencia(incidencia.getIdIncidencia());
+                expulsion.setIdIncidencia(idIncidencia);
                 expulsion = expulsionRepository.save(expulsion);
 
                 ingresoARetirar.setIdExpulsion(expulsion.getIdExpulsion());
