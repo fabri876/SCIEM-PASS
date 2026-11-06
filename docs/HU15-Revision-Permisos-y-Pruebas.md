@@ -11,10 +11,10 @@ pendientes; no se debe presentar como inmutabilidad completa.
   la propuesta por si solos no constituyen una barrera frente a esa cuenta.
 - En la inspeccion de solo lectura, los privilegios por defecto de `public`
   conceden permisos amplios a `anon`, `authenticated` y `service_role` para
-  tablas y funciones nuevas. La tabla existente `historialauditoria` tiene RLS
-  desactivado y esos roles cuentan con privilegios de tabla. La exposicion real
-  depende ademas de la configuracion de Supabase y de las credenciales usadas;
-  no asumir que esos registros son publicos sin comprobarlo.
+  tablas y funciones nuevas. `historialauditoria` tiene RLS desactivado. El
+  usuario retiro las concesiones de esa tabla a `anon` y `authenticated` tras
+  un ensayo local; `service_role` conserva lectura y escritura. Esto no cambia
+  los privilegios por defecto ni los permisos de otras tablas.
 - La cuenta de backend observada tiene `BYPASSRLS`; activar RLS sin separar la
   cuenta no crea una proteccion efectiva frente a esa misma cuenta.
 - Los eventos anteriores no tienen sellos persistidos y deben mostrarse como no
@@ -110,3 +110,13 @@ Los triggers esperados estaban activos y los roles anon, authenticated y
 service_role no tenian los accesos directos comprobados sobre cabeza y sellos.
 La cuenta del backend sigue siendo propietaria y falta revisar los permisos
 efectivos y la exposicion de la tabla historialauditoria existente.
+
+## Restriccion de roles de API
+
+Tras un ensayo local con ROLLBACK, el usuario ejecuto
+`PROPUESTA_hu15_restringir_roles_api.sql` en Supabase. Una comprobacion en
+lectura confirmo que `anon` y `authenticated` no tienen los permisos de tabla
+ni de columna comprobados; `service_role` mantiene SELECT e INSERT. El backend
+sigue conectando como propietario, por lo que esta restriccion no resuelve la
+separacion de cuentas. La comprobacion inicial posterior encontro 189 sellos
+y cabeza 189; los contadores pueden cambiar con el uso normal del sistema.
