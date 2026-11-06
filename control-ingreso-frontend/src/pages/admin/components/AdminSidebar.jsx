@@ -12,7 +12,7 @@ const baseMenuItems = [
     { id: "Carga de Exámenes Pasados", label: "Carga de Exámenes Pasados", icon: Upload },
     { id: "Monitoreo de Asistencia", label: "Monitoreo de Asistencia", icon: Activity },
     { id: "Reportes y Asistencia", label: "Reportes y Asistencia", icon: FileText },
-    { id: "Reporte de Intentos Incorrectos", label: "Intentos Incorrectos (HU13)", icon: XCircle },
+    { id: "Reporte de Intentos Incorrectos", label: "Intentos Incorrectos", icon: XCircle },
     { id: "Incidencias", label: "Incidencias", icon: AlertTriangle, esIncidencia: true },
     { id: "Historial Inmodificable", label: "Historial Inmodificable", icon: History },
 ];
@@ -72,9 +72,8 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
                                 <span>{item.label}</span>
                             </div>
                             {badgeValor !== null && badgeValor !== undefined && (
-                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                    isActive ? "bg-white text-rose-600" : "bg-rose-500 text-white"
-                                }`}>
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isActive ? "bg-white text-rose-600" : "bg-rose-500 text-white"
+                                    }`}>
                                     {badgeValor}
                                 </span>
                             )}
