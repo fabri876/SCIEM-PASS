@@ -25,7 +25,13 @@ public class CorsConfig {
                         .map(String::trim)
                         .filter(s -> !s.isBlank());
 
-        return Stream.concat(origenesConfigurados, Stream.of("http://localhost:5173", "http://localhost:4173"))
+        return Stream.concat(origenesConfigurados, Stream.of(
+                "http://localhost:5173",
+                "http://localhost:4173",
+                "http://localhost",
+                "https://localhost",
+                "capacitor://localhost"
+        ))
                 .distinct()
                 .toList();
     }
