@@ -2,6 +2,8 @@ package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -11,7 +13,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-/** Retiro de un estudiante que ya había ingresado al examen (HU06). */
+/** Retiro de un estudiante que ya había ingresado al examen (HU06 / HU14). */
 @Entity
 @Table(name = "expulsion")
 public class Expulsion {
@@ -41,6 +43,24 @@ public class Expulsion {
     @Column(name = "idincidencia", nullable = false)
     private Integer idIncidencia;
 
+    // ---- Campos HU14 ----
+    @Column(name = "observacion")
+    private String observacion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado", nullable = false)
+    private EstadoExpulsion estado = EstadoExpulsion.PENDIENTE;
+
+    @Column(name = "fechaautorizacion")
+    private LocalDateTime fechaAutorizacion;
+
+    @Column(name = "idusuarioautoriza")
+    private Integer idUsuarioAutoriza;
+
+    // Foto de evidencia opcional (URL en Cloudinary), rescatada de HU06.
+    @Column(name = "evidencia", length = 500)
+    private String evidencia;
+
     public Expulsion() {
     }
 
@@ -57,4 +77,15 @@ public class Expulsion {
     public void setHoraExpulsion(LocalDateTime horaExpulsion) { this.horaExpulsion = horaExpulsion; }
     public Integer getIdIncidencia() { return idIncidencia; }
     public void setIdIncidencia(Integer idIncidencia) { this.idIncidencia = idIncidencia; }
+
+    public String getObservacion() { return observacion; }
+    public void setObservacion(String observacion) { this.observacion = observacion; }
+    public EstadoExpulsion getEstado() { return estado; }
+    public void setEstado(EstadoExpulsion estado) { this.estado = estado; }
+    public LocalDateTime getFechaAutorizacion() { return fechaAutorizacion; }
+    public void setFechaAutorizacion(LocalDateTime fechaAutorizacion) { this.fechaAutorizacion = fechaAutorizacion; }
+    public Integer getIdUsuarioAutoriza() { return idUsuarioAutoriza; }
+    public void setIdUsuarioAutoriza(Integer idUsuarioAutoriza) { this.idUsuarioAutoriza = idUsuarioAutoriza; }
+    public String getEvidencia() { return evidencia; }
+    public void setEvidencia(String evidencia) { this.evidencia = evidencia; }
 }
