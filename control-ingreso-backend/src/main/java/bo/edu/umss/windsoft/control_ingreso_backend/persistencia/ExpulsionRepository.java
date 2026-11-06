@@ -16,8 +16,8 @@ public interface ExpulsionRepository extends JpaRepository<Expulsion, Integer> {
 
     Optional<Expulsion> findFirstByIdIncidencia(Integer idIncidencia);
 
-    /** IDs de incidencias que tienen una expulsión asociada. */
-    List<Integer> findIdIncidenciaByIdIncidenciaIn(Collection<Integer> ids);
+    /** Expulsiones asociadas a una lista de incidencias. */
+    List<Expulsion> findByIdIncidenciaIn(Collection<Integer> ids);
 
     /** HU14: expulsiones de un ingreso dado. */
     List<Expulsion> findByIdIngreso(Integer idIngreso);

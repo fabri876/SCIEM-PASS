@@ -260,8 +260,11 @@ public class IncidenciaService {
             Set<Integer> idsVisibles = visibles.stream()
                     .map(Incidencia::getIdIncidencia)
                     .collect(Collectors.toSet());
-            List<Integer> idsConExp = expulsionRepository.findIdIncidenciaByIdIncidenciaIn(
+            List<Expulsion> expulsiones = expulsionRepository.findByIdIncidenciaIn(
                     new ArrayList<>(idsVisibles));
+            Set<Integer> idsConExp = expulsiones.stream()
+                    .map(Expulsion::getIdIncidencia)
+                    .collect(Collectors.toSet());
             idsConExpulsion.addAll(idsConExp);
         }
 
