@@ -256,24 +256,9 @@ export async function listarReporteIntentosIncorrectos(objFiltros = {}) {
 
   const strQuery = objParams.toString() ? `?${objParams.toString()}` : "";
 
-  let arrDatos = null;
-
-  try {
-    arrDatos = await fetchAutenticado(`/api/reportes/intentos-incorrectos${strQuery}`);
-  } catch (err) {
-    if (err.message.includes("sesión") || err.message.includes("autorización")) {
-      throw err;
-    }
-    // Fallback a semillas locales para pruebas del frontend antes de que Marcela termine el backend
-    arrDatos = DATOS_SEMILLA_INTENTOS;
-  }
-
-  if (!Array.isArray(arrDatos) || arrDatos.length === 0) {
-    // Si la base está vacía en backend de desarrollo, usar datos semilla
-    arrDatos = DATOS_SEMILLA_INTENTOS;
-  }
-
-  return filtrarIntentosEnMemoria(arrDatos, objFiltros);
+  const arrDatos = await fetchAutenticado(`/api/reportes/intentos-incorrectos${strQuery}`);
+  if (!Array.isArray(arrDatos)) throw new Error("El servidor devolvió un reporte inválido.");
+  return arrDatos;
 }
 
 /**
@@ -401,7 +386,9 @@ export function exportarIntentosExcelCsv(arrIntentos, _objMetadata = {}) {
 
   const escapeCsv = (valor) => {
     if (valor === null || valor === undefined) return '""';
-    const str = String(valor).replace(/"/g, '""');
+    let str = String(valor);
+    if (/^\s*[=+@\-\t\r]/.test(str)) str = "'" + str;
+    str = str.replace(/"/g, '""');
     return `"${str}"`;
   };
 
@@ -456,6 +443,9 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
     throw new Error("No existen datos para generar el reporte.");
   }
 
+  const escaparHtml = (valor) => String(valor ?? "").replace(/[&<>"']/g, (caracter) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[caracter]);
   const kpis = calcularEstadisticasIntentos(arrIntentos);
   const fechaHoy = new Date().toLocaleDateString("es-BO", {
     year: "numeric",
@@ -470,21 +460,21 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
     <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
       <td style="padding: 8px 6px; font-weight: bold; color: #1e293b;">${i + 1}</td>
       <td style="padding: 8px 6px;">
-        <div style="font-weight: bold; color: #0f172a;">${item.estudianteNombre}</div>
-        <div style="color: #64748b; font-size: 10px;">SIS: ${item.codSis} | CI: ${item.ci}</div>
+        <div style="font-weight: bold; color: #0f172a;">${escaparHtml(item.estudianteNombre)}</div>
+        <div style="color: #64748b; font-size: 10px;">SIS: ${escaparHtml(item.codSis)} | CI: ${escaparHtml(item.ci)}</div>
       </td>
       <td style="padding: 8px 6px;">
         <span style="display: inline-block; padding: 2px 6px; font-weight: bold; border-radius: 4px; font-size: 10px; background: #fee2e2; color: #991b1b;">
-          ${item.motivoEtiqueta || item.motivo}
+          ${escaparHtml(item.motivoEtiqueta || item.motivo)}
         </span>
       </td>
-      <td style="padding: 8px 6px; color: #334155;">${item.sePresentoEn}</td>
-      <td style="padding: 8px 6px; color: #1e40af; font-weight: 600;">${item.examenAulaAsignada}</td>
-      <td style="padding: 8px 6px; color: #475569; font-family: monospace;">${item.hora}</td>
-      <td style="padding: 8px 6px; color: #334155;">${item.operador}</td>
+      <td style="padding: 8px 6px; color: #334155;">${escaparHtml(item.sePresentoEn)}</td>
+      <td style="padding: 8px 6px; color: #1e40af; font-weight: 600;">${escaparHtml(item.examenAulaAsignada)}</td>
+      <td style="padding: 8px 6px; color: #475569; font-family: monospace;">${escaparHtml(item.hora)}</td>
+      <td style="padding: 8px 6px; color: #334155;">${escaparHtml(item.operador)}</td>
       <td style="padding: 8px 6px;">
         <span style="display: inline-block; padding: 2px 6px; font-weight: bold; border-radius: 4px; font-size: 10px; background: #f0fdf4; color: #166534;">
-          ${item.estadoPosterior || "Registrado"}
+          ${escaparHtml(item.estadoPosterior || "No registrado")}
         </span>
       </td>
     </tr>`
@@ -523,8 +513,8 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
         </div>
         <div class="meta">
           <div><strong>Fecha de Emisión:</strong> ${fechaHoy} ${horaHoy}</div>
-          <div><strong>Asignatura:</strong> ${objInfo.asignatura || "Cálculo I (Grupo 1)"}</div>
-          <div><strong>Examen:</strong> ${objInfo.examen || "Primer Examen Parcial"}</div>
+      <div><strong>Asignatura:</strong> ${escaparHtml(objInfo.asignatura || "Todas las asignaturas")}</div>
+      <div><strong>Examen:</strong> ${escaparHtml(objInfo.examen || "Todos los exámenes")}</div>
         </div>
       </div>
 
