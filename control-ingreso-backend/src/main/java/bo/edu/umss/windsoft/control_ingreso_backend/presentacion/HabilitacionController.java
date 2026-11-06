@@ -4,6 +4,9 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.HabilitacionServi
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HabilitacionRequestDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HabilitacionResponseDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsociarEstudianteExamenRequest;
+import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpResolver;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -64,8 +67,10 @@ public class HabilitacionController {
     @PutMapping("/{id}")
     public ResponseEntity<HabilitacionResponseDto> actualizarHabilitacion(
             @PathVariable Integer id,
-            @Valid @RequestBody HabilitacionRequestDto request) {
-        HabilitacionResponseDto actualizado = habilitacionService.actualizarHabilitacion(id, request);
+            @Valid @RequestBody HabilitacionRequestDto request,
+            Authentication authentication, HttpServletRequest httpRequest) {
+        HabilitacionResponseDto actualizado = habilitacionService.actualizarHabilitacion(
+                id, request, authentication.getName(), ClientIpResolver.resolver(httpRequest));
         return ResponseEntity.ok(actualizado);
     }
 

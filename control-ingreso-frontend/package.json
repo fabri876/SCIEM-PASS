@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:apk": "vite build --mode capacitor && npx cap sync android",
     "lint": "oxlint",
     "check:admin": "node scripts/check-admin-render.mjs",
     "check:hu15": "node scripts/check-hu15-inmodificable.mjs",
@@ -13,6 +14,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
     "@tailwindcss/vite": "^4.3.3",
     "dexie": "^4.4.6",
     "html5-qrcode": "^2.3.8",

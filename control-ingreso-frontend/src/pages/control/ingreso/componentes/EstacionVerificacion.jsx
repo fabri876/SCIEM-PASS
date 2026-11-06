@@ -1,3 +1,4 @@
+import { useRegisterBackHandler } from "../../../../hooks/useAndroidBackButton";
 // Estación de verificación: Escanear QR / Ingreso manual (C.I. o Código SIS)
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
@@ -45,6 +46,8 @@ function PanelQR({ onValidar, boolValidando, idExamen }) {
     setStrEstado("inactivo");
   };
 
+  useRegisterBackHandler(strEstado === "leyendo", fnDetener);
+
   useEffect(() => () => { fnDetener(); }, []);
 
   const fnAlLeer = async (strTexto) => {
@@ -71,7 +74,7 @@ function PanelQR({ onValidar, boolValidando, idExamen }) {
       );
     } catch {
       await fnDetener();
-      setStrAviso("No se pudo abrir la cámara. Revisa el permiso del navegador o usa el ingreso manual.");
+      setStrAviso("No se pudo abrir la cámara. Revisa el permiso de la app en Ajustes > Apps > SCIEM-PASS > Permisos, o usa el ingreso manual.");
     }
   };
 

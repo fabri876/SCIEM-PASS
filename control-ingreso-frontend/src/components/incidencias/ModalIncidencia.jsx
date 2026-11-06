@@ -13,6 +13,7 @@ import {
   notificarCambioIncidencias,
 } from "../../services/incidenciaService";
 import { formatearFecha, formatearHora, validarImagen, etiquetaAula } from "./utilidadesIncidencias";
+import { incidenciaRepo } from "../../offline/incidenciaRepo";
 
 const CATALOGO_TIPOS = [
   { codigo: "SUPLANTACION", etiqueta: "Suplantación" },
@@ -77,6 +78,7 @@ export default function ModalIncidencia({
   const [strError, setStrError] = useState("");
   const [strExito, setStrExito] = useState("");
   const [strHoraActual, setStrHoraActual] = useState("");
+  const [retirarEstudiante, setRetirarEstudiante] = useState(false);
 
   // Se reinicia SOLO al abrir. Antes dependía también de las listas que manda
   // la sección (que se recrean en cada render) y el formulario se borraba solo
@@ -95,6 +97,7 @@ export default function ModalIncidencia({
     setStrExito("");
     setStrErrorBusquedaEstudiante("");
     setBoolGuardando(false);
+    setRetirarEstudiante(false);
 
     setAulaSeleccionada(aulaPreseleccionada || aulasDisponibles[0] || null);
 
@@ -117,6 +120,7 @@ export default function ModalIncidencia({
     !tipoSeleccionado && "el tipo",
     !severidadSeleccionada && "la severidad",
     !descripcionValida && `una descripción de al menos ${DESCRIPCION_MIN} caracteres`,
+    retirarEstudiante && !estudianteInvolucrado && "el estudiante a retirar",
   ].filter(Boolean);
   const puedeRegistrar = faltantes.length === 0 && !boolGuardando && !strExito;
 
@@ -189,14 +193,41 @@ export default function ModalIncidencia({
     setBoolGuardando(true);
     setStrError("");
 
+    const datosIncidencia = {
+      idAmbiente: idAmbienteActual,
+      tipo: tipoSeleccionado,
+      severidad: severidadSeleccionada,
+      descripcion: strDescripcion.trim(),
+      codSisEstudiante: estudianteInvolucrado?.codSis || null,
+      retirarEstudiante,
+      registradoEn: new Date().toISOString(),
+    };
+    const guardarOffline = async () => {
+      const clientUuid = await incidenciaRepo.encolar(datosIncidencia);
+      if (retirarEstudiante) {
+        await incidenciaRepo.encolarExpulsion({
+          incidenciaClientUuid: clientUuid,
+          codSisEstudiante: estudianteInvolucrado?.codSis,
+          examenId: aulaSeleccionada?.idExamen,
+        });
+      }
+      setStrExito("Sin conexión. La incidencia se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal.");
+      notificarCambioIncidencias();
+      setTimeout(() => {
+        if (onExito) onExito({ clientUuid, offline: true });
+        onCerrar();
+      }, 1200);
+    };
+
     try {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        await guardarOffline();
+        return;
+      }
+
       const respuesta = await registrarIncidencia({
         claveSolicitud,
-        idAmbiente: idAmbienteActual,
-        tipo: tipoSeleccionado,
-        severidad: severidadSeleccionada,
-        descripcion: strDescripcion.trim(),
-        codSisEstudiante: estudianteInvolucrado?.codSis || null,
+        ...datosIncidencia,
         evidencia: archivoFoto,
       });
 
@@ -207,8 +238,17 @@ export default function ModalIncidencia({
         onCerrar();
       }, 900);
     } catch (err) {
-      setStrError(err.message || "Ocurrió un error al registrar la incidencia.");
-      setBoolGuardando(false);
+      if (err.message?.includes("No se pudo conectar") || (typeof navigator !== "undefined" && navigator.onLine === false)) {
+        try {
+          await guardarOffline();
+        } catch (errorOffline) {
+          setStrError(errorOffline.message || "No se pudo guardar la incidencia en el dispositivo.");
+          setBoolGuardando(false);
+        }
+      } else {
+        setStrError(err.message || "Ocurrió un error al registrar la incidencia.");
+        setBoolGuardando(false);
+      }
     }
   };
 
@@ -379,6 +419,16 @@ export default function ModalIncidencia({
                 </button>
               </div>
             )}
+            <label className="mt-3 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={retirarEstudiante}
+                disabled={!estudianteInvolucrado}
+                onChange={(e) => setRetirarEstudiante(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>Retirar al estudiante del examen. Requiere un estudiante involucrado.</span>
+            </label>
           </div>
 
           {/* Descripción */}

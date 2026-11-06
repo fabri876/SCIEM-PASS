@@ -6,6 +6,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.DelegadoExa
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.JornadaActivaDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ResultadoIngresoDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.VerificarIngresoRequestDTO;
+import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -79,8 +81,9 @@ public class AyudanteExamenController {
 
     @PostMapping("/control/ingresos")
     @PreAuthorize("hasAnyRole('OPERADOR','ADMINISTRADOR','DOCENTE')")
-    public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(@Valid @RequestBody VerificarIngresoRequestDTO dto) {
+    public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(@Valid @RequestBody VerificarIngresoRequestDTO dto,
+                                                                 HttpServletRequest request) {
         Integer idOperador = contextoUsuarioService.actual().idUsuario();
-        return controlIngresoAyudanteService.registrarIngreso(dto, idOperador);
+        return controlIngresoAyudanteService.registrarIngreso(dto, idOperador, ClientIpResolver.resolver(request));
     }
 }

@@ -92,6 +92,11 @@ public class IncidenciaService {
                 Arrays.stream(MotivoExcepcion.values()).map(m -> new OpcionCatalogoDto(m.name(), m.getEtiqueta())).toList());
     }
 
+    @Transactional(readOnly = true)
+    public boolean existeClaveSolicitud(String claveSolicitudTexto) {
+        return incidenciaRepository.existsByClaveSolicitud(leerClave(claveSolicitudTexto));
+    }
+
     // -------------------------------------------------------------------------
     // REGISTRAR
     // -------------------------------------------------------------------------
@@ -167,13 +172,23 @@ public class IncidenciaService {
             incidencia = incidenciaRepository.saveAndFlush(incidencia);
 
             if (ingresoARetirar != null) {
+                Integer idIncidencia = incidencia.getIdIncidencia();
+                if (idIncidencia == null) {
+                    throw new IllegalArgumentException("No se puede crear una expulsión sin una incidencia asociada.");
+                }
+                Incidencia incidenciaAbierta = incidenciaRepository.findById(idIncidencia)
+                        .orElseThrow(() -> new IllegalArgumentException("Incidencia no encontrada: " + idIncidencia));
+                if (incidenciaAbierta.getEstado() != EstadoIncidencia.ABIERTA) {
+                    throw new IllegalStateException("Solo se puede expulsar con una incidencia en estado ABIERTA.");
+                }
+
                 expulsion = new Expulsion();
                 expulsion.setIdIngreso(ingresoARetirar.getIdIngreso());
                 expulsion.setIdUsuario(usuario.idUsuario());
                 expulsion.setMotivoExpulsion(tipo.getEtiqueta() + ": " + descripcionLimpia);
                 expulsion.setFechaExpulsion(HoraOficial.hoy());
                 expulsion.setHoraExpulsion(HoraOficial.ahora());
-                expulsion.setIdIncidencia(incidencia.getIdIncidencia());
+                expulsion.setIdIncidencia(idIncidencia);
                 expulsion = expulsionRepository.save(expulsion);
 
                 ingresoARetirar.setIdExpulsion(expulsion.getIdExpulsion());
@@ -191,11 +206,16 @@ public class IncidenciaService {
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
         String afectado = estudiante != null ? estudiante.usuario().getCorreousuario() : usuario.correo();
         String contexto = info.asignatura() + " · examen " + ambiente.getIdExamen() + " · " + info.aula();
-        auditoriaService.registrar("INCIDENCIA_REGISTRADA", usuario.correo(), afectado,
-                incidencia.getCodigo() + " · " + tipo.name() + " · " + severidad.name() + " · " + contexto, ip);
-        if (expulsion != null) {
-            auditoriaService.registrar("EXPULSION_REGISTRADA", usuario.correo(), afectado,
-                    incidencia.getCodigo() + " · ingreso #" + ingresoARetirar.getIdIngreso() + " retirado · " + contexto, ip);
+        try {
+            auditoriaService.registrarEnTransaccion("INCIDENCIA_REGISTRADA", usuario.correo(), afectado,
+                    incidencia.getCodigo() + " · " + tipo.name() + " · " + severidad.name() + " · " + contexto, ip);
+            if (expulsion != null) {
+                auditoriaService.registrarEnTransaccion("EXPULSION_REGISTRADA", usuario.correo(), afectado,
+                        incidencia.getCodigo() + " · ingreso #" + ingresoARetirar.getIdIngreso() + " retirado · " + contexto, ip);
+            }
+        } catch (RuntimeException e) {
+            evidenciaService.eliminarSinFallar(evidencia);
+            throw e;
         }
 
         return armarDetalle(incidencia, ambiente);
@@ -306,7 +326,7 @@ public class IncidenciaService {
         incidencia.setIdUsuarioRevisa(usuario.idUsuario());
         incidencia = incidenciaRepository.save(incidencia);
 
-        auditoriaService.registrar("INCIDENCIA_EN_REVISION", usuario.correo(), correoAfectado(incidencia, usuario),
+        auditoriaService.registrarEnTransaccion("INCIDENCIA_EN_REVISION", usuario.correo(), correoAfectado(incidencia, usuario),
                 incidencia.getCodigo() + " · ABIERTA → EN_REVISION", ip);
         return armarDetalle(incidencia, ambiente);
     }
@@ -334,7 +354,7 @@ public class IncidenciaService {
         incidencia.setIdUsuarioResuelve(usuario.idUsuario());
         incidencia = incidenciaRepository.save(incidencia);
 
-        auditoriaService.registrar("INCIDENCIA_CERRADA", usuario.correo(), correoAfectado(incidencia, usuario),
+        auditoriaService.registrarEnTransaccion("INCIDENCIA_CERRADA", usuario.correo(), correoAfectado(incidencia, usuario),
                 incidencia.getCodigo() + " · " + anterior.name() + " → CERRADA · resolución: " + resolucionLimpia, ip);
         return armarDetalle(incidencia, ambiente);
     }

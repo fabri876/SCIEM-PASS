@@ -1,0 +1,10 @@
+{
+  "appId": "bo.edu.umss.windsoft.sciempass",
+  "appName": "SCIEM-PASS",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  }
+}
+

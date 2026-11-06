@@ -80,6 +80,21 @@ public class SecurityConfig {
                                 .hasRole("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.POST, "/api/grupos/**")
                                 .hasAnyRole("ADMINISTRADOR", "DOCENTE")
+                        // HU14: Expulsiones (antes que /api/examenes/** para que se evalúen primero).
+                        .requestMatchers(HttpMethod.POST, "/api/examenes/*/expulsiones")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/examenes/*/expulsiones",
+                                "/api/examenes/*/expulsiones/pendientes",
+                                "/api/examenes/*/expulsiones/pendientes/total")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/examenes/*/expulsiones/*/autorizar",
+                                "/api/examenes/*/expulsiones/*/denegar")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/expulsiones/pendientes",
+                                "/api/expulsiones/historial")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers("/api/admin/expulsiones").hasRole("ADMINISTRADOR")
+
                         .requestMatchers("/api/examenes/**").hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers("/api/usuarios/**").hasAnyRole("ADMINISTRADOR", "DOCENTE")
                         .anyRequest().authenticated())

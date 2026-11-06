@@ -17,8 +17,7 @@ import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken, cerrarSesion } from "./authService";
 
 /**
- * Calcula el hash SHA-256 de una cadena de texto utilizando la Web Crypto API del navegador.
- * Dispone de fallback determinista para entornos donde crypto.subtle no esté disponible.
+ * Calcula el hash SHA-256 con Web Crypto; falla si el navegador no lo soporta.
  *
  * @param {string} strCadena - Texto a hashear
  * @returns {Promise<string>} Hash SHA-256 en formato hexadecimal (64 caracteres)
@@ -36,17 +35,7 @@ export async function calcularSha256(strCadena) {
     }
   }
 
-  // Fallback determinista de hash para entornos de prueba
-  let intHash1 = 5381;
-  let intHash2 = 52711;
-  for (let i = 0; i < strCadena.length; i++) {
-    const charCode = strCadena.charCodeAt(i);
-    intHash1 = ((intHash1 << 5) + intHash1) ^ charCode;
-    intHash2 = ((intHash2 << 7) + intHash2) ^ charCode;
-  }
-  const strParte1 = (Math.abs(intHash1) >>> 0).toString(16).padStart(8, "0");
-  const strParte2 = (Math.abs(intHash2) >>> 0).toString(16).padStart(8, "0");
-  return (strParte1 + strParte2).repeat(4).slice(0, 64);
+  throw new Error("SHA-256 no está disponible en este navegador.");
 }
 
 /**
@@ -232,8 +221,7 @@ export async function generarBloquesSemilla() {
 
 /**
  * Consulta el historial inmodificable aplicando filtros.
- * Se conecta prioritariamente al endpoint `/api/admin/historial-inmodificable`,
- * con compatibilidad automática hacia `/api/admin/auditoria`.
+ * Consulta exclusivamente el endpoint dedicado de HU15.
  *
  * @param {Object} objFiltros - { modulo, ejecutor, fecha, fechaInicio, fechaFin, busqueda }
  * @returns {Promise<Array>} Lista de bloques criptográficos ordenados DESC
@@ -261,84 +249,12 @@ export async function listarHistorialInmodificable(objFiltros = {}) {
 
   const strQuery = objParams.toString() ? `?${objParams.toString()}` : "";
 
-  let arrRegistrosRaw = null;
-
-  // 1. Intentar endpoint dedicado de HU15
-  try {
-    arrRegistrosRaw = await fetchAutenticado(`/api/admin/historial-inmodificable${strQuery}`);
-  } catch (errPrimario) {
-    // Si la sesión expiró o no tiene permiso, lanzar de inmediato
-    if (errPrimario.message.includes("sesión") || errPrimario.message.includes("autorización")) {
-      throw errPrimario;
-    }
-
-    // 2. Si el backend aún no tiene el endpoint nuevo (404), consultar el de auditoría existente
-    try {
-      arrRegistrosRaw = await fetchAutenticado(`/api/admin/auditoria${strQuery}`);
-    } catch (errSecundario) {
-      if (errSecundario.message.includes("sesión") || errSecundario.message.includes("autorización")) {
-        throw errSecundario;
-      }
-      // Si el servidor falla por completo, propagar el error de conexión (Criterio 31, 46)
-      throw new Error("No se pudo obtener el historial de operaciones del servidor. Revisa la conexión con el backend.");
-    }
+  const arrRegistrosRaw = await fetchAutenticado(`/api/admin/historial-inmodificable${strQuery}`);
+  if (!Array.isArray(arrRegistrosRaw)) {
+    throw new Error("El servidor devolvió una respuesta de auditoría inválida.");
   }
+  return arrRegistrosRaw;
 
-  // 3. Si no hay registros en la base de datos, cargar la cadena inicial semilla
-  if (!Array.isArray(arrRegistrosRaw) || arrRegistrosRaw.length === 0) {
-    const arrSemillas = await generarBloquesSemilla();
-    return aplicarFiltrosEnMemoria(arrSemillas, objFiltros);
-  }
-
-  // 4. Adaptar y asegurar el encadenamiento criptográfico SHA-256
-  // Ordenar de más antiguo a más reciente para construir la cadena
-  const arrOrdenadosAsc = [...arrRegistrosRaw].sort((a, b) => {
-    const idA = Number(a.idBloque || a.idAuditoria || 0);
-    const idB = Number(b.idBloque || b.idAuditoria || 0);
-    return idA - idB;
-  });
-
-  let strHashPrevio = "0".repeat(64);
-  const arrBloquesFormateados = [];
-
-  for (let i = 0; i < arrOrdenadosAsc.length; i++) {
-    const raw = arrOrdenadosAsc[i];
-    const idBloque = Number(raw.idBloque || raw.idAuditoria || i + 1);
-    const fechaHora = raw.fechaHoraOficial || (raw.fechaHora ? new Date(raw.fechaHora).toISOString().replace("T", " ").replace("Z", " BOT") : "2026-10-28 08:00:00.000 BOT");
-    const operacion = raw.operacionEjecutada || raw.tipoOperacion || "OPERACION_CRITICA";
-    const modulo = raw.modulo || inferirModulo(operacion);
-    const ejecutor = raw.usuarioEjecutor || "sistema@sciem-pass.umss.edu";
-    const ip = raw.ipOrigen || "192.168.1.1";
-    const detalles = raw.detalles || raw.accion || "Sin detalles adicionales registrados.";
-
-    const bloque = {
-      idBloque,
-      fechaHoraOficial: fechaHora,
-      modulo,
-      operacionEjecutada: operacion,
-      usuarioEjecutor: ejecutor,
-      ipOrigen: ip,
-      detalles,
-      hashBloqueAnterior: raw.hashBloqueAnterior || strHashPrevio,
-    };
-
-    // Si ya viene con sello válido del backend, usarlo; sino calcularlo
-    if (raw.selloSha256) {
-      bloque.selloSha256 = raw.selloSha256;
-      bloque.estadoIntegridad = raw.estadoIntegridad || "VALIDO";
-    } else {
-      const canonico = obtenerTextoCanonicoBloque(bloque);
-      bloque.selloSha256 = await calcularSha256(canonico);
-      bloque.estadoIntegridad = "VALIDO";
-    }
-
-    strHashPrevio = bloque.selloSha256;
-    arrBloquesFormateados.push(bloque);
-  }
-
-  // Ordenar de más reciente a más antiguo (Criterio 3)
-  const arrResultadoDesc = arrBloquesFormateados.reverse();
-  return aplicarFiltrosEnMemoria(arrResultadoDesc, objFiltros);
 }
 
 /**
@@ -408,19 +324,16 @@ function aplicarFiltrosEnMemoria(arrBloques, objFiltros) {
  */
 export async function verificarIntegridadBloque(objBloque) {
   if (!objBloque) return { esValido: false, motivo: "Bloque inexistente." };
-
-  const strCanonico = obtenerTextoCanonicoBloque(objBloque);
-  const strHashRecalculado = await calcularSha256(strCanonico);
-
-  const esValido = (strHashRecalculado.toLowerCase() === (objBloque.selloSha256 || "").toLowerCase());
-
+  if (!objBloque.selloSha256 || !objBloque.hashBloqueAnterior) {
+    return { esValido: false, motivo: "Este evento no tiene un sello almacenado; su integridad no puede verificarse." };
+  }
+  const esValido = objBloque.estadoIntegridad === "VALIDO";
   return {
     esValido,
     hashOriginal: objBloque.selloSha256,
-    hashRecalculado: strHashRecalculado,
     motivo: esValido
-      ? "SELLO CRIPTOGRÁFICO VÁLIDO"
-      : "ADVERTENCIA: El hash del bloque no coincide con los datos registrados. Posible alteración.",
+      ? "Sello individual consistente según el servidor; no verifica el punto de control externo."
+      : "El servidor no pudo confirmar el sello individual.",
   };
 }
 
@@ -433,53 +346,9 @@ export async function verificarIntegridadBloque(objBloque) {
  * @returns {Promise<Object>} Resultado forense de la verificación
  */
 export async function verificarCadenaCompleta(arrBloques) {
-  if (!Array.isArray(arrBloques) || arrBloques.length === 0) {
-    return {
-      esValido: true,
-      totalBloques: 0,
-      mensaje: "No hay bloques registrados en el historial.",
-    };
-  }
+  const resultado = await fetchAutenticado("/api/admin/historial-inmodificable/verificar");
+  return { ...resultado, motivo: resultado.motivo || resultado.mensaje };
 
-  // Ordenar de más antiguo a más reciente para verificar la secuencia
-  const arrAsc = [...arrBloques].sort((a, b) => Number(a.idBloque) - Number(b.idBloque));
-
-  for (let i = 0; i < arrAsc.length; i++) {
-    const bloqueActual = arrAsc[i];
-
-    // 1. Verificar hash del bloque actual
-    const resBloque = await verificarIntegridadBloque(bloqueActual);
-    if (!resBloque.esValido) {
-      return {
-        esValido: false,
-        totalBloques: arrAsc.length,
-        bloqueAfectado: bloqueActual,
-        indice: i,
-        motivo: `Inconsistencia detectada en el Bloque #${bloqueActual.idBloque}: el contenido no coincide con el sello criptográfico.`,
-      };
-    }
-
-    // 2. Verificar encadenamiento con el bloque anterior
-    if (i > 0) {
-      const bloqueAnterior = arrAsc[i - 1];
-      if (bloqueActual.hashBloqueAnterior.toLowerCase() !== bloqueAnterior.selloSha256.toLowerCase()) {
-        return {
-          esValido: false,
-          totalBloques: arrAsc.length,
-          bloqueAfectado: bloqueActual,
-          bloqueAnterior,
-          indice: i,
-          motivo: `Ruptura en la cadena criptográfica entre el Bloque #${bloqueAnterior.idBloque} y el Bloque #${bloqueActual.idBloque}. El enlace previo ha sido manipulado.`,
-        };
-      }
-    }
-  }
-
-  return {
-    esValido: true,
-    totalBloques: arrAsc.length,
-    mensaje: `Cadena criptográfica SHA-256 100% íntegra. Se verificaron satisfactoriamente ${arrAsc.length} bloques auditables sin ninguna inconsistencia.`,
-  };
 }
 
 /**
@@ -511,7 +380,9 @@ export function exportarRegistroCompletoCsv(arrBloquesFiltrados) {
 
   const escapeCsv = (valor) => {
     if (valor === null || valor === undefined) return '""';
-    const str = String(valor).replace(/"/g, '""');
+    let str = String(valor);
+    if (/^[\s]*[=+@\-\t\r]/.test(str)) str = "'" + str;
+    str = str.replace(/"/g, '""');
     return `"${str}"`;
   };
 

@@ -67,6 +67,7 @@ try {
   const { default: Panel } = await server.ssrLoadModule("/src/pages/admin/AdminDashboard.jsx");
   const html = renderToString(React.createElement(MemoryRouter, null, React.createElement(Panel)));
   assert.ok(html.includes("Administración de Usuarios y Roles"));
+  assert.ok(html.includes("Menú de administración"), "El panel debe ofrecer navegación móvil");
   const { default: Historial } = await server.ssrLoadModule("/src/pages/admin/components/HistorialSemestres.jsx");
   const htmlHistorial = renderToString(React.createElement(Historial));
   assert.ok(htmlHistorial.includes("Historial de Semestres"));

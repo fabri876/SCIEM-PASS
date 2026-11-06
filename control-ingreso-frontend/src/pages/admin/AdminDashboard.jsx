@@ -34,6 +34,7 @@ export default function AdminDashboard({ onNavigateToLogin }) {
     // navigate("/admin", { state: { menu: "Gestión de Exámenes" } })
     const objUbicacion = useLocation();
     const [activeMenu, setActiveMenu] = useState(objUbicacion.state?.menu || "Gestión de Usuarios");
+    const [menuAdminMovilAbierto, setMenuAdminMovilAbierto] = useState(false);
     const [revisionAcademica, setRevisionAcademica] = useState(0);
     const usuarioSesion = obtenerUsuarioActual();
 
@@ -157,6 +158,23 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     ÁREA DE CONTENIDO PRINCIPAL
                     ==================================================== */}
                 <main className="flex-1 min-w-0 p-4 lg:p-8 space-y-6 overflow-x-hidden">
+
+                    <div className="lg:hidden">
+                        <button type="button" aria-expanded={menuAdminMovilAbierto}
+                            aria-controls="menu-administracion-movil"
+                            onClick={() => setMenuAdminMovilAbierto(abierto => !abierto)}
+                            className="rounded-xl bg-primary-navy px-4 py-2 text-sm font-bold text-white">
+                            {menuAdminMovilAbierto ? "Cerrar menú de administración" : "Menú de administración"}
+                        </button>
+                        {menuAdminMovilAbierto && (
+                            <nav id="menu-administracion-movil" aria-label="Menú de administración" className="mt-2 rounded-xl overflow-hidden">
+                                <AdminSidebar activeMenu={activeMenu} setActiveMenu={menu => {
+                                    setActiveMenu(menu);
+                                    setMenuAdminMovilAbierto(false);
+                                }} />
+                            </nav>
+                        )}
+                    </div>
 
                     <div className="flex justify-between items-start">
                         <div>
