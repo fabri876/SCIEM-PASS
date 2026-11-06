@@ -65,6 +65,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
       setArrIntentos(Array.isArray(data) ? data : []);
       setIntPaginaActual(1);
     } catch (err) {
+      setArrIntentos([]);
       setStrError(err.message || "Error al consultar los registros de intentos incorrectos.");
     } finally {
       setBoolCargando(false);
