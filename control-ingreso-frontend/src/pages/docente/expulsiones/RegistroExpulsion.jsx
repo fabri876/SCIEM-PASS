@@ -8,16 +8,41 @@ import {
   X,
   ChevronRight,
   Clock,
+  Calendar,
+  MapPin,
+  BookOpen,
   Upload,
   CheckCircle2,
+  Check,
+  BadgeCheck,
+  IdCard,
+  GraduationCap,
 } from "lucide-react";
 import { registrarExpulsion, buscarEstudiante } from "../../../services/expulsionService";
 import { obtenerMisExamenes } from "../../../services/examenService";
 import { validarImagen, formatearHora } from "../../../components/incidencias/utilidadesIncidencias";
-import { estadoExamen } from "../utilidadesExamenDocente";
+import { estadoExamen, esHoy, puedeControlarIngreso } from "../utilidadesExamenDocente";
 
 const DESCRIPCION_MIN = 15;
 const DESCRIPCION_MAX = 500;
+
+/**
+ * `mis-examenes` no trae horaInicio/horaFin en el nivel superior: los horarios
+ * viven dentro de `ambientes[]`. Sin esto, estadoExamen() recibe horaFin=null,
+ * asume "fin del dia" (23:59) y muestra como EN_CURSO examenes ya terminados.
+ * Si hay varios ambientes, se toma el inicio mas temprano y el fin mas tardio.
+ */
+function normalizarHorarioExamen(examen) {
+  const ambientes = Array.isArray(examen?.ambientes) ? examen.ambientes : [];
+  const horasInicio = ambientes.map((a) => a?.horaInicio).filter(Boolean).sort();
+  const horasFin = ambientes.map((a) => a?.horaFin).filter(Boolean).sort();
+
+  return {
+    ...examen,
+    horaInicio: examen?.horaInicio || horasInicio[0] || null,
+    horaFin: examen?.horaFin || horasFin[horasFin.length - 1] || null,
+  };
+}
 
 const MOTIVOS_EXPULSION = [
   { valor: "USO_CELULAR", etiqueta: "Uso de teléfono celular" },
@@ -77,21 +102,40 @@ export default function RegistroExpulsion({ idExamenProp }) {
     setStrErrorExamenes("");
     try {
       const data = await obtenerMisExamenes();
-      const todos = data || [];
-      // Eliminar duplicados por idExamen (puede venir repetido por múltiples ambientes/horarios)
-      const idsVistos = new Set();
-      const unicos = todos.filter((e) => {
+      const todos = Array.isArray(data) ? data : [];
+
+      // Un examen puede venir repetido (una fila por ambiente/horario).
+      // Se agrupa por idExamen y se fusionan los ambientes para no perder horarios.
+      const porId = new Map();
+      todos.forEach((e) => {
         const id = e.idExamen || e.id;
-        if (idsVistos.has(id)) return false;
-        idsVistos.add(id);
-        return true;
+        if (id == null) return;
+        const previo = porId.get(id);
+        if (!previo) {
+          porId.set(id, e);
+          return;
+        }
+        porId.set(id, {
+          ...previo,
+          ...e,
+          ambientes: [...(previo.ambientes || []), ...(e.ambientes || [])],
+        });
       });
-      // Solo se puede expulsar de un examen que esté EN CURSO (no de uno pasado).
-      const enCurso = unicos.filter((e) => estadoExamen(e) === "EN_CURSO");
+
+      // Solo se puede expulsar de un examen activo. Se usa la misma regla que
+      // el resto del sistema (puedeControlarIngreso): se habilita 15 minutos
+      // antes del inicio y se cierra al terminar. Asi, un examen que esta por
+      // comenzar ya aparece, pero uno ya finalizado nunca aparece.
+      // Se normalizan los horarios desde ambientes[] antes de calcular el estado.
+      const ahora = new Date();
+      const enCurso = Array.from(porId.values())
+        .map(normalizarHorarioExamen)
+        .filter((e) => esHoy(e, ahora) && puedeControlarIngreso(e, ahora));
+
       setExamenes(enCurso);
       if (enCurso.length === 0 && todos.length > 0) {
         setStrErrorExamenes(
-          "No tiene exámenes en curso actualmente. Solo se puede registrar expulsión en exámenes activos."
+          "No tiene exámenes activos ni próximos a iniciar. El registro se habilita 15 minutos antes del inicio del examen."
         );
       }
     } catch (err) {
@@ -213,10 +257,13 @@ export default function RegistroExpulsion({ idExamenProp }) {
         observacion: strObservacion.trim(),
       };
 
-      await registrarExpulsion(idExamen, datos, archivoFoto);
+      const respuesta = await registrarExpulsion(idExamen, datos, archivoFoto);
 
+      const idIncidencia = respuesta?.idIncidencia;
       setStrMensajeExito(
-        "Expulsión registrada y autorizada correctamente."
+        idIncidencia
+          ? `Expulsión registrada y autorizada correctamente. También se registró en Incidencias como INC-${String(idIncidencia).padStart(3, "0")}.`
+          : "Expulsión registrada y autorizada correctamente."
       );
       setEstudiante(null);
       setStrMotivo("");
@@ -266,41 +313,83 @@ export default function RegistroExpulsion({ idExamenProp }) {
           {!boolCargandoExamenes && examenes.length === 0 && (
             <div className="p-12 text-center">
               <Clock className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <h3 className="font-bold text-slate-600">No tiene exámenes en curso</h3>
+              <h3 className="font-bold text-slate-600">No hay exámenes activos</h3>
               <p className="text-slate-500 text-sm">
-                Solo se puede registrar expulsión en exámenes que estén activos actualmente.
+                El registro de expulsiones se habilita 15 minutos antes del inicio del examen.
               </p>
             </div>
           )}
 
           {!boolCargandoExamenes && examenes.length > 0 && (
-            <div className="divide-y divide-slate-100">
-              {examenes.map((examen) => (
-                <button
-                  key={examen.idExamen || examen.id}
-                  onClick={() => fnSeleccionarExamen(examen)}
-                  className="w-full flex items-center justify-between px-6 py-4 transition hover:bg-[#F8FAFC] hover:border-[#1A365D]/50 border border-transparent"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-bold text-[#08264A] text-sm">
-                        {obtenerNombreExamen(examen)}
-                      </h4>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#DCFCE7] text-[#166534]">
-                        EN CURSO
-                      </span>
+            <div className="p-4 md:p-6 space-y-3 bg-[#F8FAFC]">
+              {examenes.map((examen) => {
+                const enCurso = estadoExamen(examen) === "EN_CURSO";
+                const aulas =
+                  (examen.ambientes || [])
+                    .map((a) => a?.nombreAmbiente || a?.nombreAula)
+                    .filter(Boolean)
+                    .join(" + ") || "Aula por definir";
+                const horario =
+                  examen.horaInicio && examen.horaFin
+                    ? `${String(examen.horaInicio).substring(0, 5)} - ${String(examen.horaFin).substring(0, 5)}`
+                    : "Horario por definir";
+
+                return (
+                  <button
+                    key={examen.idExamen || examen.id}
+                    onClick={() => fnSeleccionarExamen(examen)}
+                    className="group w-full text-left bg-white border border-[#CBD5E1] rounded-2xl px-4 md:px-5 py-4 transition-all hover:border-[#1A365D] hover:shadow-md hover:-translate-y-0.5 flex items-center gap-4"
+                  >
+                    {/* Icono de materia */}
+                    <div className="w-12 h-12 rounded-xl bg-[#E8EEF7] text-[#1A365D] flex items-center justify-center shrink-0 transition-colors group-hover:bg-[#1A365D] group-hover:text-white">
+                      <BookOpen className="w-6 h-6" />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {examen.codigo || ""} · {examen.fecha || ""} · {examen.hora || ""} ·
-                      {examen.aula || ""}
-                      <span className="ml-2 text-[10px] text-[#1A365D] font-bold">
-                        ID: {examen.idExamen || examen.id}
-                      </span>
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </button>
-              ))}
+
+                    {/* Datos del examen */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-bold text-[#08264A] text-sm md:text-base truncate">
+                          {obtenerNombreExamen(examen)}
+                        </h4>
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide ${
+                            enCurso
+                              ? "bg-[#DCFCE7] text-[#166534]"
+                              : "bg-[#FEF3C7] text-[#92400E]"
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              enCurso ? "bg-[#16A34A]" : "bg-[#F59E0B]"
+                            }`}
+                          />
+                          {enCurso ? "EN CURSO" : "POR INICIAR"}
+                        </span>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-[#1A365D]" />
+                          {examen.fechaExamen || "Fecha por definir"}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-[#1A365D]" />
+                          {horario}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-[#1A365D]" />
+                          {aulas}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Flecha */}
+                    <div className="w-9 h-9 rounded-full border border-[#CBD5E1] text-slate-400 flex items-center justify-center shrink-0 transition-colors group-hover:border-[#1A365D] group-hover:text-[#1A365D] group-hover:bg-[#F1F5F9]">
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -314,15 +403,22 @@ export default function RegistroExpulsion({ idExamenProp }) {
   return (
     <div className="space-y-6">
       {/* Encabezado del módulo */}
-      <div className="bg-[#1A365D] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[140px]">
-        <h2 className="text-2xl md:text-3xl font-black tracking-tight mb-2 flex items-center gap-2">
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#1A365D] via-[#1E3A63] to-[#0F2544] text-white p-6 md:p-8 rounded-3xl shadow-lg">
+        <div className="pointer-events-none absolute -right-12 -top-12 w-44 h-44 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -right-2 -bottom-20 w-36 h-36 rounded-full bg-white/5" />
+
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/60 mb-2">
+          <BookOpen className="w-3.5 h-3.5" /> Examen seleccionado
+        </span>
+        <h2 className="text-2xl md:text-3xl font-black tracking-tight mb-3">
           Registrar Expulsión
-          <span className="bg-white text-[#1A365D] px-2 py-0.5 rounded text-xs font-bold">
-            {nombreExamenSeleccionado || "Examen #" + idExamen}
-          </span>
         </h2>
-        <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
-          Busque al estudiante, seleccione el motivo y registre la expulsión. Quedará en estado PENDIENTE hasta que el Docente la autorice.
+        <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-1.5 rounded-full text-xs font-bold mb-3">
+          <GraduationCap className="w-4 h-4" />
+          {nombreExamenSeleccionado || "Examen #" + idExamen}
+        </div>
+        <p className="text-xs md:text-sm text-white/75 max-w-2xl font-medium leading-relaxed">
+          Busque al estudiante, seleccione el motivo y registre la expulsión. Al autorizarla, el estudiante quedará bloqueado para volver a ingresar a este examen.
         </p>
       </div>
 
@@ -341,28 +437,42 @@ export default function RegistroExpulsion({ idExamenProp }) {
       )}
 
       {/* Sección: Búsqueda de estudiante */}
-      <div className="bg-white border border-[#CBD5E1] rounded-2xl shadow-xs p-6">
-        <h3 className="font-bold text-[#08264A] text-lg mb-4 flex items-center gap-2">
-          <Search className="w-5 h-5" /> Buscar Estudiante
-        </h3>
+      <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl bg-[#E8EEF7] text-[#1A365D] flex items-center justify-center shrink-0">
+            <Search className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-[#08264A] text-lg leading-tight">Buscar Estudiante</h3>
+            <p className="text-xs text-slate-500">
+              Ingrese la C.I. o el Código SIS para identificarlo.
+            </p>
+          </div>
+        </div>
 
-        <form onSubmit={fnBuscarEstudiante} className="flex flex-wrap gap-3 max-w-md">
+        <form
+          onSubmit={fnBuscarEstudiante}
+          className="flex flex-col sm:flex-row gap-3 max-w-2xl sm:items-end"
+        >
           <div className="flex-1 min-w-[200px]">
             <label className="block text-xs font-bold text-slate-600 mb-1">
               C.I. o Código SIS
             </label>
-            <input
-              type="text"
-              value={strQuery}
-              onChange={(e) => setStrQuery(e.target.value)}
-              placeholder="Ej. 1234567 o 202300123"
-              className="w-full px-4 py-3 rounded-xl border border-[#CBD5E1] text-sm focus:border-[#1A365D] focus:outline-none focus:ring-2 focus:ring-[#1A365D]/20"
-            />
+            <div className="relative">
+              <IdCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={strQuery}
+                onChange={(e) => setStrQuery(e.target.value)}
+                placeholder="Ej. 1234567 o 202300123"
+                className="w-full pl-11 pr-4 py-3 rounded-xl border border-[#CBD5E1] text-sm bg-white focus:border-[#1A365D] focus:outline-none focus:ring-2 focus:ring-[#1A365D]/20 transition"
+              />
+            </div>
           </div>
           <button
             type="submit"
             disabled={boolBuscando}
-            className="bg-[#1A365D] text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#2563EB] transition disabled:bg-slate-300 flex items-center gap-2 whitespace-nowrap"
+            className="bg-[#1A365D] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-sm hover:bg-[#2563EB] hover:shadow-md transition disabled:bg-slate-300 disabled:shadow-none flex items-center justify-center gap-2 whitespace-nowrap"
           >
             {boolBuscando ? (
               <>
@@ -379,28 +489,47 @@ export default function RegistroExpulsion({ idExamenProp }) {
 
       {/* Tarjeta del estudiante encontrado */}
       {estudiante && (
-        <div className="bg-[#F0F4F8] border border-[#CBD5E1] rounded-2xl p-6 relative overflow-hidden">
-          {/* Badge de identificado */}
-          <div className="absolute top-4 right-4 bg-[#DC2626] text-white px-3 py-1 rounded-full text-xs font-bold">
-            ESTUDIANTE IDENTIFICADO
-          </div>
+        <div className="relative overflow-hidden bg-gradient-to-br from-white to-[#F0F4F8] border border-[#CBD5E1] rounded-2xl shadow-sm p-6">
+          <div className="pointer-events-none absolute -right-8 -top-8 w-28 h-28 rounded-full bg-[#1A365D]/5" />
 
-          <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className="flex flex-col sm:flex-row gap-5 items-start">
             {/* Avatar del estudiante */}
-            <div className="w-20 h-20 rounded-2xl bg-[#1A365D] text-white font-black text-2xl flex items-center justify-center shrink-0">
-              {estudiante.nombre.charAt(0)}{estudiante.ci.charAt(estudiante.ci.length - 1)}
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br from-[#1A365D] to-[#2563EB] text-white font-black text-xl md:text-2xl flex items-center justify-center shrink-0 shadow-md">
+              {estudiante.nombre.charAt(0)}
+              {estudiante.ci.charAt(estudiante.ci.length - 1)}
             </div>
 
             <div className="flex-1 min-w-0">
-              <h3 className="font-black text-[#08264A] text-xl">{estudiante.nombre}</h3>
-              <div className="mt-2 space-y-1 text-sm text-slate-600">
-                <p><span className="font-bold text-[#1A365D]">C.I.:</span> {estudiante.ci}</p>
-                <p><span className="font-bold text-[#1A365D]">Código SIS:</span> {estudiante.sis}</p>
-                <p><span className="font-bold text-[#1A365D]">Aula:</span> {estudiante.aula}</p>
-                <p><span className="font-bold text-[#1A365D]">Examen:</span> {estudiante.examen}</p>
-                <p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-black text-[#08264A] text-lg md:text-xl">
+                  {estudiante.nombre}
+                </h3>
+                <span className="inline-flex items-center gap-1 bg-[#DCFCE7] text-[#166534] px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-wide">
+                  <BadgeCheck className="w-3.5 h-3.5" /> IDENTIFICADO
+                </span>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm text-slate-600">
+                <p className="flex items-center gap-2">
+                  <IdCard className="w-4 h-4 text-[#1A365D] shrink-0" />
+                  <span className="font-bold text-[#1A365D]">C.I.:</span> {estudiante.ci}
+                </p>
+                <p className="flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4 text-[#1A365D] shrink-0" />
+                  <span className="font-bold text-[#1A365D]">Código SIS:</span> {estudiante.sis}
+                </p>
+                <p className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#1A365D] shrink-0" />
+                  <span className="font-bold text-[#1A365D]">Aula:</span> {estudiante.aula}
+                </p>
+                <p className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#1A365D] shrink-0" />
                   <span className="font-bold text-[#1A365D]">Hora de ingreso:</span>{" "}
                   {estudiante.horaIngreso ? formatearHora(estudiante.horaIngreso) : "—"}
+                </p>
+                <p className="flex items-center gap-2 sm:col-span-2">
+                  <BookOpen className="w-4 h-4 text-[#1A365D] shrink-0" />
+                  <span className="font-bold text-[#1A365D]">Examen:</span> {estudiante.examen}
                 </p>
               </div>
             </div>
@@ -410,10 +539,20 @@ export default function RegistroExpulsion({ idExamenProp }) {
 
       {/* Formulario de detalle de la expulsión */}
       {estudiante && (
-        <div className="bg-white border border-[#CBD5E1] rounded-2xl shadow-xs p-6">
-          <h3 className="font-bold text-[#08264A] text-lg mb-4 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-[#DC2626]" /> Detalle de la Expulsión
-          </h3>
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-[#DC2626] flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-[#08264A] text-lg leading-tight">
+                Detalle de la Expulsión
+              </h3>
+              <p className="text-xs text-slate-500">
+                Estos datos quedarán registrados en el historial y en Incidencias.
+              </p>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Motivo */}
@@ -422,20 +561,32 @@ export default function RegistroExpulsion({ idExamenProp }) {
                 Motivo de Expulsión <span className="text-[#DC2626]">*</span>
               </label>
               <div className="space-y-2">
-                {MOTIVOS_EXPULSION.map((motivo) => (
-                  <button
-                    key={motivo.valor}
-                    type="button"
-                    onClick={() => fnSeleccionarMotivo(motivo.valor)}
-                    className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                      strMotivo === motivo.valor
-                        ? "bg-[#1A365D] text-white border-[#1A365D]"
-                        : "bg-white text-slate-700 border-[#CBD5E1] hover:border-[#1A365D]/50"
-                    }`}
-                  >
-                    {motivo.etiqueta}
-                  </button>
-                ))}
+                {MOTIVOS_EXPULSION.map((motivo) => {
+                  const seleccionado = strMotivo === motivo.valor;
+                  return (
+                    <button
+                      key={motivo.valor}
+                      type="button"
+                      onClick={() => fnSeleccionarMotivo(motivo.valor)}
+                      className={`group w-full flex items-center gap-3 text-left px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                        seleccionado
+                          ? "bg-[#1A365D] text-white border-[#1A365D] shadow-sm"
+                          : "bg-white text-slate-700 border-[#CBD5E1] hover:border-[#1A365D]/60 hover:bg-[#F8FAFC]"
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          seleccionado
+                            ? "border-white bg-white text-[#1A365D]"
+                            : "border-slate-300 text-transparent group-hover:border-[#1A365D]/50"
+                        }`}
+                      >
+                        <Check className="w-3 h-3" strokeWidth={3} />
+                      </span>
+                      {motivo.etiqueta}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -525,7 +676,7 @@ export default function RegistroExpulsion({ idExamenProp }) {
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-[#E2E8F0] flex items-center justify-between">
+          <div className="mt-6 pt-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <span className="text-xs text-slate-500">
               La hora de expulsión se registra automáticamente con la hora oficial del servidor.
             </span>
@@ -533,7 +684,7 @@ export default function RegistroExpulsion({ idExamenProp }) {
               type="button"
               onClick={fnRegistroExpulsion}
               disabled={boolGuardando}
-              className="bg-[#DC2626] text-white px-8 py-3 rounded-xl font-bold text-sm hover:bg-[#B91C1C] transition disabled:bg-slate-400 flex items-center gap-2"
+              className="w-full sm:w-auto bg-[#1A365D] text-white px-8 py-3 rounded-xl font-bold text-sm shadow-sm hover:bg-[#2563EB] hover:shadow-md transition disabled:bg-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
             >
               {boolGuardando ? (
                 <>
@@ -551,11 +702,17 @@ export default function RegistroExpulsion({ idExamenProp }) {
 
       {/* Mensaje si no hay estudiante pero ya se seleccionó examen */}
       {!estudiante && idExamen && (
-        <div className="bg-[#F0F4F8] border border-[#CBD5E1] rounded-2xl p-6 text-center">
-          <Search className="w-8 h-8 text-slate-400 mx-auto mb-3" />
-          <h4 className="font-bold text-slate-600 mb-2">Busque un estudiante para continuar</h4>
-          <p className="text-sm text-slate-500">
-            Ingrese la C.I. o Código SIS del estudiante a expulsar en {nombreExamenSeleccionado || "el examen #" + idExamen}.
+        <div className="relative overflow-hidden bg-gradient-to-b from-[#F8FAFC] to-white border border-dashed border-[#CBD5E1] rounded-2xl p-10 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#E8EEF7] text-[#1A365D] flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <Search className="w-7 h-7" />
+          </div>
+          <h4 className="font-bold text-[#08264A] mb-1">Busque un estudiante para continuar</h4>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">
+            Ingrese la C.I. o Código SIS del estudiante a expulsar en{" "}
+            <span className="font-bold text-[#1A365D]">
+              {nombreExamenSeleccionado || "el examen #" + idExamen}
+            </span>
+            .
           </p>
         </div>
       )}
