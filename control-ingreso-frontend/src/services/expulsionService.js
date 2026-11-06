@@ -2,14 +2,12 @@
  * expulsionService.js
  *
  * Capa de servicios para la HU14: Registro de Expulsados.
- * Conecta con el backend para registrar, autorizar y listar expulsiones.
+ * Conecta con el backend para registrar y consultar expulsiones.
  *
- * Endpoints (todos bajo /api/examenes/{idExamen}/expulsiones):
- *   POST  registrar expulsión
- *   GET   listar expulsiones (historial)
- *   GET   /pendientes
- *   GET   /pendientes/total
- *   PUT   /{idExpulsion}/autorizar
+ * Endpoints:
+ *   POST /api/examenes/{idExamen}/expulsiones            -> registrar expulsión
+ *   GET  /api/examenes/{idExamen}/expulsiones/buscar-estudiante?ci=
+ *   GET  /api/expulsiones/historial?asignatura=&estado=
  */
 import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken, cerrarSesion } from "./authService";
@@ -66,18 +64,7 @@ function rutaExamen(idExamen) {
 }
 
 /**
- * Obtiene el total de expulsiones pendientes de autorización (para el badge).
- * @param {number} idExamen - ID del examen
- */
-export async function obtenerTotalExpulsionesPendientes(idExamen) {
-  const data = await fetchAutenticado(`${rutaExamen(idExamen)}/pendientes/total`);
-  // El backend responde con el número directamente (Long), no con { total }.
-  if (typeof data === "number") return data;
-  return data?.total ?? 0;
-}
-
-/**
- * Registra una nueva expulsión (queda en estado PENDIENTE).
+ * Registra una nueva expulsión. El Docente la deja autorizada de inmediato.
  * Envía multipart/form-data para poder adjuntar la foto de evidencia (opcional).
  * @param {number} idExamen - ID del examen
  * @param {object} objDatos - { idIngreso, motivoExpulsion, observacion }
@@ -95,44 +82,6 @@ export async function registrarExpulsion(idExamen, objDatos, archivoEvidencia = 
   return await fetchAutenticado(rutaExamen(idExamen), {
     method: "POST",
     body: objFormulario,
-  });
-}
-
-/**
- * Lista las expulsiones pendientes de TODOS los exámenes del usuario
- * autenticado (docente), sin necesidad de indicar un idExamen.
- */
-export async function listarPendientesDocente() {
-  return await fetchAutenticado("/api/expulsiones/pendientes");
-}
-
-/**
- * Lista las expulsiones pendientes de autorización (para el docente).
- * @param {number} idExamen - ID del examen
- */
-export async function listarExpulsionesPendientes(idExamen) {
-  return await fetchAutenticado(`${rutaExamen(idExamen)}/pendientes`);
-}
-
-/**
- * Autoriza una expulsión (cambia estado a AUTORIZADA y bloquea al estudiante).
- * @param {number} idExamen - ID del examen
- * @param {number} idExpulsion - ID de la expulsión a autorizar
- */
-export async function autorizarExpulsion(idExamen, idExpulsion) {
-  return await fetchAutenticado(`${rutaExamen(idExamen)}/${idExpulsion}/autorizar`, {
-    method: "PUT",
-  });
-}
-
-/**
- * Deniega una expulsión (queda sin efecto, NO bloquea el reingreso).
- * @param {number} idExamen - ID del examen
- * @param {number} idExpulsion - ID de la expulsión a denegar
- */
-export async function denegarExpulsion(idExamen, idExpulsion) {
-  return await fetchAutenticado(`${rutaExamen(idExamen)}/${idExpulsion}/denegar`, {
-    method: "PUT",
   });
 }
 

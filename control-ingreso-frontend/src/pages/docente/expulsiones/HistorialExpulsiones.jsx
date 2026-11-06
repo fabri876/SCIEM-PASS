@@ -3,21 +3,21 @@ import {
   Clock,
   Loader2,
   AlertTriangle,
-  Mail,
   FileText,
   Download,
   ChevronDown,
   ChevronUp,
   Paperclip,
+  Search,
 } from "lucide-react";
 import { listarHistorialDocente } from "../../../services/expulsionService";
 import { formatearFecha, formatearHora } from "../../../components/incidencias/utilidadesIncidencias";
 
 /**
  * HU14 · Historial de Expulsiones.
- * Muestra TODAS las expulsiones de los exámenes del docente autenticado
- * (no pide ID de examen). Permite filtrar por materia y estado, y exportar
- * a CSV.
+ * Muestra las expulsiones AUTORIZADAS de los exámenes del docente
+ * autenticado (el docente registra y autoriza directamente).
+ * Permite filtrar por materia y exportar a CSV.
  */
 export default function HistorialExpulsiones() {
   const [historial, setHistorial] = useState([]);
@@ -39,7 +39,11 @@ export default function HistorialExpulsiones() {
         strFiltroMateria.trim() || null,
         strFiltroEstado === "TODOS" ? null : strFiltroEstado
       );
-      setHistorial(Array.isArray(lista) ? lista : []);
+      // El docente solo registra expulsiones AUTORIZADAS: se ocultan registros
+      // antiguos en estado PENDIENTE o DENEGADA.
+      setHistorial(
+        (Array.isArray(lista) ? lista : []).filter((e) => e.estado === "AUTORIZADA")
+      );
     } catch (err) {
       setStrMensaje({
         tipo: "error",
@@ -54,7 +58,8 @@ export default function HistorialExpulsiones() {
   const historialFiltrado = historial.filter((e) => {
     const coincideMateria =
       !strFiltroMateria.trim() ||
-      (e.nombreAsignatura && e.nombreAsignatura.toLowerCase().includes(strFiltroMateria.trim().toLowerCase()));
+      (e.nombreAsignatura &&
+        e.nombreAsignatura.toLowerCase().includes(strFiltroMateria.trim().toLowerCase()));
     const coincideEstado =
       strFiltroEstado === "TODOS" || e.estado === strFiltroEstado;
     return coincideMateria && coincideEstado;
@@ -119,21 +124,47 @@ export default function HistorialExpulsiones() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Encabezado */}
-      <div className="bg-[#1A365D] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[140px]">
-        <h2 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
-          Historial de Expulsiones
-        </h2>
-        <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
-          Consulte todas las expulsiones registradas en sus exámenes, ordenadas de más reciente a más antigua.
-        </p>
+    <div className="p-4 md:p-6 space-y-5">
+      {/* Encabezado compacto */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-[#1A365D] text-white flex items-center justify-center shadow-sm shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg md:text-xl font-black tracking-tight text-[#08264A]">
+              Historial de Expulsiones
+            </h2>
+            <p className="text-xs text-slate-500">
+              Expulsiones autorizadas en sus exámenes, de más reciente a más antigua.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="px-3.5 py-2 rounded-xl bg-[#F1F5F9] text-center min-w-[74px]">
+            <div className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">
+              Total
+            </div>
+            <div className="text-lg font-black text-[#1A365D] leading-none mt-0.5">
+              {historialFiltrado.length}
+            </div>
+          </div>
+          <div className="px-3.5 py-2 rounded-xl bg-[#F0FDF4] text-center min-w-[74px]">
+            <div className="text-[9px] font-extrabold uppercase tracking-wider text-[#166534]/70">
+              Autorizadas
+            </div>
+            <div className="text-lg font-black text-[#16A34A] leading-none mt-0.5">
+              {historialFiltrado.filter((e) => e.estado === "AUTORIZADA").length}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Mensaje de feedback */}
       {strMensaje && (
         <div
-          className={`p-4 rounded-xl text-sm font-medium flex items-center gap-2 ${
+          className={`p-3.5 rounded-xl text-sm font-medium flex items-center gap-2 ${
             strMensaje.tipo === "ok"
               ? "bg-green-50 border border-green-200 text-green-700"
               : "bg-rose-50 border border-rose-200 text-rose-700"
@@ -148,93 +179,69 @@ export default function HistorialExpulsiones() {
         </div>
       )}
 
-      {/* Filtros y exportar */}
-      <div className="bg-white border border-[#CBD5E1] rounded-2xl shadow-xs p-5 flex flex-wrap gap-3 items-end">
-        <div className="flex-1 min-w-[220px]">
-          <label className="block text-xs font-bold text-slate-600 mb-1">Materia</label>
-          <input
-            type="text"
-            placeholder="Filtrar por materia..."
-            value={strFiltroMateria}
-            onChange={(e) => setStrFiltroMateria(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-[#CBD5E1] text-sm focus:border-[#1A365D] focus:outline-none"
-          />
+      {/* Barra de filtros */}
+      <div className="flex flex-col lg:flex-row gap-3 lg:items-end bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-[11px] font-bold text-slate-600 mb-1">Materia</label>
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Filtrar por materia..."
+              value={strFiltroMateria}
+              onChange={(e) => setStrFiltroMateria(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-[#CBD5E1] text-sm bg-white focus:border-[#1A365D] focus:outline-none focus:ring-2 focus:ring-[#1A365D]/15 transition"
+            />
+          </div>
         </div>
-        <div className="flex-1 min-w-[180px]">
-          <label className="block text-xs font-bold text-slate-600 mb-1">Estado</label>
+
+        <div className="w-full lg:w-44">
+          <label className="block text-[11px] font-bold text-slate-600 mb-1">Estado</label>
           <select
             value={strFiltroEstado}
             onChange={(e) => setStrFiltroEstado(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-[#CBD5E1] text-sm bg-white focus:border-[#1A365D] focus:outline-none"
+            className="w-full px-3.5 py-2.5 rounded-lg border border-[#CBD5E1] text-sm bg-white focus:border-[#1A365D] focus:outline-none focus:ring-2 focus:ring-[#1A365D]/15 transition"
           >
-            <option value="TODOS">Todos</option>
-            <option value="PENDIENTE">Pendiente</option>
+            <option value="TODOS">Todas</option>
             <option value="AUTORIZADA">Autorizada</option>
-            <option value="DENEGADA">Denegada</option>
           </select>
         </div>
-        <div className="flex-1 min-w-[160px]">
-          <label className="block text-xs font-bold text-slate-600 mb-1">Acciones</label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={cargarHistorial}
-              className="flex-1 bg-[#1A365D] text-white px-4 py-3 rounded-xl font-bold text-sm hover:bg-[#2563EB] transition flex items-center justify-center gap-2 whitespace-nowrap"
-            >
-              <Clock className="w-4 h-4" /> Refrescar
-            </button>
-            <button
-              type="button"
-              onClick={fnExportarCSV}
-              className="flex-1 bg-white text-[#1A365D] border border-[#CBD5E1] px-4 py-3 rounded-xl font-bold text-sm hover:bg-[#F8FAFC] transition flex items-center justify-center gap-2 whitespace-nowrap"
-            >
-              <Download className="w-4 h-4" /> Exportar CSV
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* Resumen */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-[#CBD5E1] text-center">
-          <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Total</div>
-          <div className="text-2xl font-black text-[#1A365D]">{historialFiltrado.length}</div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-[#CBD5E1] text-center">
-          <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Pendientes</div>
-          <div className="text-2xl font-black text-[#F59E0B]">
-            {historialFiltrado.filter((e) => e.estado === "PENDIENTE").length}
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-[#CBD5E1] text-center">
-          <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Autorizadas</div>
-          <div className="text-2xl font-black text-[#16A34A]">
-            {historialFiltrado.filter((e) => e.estado === "AUTORIZADA").length}
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-[#CBD5E1] text-center">
-          <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Denegadas</div>
-          <div className="text-2xl font-black text-[#DC2626]">
-            {historialFiltrado.filter((e) => e.estado === "DENEGADA").length}
-          </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={cargarHistorial}
+            className="flex-1 lg:flex-none bg-[#1A365D] text-white px-4 py-2.5 rounded-lg font-bold text-sm shadow-sm hover:bg-[#2563EB] transition flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            <Clock className="w-4 h-4" /> Refrescar
+          </button>
+          <button
+            type="button"
+            onClick={fnExportarCSV}
+            className="flex-1 lg:flex-none bg-white text-[#1A365D] border border-[#CBD5E1] px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-white hover:border-[#1A365D]/50 hover:shadow-sm transition flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            <Download className="w-4 h-4" /> Exportar CSV
+          </button>
         </div>
       </div>
 
       {/* Tabla */}
-      <div className="bg-white border border-[#CBD5E1] rounded-2xl shadow-xs overflow-hidden">
+      <div className="border border-[#E2E8F0] rounded-xl overflow-hidden">
         {historialFiltrado.length === 0 ? (
           <div className="p-12 text-center">
-            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <div className="w-14 h-14 rounded-2xl bg-[#F1F5F9] text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <FileText className="w-6 h-6" />
+            </div>
             <h3 className="font-bold text-slate-600">No hay expulsiones registradas</h3>
-            <p className="text-slate-500 text-sm">
+            <p className="text-slate-500 text-sm mt-1">
               No se han encontrado expulsiones con los filtros seleccionados.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-[#F8FAFC] border-b border-[#CBD5E1]">
-                <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500">
+              <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
+                <tr className="text-left text-[10px] uppercase tracking-[0.08em] text-slate-500">
                   <th className="px-4 py-3 font-extrabold">Estudiante</th>
                   <th className="px-4 py-3 font-extrabold">Materia</th>
                   <th className="px-4 py-3 font-extrabold">Aula</th>
@@ -249,8 +256,8 @@ export default function HistorialExpulsiones() {
                   const expandido = idExpandido === expulsion.idExpulsion;
                   return (
                     <React.Fragment key={expulsion.idExpulsion}>
-                      <tr className="hover:bg-slate-50/60 transition align-top">
-                        <td className="px-4 py-3">
+                      <tr className="hover:bg-[#F8FAFC] transition align-top">
+                        <td className="px-4 py-3.5">
                           <div className="font-bold text-[#08264A]">
                             {expulsion.nombreEstudiante || "—"}
                           </div>
@@ -259,33 +266,28 @@ export default function HistorialExpulsiones() {
                             {expulsion.codSisEstudiante || "—"}
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-semibold text-slate-700">
+                        <td className="px-4 py-3.5 font-semibold text-slate-700">
                           {expulsion.nombreAsignatura || "—"}
                         </td>
-                        <td className="px-4 py-3 text-slate-700">{expulsion.aula || "—"}</td>
-                        <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-slate-700">{expulsion.aula || "—"}</td>
+                        <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">
                           {formatearFecha(expulsion.fechaExamen || expulsion.fechaExpulsion)}
                         </td>
-                        <td className="px-4 py-3 text-slate-700">
+                        <td className="px-4 py-3.5 text-slate-700">
                           {expulsion.nombreRegistra || "—"}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              expulsion.estado === "AUTORIZADA"
-                                ? "bg-[#DCFCE7] text-[#166534]"
-                                : expulsion.estado === "DENEGADA"
-                                ? "bg-[#FEE2E2] text-[#991B1B]"
-                                : "bg-[#FEF3C7] text-[#92400E]"
-                            }`}
-                          >
+                        <td className="px-4 py-3.5 text-center">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#DCFCE7] text-[#166534]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
                             {expulsion.estado}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3.5 text-right">
                           <button
                             type="button"
-                            onClick={() => setIdExpandido(expandido ? null : expulsion.idExpulsion)}
+                            onClick={() =>
+                              setIdExpandido(expandido ? null : expulsion.idExpulsion)
+                            }
                             className="inline-flex items-center gap-1 text-xs font-bold text-[#1A365D] hover:text-[#2563EB] transition"
                           >
                             {expandido ? (
@@ -327,13 +329,9 @@ export default function HistorialExpulsiones() {
                                   </a>
                                 </p>
                               )}
-                              <p>
-                                <span className="font-bold text-[#1A365D]">Estado:</span>{" "}
-                                {expulsion.estado}
-                              </p>
-                              {expulsion.fechaAutorizacion && expulsion.estado !== "PENDIENTE" && (
+                              {expulsion.fechaAutorizacion && (
                                 <p>
-                                  <span className="font-bold text-[#1A365D]">Decisión:</span>{" "}
+                                  <span className="font-bold text-[#1A365D]">Autorizada por:</span>{" "}
                                   {expulsion.nombreAutoriza || "—"} ·{" "}
                                   {formatearFecha(expulsion.fechaAutorizacion)} ·{" "}
                                   {formatearHora(expulsion.fechaAutorizacion)}
@@ -353,7 +351,7 @@ export default function HistorialExpulsiones() {
       </div>
 
       <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-        <Clock className="w-3.5 h-3.5" /> Use los filtros de materia y estado para acotar la lista.
+        <Clock className="w-3.5 h-3.5" /> Use el filtro de materia para acotar la lista.
       </p>
     </div>
   );

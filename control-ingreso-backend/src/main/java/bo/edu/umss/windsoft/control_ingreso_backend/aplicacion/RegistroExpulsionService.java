@@ -10,6 +10,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Expulsion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HoraOficial;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.SeveridadIncidencia;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
@@ -23,6 +25,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepositor
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.EstudianteExpulsionDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExpulsionListaDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.IncidenciaDetalleDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.RegistroExpulsionRequest;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.RegistroExpulsionResponse;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -50,6 +54,26 @@ public class RegistroExpulsionService {
     private static final int DESCRIPCION_MIN = 15;
     private static final int DESCRIPCION_MAX = 500;
 
+    // HU14: cuando una expulsion queda autorizada tambien se registra en HU06
+    // (Incidencias) como CERRADA y severidad ALTA. El tipo se deduce del motivo.
+    private static final Map<String, TipoIncidencia> TIPO_INCIDENCIA_POR_MOTIVO = Map.of(
+            "USO_CELULAR", TipoIncidencia.OBJETO_PROHIBIDO,
+            "INTENTO_COPIA", TipoIncidencia.CONDUCTA_INAPROPIADA,
+            "COMPORTAMIENTO_DISRUPTIVO", TipoIncidencia.CONDUCTA_INAPROPIADA,
+            "DOCUMENTACION_FALSA", TipoIncidencia.SUPLANTACION,
+            "AGRESION", TipoIncidencia.CONDUCTA_INAPROPIADA,
+            "OTRO", TipoIncidencia.OTRO
+    );
+
+    private static final Map<String, String> ETIQUETA_MOTIVO = Map.of(
+            "USO_CELULAR", "Uso de telefono celular",
+            "INTENTO_COPIA", "Intento de copia",
+            "COMPORTAMIENTO_DISRUPTIVO", "Comportamiento disruptivo",
+            "DOCUMENTACION_FALSA", "Documentacion falsa",
+            "AGRESION", "Agresion verbal o fisica",
+            "OTRO", "Otro"
+    );
+
     private final ExpulsionRepository expulsionRepository;
     private final IngresoRepository ingresoRepository;
     private final UsuarioRepository usuarioRepository;
@@ -61,6 +85,7 @@ public class RegistroExpulsionService {
     private final ContextoUsuarioService contextoUsuarioService;
     private final EvidenciaService evidenciaService;
     private final AuditoriaService auditoriaService;
+    private final IncidenciaService incidenciaService;
 
     public RegistroExpulsionService(ExpulsionRepository expulsionRepository,
                                     IngresoRepository ingresoRepository,
@@ -72,7 +97,8 @@ public class RegistroExpulsionService {
                                     EstudianteExamenService estudianteExamenService,
                                     ContextoUsuarioService contextoUsuarioService,
                                     EvidenciaService evidenciaService,
-                                    AuditoriaService auditoriaService) {
+                                    AuditoriaService auditoriaService,
+                                    IncidenciaService incidenciaService) {
         this.expulsionRepository = expulsionRepository;
         this.ingresoRepository = ingresoRepository;
         this.usuarioRepository = usuarioRepository;
@@ -84,6 +110,7 @@ public class RegistroExpulsionService {
         this.contextoUsuarioService = contextoUsuarioService;
         this.evidenciaService = evidenciaService;
         this.auditoriaService = auditoriaService;
+        this.incidenciaService = incidenciaService;
     }
 
     // =========================================================================
@@ -155,10 +182,12 @@ public class RegistroExpulsionService {
 
             expulsion = expulsionRepository.save(expulsion);
 
-            // Si el docente autoriza directamente, bloquea el reingreso del estudiante.
+            // Si el docente autoriza directamente, bloquea el reingreso del estudiante
+            // y deja registrada la incidencia HU06 (CERRADA, severidad ALTA).
             if (esDocente) {
                 ingreso.setIdExpulsion(expulsion.getIdExpulsion());
                 ingresoRepository.saveAndFlush(ingreso);
+                crearIncidenciaDeExpulsion(expulsion, ingreso, evidenciaArchivo, usuario, ip);
             }
         } catch (RuntimeException e) {
             evidenciaService.eliminarSinFallar(evidencia);
@@ -364,6 +393,10 @@ public class RegistroExpulsionService {
         // Bloquear reingreso: setear idExpulsion en el ingreso.
         ingreso.setIdExpulsion(expulsion.getIdExpulsion());
         ingresoRepository.saveAndFlush(ingreso);
+
+        // HU14: una expulsión autorizada también queda registrada en Incidencias
+        // (HU06) como CERRADA con severidad ALTA.
+        crearIncidenciaDeExpulsion(expulsion, ingreso, null, usuario, ip);
 
         try {
             auditoriaService.registrarEnTransaccion(
@@ -641,6 +674,75 @@ public class RegistroExpulsionService {
                 e.getIdUsuarioAutoriza(),
                 e.getIdIncidencia()
         );
+    }
+
+    // =========================================================================
+    // INTEGRACIÓN CON HU06 (INCIDENCIAS)
+    // =========================================================================
+
+    /**
+     * Registra en HU06 la incidencia correspondiente a una expulsión autorizada.
+     * Reutiliza IncidenciaService.registrar(...) y luego cerrar(...), sin tocar
+     * el código de HU06. La incidencia queda CERRADA y con severidad ALTA.
+     * Es idempotente: si la expulsión ya tiene idIncidencia, no hace nada.
+     */
+    private void crearIncidenciaDeExpulsion(Expulsion expulsion, Ingreso ingreso,
+                                            MultipartFile evidenciaArchivo,
+                                            ContextoUsuarioService.UsuarioActual usuario,
+                                            String ip) {
+        if (expulsion.getIdIncidencia() != null) {
+            return;
+        }
+
+        String motivo = expulsion.getMotivoExpulsion() == null ? "" : expulsion.getMotivoExpulsion().trim();
+        String observacion = expulsion.getObservacion() == null ? "" : expulsion.getObservacion().trim();
+        String etiqueta = etiquetaMotivo(motivo);
+        TipoIncidencia tipo = tipoIncidenciaPorMotivo(motivo);
+
+        String descripcion = recortar("Expulsión: " + etiqueta + ". " + observacion, DESCRIPCION_MAX);
+        if (descripcion.length() < DESCRIPCION_MIN) {
+            descripcion = recortar("Expulsión registrada en el examen. " + etiqueta + ". " + observacion,
+                    DESCRIPCION_MAX);
+        }
+        String resolucion = recortar("Expulsión autorizada: " + etiqueta + ". " + observacion, 255);
+
+        IncidenciaDetalleDto incidencia = incidenciaService.registrar(
+                UUID.randomUUID().toString(),
+                ingreso.getIdAmbiente(),
+                tipo.name(),
+                SeveridadIncidencia.ALTA.name(),
+                descripcion,
+                ingreso.getCodsisEstudiante(),
+                false,
+                evidenciaArchivo,
+                ip);
+
+        incidenciaService.cerrar(incidencia.idIncidencia(), resolucion, ip);
+
+        expulsion.setIdIncidencia(incidencia.idIncidencia());
+        expulsionRepository.save(expulsion);
+    }
+
+    private TipoIncidencia tipoIncidenciaPorMotivo(String motivo) {
+        if (motivo == null || motivo.isBlank()) {
+            return TipoIncidencia.OTRO;
+        }
+        return TIPO_INCIDENCIA_POR_MOTIVO.getOrDefault(motivo.trim().toUpperCase(), TipoIncidencia.OTRO);
+    }
+
+    private String etiquetaMotivo(String motivo) {
+        if (motivo == null || motivo.isBlank()) {
+            return "Otro";
+        }
+        return ETIQUETA_MOTIVO.getOrDefault(motivo.trim().toUpperCase(), motivo.trim());
+    }
+
+    private String recortar(String texto, int maximo) {
+        if (texto == null) {
+            return "";
+        }
+        String limpio = texto.trim();
+        return limpio.length() <= maximo ? limpio : limpio.substring(0, maximo);
     }
 
     private String correoEstudiante(Integer idUsuarioEstudiante) {
