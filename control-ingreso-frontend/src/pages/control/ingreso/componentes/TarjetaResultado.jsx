@@ -39,14 +39,14 @@ function sonar(boolOk) {
 // Nota debajo de los datos (solo cuando el ayudante necesita saber qué hacer)
 function Nota({ strTipo = "rojo", Icono = null, children }) {
   const strColor = {
-    rojo: "bg-[#FEF2F2] text-[#B91C1C]",
-    azul: "bg-[#F0F6FC] text-[#124B83]",
-    gris: "bg-[#F1F5F9] text-[#475569]",
+    rojo: "bg-[#FEF2F2] text-[#B91C1C] border border-[#FEE2E2]",
+    azul: "bg-[#F0F6FC] text-[#124B83] border border-[#D9E8F7]",
+    gris: "bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]",
   }[strTipo];
   return (
-    <div className={"flex items-start gap-2 px-4 py-3 rounded-lg text-[15px] " + strColor}>
-      {Icono && <Icono className="w-[18px] h-[18px] shrink-0 mt-0.5" />}
-      <div>{children}</div>
+    <div className={"flex items-start gap-2.5 p-3.5 sm:p-4 rounded-xl text-xs sm:text-sm leading-relaxed " + strColor}>
+      {Icono && <Icono className="w-5 h-5 shrink-0 mt-0.5 text-current" />}
+      <div className="min-w-0 flex-1 break-words">{children}</div>
     </div>
   );
 }
@@ -237,43 +237,43 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
       </div>
 
       {/* Foto + datos del estudiante */}
-      <div className="flex items-center gap-5 px-5 py-[18px] max-md:gap-4 max-md:px-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 px-4 sm:px-5 py-4 sm:py-[18px]">
         <Foto strUrl={e?.fotoUrl} strNombre={strNombre} />
-        <div className="min-w-0">
-          <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{strNombre}</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[20px] sm:text-[22px] font-extrabold text-[#08264A] leading-tight break-words">{strNombre}</div>
           {e && (e.ci || e.sis) && (
-            <div className="mt-2.5 flex flex-wrap gap-x-7 gap-y-2">
+            <div className="mt-2.5 flex flex-wrap gap-x-5 sm:gap-x-7 gap-y-2">
               {e.ci && (
                 <div>
                   <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">C.I.</span>
-                  <strong className="block text-[15px] font-bold text-[#08264A]">{e.ci}</strong>
+                  <strong className="block text-[14px] sm:text-[15px] font-bold text-[#08264A]">{e.ci}</strong>
                 </div>
               )}
               {e.sis && (
                 <div>
                   <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">Código SIS</span>
-                  <strong className="block text-[15px] font-bold text-[#08264A]">{e.sis}</strong>
+                  <strong className="block text-[14px] sm:text-[15px] font-bold text-[#08264A]">{e.sis}</strong>
                 </div>
               )}
               <div>
                 <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">Carrera</span>
-                <strong className="block text-[15px] font-bold text-[#08264A]">{e.carrera || "No disponible"}</strong>
+                <strong className="block text-[14px] sm:text-[15px] font-bold text-[#08264A]">{e.carrera || "No disponible"}</strong>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {c.nota && <div className="mx-5 mb-[18px] flex flex-col gap-2 max-md:mx-4">{c.nota}</div>}
+      {c.nota && <div className="mx-4 sm:mx-5 mb-4 sm:mb-[18px] flex flex-col gap-2">{c.nota}</div>}
       {objResultado.resultado === "EXAMEN_INCORRECTO" && (
-        <div className="mx-5 mb-5 max-md:mx-4">
+        <div className="mx-4 sm:mx-5 mb-4 sm:mb-5 flex flex-col sm:flex-row gap-2.5 sm:gap-3">
           <button type="button" onClick={onCerrar}
-            className="rounded-lg bg-[#003770] px-4 py-3 text-sm font-bold text-white max-md:w-full">
+            className="w-full sm:w-auto rounded-xl bg-[#003770] px-4 py-3 text-sm font-bold text-white hover:bg-[#021B3B] transition shadow-xs cursor-pointer text-center">
             Aceptar y continuar siguiente estudiante
           </button>
           {onRegistrarIncidencia && (
             <button type="button" onClick={onRegistrarIncidencia}
-              className="ml-3 rounded-lg border border-[#003770] px-4 py-3 text-sm font-bold text-[#003770] max-md:ml-0 max-md:mt-2 max-md:w-full">
+              className="w-full sm:w-auto rounded-xl border border-[#003770] bg-white px-4 py-3 text-sm font-bold text-[#003770] hover:bg-blue-50 transition shadow-xs cursor-pointer text-center">
               Registrar incidencia
             </button>
           )}
