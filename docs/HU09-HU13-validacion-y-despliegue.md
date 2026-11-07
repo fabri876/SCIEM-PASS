@@ -32,9 +32,9 @@ se purgan al descargar una nueva; los intentos pendientes no se borran por esa p
 - Se probó desde la página la orientación offline, la cola y la sincronización
   posterior con SIS; se conservó la hora original de verificación.
 - Se probó el escaneo QR offline con cámara y credencial ficticia, seguido de su
-  sincronización; en la base local se comprobó un intento y una auditoría. Después
-  se reforzó la verificación de posesión de la credencial: las pruebas unitarias
-  pasan, pero la prueba integrada con ese último cambio debe repetirse.
+  sincronización. Tras reforzar la verificación de posesión de la credencial se
+  repitió la prueba integrada: en la base local se comprobó un intento y una
+  auditoría, sin duplicados. También se probaron los reintentos por API.
 - Se comprobó la denegación de acceso sin sesión, de operadores sin asignación y
   de docentes no responsables, y el acceso del operador asignado a su control.
 - Las 30 pruebas seleccionadas de control, sincronización, auditoría y reporte
