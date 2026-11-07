@@ -53,9 +53,12 @@ public class SincronizarIntentoOfflineService {
     public int sincronizar(Solicitud s, Integer operador, String ip) {
         if (s == null || s.clientUuid() == null || operador == null || s.asignaturaControl() == null
                 || s.examenControl() == null || s.ambienteControl() == null || s.estudianteSis() == null
-                || s.asignaturaDestino() == null || s.examenDestino() == null || s.ambienteDestino() == null
                 || s.fechaCreacion() == null || s.fechaCreacion() <= 0 || s.metodo() == null
                 || !Set.of("SIS", "CI", "QR").contains(s.metodo())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Datos de verificacion incompletos.");
+        boolean sinDestino = s.asignaturaDestino() == null && s.examenDestino() == null && s.ambienteDestino() == null;
+        boolean destinoCompleto = s.asignaturaDestino() != null && s.asignaturaDestino() > 0
+                && s.examenDestino() != null && s.examenDestino() > 0 && s.ambienteDestino() != null && s.ambienteDestino() > 0;
+        if (!sinDestino && !destinoCompleto) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El destino debe ser completo o estar ausente.");
         if (s.fechaCreacion() > System.currentTimeMillis() + 600_000L) throw revision();
         LocalDateTime momento;
         try { momento = LocalDateTime.ofInstant(Instant.ofEpochMilli(s.fechaCreacion()), ZONA); }
@@ -83,14 +86,17 @@ public class SincronizarIntentoOfflineService {
                 || momento.isAfter(examen.getFechaExamen().atTime(ambiente.getHoraFin()))) throw revision();
         if (habilitaciones.existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(s.asignaturaControl(), s.examenControl(), s.estudianteSis())) throw revision();
         var destinos = control.examenesCorrespondientes(s.estudianteSis(), s.examenControl(), momento);
-        if (destinos.size() != 1 || !Objects.equals(destinos.get(0).idAsignatura(), s.asignaturaDestino())
+        if (sinDestino) {
+            if (destinos.size() < 2) throw revision();
+        } else if (destinos.size() != 1 || !Objects.equals(destinos.get(0).idAsignatura(), s.asignaturaDestino())
                 || !Objects.equals(destinos.get(0).idExamen(), s.examenDestino())
                 || !Objects.equals(destinos.get(0).idAmbiente(), s.ambienteDestino())) throw revision();
         if ("QR".equals(s.metodo())) {
             boolean valido = s.qrHash() != null && s.qrHash().matches("[0-9a-f]{64}")
                     && s.qrToken() != null && !s.qrToken().isBlank()
                     && OrientacionJornadaOfflineService.hash(s.qrToken()).equals(s.qrHash())
-                    && credenciales.findAllByIdExamen(s.examenDestino()).stream().anyMatch(c ->
+                    && destinos.stream().map(d -> d.idExamen()).filter(Objects::nonNull).distinct()
+                    .flatMap(id -> credenciales.findAllByIdExamen(id).stream()).anyMatch(c ->
                     Objects.equals(c.getIdUsuario(), usuario.getIdusuario()) && "ACTIVO".equals(c.getEstado())
                     && c.getToken() != null && c.getValidoDesde() != null && c.getValidoHasta() != null
                     && !momento.isBefore(c.getValidoDesde()) && !momento.isAfter(c.getValidoHasta())

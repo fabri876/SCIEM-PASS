@@ -75,4 +75,34 @@ class SincronizarIntentoOfflineServiceTest {
         assertThrows(ResponseStatusException.class, () -> servicio.sincronizar(qr, 7, "ip"));
         verifyNoInteractions(intentos, credenciales);
     }
+
+    @Test void variosDestinosRegistranSinElegirUno() {
+        var ambigua = new SincronizarIntentoOfflineService.Solicitud(UUID.randomUUID(), 1, 2, 3, 123456,
+                null, null, null, "SIS", null, null, System.currentTimeMillis());
+        when(estudiantes.findByCodsisestudiante(123456)).thenReturn(Optional.of(new Estudiante(10, 123456)));
+        var usuario = new Usuario("1", "Ficticio", "Prueba", null, "est@example.invalid", "hash", true);
+        usuario.setIdusuario(10);
+        when(usuarios.findById(10)).thenReturn(Optional.of(usuario));
+        var examen = new bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen();
+        examen.setFechaExamen(LocalDate.now(ZoneId.of("America/La_Paz")));
+        var ambiente = new bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente();
+        ambiente.setHoraInicio(LocalTime.MIN); ambiente.setHoraFin(LocalTime.MAX);
+        when(examenes.findById(2)).thenReturn(Optional.of(examen));
+        when(ambientes.findById(3)).thenReturn(Optional.of(ambiente));
+        when(control.examenesCorrespondientes(eq(123456), eq(2), any())).thenReturn(List.of(
+                new bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.OtroExamenDTO("Materia A", "Examen", "Aula", "hora", null, null, 4, 5, 6),
+                new bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.OtroExamenDTO("Materia B", "Examen", "Aula", "hora", null, null, 7, 8, 9)));
+        when(intentos.registrar(any(), any(), any(), any(), any(), any())).thenAnswer(i ->
+                new IntentoExamenIncorrectoRepository.Guardado(11, i.getArgument(0)));
+        assertEquals(11, servicio.sincronizar(ambigua, 7, "ip"));
+        verify(intentos).registrar(argThat(d -> d.asignaturaDestino() == null && d.examenDestino() == null && d.ambienteDestino() == null),
+                any(), any(), any(), any(), any());
+    }
+
+    @Test void destinoParcialSeRechazaAntesDeAccederADatos() {
+        var parcial = new SincronizarIntentoOfflineService.Solicitud(UUID.randomUUID(), 1, 2, 3, 123456,
+                4, null, null, "SIS", null, null, System.currentTimeMillis());
+        assertThrows(ResponseStatusException.class, () -> servicio.sincronizar(parcial, 7, "ip"));
+        verifyNoInteractions(control, estudiantes, intentos);
+    }
 }

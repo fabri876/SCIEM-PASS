@@ -102,10 +102,15 @@ function configurar(r, strRol) {
           : r.estadoSync === "revision" ? "PENDIENTE DE REVISIÓN · AUDITORÍA NO CONFIRMADA"
           : "GUARDADO EN EL DISPOSITIVO · PENDIENTE DE SINCRONIZAR",
         nota: <Nota Icono={MapPin}><b className="block font-bold">ORIENTACIÓN SEGÚN DATOS DESCARGADOS</b>
-          {[r.otroExamen?.asignatura, r.otroExamen?.aula && textoAula(r.otroExamen.aula), r.otroExamen?.edificio].filter(Boolean).join(" · ")}
+          {r.otroExamen ? [r.otroExamen.asignatura, r.otroExamen.aula && textoAula(r.otroExamen.aula), r.otroExamen.edificio].filter(Boolean).join(" · ") : r.mensaje}
           <span className="block">{r.estadoSync === "sincronizado"
             ? "El servidor confirmó el registro y la auditoría."
             : "Confirma el destino con el docente. La sincronización y la auditoría están sujetas a validación del servidor."}</span></Nota>,
+      };
+    case "AMBIGUO_OFFLINE":
+      return {
+        strTono: "bad", Icono: SearchX, strTitulo: "VERIFICACIÓN INCONCLUSA", strSub: "DATOS AMBIGUOS SIN CONEXIÓN",
+        nota: <Nota>Los datos descargados no permiten identificar un destino o estudiante de forma inequívoca. Consulta al docente; el intento no se registró en auditoría.</Nota>,
       };
     case "EXAMEN_INCORRECTO":
       return {

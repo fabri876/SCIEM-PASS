@@ -35,6 +35,15 @@ se purgan al descargar una nueva; los intentos pendientes no se borran por esa p
   sincronización. Tras reforzar la verificación de posesión de la credencial se
   repitió la prueba integrada: en la base local se comprobó un intento y una
   auditoría, sin duplicados. También se probaron los reintentos por API.
+- Se probó en la interfaz local una verificación SIS offline con varios destinos:
+  mostró la ambigüedad, quedó pendiente y se sincronizó al reconectar. Una consulta
+  de lectura confirmó la hora original, los tres campos de destino nulos y una
+  auditoría del intento. Las pruebas automatizadas cubren además el rechazo de un
+  destino incompleto y la revalidación del caso ambiguo por el servidor.
+- Las pruebas automatizadas del reporte incluyeron exportación CSV y vista
+  imprimible con datos ficticios, protección contra fórmulas y escape HTML; queda
+  pendiente comprobar visualmente las exportaciones y el acceso de un docente
+  responsable en un entorno apropiado.
 - Se comprobó la denegación de acceso sin sesión, de operadores sin asignación y
   de docentes no responsables, y el acceso del operador asignado a su control.
 - Las 30 pruebas seleccionadas de control, sincronización, auditoría y reporte
