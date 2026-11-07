@@ -249,12 +249,12 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
       {/* =========================================================================
           ENCABEZADO DE LA SECCIÓN (Conforme al Mockup Oficial HU13)
           ========================================================================= */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#003770] bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200 inline-block mb-1">
             Módulo de Fiscalización y Trazabilidad
           </span>
-          <h1 className="text-xl lg:text-2xl font-extrabold text-[#003770] tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-[#003770] tracking-tight">
             Reporte de Estudiantes con Intentos de Ingreso Incorrectos
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
@@ -263,12 +263,12 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
         </div>
 
         {/* Botones de Exportación (Mockup HU13) */}
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
           <button
             type="button"
             onClick={fnDescargarPdf}
             disabled={boolExportando || arrIntentos.length === 0}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#DC2626] text-white text-xs font-bold hover:bg-[#B91C1C] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#DC2626] text-white text-xs font-bold hover:bg-[#B91C1C] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             title="Descargar documento PDF con formato oficial y actas"
           >
             <FileText className="w-4 h-4" />
@@ -279,7 +279,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             type="button"
             onClick={fnExportarCsv}
             disabled={boolExportando || arrIntentos.length === 0}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#15803D] text-white text-xs font-bold hover:bg-[#166534] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#15803D] text-white text-xs font-bold hover:bg-[#166534] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             title="Exportar archivo estructurado para Excel"
           >
             <FileSpreadsheet className="w-4 h-4" />
@@ -289,7 +289,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           <button
             type="button"
             onClick={() => fnCargarDatos(filtrosActivos)}
-            className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+            className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition cursor-pointer shrink-0"
             title="Actualizar datos"
           >
             <RefreshCw className={`w-4 h-4 ${boolCargando ? "animate-spin text-primary-blue" : ""}`} />
@@ -349,9 +349,9 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           )}
         </div>
 
-        <form onSubmit={fnAplicarFiltros} className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
+        <form onSubmit={fnAplicarFiltros} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
           {/* Asignatura */}
-          <div className="md:col-span-3 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-3 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Asignatura
             </label>
@@ -370,7 +370,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           </div>
 
           {/* Examen */}
-          <div className="md:col-span-3 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-3 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Examen
             </label>
@@ -389,7 +389,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           </div>
 
           {/* Motivo del Intento */}
-          <div className="md:col-span-3 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-3 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Motivo del Intento
             </label>
@@ -411,7 +411,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           </div>
 
           {/* Fecha */}
-          <div className="md:col-span-2 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-2 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Fecha
             </label>
@@ -424,7 +424,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           </div>
 
           {/* Botón Filtrar */}
-          <div className="md:col-span-1">
+          <div className="col-span-1 sm:col-span-2 lg:col-span-1">
             <button
               type="submit"
               className="w-full h-10 inline-flex items-center justify-center gap-1.5 bg-[#003770] text-white rounded-xl text-xs font-bold hover:bg-[#021B3B] transition shadow-xs cursor-pointer"
@@ -636,7 +636,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
               <span className="font-bold text-slate-700">{intTotalPaginas}</span>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 max-w-full overflow-x-auto py-1">
               <button
                 type="button"
                 onClick={() => setIntPaginaActual((p) => Math.max(1, p - 1))}

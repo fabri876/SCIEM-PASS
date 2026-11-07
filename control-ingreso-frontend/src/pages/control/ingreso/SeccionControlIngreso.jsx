@@ -260,13 +260,13 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         boolSinRed={estadoRed?.net === "offline" || Boolean(ctrl.boolOffline)}
       />
       {(ctrl.objIntentosPendientes?.pendientes > 0 || ctrl.objIntentosPendientes?.revision > 0) && (
-        <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {ctrl.objIntentosPendientes.pendientes > 0 && <p>{ctrl.objIntentosPendientes.pendientes} intento(s) de examen incorrecto pendientes de sincronización.</p>}
+        <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs sm:text-sm text-amber-900 space-y-2">
+          {ctrl.objIntentosPendientes.pendientes > 0 && <p className="font-semibold">{ctrl.objIntentosPendientes.pendientes} intento(s) de examen incorrecto pendientes de sincronización.</p>}
           {ctrl.objIntentosPendientes.revision > 0 && <p>{ctrl.objIntentosPendientes.revision} intento(s) requieren revisión; no se confirmó su registro en auditoría. Contacta al administrador.</p>}
           {ctrl.objIntentosPendientes.revisiones?.map((item) => (
-            <div key={item.clientUuid} className="mt-2 flex flex-wrap items-center gap-3">
-              <span>SIS {item.estudianteSis} · {new Date(item.fechaCreacion).toLocaleString("es-BO", { timeZone: "America/La_Paz" })}</span>
-              <button type="button" className="rounded border border-amber-700 px-2 py-1 font-semibold"
+            <div key={item.clientUuid} className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 bg-amber-100/60 rounded-lg">
+              <span className="font-medium break-all">SIS {item.estudianteSis} · {new Date(item.fechaCreacion).toLocaleString("es-BO", { timeZone: "America/La_Paz" })}</span>
+              <button type="button" className="w-full sm:w-auto rounded-lg border border-amber-800 bg-white px-3 py-1.5 font-bold text-xs text-amber-900 hover:bg-amber-50 transition cursor-pointer text-center shrink-0"
                 onClick={async () => {
                   try {
                     await intentoExamenPendienteRepo.reintentarRevision(item.clientUuid, obtenerUsuarioActual()?.idUsuario);
