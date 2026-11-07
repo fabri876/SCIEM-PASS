@@ -146,7 +146,7 @@ try {
 
   console.log("3. Probando exportaciones con datos ficticios...");
   const fila = { estudianteNombre: '=SUM(1,2)', codSis: '123456', ci: '<script>',
-    motivo: 'EXAMEN_INCORRECTO', examenAulaAsignada: 'Aula ficticia', estadoPosterior: null };
+    motivo: 'EXAMEN_INCORRECTO', examenAulaAsignada: 'Aula ficticia', fecha: '2026-11-07', hora: '13:13:41', estadoPosterior: null };
   let ultimoBlob;
   const crearUrlOriginal = URL.createObjectURL;
   const revocarUrlOriginal = URL.revokeObjectURL;
@@ -160,10 +160,14 @@ try {
     const csv = await ultimoBlob.text();
     assert.ok(csv.includes("'=SUM(1,2)"), 'CSV debe proteger las fórmulas');
     assert.ok(csv.includes('Aula ficticia') && csv.includes('No disponible'));
+    exportarIntentosExcelCsv([{ ...fila, examenAulaAsignada: null }]);
+    assert.ok((await ultimoBlob.text()).includes('No disponible'));
     generarReporteOficialPdf([fila], { asignatura: '<script>' });
     const vista = await ultimoBlob.text();
     assert.ok(vista.includes('&lt;script&gt;') && !vista.includes('<script>'));
     assert.ok(vista.includes('Aula ficticia') && vista.includes('No disponible'));
+    assert.ok(vista.includes('2026-11-07') && vista.includes('13:13:41'));
+    assert.ok(vista.includes('A4 landscape') && vista.includes('table-header-group') && vista.includes('table-layout: fixed'));
   } finally {
     URL.createObjectURL = crearUrlOriginal;
     URL.revokeObjectURL = revocarUrlOriginal;

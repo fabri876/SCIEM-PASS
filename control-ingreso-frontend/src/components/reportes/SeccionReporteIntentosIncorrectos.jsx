@@ -209,21 +209,21 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
     const m = (motivo || "").toUpperCase();
     if (m.includes("EXAMEN_INCORRECTO")) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-rose-50 text-rose-700 border border-rose-200">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-[#003770] border border-slate-200">
           EXAMEN INCORRECTO
         </span>
       );
     }
     if (m.includes("AMBIENTE_DIFERENTE") || m.includes("AULA_DIFERENTE")) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-50 text-amber-700 border border-amber-200">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-[#003770] border border-slate-200">
           AMBIENTE DIFERENTE
         </span>
       );
     }
     if (m.includes("DUPLICADO")) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-purple-50 text-purple-700 border border-purple-200">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-[#003770] border border-slate-200">
           DUPLICADO BLOQUEADO
         </span>
       );
@@ -236,15 +236,9 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
   };
 
   // Badges de estado posterior
-  const fnRenderBadgeEstadoPosterior = (estado, tipo) => {
-    let estilo = "bg-slate-100 text-slate-700 border-slate-200";
-    if (tipo === "teal") estilo = "bg-teal-50 text-teal-700 border-teal-200";
-    if (tipo === "emerald") estilo = "bg-emerald-50 text-emerald-700 border-emerald-200";
-    if (tipo === "rose") estilo = "bg-rose-50 text-rose-700 border-rose-200";
-    if (tipo === "amber") estilo = "bg-amber-50 text-amber-700 border-amber-200";
-
+  const fnRenderBadgeEstadoPosterior = (estado) => {
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${estilo}`}>
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border bg-slate-100 text-slate-700 border-slate-200">
         {estado || "No disponible"}
       </span>
     );
@@ -470,14 +464,14 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
               Examen Incorrecto
             </span>
-            <div className="text-2xl lg:text-3xl font-extrabold text-[#DC2626] mt-1 tracking-tight">
+            <div className="text-2xl lg:text-3xl font-extrabold text-[#003770] mt-1 tracking-tight">
               {kpis.examenIncorrecto}
             </div>
-            <span className="text-[11px] text-rose-600 font-semibold">
+            <span className="text-[11px] text-slate-500 font-semibold">
               {kpis.porcentajeExamenInc}% de los intentos
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600 border border-rose-100">
+          <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-[#003770] border border-slate-200">
             <XCircle className="w-5 h-5" />
           </div>
         </div>
@@ -488,14 +482,14 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
               Aula Diferente
             </span>
-            <div className="text-2xl lg:text-3xl font-extrabold text-[#D97706] mt-1 tracking-tight">
+            <div className="text-2xl lg:text-3xl font-extrabold text-[#003770] mt-1 tracking-tight">
               {kpis.aulaDiferente}
             </div>
-            <span className="text-[11px] text-amber-600 font-semibold">
+            <span className="text-[11px] text-slate-500 font-semibold">
               Reubicación requerida en puerta
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100">
+          <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-[#003770] border border-slate-200">
             <Split className="w-5 h-5" />
           </div>
         </div>
@@ -506,14 +500,14 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
               Duplicados Bloqueados
             </span>
-            <div className="text-2xl lg:text-3xl font-extrabold text-[#7C3AED] mt-1 tracking-tight">
+            <div className="text-2xl lg:text-3xl font-extrabold text-[#003770] mt-1 tracking-tight">
               {kpis.duplicadosBloqueados}
             </div>
-            <span className="text-[11px] text-purple-600 font-semibold">
+            <span className="text-[11px] text-slate-500 font-semibold">
               Ingresos previos detectados
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 border border-purple-100">
+          <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-[#003770] border border-slate-200">
             <Copy className="w-5 h-5" />
           </div>
         </div>
@@ -610,7 +604,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
 
                     {/* Examen / Aula Asignada */}
                     <td className="py-3.5 px-4 font-medium text-primary-blue">
-                      {item.examenAulaAsignada}
+                      {item.examenAulaAsignada || fnRenderBadgeEstadoPosterior(null)}
                     </td>
 
                     {/* Hora */}
@@ -625,7 +619,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
 
                     {/* Estado Posterior */}
                     <td className="py-3.5 px-4 whitespace-nowrap">
-                      {fnRenderBadgeEstadoPosterior(item.estadoPosterior, item.estadoPosteriorTipo)}
+                      {fnRenderBadgeEstadoPosterior(item.estadoPosterior)}
                     </td>
                   </tr>
                 ))
