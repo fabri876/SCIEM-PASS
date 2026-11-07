@@ -19,7 +19,6 @@ import useUltimosLocales from "./useUltimosLocales";
 import ToastSyncConfirmacion from "../components/ToastSyncConfirmacion";
 import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilidadesExamenDocente";
 import ModalIncidencia from "../../../components/incidencias/ModalIncidencia";
-import { obtenerAulasAsignadas } from "../../../services/incidenciaService";
 
 export default function ControlIngresoDocente() {
   const { idExamen } = useParams();
@@ -46,7 +45,6 @@ export default function ControlIngresoDocente() {
   const { estadoRed, fnCambiarRed } = useOperador();
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
   const [mostrarModalIncidencia, setMostrarModalIncidencia] = useState(false);
-  const [aulasIncidencia, setAulasIncidencia] = useState([]);
 
   const fnCerrarLista = useCallback(() => setBoolListaAbierta(false), []);
 
@@ -74,32 +72,21 @@ export default function ControlIngresoDocente() {
     : "";
   const boolExamenActivo = Boolean(examen) && !boolAunNoEmpieza && !(dateFinExamen && dateAhora > dateFinExamen);
 
-  useEffect(() => {
-    if (!mostrarModalIncidencia) return;
-    const aulaLocal = idAmbiente ? [{
-      idAmbiente: Number(idAmbiente),
-      idAsignatura,
-      idExamen: Number(idExamen),
-      aula: objExamenInicial?.aula || "Aula asignada",
-      asignatura: objExamenInicial?.materia || "Examen",
-      fechaExamen: objExamenInicial?.fecha || null,
-    }] : [];
-    setAulasIncidencia(aulaLocal);
-    if (boolSinRed) return;
-
-    obtenerAulasAsignadas()
-      .then((aulas) => setAulasIncidencia(Array.isArray(aulas) && aulas.length ? aulas : aulaLocal))
-      .catch(() => setAulasIncidencia(aulaLocal));
-  }, [
-    mostrarModalIncidencia,
-    boolSinRed,
-    idAmbiente,
-    idAsignatura,
-    idExamen,
-    objExamenInicial?.aula,
-    objExamenInicial?.materia,
-    objExamenInicial?.fecha,
-  ]);
+  // Dentro del control de ingreso la incidencia pertenece sí o sí a este
+  // examen/aula: no se ofrece elegir entre otros exámenes asignados.
+  const idAmbienteIncidencia = examen?.idambiente ?? idAmbiente;
+  const aulaIncidenciaActual = idAmbienteIncidencia
+    ? {
+        idAmbiente: Number(idAmbienteIncidencia),
+        idAsignatura: examen?.idasignatura ?? idAsignatura,
+        idExamen: Number(examen?.idexamen ?? idExamen),
+        aula: examen?.aula || objExamenInicial?.aula || "Aula asignada",
+        asignatura: examen?.materia || objExamenInicial?.materia || "Examen",
+        fechaExamen: examen?.fecha || objExamenInicial?.fecha || null,
+        horaInicio: examen?.horaInicio || objExamenInicial?.horaInicio || null,
+        horaFin: examen?.horaFin || objExamenInicial?.horaFin || null,
+      }
+    : null;
 
   return (
     // Mismo layout que HomeControl: header fijo arriba y contenido con pt-[115px]
@@ -225,8 +212,10 @@ export default function ControlIngresoDocente() {
       <ModalIncidencia
         boolAbierto={mostrarModalIncidencia}
         onCerrar={() => setMostrarModalIncidencia(false)}
-        aulasDisponibles={aulasIncidencia}
-        aulaPreseleccionada={aulasIncidencia[0] || null}
+        aulasDisponibles={aulaIncidenciaActual ? [aulaIncidenciaActual] : []}
+        aulaPreseleccionada={aulaIncidenciaActual}
+        boolAulaFija
+        boolExamenActivo={boolExamenActivo}
       />
     </div>
   );
