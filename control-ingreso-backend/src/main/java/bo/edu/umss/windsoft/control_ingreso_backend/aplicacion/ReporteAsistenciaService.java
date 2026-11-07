@@ -9,9 +9,12 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoReposito
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AsignaturaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.TipoExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.GrupoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.EstudianteListaOficialDTO;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -37,11 +40,12 @@ public class ReporteAsistenciaService {
     private final AsignaturaRepository asignaturaRepository;
     private final TipoExamenRepository tipoExamenRepository;
     private final UsuarioRepository usuarioRepository;
+    private final GrupoRepository grupoRepository;
 
     public ReporteAsistenciaService(ExamenRepository examenRepository, AmbienteRepository ambienteRepository,
                                     IngresoRepository ingresoRepository, AsignacionIngresoService asignacionIngresoService,
                                     AsignaturaRepository asignaturaRepository, TipoExamenRepository tipoExamenRepository,
-                                    UsuarioRepository usuarioRepository) {
+                                    UsuarioRepository usuarioRepository, GrupoRepository grupoRepository) {
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
         this.ingresoRepository = ingresoRepository;
@@ -49,6 +53,7 @@ public class ReporteAsistenciaService {
         this.asignaturaRepository = asignaturaRepository;
         this.tipoExamenRepository = tipoExamenRepository;
         this.usuarioRepository = usuarioRepository;
+        this.grupoRepository = grupoRepository;
     }
 
     public byte[] generar(Integer idExamen, String formato, Set<String> secciones, ContextoUsuarioService.UsuarioActual usuario) {
@@ -61,8 +66,11 @@ public class ReporteAsistenciaService {
         List<Ingreso> ingresos = ingresoRepository.findByIdAsignaturaAndIdExamen(examen.getIdAsignatura(), idExamen);
         Map<Integer, Ingreso> porSis = new HashMap<>();
         ingresos.stream().filter(i -> i.getIdExpulsion() == null).forEach(i -> porSis.put(i.getCodsisEstudiante(), i));
-        if ("xlsx".equalsIgnoreCase(formato) || "excel".equalsIgnoreCase(formato)) return excel(examen, filas, porSis, secciones);
-        return pdf(examen, filas, porSis, secciones);
+        String grupo = examen.getIdGrupo() == null ? "" : grupoRepository.findById(examen.getIdGrupo()).map(g -> g.getNombreGrupo()).orElse("");
+        String grupoTexto = grupo.isBlank() ? "" : (grupo.trim().toUpperCase(Locale.ROOT).startsWith("GRUPO") ? grupo.trim() : "Grupo " + grupo.trim());
+        String generador = usuarioRepository.findById(usuario.idUsuario()).map(u -> (u.getNombreusuario() + " " + u.getApellidousuario()).trim()).orElse(usuario.correo());
+        if ("xlsx".equalsIgnoreCase(formato) || "excel".equalsIgnoreCase(formato)) return excel(examen, filas, porSis, secciones, grupoTexto, generador);
+        return pdf(examen, filas, porSis, secciones, grupoTexto, generador);
     }
 
     private boolean finalizado(Examen e, Integer id) {
@@ -72,38 +80,72 @@ public class ReporteAsistenciaService {
                 && ZonedDateTime.now(ZONA).toLocalTime().isAfter(a.getHoraFin());
     }
 
-    private byte[] excel(Examen examen, List<EstudianteListaOficialDTO> filas, Map<Integer, Ingreso> ingresos, Set<String> secciones) {
+    private byte[] excel(Examen examen, List<EstudianteListaOficialDTO> filas, Map<Integer, Ingreso> ingresos, Set<String> secciones, String grupo, String generador) {
         try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            String materia = asignaturaRepository.findById(examen.getIdAsignatura()).map(a -> a.getNombreAsignatura()).orElse("Asignatura");
+            String tipo = tipoExamenRepository.findById(examen.getIdTipoExamen()).map(t -> t.getNombreTipoExamen()).orElse("Examen");
+            String docente = examen.getIdUsuario() == null ? "" : usuarioRepository.findById(examen.getIdUsuario()).map(u -> (u.getNombreusuario() + " " + u.getApellidousuario()).trim()).orElse("");
+            long asistieron = filas.stream().filter(f -> ingresos.containsKey(f.getCodigoSis())).count();
+            long inh = filas.stream().filter(f -> "INHABILITADO".equalsIgnoreCase(f.getEstado())).count();
+            var estiloCabecera = wb.createCellStyle();
+            var estiloTitulo = wb.createCellStyle();
+            var estiloCelda = wb.createCellStyle();
+            for (var estilo : List.of(estiloCabecera, estiloCelda)) {
+                estilo.setBorderTop(BorderStyle.THIN); estilo.setBorderBottom(BorderStyle.THIN);
+                estilo.setBorderLeft(BorderStyle.THIN); estilo.setBorderRight(BorderStyle.THIN);
+                estilo.setTopBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+                estilo.setBottomBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+                estilo.setLeftBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+                estilo.setRightBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+            }
+            var fuenteTitulo = ((org.apache.poi.xssf.usermodel.XSSFWorkbook) wb).createFont();
+            fuenteTitulo.setBold(true);
+            fuenteTitulo.setFontHeightInPoints((short) 14);
+            estiloTitulo.setFont(fuenteTitulo);
             if (secciones.contains("resumen")) {
                 var sheet = wb.createSheet("Resumen");
-                Row h = sheet.createRow(0); String[] cab = {"Examen", "Inscritos", "Asistieron", "Ausentes", "Inhabilitados", "% asistencia"};
-                for (int i=0;i<cab.length;i++) h.createCell(i).setCellValue(cab[i]);
-                long asistieron = filas.stream().filter(f -> ingresos.containsKey(f.getCodigoSis())).count();
-                long inh = filas.stream().filter(f -> "INHABILITADO".equalsIgnoreCase(f.getEstado())).count();
-                String[] vals = {String.valueOf(examen.getIdExamen()), String.valueOf(filas.size()), String.valueOf(asistieron), String.valueOf(filas.size()-asistieron-inh), String.valueOf(inh), filas.isEmpty()?"0%":String.format("%.0f%%", asistieron * 100.0 / filas.size())};
-                Row row = sheet.createRow(1); for (int i=0;i<vals.length;i++) row.createCell(i).setCellValue(vals[i]);
+                Row titulo = sheet.createRow(0); titulo.createCell(0).setCellValue("Reporte de asistencia"); titulo.getCell(0).setCellStyle(estiloTitulo);
+                String[] datos = {"Materia: " + materia, "Examen: " + tipo + (grupo.isBlank() ? "" : " · " + grupo), "Fecha: " + examen.getFechaExamen(), "Aulas: " + filas.stream().map(EstudianteListaOficialDTO::getAulaAsignada).filter(Objects::nonNull).distinct().collect(Collectors.joining(", ")), "Docente: " + docente, "Generado por: " + generador};
+                for (int i = 0; i < datos.length; i++) sheet.createRow(i + 1).createCell(0).setCellValue(datos[i]);
+                Row h = sheet.createRow(7); String[] cab = {"Aula", "Inscritos", "Asistieron", "Ausentes", "Inhabilitados", "% asistencia"};
+                for (int i=0;i<cab.length;i++) { h.createCell(i).setCellValue(cab[i]); h.getCell(i).setCellStyle(estiloCabecera); }
+                Map<String, List<EstudianteListaOficialDTO>> porAula = filas.stream().collect(Collectors.groupingBy(f -> Objects.toString(f.getAulaAsignada(), "Sin aula asignada"), LinkedHashMap::new, Collectors.toList()));
+                int filaResumen = 8;
+                for (var entrada : porAula.entrySet()) {
+                    long total = entrada.getValue().size();
+                    long presentes = entrada.getValue().stream().filter(f -> ingresos.containsKey(f.getCodigoSis())).count();
+                    long inhabilitados = entrada.getValue().stream().filter(f -> "INHABILITADO".equalsIgnoreCase(f.getEstado())).count();
+                    Row row = sheet.createRow(filaResumen++);
+                    String[] vals = {entrada.getKey(), String.valueOf(total), String.valueOf(presentes), String.valueOf(total - presentes - inhabilitados), String.valueOf(inhabilitados), total == 0 ? "0%" : String.format("%.0f%%", presentes * 100.0 / total)};
+                    for (int i=0;i<vals.length;i++) { row.createCell(i).setCellValue(vals[i]); row.getCell(i).setCellStyle(estiloCelda); }
+                }
+                Row totalRow = sheet.createRow(filaResumen); String[] totalVals = {"Total", String.valueOf(filas.size()), String.valueOf(asistieron), String.valueOf(filas.size()-asistieron-inh), String.valueOf(inh), filas.isEmpty()?"0%":String.format("%.0f%%", asistieron * 100.0 / filas.size())};
+                for (int i=0;i<totalVals.length;i++) { totalRow.createCell(i).setCellValue(totalVals[i]); totalRow.getCell(i).setCellStyle(estiloCabecera); }
+                for (int i=0;i<cab.length;i++) sheet.autoSizeColumn(i);
+                int[] anchosResumen = {24, 14, 14, 14, 18, 16};
+                for (int i = 0; i < anchosResumen.length; i++) sheet.setColumnWidth(i, Math.max(sheet.getColumnWidth(i), anchosResumen[i] * 256));
             }
             if (secciones.stream().anyMatch(s -> Set.of("asistentes", "ausentes", "inhabilitados").contains(s))) {
                 var sheet = wb.createSheet("Detalle"); int r = 0;
-                Row h = sheet.createRow(r++); String[] cab = {"Código SIS", "C.I.", "Estudiante", "Estado", "Hora ingreso", "Observación"};
-                for (int i=0;i<cab.length;i++) h.createCell(i).setCellValue(cab[i]);
+                Row info = sheet.createRow(r++); info.createCell(0).setCellValue(materia + " · " + tipo + " · " + examen.getFechaExamen());
+                Row h = sheet.createRow(r++); String[] cab = {"Nombre", "Código SIS", "C.I.", "Aula", "Estado", "Hora ingreso", "Motivo"};
+                for (int i=0;i<cab.length;i++) { h.createCell(i).setCellValue(cab[i]); h.getCell(i).setCellStyle(estiloCabecera); }
                 for (EstudianteListaOficialDTO f : filas) {
-                    Ingreso ing = ingresos.get(f.getCodigoSis());
-                    boolean inh = "INHABILITADO".equalsIgnoreCase(f.getEstado());
-                    boolean aus = ing == null && !inh;
-                    boolean asi = ing != null;
-                    if (!(asi && secciones.contains("asistentes") || aus && secciones.contains("ausentes") || inh && secciones.contains("inhabilitados"))) continue;
-                    Row row = sheet.createRow(r++); String estado = asi ? "ASISTIÓ" : (inh ? "INHABILITADO" : "AUSENTE");
-                    String hora = ing == null || ing.getHoraIngreso() == null ? "" : ing.getHoraIngreso().toLocalTime().toString();
-                    String[] vals = {String.valueOf(f.getCodigoSis()), Objects.toString(f.getCi(),""), Objects.toString(f.getNombre(), f.getApellidos()), estado, hora, Objects.toString(f.getObservacion(),"")};
-                    for (int i=0;i<vals.length;i++) row.createCell(i).setCellValue(vals[i]);
+                    Ingreso ing = ingresos.get(f.getCodigoSis()); boolean inhFila = "INHABILITADO".equalsIgnoreCase(f.getEstado()); boolean aus = ing == null && !inhFila; boolean asi = ing != null;
+                    if (!(asi && secciones.contains("asistentes") || aus && secciones.contains("ausentes") || inhFila && secciones.contains("inhabilitados"))) continue;
+                    Row row = sheet.createRow(r++); String estado = asi ? "ASISTIÓ" : (inhFila ? "INHABILITADO" : "AUSENTE"); String hora = ing == null || ing.getHoraIngreso() == null ? "" : ing.getHoraIngreso().toLocalTime().toString();
+                    String[] vals = {Objects.toString(f.getNombre(), f.getApellidos()), String.valueOf(f.getCodigoSis()), Objects.toString(f.getCi(),""), Objects.toString(f.getAulaAsignada(),""), estado, hora, Objects.toString(f.getObservacion(),"")};
+                    for (int i=0;i<vals.length;i++) { row.createCell(i).setCellValue(vals[i]); row.getCell(i).setCellStyle(estiloCelda); }
                 }
+                for (int i=0;i<cab.length;i++) sheet.autoSizeColumn(i);
+                int[] anchosDetalle = {34, 16, 16, 18, 18, 18, 28};
+                for (int i = 0; i < anchosDetalle.length; i++) sheet.setColumnWidth(i, Math.max(sheet.getColumnWidth(i), anchosDetalle[i] * 256));
             }
             wb.write(out); return out.toByteArray();
         } catch (Exception e) { throw new IllegalStateException("No se pudo generar el Excel.", e); }
     }
 
-    private byte[] pdf(Examen examen, List<EstudianteListaOficialDTO> filas, Map<Integer, Ingreso> ingresos, Set<String> secciones) {
+    private byte[] pdf(Examen examen, List<EstudianteListaOficialDTO> filas, Map<Integer, Ingreso> ingresos, Set<String> secciones, String grupo, String generador) {
         try (PDDocument doc = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             PDPage page = new PDPage(PDRectangle.LETTER); doc.addPage(page);
             try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
@@ -115,13 +157,29 @@ public class ReporteAsistenciaService {
                 cs.setFont(new PDType1Font(Standard14Fonts.FontName.TIMES_BOLD), 15); cs.beginText(); cs.newLineAtOffset(40, 738); cs.showText("Reporte de asistencia"); cs.endText();
                 cs.setFont(new PDType1Font(Standard14Fonts.FontName.TIMES_ROMAN), 9); cs.beginText(); cs.newLineAtOffset(390, 740); cs.showText("Emitido: " + java.time.LocalDate.now() + " " + java.time.LocalTime.now().withNano(0)); cs.endText();
                 cs.setFont(new PDType1Font(Standard14Fonts.FontName.TIMES_BOLD), 9); int y = 710;
-                String[] datos = {"Materia: " + materia, "Examen: " + tipo, "Fecha: " + examen.getFechaExamen(), "Aulas: " + (aulas.isBlank()?"Sin aula asignada":aulas), "Docente: " + docente};
+                String[] datos = {"Materia: " + materia, "Examen: " + tipo + (grupo.isBlank() ? "" : " · " + grupo), "Fecha: " + examen.getFechaExamen(), "Aulas: " + (aulas.isBlank()?"Sin aula asignada":aulas), "Docente: " + docente, "Generado por: " + generador};
                 for (String dato : datos) { cs.beginText(); cs.newLineAtOffset(40, y); cs.showText(dato); cs.endText(); y -= 14; }
                 long asistieron = filas.stream().filter(f -> ingresos.containsKey(f.getCodigoSis())).count();
                 long inh = filas.stream().filter(f -> "INHABILITADO".equalsIgnoreCase(f.getEstado())).count();
                 if (secciones.contains("resumen")) {
                     cs.setFont(new PDType1Font(Standard14Fonts.FontName.TIMES_BOLD), 11); cs.beginText(); cs.newLineAtOffset(40, y); cs.showText("Resumen"); cs.endText(); y -= 16;
-                    cs.setFont(new PDType1Font(Standard14Fonts.FontName.TIMES_ROMAN), 9); cs.beginText(); cs.newLineAtOffset(40, y); cs.showText("Inscritos: " + filas.size() + "   Asistieron: " + asistieron + "   Ausentes: " + (filas.size()-asistieron-inh) + "   Inhabilitados: " + inh); cs.endText(); y -= 22;
+                    float[] col = {40, 145, 205, 270, 330, 410};
+                    String[] cabResumen = {"Aula", "Inscr.", "Asist.", "Aus.", "Inhab.", "% asist."};
+                    cs.setFont(new PDType1Font(Standard14Fonts.FontName.TIMES_BOLD), 8);
+                    for (int i = 0; i < cabResumen.length; i++) texto(cs, cabResumen[i], col[i], y);
+                    cs.moveTo(40, y - 4); cs.lineTo(500, y - 4); cs.stroke(); y -= 15;
+                    cs.setFont(new PDType1Font(Standard14Fonts.FontName.TIMES_ROMAN), 8);
+                    Map<String, List<EstudianteListaOficialDTO>> porAula = filas.stream().collect(Collectors.groupingBy(f -> Objects.toString(f.getAulaAsignada(), "Sin aula asignada"), LinkedHashMap::new, Collectors.toList()));
+                    for (var entrada : porAula.entrySet()) {
+                        long total = entrada.getValue().size(); long presentes = entrada.getValue().stream().filter(f -> ingresos.containsKey(f.getCodigoSis())).count(); long inhabilitados = entrada.getValue().stream().filter(f -> "INHABILITADO".equalsIgnoreCase(f.getEstado())).count();
+                        String[] valores = {entrada.getKey(), String.valueOf(total), String.valueOf(presentes), String.valueOf(total - presentes - inhabilitados), String.valueOf(inhabilitados), total == 0 ? "0%" : String.format("%.0f%%", presentes * 100.0 / total)};
+                        for (int i = 0; i < valores.length; i++) texto(cs, valores[i], col[i], y);
+                        y -= 14;
+                    }
+                    String[] totales = {"Total", String.valueOf(filas.size()), String.valueOf(asistieron), String.valueOf(filas.size()-asistieron-inh), String.valueOf(inh), filas.isEmpty() ? "0%" : String.format("%.0f%%", asistieron * 100.0 / filas.size())};
+                    cs.setFont(new PDType1Font(Standard14Fonts.FontName.TIMES_BOLD), 8);
+                    for (int i = 0; i < totales.length; i++) texto(cs, totales[i], col[i], y);
+                    y -= 18;
                 }
                 for (String seccion : List.of("asistentes", "ausentes", "inhabilitados")) {
                     if (!secciones.contains(seccion)) continue;
@@ -137,6 +195,7 @@ public class ReporteAsistenciaService {
                     texto(cs, "Nombre", 40, y); texto(cs, "SIS", 205, y); texto(cs, "C.I.", 285, y);
                     if (seccion.equals("asistentes")) { texto(cs, "Aula", 370, y); texto(cs, "Hora", 455, y); }
                     else texto(cs, "Motivo", 370, y);
+                    cs.moveTo(40, y - 4); cs.lineTo(500, y - 4); cs.stroke();
                     y -= 13;
                     cs.setFont(new PDType1Font(Standard14Fonts.FontName.TIMES_ROMAN), 8);
                     for (EstudianteListaOficialDTO f : filas) { if (y < 45) break; Ingreso ing=ingresos.get(f.getCodigoSis()); boolean inhFila="INHABILITADO".equalsIgnoreCase(f.getEstado()), aus=ing==null&&!inhFila, asi=ing!=null; if (!(asi&&seccion.equals("asistentes")||aus&&seccion.equals("ausentes")||inhFila&&seccion.equals("inhabilitados"))) continue; String nombre=Objects.toString(f.getNombre(),f.getApellidos()); if(nombre.length()>27) nombre=nombre.substring(0,24)+"..."; String hora=ing==null||ing.getHoraIngreso()==null?"":ing.getHoraIngreso().toLocalTime().toString().substring(0,5); texto(cs,nombre,40,y); texto(cs,String.valueOf(f.getCodigoSis()),205,y); texto(cs,Objects.toString(f.getCi(),""),285,y); if(seccion.equals("asistentes")){ texto(cs,Objects.toString(f.getAulaAsignada(),""),370,y); texto(cs,hora,455,y); } else texto(cs,Objects.toString(f.getObservacion(),"Sin motivo"),370,y); y-=12; }
