@@ -29,7 +29,7 @@ export const DATOS_SEMILLA_INTENTOS = [
     ci: "7894561 CB",
     carreraEstudiante: "Ing. de Sistemas",
     motivo: "EXAMEN_INCORRECTO",
-    motivoEtiqueta: "EXAMEN INCORRECTO (HU-09)",
+    motivoEtiqueta: "EXAMEN INCORRECTO",
     sePresentoEn: "Aula 601 (Cálculo I)",
     examenAulaAsignada: "Álgebra Lineal Aula 691A",
     fecha: "2026-10-28",
@@ -92,7 +92,7 @@ export const DATOS_SEMILLA_INTENTOS = [
     ci: "7945123 CB",
     carreraEstudiante: "Ing. Civil",
     motivo: "EXAMEN_INCORRECTO",
-    motivoEtiqueta: "EXAMEN INCORRECTO (HU-09)",
+    motivoEtiqueta: "EXAMEN INCORRECTO",
     sePresentoEn: "Aula 601 (Cálculo I)",
     examenAulaAsignada: "Sin exámenes programados",
     fecha: "2026-10-28",
@@ -134,7 +134,7 @@ export const DATOS_SEMILLA_INTENTOS = [
     ci: "6541298 CB",
     carreraEstudiante: "Ing. Electromecánica",
     motivo: "EXAMEN_INCORRECTO",
-    motivoEtiqueta: "EXAMEN INCORRECTO (HU-09)",
+    motivoEtiqueta: "EXAMEN INCORRECTO",
     sePresentoEn: "Aula 602",
     examenAulaAsignada: "Física I Aula 608",
     fecha: "2026-10-28",
@@ -176,7 +176,7 @@ export const DATOS_SEMILLA_INTENTOS = [
     ci: "7812903 CB",
     carreraEstudiante: "Ing. de Sistemas",
     motivo: "EXAMEN_INCORRECTO",
-    motivoEtiqueta: "EXAMEN INCORRECTO (HU-09)",
+    motivoEtiqueta: "EXAMEN INCORRECTO",
     sePresentoEn: "Aula 691A",
     examenAulaAsignada: "Cálculo II Aula 691B",
     fecha: "2026-10-29",
@@ -528,12 +528,12 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
           <div class="kpi-sub">Eventos registrados en puertas</div>
         </div>
         <div class="kpi-box">
-          <div class="kpi-title">Examen Incorrecto (HU-09)</div>
+          <div class="kpi-title">Examen Incorrecto</div>
           <div class="kpi-value" style="color: #dc2626;">${kpis.examenIncorrecto}</div>
-          <div class="kpi-sub">${kpis.porcentajeExamenInc}% de estudiantes no programados</div>
+          <div class="kpi-sub">${kpis.porcentajeExamenInc}% de los intentos</div>
         </div>
         <div class="kpi-box">
-          <div class="kpi-title">Aula Diferente (HU-18)</div>
+          <div class="kpi-title">Aula Diferente</div>
           <div class="kpi-value" style="color: #d97706;">${kpis.aulaDiferente}</div>
           <div class="kpi-sub">Estudiantes con desvío de aula</div>
         </div>

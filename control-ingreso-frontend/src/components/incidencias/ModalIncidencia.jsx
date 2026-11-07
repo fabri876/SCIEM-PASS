@@ -543,7 +543,9 @@ export default function ModalIncidencia({
                   <CheckCircle2 className="w-4 h-4 text-[#4A97D3] shrink-0" />
                   <span className="text-xs font-bold text-[#003770]">
                     {estudianteInvolucrado.nombreCompleto}
-                    {estudianteInvolucrado.estado === "RETIRADO"
+                    {estudianteInvolucrado.estado === "DESCONOCIDO"
+                      ? " · estado de ingreso no comprobado"
+                      : estudianteInvolucrado.estado === "RETIRADO"
                       ? " · ya fue expulsado de este examen"
                       : estudianteInvolucrado.horaIngresoPrevio
                       ? ` · ingresó ${formatearHora(estudianteInvolucrado.horaIngresoPrevio)}`

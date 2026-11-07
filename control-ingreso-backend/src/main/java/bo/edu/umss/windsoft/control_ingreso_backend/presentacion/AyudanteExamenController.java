@@ -65,9 +65,11 @@ public class AyudanteExamenController {
             @org.springframework.web.bind.annotation.RequestParam Integer idasignatura,
             @org.springframework.web.bind.annotation.RequestParam Integer idexamen,
             @org.springframework.web.bind.annotation.RequestParam Integer idambiente,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false") boolean soloMios,
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int limite) {
         List<bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UltimoIngresoDTO> ultimos =
-                controlIngresoAyudanteService.obtenerUltimosIngresos(idasignatura, idexamen, idambiente, limite);
+                controlIngresoAyudanteService.obtenerUltimosIngresos(idasignatura, idexamen, idambiente, limite,
+                        contextoUsuarioService.actual().idUsuario(), soloMios);
         return ResponseEntity.ok(ultimos);
     }
 

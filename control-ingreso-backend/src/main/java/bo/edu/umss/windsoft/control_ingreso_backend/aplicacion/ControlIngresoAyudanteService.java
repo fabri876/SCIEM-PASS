@@ -24,7 +24,9 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepositor
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.GrupoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HabilitacionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CredencialRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CarreraEstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IntentoNoAutorizadoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.TipoExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.DelegadoExamenDTO;
@@ -77,11 +79,14 @@ public class ControlIngresoAyudanteService {
     private final EstudianteRepository estudianteRepository;
     private final GrupoRepository grupoRepository;
     private final CredencialRepository credencialRepository;
+    private final CarreraEstudianteRepository carreraEstudianteRepository;
     // HU10: aula asignada (reparto por apellido) e intentos bloqueados para el
     // dashboard
     private final AsignacionAulaService asignacionAulaService;
     private final IntentoIngresoService intentoIngresoService;
+    private final IntentoNoAutorizadoRepository intentosRepository;
     private final AuditoriaService auditoriaService;
+    private final IntentoExamenIncorrectoService intentoExamenIncorrectoService;
 
     // Prefijo de seguridad para identificar escaneos QR del sistema
     private static final String PREFIJO_QR = "SCIEMPASS:1:";
@@ -98,12 +103,17 @@ public class ControlIngresoAyudanteService {
             EstudianteRepository estudianteRepository,
             GrupoRepository grupoRepository,
             CredencialRepository credencialRepository,
+            CarreraEstudianteRepository carreraEstudianteRepository,
             AsignacionAulaService asignacionAulaService,
             IntentoIngresoService intentoIngresoService,
-            AuditoriaService auditoriaService) {
+            IntentoNoAutorizadoRepository intentosRepository,
+            AuditoriaService auditoriaService,
+            IntentoExamenIncorrectoService intentoExamenIncorrectoService) {
         this.asignacionAulaService = asignacionAulaService;
         this.intentoIngresoService = intentoIngresoService;
+        this.intentosRepository = intentosRepository;
         this.auditoriaService = auditoriaService;
+        this.intentoExamenIncorrectoService = intentoExamenIncorrectoService;
         this.ayudanteExamenRepository = ayudanteExamenRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.examenRepository = examenRepository;
@@ -116,6 +126,7 @@ public class ControlIngresoAyudanteService {
         this.estudianteRepository = estudianteRepository;
         this.grupoRepository = grupoRepository;
         this.credencialRepository = credencialRepository;
+        this.carreraEstudianteRepository = carreraEstudianteRepository;
     }
 
     public List<DelegadoExamenDTO> obtenerDelegadosActivos(Integer idUsuario) {
@@ -226,12 +237,18 @@ public class ControlIngresoAyudanteService {
     }
 
     public List<UltimoIngresoDTO> obtenerUltimosIngresos(Integer idAsignatura, Integer idExamen, Integer idAmbiente,
-            int limite) {
-        List<Ingreso> lista = ingresoRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByIdIngresoDesc(
-                idAsignatura, idExamen, idAmbiente);
+            int limite, Integer idActual, boolean soloMios) {
+        validarAsignacionDeControl(new VerificarIngresoRequestDTO("", idAsignatura, idExamen, idAmbiente, null), idActual);
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean soloOperador = auth.getAuthorities().stream().anyMatch(a -> "ROLE_OPERADOR".equals(a.getAuthority()));
+        boolean soloPropios = soloMios || soloOperador;
+        List<Ingreso> lista = soloPropios
+                ? ingresoRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteAndIdUsuarioRegistraOrderByHoraIngresoDesc(
+                        idAsignatura, idExamen, idAmbiente, idActual)
+                : ingresoRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIngresoDesc(
+                        idAsignatura, idExamen, idAmbiente);
 
-        return lista.stream()
-                .limit(limite > 0 ? limite : 5)
+        var resultado = new java.util.ArrayList<>(lista.stream()
                 .map(ing -> {
                     Usuario user = usuarioRepository.findById(ing.getIdUsuarioEstudiante()).orElse(null);
                     Estudiante est = estudianteRepository.findByCodsisestudiante(ing.getCodsisEstudiante())
@@ -270,7 +287,28 @@ public class ControlIngresoAyudanteService {
                             ing.getIdExamen(),
                             ing.getIdAmbiente());
                 })
-                .toList();
+                .toList());
+        var intentos = soloPropios
+                ? intentosRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteAndIdUsuarioRegistraOrderByHoraIntentoDesc(
+                        idAsignatura, idExamen, idAmbiente, idActual)
+                : intentosRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIntentoDesc(
+                        idAsignatura, idExamen, idAmbiente);
+        intentos.stream()
+                .forEach(i -> {
+                    Usuario estudiante = usuarioRepository.findById(i.getIdUsuarioEstudiante()).orElse(null);
+                    Usuario operador = usuarioRepository.findById(i.getIdUsuarioRegistra()).orElse(null);
+                    String nombre = estudiante == null ? "Estudiante registrado"
+                            : (estudiante.getNombreusuario() + " " + estudiante.getApellidousuario()).trim();
+                    var resumen = new EstudianteResumenDTO(i.getIdUsuarioEstudiante(), i.getCodsisEstudiante(),
+                            estudiante == null ? null : estudiante.getCiusuario(), nombre, null, null);
+                    String registrador = operador == null ? null
+                            : (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim();
+                    resultado.add(new UltimoIngresoDTO(i.getIdIntento(), i.getHoraIntento(), i.getMetodoVerificacion(), resumen,
+                            registrador, i.getIdAsignatura(), i.getIdExamen(), i.getIdAmbiente(), i.getMotivo().name()));
+                });
+        return resultado.stream().sorted(Comparator.comparing(UltimoIngresoDTO::horaIngreso,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(limite > 0 ? Math.min(limite, 10) : 5).toList();
     }
 
     public List<UltimoIngresoDTO> obtenerMisRegistros(Integer idUsuario, int limite) {
@@ -405,12 +443,13 @@ public class ControlIngresoAyudanteService {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resultado);
         }
 
+        List<String> carreras = carreraEstudianteRepository.nombres(usuario.getIdusuario(), estudiante.getCodsisestudiante());
         EstudianteResumenDTO estudianteResumen = new EstudianteResumenDTO(
                 usuario.getIdusuario(),
                 estudiante.getCodsisestudiante(),
                 usuario.getCiusuario(),
                 usuario.getNombreusuario() + " " + usuario.getApellidousuario(),
-                "Carrera no asignada",
+                carreras.isEmpty() ? null : String.join(", ", carreras),
                 null);
 
         // En línea todos los operadores asignados al aula pueden registrar
@@ -418,12 +457,8 @@ public class ControlIngresoAyudanteService {
         // valida únicamente en el motor offline del frontend.
 
         if (qrDeOtroExamen) {
-            OtroExamenDTO otro = encontrarOtroExamen(estudiante.getCodsisestudiante(), dto.idexamen())
-                    .orElse(null);
-            return ResponseEntity.ok(new ResultadoIngresoDTO(
-                    "NO_INSCRITO",
-                    "QR DE OTRO EXAMEN - Este QR no corresponde al examen que se está controlando.",
-                    estudianteResumen, null, null, null, otro));
+            if (clientUuid != null) return examenIncorrectoOfflineNoConfirmado(estudianteResumen);
+            return registrarExamenIncorrecto(dto, idOperador, ip, query, usuario, estudiante, estudianteResumen);
         }
 
         // 2. Verificación de Ingreso Previo (Duplicado).
@@ -474,12 +509,9 @@ public class ControlIngresoAyudanteService {
         // Si no está inscrito en el examen actual, orientar al estudiante hacia
         // otro examen donde sí figura como habilitado. No se crea ingreso ni
         // intento de inhabilitación para este caso.
-        Optional<OtroExamenDTO> otroExamen = encontrarOtroExamen(estudiante.getCodsisestudiante(), dto.idexamen());
-        if (habOpt.isEmpty() && otroExamen.isPresent()) {
-            return ResponseEntity.ok(new ResultadoIngresoDTO(
-                    "NO_INSCRITO",
-                    "ESTUDIANTE NO INSCRITO EN ESTE EXAMEN",
-                    estudianteResumen, null, null, null, otroExamen.get()));
+        if (habOpt.isEmpty()) {
+            if (clientUuid != null) return examenIncorrectoOfflineNoConfirmado(estudianteResumen);
+            return registrarExamenIncorrecto(dto, idOperador, ip, query, usuario, estudiante, estudianteResumen);
         }
 
         if (habOpt.isEmpty() || !Boolean.TRUE.equals(habOpt.get().getEstadohabilitacion())) {
@@ -600,14 +632,27 @@ public class ControlIngresoAyudanteService {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(resultado);
     }
 
-    private void validarAsignacionDeControl(VerificarIngresoRequestDTO dto, Integer idUsuario) {
+    public void validarAsignacionDeControl(VerificarIngresoRequestDTO dto, Integer idUsuario) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        boolean autorizadoGlobal = auth != null && auth.getAuthorities().stream()
-                .anyMatch(
-                        a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()) || "ROLE_DOCENTE".equals(a.getAuthority()));
-        if (autorizadoGlobal)
-            return;
+        if (auth == null || !auth.isAuthenticated() || idUsuario == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Debe iniciar sesion para controlar el examen.");
+        }
+        Examen examen = examenRepository.findById(dto.idexamen()).orElseThrow(() ->
+                new org.springframework.security.access.AccessDeniedException("Examen o aula no autorizado."));
+        Ambiente ambiente = ambienteRepository.findById(dto.idambiente()).orElseThrow(() ->
+                new org.springframework.security.access.AccessDeniedException("Examen o aula no autorizado."));
+        if (!Objects.equals(examen.getIdAsignatura(), dto.idasignatura())
+                || !Objects.equals(ambiente.getIdAsignatura(), dto.idasignatura())
+                || !Objects.equals(ambiente.getIdExamen(), dto.idexamen())) {
+            throw new org.springframework.security.access.AccessDeniedException("El aula no pertenece al examen indicado.");
+        }
+        boolean admin = auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
+        boolean docente = auth.getAuthorities().stream().anyMatch(a -> "ROLE_DOCENTE".equals(a.getAuthority()));
+        if (admin || (docente && Objects.equals(examen.getIdUsuario(), idUsuario))) return;
+        if (docente) throw new org.springframework.security.access.AccessDeniedException("No es el docente responsable de este examen.");
 
+        boolean operador = auth.getAuthorities().stream().anyMatch(a -> "ROLE_OPERADOR".equals(a.getAuthority()));
+        if (!operador) throw new org.springframework.security.access.AccessDeniedException("No tiene permiso para controlar el examen.");
         boolean asignado = ayudanteExamenRepository
                 .existsByIdIdayudanteAndIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
                         idUsuario, dto.idasignatura(), dto.idexamen(), dto.idambiente(), "ACTIVO");
@@ -651,23 +696,84 @@ public class ControlIngresoAyudanteService {
         return null;
     }
 
-    private Optional<OtroExamenDTO> encontrarOtroExamen(Integer codSis, Integer examenActual) {
+    private ResponseEntity<ResultadoIngresoDTO> examenIncorrectoOfflineNoConfirmado(EstudianteResumenDTO resumen) {
+        // La marca offline no acredita que el intento HU09 se haya guardado ni
+        // aporta necesariamente el contexto de orientacion del momento original.
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ResultadoIngresoDTO(
+                "NO_INSCRITO", "No se pudo confirmar el examen de la marca sin conexion; requiere revision.",
+                resumen, null, null, null));
+    }
+
+    private ResponseEntity<ResultadoIngresoDTO> registrarExamenIncorrecto(VerificarIngresoRequestDTO dto,
+            Integer operadorId, String ip, String identificador, Usuario usuario, Estudiante estudiante,
+            EstudianteResumenDTO resumen) {
+        if (dto.solicitud() == null) {
+            throw new IllegalArgumentException("Actualice la aplicacion: falta el identificador de la verificacion.");
+        }
+        List<OtroExamenDTO> destinos = examenesCorrespondientes(estudiante.getCodsisestudiante(), dto.idexamen(),
+                LocalDateTime.now(ZONA_HORARIA));
+        OtroExamenDTO destino = destinos.size() == 1 ? destinos.get(0) : null;
+        String metodo = dto.metodoIngreso() == MetodoIngreso.ESCANEO ? "QR"
+                : identificador.equals(String.valueOf(estudiante.getCodsisestudiante())) ? "SIS" : "CI";
+        var datos = new bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IntentoExamenIncorrectoRepository.Datos(
+                dto.solicitud(), dto.idasignatura(), dto.idexamen(), dto.idambiente(), operadorId,
+                usuario.getIdusuario(), estudiante.getCodsisestudiante(), metodo,
+                destino == null ? null : destino.idAsignatura(), destino == null ? null : destino.idExamen(),
+                destino == null ? null : destino.idAmbiente());
+        String correoOperador = usuarioRepository.findById(operadorId).map(Usuario::getCorreousuario).orElse(null);
+        var guardado = intentoExamenIncorrectoService.registrar(datos, correoOperador, usuario.getCorreousuario(), ip);
+        // En un reintento se conserva el destino original, no uno recalculado mas tarde.
+        boolean cambioDestino = !Objects.equals(guardado.datos().examenDestino(), datos.examenDestino())
+                || !Objects.equals(guardado.datos().ambienteDestino(), datos.ambienteDestino());
+        if (cambioDestino) {
+            destino = null;
+        }
+        String detalle = cambioDestino
+                ? "La orientacion puede haber cambiado desde la primera verificacion; consulte al docente."
+                : destinos.size() > 1
+                ? "Hay varios examenes posibles en este horario; consulte al docente para confirmar."
+                : destino == null ? "No se encontro un examen correspondiente para este horario."
+                : "Dirija al estudiante al examen indicado.";
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ResultadoIngresoDTO(
+                "EXAMEN_INCORRECTO", "INGRESO DENEGADO — EXAMEN INCORRECTO. " + detalle,
+                resumen, null, null, null, destino, true));
+    }
+
+    List<OtroExamenDTO> examenesCorrespondientes(Integer codSis, Integer examenActual, LocalDateTime ahora) {
         return habilitacionRepository.findByEstudianteCodsisestudiante(codSis).stream()
-                .filter(h -> Boolean.TRUE.equals(h.getEstadohabilitacion()))
                 .filter(h -> h.getIdExamen() != null && !h.getIdExamen().equals(examenActual))
-                .findFirst()
-                .flatMap(h -> examenRepository.findById(h.getIdExamen()).flatMap(examen -> {
-                    String aula = ambienteRepository.findByIdExamen(examen.getIdExamen()).stream().findFirst()
-                            .flatMap(a -> aulaRepository.findById(a.getIdAula()).map(Aula::getNombreAula))
-                            .orElse("Aula asignada");
-                    String hora = ambienteRepository.findByIdExamen(examen.getIdExamen()).stream().findFirst()
-                            .map(a -> String.valueOf(a.getHoraInicio()).substring(0, 5) + " - "
-                                    + String.valueOf(a.getHoraFin()).substring(0, 5))
-                            .orElse("Horario no disponible");
-                    String asignatura = asignaturaRepository.findById(examen.getIdAsignatura())
-                            .map(a -> a.getNombreAsignatura()).orElse("Asignatura no disponible");
-                    return Optional.of(new OtroExamenDTO(asignatura, resolverNombreExamen(examen), aula, hora));
-                }));
+                .map(h -> examenRepository.findById(h.getIdExamen()).orElse(null))
+                .filter(Objects::nonNull)
+                .filter(ex -> ahora.toLocalDate().equals(ex.getFechaExamen()))
+                .map(ex -> orientacionEnHorario(ex, codSis, ahora))
+                .flatMap(Optional::stream)
+                .distinct().toList();
+    }
+
+    private Optional<OtroExamenDTO> orientacionEnHorario(Examen examen, Integer codSis, LocalDateTime ahora) {
+        List<Ambiente> ambientes = ambienteRepository.findByIdExamen(examen.getIdExamen()).stream()
+                .filter(a -> a.getHoraInicio() != null && a.getHoraFin() != null)
+                .filter(a -> !ahora.isBefore(LocalDateTime.of(examen.getFechaExamen(), a.getHoraInicio()).minusMinutes(MINUTOS_ANTES_CONTROL_INGRESO))
+                        && !ahora.isAfter(LocalDateTime.of(examen.getFechaExamen(), a.getHoraFin())))
+                .toList();
+        if (ambientes.isEmpty()) return Optional.empty();
+        var aulaAsignada = asignacionAulaService.aulaAsignada(examen.getIdAsignatura(), examen.getIdExamen(), codSis);
+        if (aulaAsignada.isPresent() && ambientes.stream().noneMatch(a ->
+                Objects.equals(a.getIdAmbiente(), aulaAsignada.get().idAmbiente()))) return Optional.empty();
+        Ambiente horario = aulaAsignada.map(AsignacionAulaService.AulaExamen::ambiente)
+                .orElse(ambientes.get(0));
+        String nombreAula = aulaAsignada.map(AsignacionAulaService.AulaExamen::nombre).orElse(null);
+        String edificio = aulaAsignada.map(AsignacionAulaService.AulaExamen::ubicacion).orElse(null);
+        Integer ambienteId = aulaAsignada.map(AsignacionAulaService.AulaExamen::idAmbiente).orElse(null);
+        String grupo = examen.getIdGrupo() == null ? null : grupoRepository.findById(examen.getIdGrupo())
+                .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo).orElse(null);
+        String asignatura = asignaturaRepository.findById(examen.getIdAsignatura())
+                .map(Asignatura::getNombreAsignatura).orElse(null);
+        boolean horarioUnico = aulaAsignada.isPresent() || ambientes.stream().allMatch(a ->
+                Objects.equals(a.getHoraInicio(), horario.getHoraInicio()) && Objects.equals(a.getHoraFin(), horario.getHoraFin()));
+        return Optional.of(new OtroExamenDTO(asignatura, resolverNombreExamen(examen), nombreAula,
+                horarioUnico ? horario.getHoraInicio() + " - " + horario.getHoraFin() : null, grupo, edificio,
+                examen.getIdAsignatura(), examen.getIdExamen(), ambienteId));
     }
 
     private DelegadoExamenDTO mapearADelegadoDTO(AyudanteExamen ae) {

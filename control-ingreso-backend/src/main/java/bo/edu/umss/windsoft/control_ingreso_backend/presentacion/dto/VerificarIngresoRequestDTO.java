@@ -17,6 +17,11 @@ public record VerificarIngresoRequestDTO(
         @NotNull(message = "El ID del ambiente es obligatorio.")
         Integer idambiente,
 
-        MetodoIngreso metodoIngreso
+        MetodoIngreso metodoIngreso,
+        java.util.UUID solicitud
 ) {
+    public VerificarIngresoRequestDTO(String identificador, Integer idasignatura, Integer idexamen,
+                                      Integer idambiente, MetodoIngreso metodoIngreso) {
+        this(identificador, idasignatura, idexamen, idambiente, metodoIngreso, null);
+    }
 }

@@ -368,8 +368,8 @@ export async function validarIngreso({
     if (!estudiante) {
       return {
         ...respuestaBase,
-        resultado: RESULTADO_VALIDACION.QR_INVALIDO,
-        motivo: 'QR no registrado en la nómina del examen.',
+        resultado: RESULTADO_VALIDACION.NO_EN_NOMINA,
+        motivo: 'QR no encontrado en la nómina descargada de este examen.',
         metodo: 'QR',
         tiempoMs: calcularTiempo()
       };

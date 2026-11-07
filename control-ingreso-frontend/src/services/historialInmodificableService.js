@@ -194,7 +194,7 @@ export async function generarBloquesSemilla() {
       idBloque: 1482,
       fechaHoraOficial: "2026-10-28 08:36:12.184 BOT",
       modulo: "CONTROL_INGRESO",
-      operacionEjecutada: "INTENTO_EXAMEN_INCORRECTO (HU-09)",
+      operacionEjecutada: "INTENTO_EXAMEN_INCORRECTO",
       usuarioEjecutor: "jperez (OPERADOR)",
       ipOrigen: "192.168.1.25",
       detalles: "Intento de ingreso denegado: Estudiante Roberto Carlos Arce Valdivia (SIS: 202104859, CI: 7894561) se presentó en Cálculo I Aula 601 pero está programado en Álgebra Lineal Aula 691A.",
