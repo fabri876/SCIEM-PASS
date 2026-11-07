@@ -402,7 +402,7 @@ export function exportarIntentosExcelCsv(arrIntentos, _objMetadata = {}) {
         escapeCsv(item.carreraEstudiante || "No especificada"),
         escapeCsv(item.motivoEtiqueta || item.motivo),
         escapeCsv(item.sePresentoEn),
-        escapeCsv(item.examenAulaAsignada),
+        escapeCsv(item.examenAulaAsignada || "No disponible"),
         escapeCsv(item.fecha),
         escapeCsv(item.hora),
         escapeCsv(item.operador),
@@ -453,29 +453,28 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
     day: "numeric",
   });
   const horaHoy = new Date().toLocaleTimeString("es-BO");
+  const sinDatoHtml = '<span style="display: inline-block; padding: 2px 6px; font-weight: bold; border-radius: 4px; font-size: 11px; background: #f1f5f9; color: #475569;">No disponible</span>';
 
   const filasHtml = arrIntentos
     .map(
       (item, i) => `
-    <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+    <tr style="border-bottom: 1px solid #e2e8f0; font-size: 12px;">
       <td style="padding: 8px 6px; font-weight: bold; color: #1e293b;">${i + 1}</td>
       <td style="padding: 8px 6px;">
         <div style="font-weight: bold; color: #0f172a;">${escaparHtml(item.estudianteNombre)}</div>
-        <div style="color: #64748b; font-size: 10px;">SIS: ${escaparHtml(item.codSis)} | CI: ${escaparHtml(item.ci)}</div>
+        <div style="color: #64748b; font-size: 11px;">SIS: ${escaparHtml(item.codSis)} | CI: ${escaparHtml(item.ci)}</div>
       </td>
       <td style="padding: 8px 6px;">
-        <span style="display: inline-block; padding: 2px 6px; font-weight: bold; border-radius: 4px; font-size: 10px; background: #fee2e2; color: #991b1b;">
+        <span style="display: inline-block; padding: 2px 6px; font-weight: bold; border-radius: 4px; font-size: 11px; background: #f1f5f9; color: #003770;">
           ${escaparHtml(item.motivoEtiqueta || item.motivo)}
         </span>
       </td>
       <td style="padding: 8px 6px; color: #334155;">${escaparHtml(item.sePresentoEn)}</td>
-      <td style="padding: 8px 6px; color: #1e40af; font-weight: 600;">${escaparHtml(item.examenAulaAsignada)}</td>
-      <td style="padding: 8px 6px; color: #475569; font-family: monospace;">${escaparHtml(item.hora)}</td>
+      <td style="padding: 8px 6px; color: #003770; font-weight: 600;">${item.examenAulaAsignada ? escaparHtml(item.examenAulaAsignada) : sinDatoHtml}</td>
+      <td style="padding: 8px 6px; color: #475569;">${escaparHtml(item.fecha || "No disponible")}<br>${escaparHtml(item.hora || "No disponible")}</td>
       <td style="padding: 8px 6px; color: #334155;">${escaparHtml(item.operador)}</td>
       <td style="padding: 8px 6px;">
-        <span style="display: inline-block; padding: 2px 6px; font-weight: bold; border-radius: 4px; font-size: 10px; background: #f0fdf4; color: #166534;">
-          ${escaparHtml(item.estadoPosterior || "No disponible")}
-        </span>
+        ${item.estadoPosterior ? escaparHtml(item.estadoPosterior) : sinDatoHtml}
       </td>
     </tr>`
     )
@@ -488,7 +487,8 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
       <meta charset="utf-8">
       <title>Reporte Oficial de Intentos Incorrectos - SCIEM-PASS</title>
       <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; color: #0f172a; }
+        @page { size: A4 landscape; margin: 10mm; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; color: #0f172a; }
         .header { display: flex; justify-content: space-between; border-bottom: 2px solid #003770; padding-bottom: 12px; margin-bottom: 20px; }
         .logo { font-size: 20px; font-weight: 900; color: #003770; letter-spacing: -0.5px; }
         .sublogo { font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; }
@@ -500,8 +500,11 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
         .kpi-title { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #64748b; }
         .kpi-value { font-size: 20px; font-weight: 900; color: #003770; margin-top: 2px; }
         .kpi-sub { font-size: 9px; color: #475569; }
-        table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px; }
-        th { background: #f1f5f9; padding: 8px 6px; font-size: 10px; text-transform: uppercase; color: #475569; font-weight: 800; border-bottom: 2px solid #cbd5e1; }
+        table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; margin-top: 10px; }
+        th, td { overflow-wrap: anywhere; vertical-align: top; }
+        thead { display: table-header-group; }
+        tr { break-inside: avoid; page-break-inside: avoid; }
+        th { background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 800; border-bottom: 2px solid #cbd5e1; }
         .footer { margin-top: 30px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px; }
       </style>
     </head>
@@ -529,22 +532,23 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
         </div>
         <div class="kpi-box">
           <div class="kpi-title">Examen Incorrecto</div>
-          <div class="kpi-value" style="color: #dc2626;">${kpis.examenIncorrecto}</div>
+          <div class="kpi-value">${kpis.examenIncorrecto}</div>
           <div class="kpi-sub">${kpis.porcentajeExamenInc}% de los intentos</div>
         </div>
         <div class="kpi-box">
           <div class="kpi-title">Aula Diferente</div>
-          <div class="kpi-value" style="color: #d97706;">${kpis.aulaDiferente}</div>
+          <div class="kpi-value">${kpis.aulaDiferente}</div>
           <div class="kpi-sub">Estudiantes con desvío de aula</div>
         </div>
         <div class="kpi-box">
           <div class="kpi-title">Duplicados Bloqueados</div>
-          <div class="kpi-value" style="color: #7c3aed;">${kpis.duplicadosBloqueados}</div>
+          <div class="kpi-value">${kpis.duplicadosBloqueados}</div>
           <div class="kpi-sub">Reingresos bloqueados</div>
         </div>
       </div>
 
       <table>
+        <colgroup><col style="width:3%"><col style="width:17%"><col style="width:15%"><col style="width:10%"><col style="width:15%"><col style="width:11%"><col style="width:16%"><col style="width:13%"></colgroup>
         <thead>
           <tr>
             <th>#</th>
@@ -552,7 +556,7 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
             <th>Motivo del Intento</th>
             <th>Se Presentó En</th>
             <th>Examen / Aula Asignada</th>
-            <th>Hora</th>
+            <th>Fecha / Hora</th>
             <th>Operador</th>
             <th>Estado Posterior</th>
           </tr>
