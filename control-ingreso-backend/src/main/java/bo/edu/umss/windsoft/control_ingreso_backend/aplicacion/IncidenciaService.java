@@ -147,9 +147,27 @@ public class IncidenciaService {
         evidenciaService.validar(evidenciaArchivo);
 
         EstudianteEncontrado estudiante = null;
+        Optional<Ingreso> ingresoEstudiante = Optional.empty();
         if (codSisEstudiante != null) {
             estudiante = estudianteExamenService.buscarPorCodSis(codSisEstudiante)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Estudiante no encontrado."));
+
+            ingresoEstudiante = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
+                    codSisEstudiante, ambiente.getIdAsignatura(), ambiente.getIdExamen());
+
+            // Un estudiante que no ha ingresado al examen no puede estar involucrado en
+            // una incidencia: no podría haber causado un incidente sin haber ingresado.
+            if (ingresoEstudiante.isEmpty()) {
+                throw new SolicitudInvalidaException(
+                        "El estudiante no ha ingresado a este examen; no se puede registrar una incidencia para él.");
+            }
+
+            // Un estudiante expulsado del examen no puede volver a figurar en otra incidencia,
+            // sea del tipo que sea (no solo las expulsiones).
+            if (ingresoEstudiante.get().estaRetirado()) {
+                throw new ConflictoEstadoException(
+                        "El estudiante fue expulsado de este examen; no se pueden registrar más incidencias para él.");
+            }
         }
 
         Ingreso ingresoARetirar = null;
@@ -157,8 +175,7 @@ public class IncidenciaService {
             if (estudiante == null) {
                 throw new SolicitudInvalidaException("Para retirar a un estudiante debe indicar quién es.");
             }
-            ingresoARetirar = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
-                            codSisEstudiante, ambiente.getIdAsignatura(), ambiente.getIdExamen())
+            ingresoARetirar = ingresoEstudiante
                     .orElseThrow(() -> new ConflictoEstadoException(
                             "El estudiante no ingresó a este examen; no se puede retirar."));
             if (ingresoARetirar.estaRetirado()) {

@@ -83,6 +83,8 @@ export default function ControlIngresoDocente() {
         aula: examen?.aula || objExamenInicial?.aula || "Aula asignada",
         asignatura: examen?.materia || objExamenInicial?.materia || "Examen",
         fechaExamen: examen?.fecha || objExamenInicial?.fecha || null,
+        horaInicio: examen?.horaInicio || objExamenInicial?.horaInicio || null,
+        horaFin: examen?.horaFin || objExamenInicial?.horaFin || null,
       }
     : null;
 
