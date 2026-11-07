@@ -336,7 +336,7 @@ export default function HistorialInmodificable() {
               className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-primary-blue focus:bg-white transition"
             >
               <option value="TODOS">Todos los Módulos (Auditoría General)</option>
-              <option value="CONTROL_INGRESO">CONTROL_INGRESO (HU-09 / Verificación)</option>
+              <option value="CONTROL_INGRESO">CONTROL DE INGRESO (Verificación)</option>
               <option value="EXPULSIONES">EXPULSIONES (HU-14 / Incidentes)</option>
               <option value="ING_EXCEPCIONAL">ING_EXCEPCIONAL (HU-06)</option>
               <option value="HABILITACIONES">HABILITACIONES (Nóminas)</option>

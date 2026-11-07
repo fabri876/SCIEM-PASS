@@ -10,6 +10,13 @@ public record UltimoIngresoDTO(
         String registradoPor,
         Integer idAsignatura,
         Integer idExamen,
-        Integer idAmbiente
+        Integer idAmbiente,
+        String estado
 ) {
+    public UltimoIngresoDTO(Integer idIngreso, LocalDateTime horaIngreso, String metodoIngreso,
+                            EstudianteResumenDTO estudiante, String registradoPor, Integer idAsignatura,
+                            Integer idExamen, Integer idAmbiente) {
+        this(idIngreso, horaIngreso, metodoIngreso, estudiante, registradoPor, idAsignatura, idExamen,
+                idAmbiente, "PERMITIDO");
+    }
 }

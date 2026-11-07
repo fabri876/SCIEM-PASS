@@ -3,6 +3,7 @@ import { asistenciaRepo } from './asistenciaRepo.js';
 import { incidenciaRepo } from './incidenciaRepo.js';
 import { solicitarPersistencia } from './almacenamiento.js';
 import { sincronizarPendientes, sincronizarIncidenciasPendientes, iniciarSync, suscribirSync } from './syncQueueService.js';
+import { sincronizarIntentosExamen } from './syncIntentosExamen.js';
 import {
   iniciarConectividad,
   detenerConectividad,
@@ -103,10 +104,11 @@ async function dispararSincronizacion(motivo) {
       origen: 'automatico'
     });
     const resIncidencias = await sincronizarIncidenciasPendientes({ tamanoLote: tamano });
+    const resIntentos = await sincronizarIntentosExamen();
 
     if (!res?.omitido) {
       ultimaSync = Date.now();
-      ultimoResultado = { asistencias: res, incidencias: resIncidencias };
+      ultimoResultado = { asistencias: res, incidencias: resIncidencias, intentos: resIntentos };
     }
 
     if (res?.pausadaPorAuth) {
@@ -149,6 +151,7 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
     origen: 'manual'
   });
   const resIncidencias = await sincronizarIncidenciasPendientes({ tamanoLote: loteSize });
+  const resIntentos = await sincronizarIntentosExamen();
   console.log('[syncScheduler] Resultado sincronizarPendientes:', res);
 
   if (res?.omitido) {
@@ -159,7 +162,7 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
   }
 
   ultimaSync = Date.now();
-  ultimoResultado = { asistencias: res, incidencias: resIncidencias };
+  ultimoResultado = { asistencias: res, incidencias: resIncidencias, intentos: resIntentos };
 
   if (res?.pausadaPorAuth) {
     pausadoPorAuth = true;

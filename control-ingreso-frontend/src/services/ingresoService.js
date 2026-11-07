@@ -204,7 +204,9 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
   registrarActividad();
   const strIdentificador = String(strValor).trim();
   const strToken = obtenerToken();
-  const resp = await fetch(`${strApiBaseUrl}/api/v1/control/ingresos`, {
+  let resp;
+  try {
+    resp = await fetch(`${strApiBaseUrl}/api/v1/control/ingresos`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -216,9 +218,16 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
       idexamen: objExamen.idexamen ?? idExamen,
       idambiente: objExamen.idambiente,
       metodoIngreso: strMetodo === "QR" ? "ESCANEO" : "MANUAL", // el backend usa ESCANEO | MANUAL
+      ...(objOpciones.solicitud ? { solicitud: objOpciones.solicitud } : {}),
       ...(objOpciones.ignorarFila ? { ignorarFila: true } : {}),
     }),
-  });
+    });
+  } catch (causa) {
+    const error = new Error("No se pudo conectar con el servidor para verificar el ingreso.");
+    error.esErrorRed = true;
+    error.cause = causa;
+    throw error;
+  }
 
   if (resp.status === 401) fnSesionVencida();
 
@@ -242,7 +251,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
       sis: strSis,
       nombres: est.nombreCompleto || est.nombres || "",
       apellidos: est.nombreCompleto ? "" : est.apellidos || "",
-      carrera: est.carrera || "Carrera no asignada",
+      carrera: est.carrera || "Carrera no disponible",
       fotoUrl: est.fotoUrl,
       // HU10: en "aula diferente" el aula ASIGNADA viene en primerIngreso.nombreAmbiente
       aulaAsignada: (strResultado === "OTRA_AULA" && objData.primerIngreso?.nombreAmbiente)
@@ -278,6 +287,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
       : null,
     motivos: objData.motivoInhabilitacion ? [objData.motivoInhabilitacion] : objData.motivos || [],
     otroExamen: objData.otroExamen || null,
+    intentoRegistrado: objData.intentoRegistrado === true,
     filaCorrecta: objData.filaCorrecta
       ? {
         desde: objData.filaCorrecta.letraDesde || objData.filaCorrecta.desde,
@@ -331,8 +341,11 @@ export async function obtenerUltimosIngresos(idExamen, numLimite = 5, objExamen 
       const est = r.estudiante || {};
       const strMetodo = String(r.metodoIngreso || r.metodo || "").toUpperCase();
       return {
+        idRegistro: `${r.estado || "PERMITIDO"}:${r.idIngreso ?? ""}`,
+        estado: r.estado || "PERMITIDO",
         hora: soloHora(r.horaIngreso || r.hora),
-        metodo: strMetodo === "ESCANEO" || strMetodo === "QR" ? "QR" : "Manual",
+        metodo: !strMetodo ? "—" : strMetodo === "ESCANEO" || strMetodo === "QR" ? "QR"
+          : strMetodo === "SIS" || strMetodo === "CI" ? `Manual (${strMetodo})` : "Manual",
         registradoPor: nombreRegistrador(r),
         estudiante: {
           nombres: est.nombreCompleto || est.nombres || r.nombreCompleto || "",

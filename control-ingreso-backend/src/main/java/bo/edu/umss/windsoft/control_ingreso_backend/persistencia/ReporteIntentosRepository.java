@@ -22,7 +22,9 @@ public class ReporteIntentosRepository {
                 SELECT i.idintento, i.idasignatura, a.nombreasignatura, i.idexamen,
                        t.nombretipoexamen, e.fechaexamen, u.nombreusuario, u.apellidousuario,
                        i.codsisestudiante, u.ciusuario, i.motivointento, ap.nombreaula AS aula_presentada,
-                       aa.nombreaula AS aula_asignada, i.fechaintento, i.horaintento,
+                       aa.nombreaula AS aula_asignada, ad.nombreasignatura AS asignatura_destino,
+                       td.nombretipoexamen AS tipo_examen_destino, ed.fechaexamen AS fecha_examen_destino,
+                       aad.nombreaula AS aula_destino, i.fechaintento, i.horaintento,
                        op.nombreusuario AS operador_nombre, op.apellidousuario AS operador_apellido
                   FROM public.intentosnoautorizados i
                   JOIN public.examen e ON e.idexamen = i.idexamen AND e.idasignatura = i.idasignatura
@@ -33,7 +35,12 @@ public class ReporteIntentosRepository {
                   LEFT JOIN public.ambiente p ON p.idambiente = i.idambiente
                   LEFT JOIN public.aula ap ON ap.idaula = p.idaula
                   LEFT JOIN public.ambiente destino ON destino.idambiente = i.idambienteasignado
-                  LEFT JOIN public.aula aa ON aa.idaula = destino.idaula
+                   LEFT JOIN public.aula aa ON aa.idaula = destino.idaula
+                   LEFT JOIN public.asignatura ad ON ad.idasignatura = i.hu09_asignatura_destino
+                   LEFT JOIN public.examen ed ON ed.idasignatura = i.hu09_asignatura_destino AND ed.idexamen = i.hu09_examen_destino
+                   LEFT JOIN public.tipoexamen td ON td.idtipoexamen = ed.idtipoexamen
+                   LEFT JOIN public.ambiente ambd ON ambd.idambiente = i.hu09_ambiente_destino
+                   LEFT JOIN public.aula aad ON aad.idaula = ambd.idaula
                  WHERE 1=1
                 """);
         MapSqlParameterSource params = new MapSqlParameterSource();
@@ -60,12 +67,18 @@ public class ReporteIntentosRepository {
             var fechaExamen = rs.getDate("fechaexamen");
             var fechaIntento = rs.getDate("fechaintento");
             var hora = rs.getTimestamp("horaintento");
+            String asignado = rs.getString("aula_asignada");
+            if ("EXAMEN_INCORRECTO".equals(motivoReal)) {
+                var fechaDestino = rs.getDate("fecha_examen_destino");
+                asignado = unir(unir(rs.getString("asignatura_destino"), rs.getString("tipo_examen_destino")),
+                        unir(fechaDestino == null ? null : fechaDestino.toString(), rs.getString("aula_destino")));
+            }
             return new ReporteIntentoDto(rs.getInt("idintento"), rs.getInt("idasignatura"),
                     rs.getString("nombreasignatura"), rs.getInt("idexamen"),
                     unir(rs.getString("nombretipoexamen"), fechaExamen == null ? null : fechaExamen.toString()),
                     unir(rs.getString("nombreusuario"), rs.getString("apellidousuario")),
                     rs.getString("codsisestudiante"), rs.getString("ciusuario"), null,
-                    motivoReal, etiqueta, rs.getString("aula_presentada"), rs.getString("aula_asignada"),
+                    motivoReal, etiqueta, rs.getString("aula_presentada"), asignado,
                     fechaIntento == null ? null : fechaIntento.toString(),
                     hora == null ? null : hora.toLocalDateTime().format(DateTimeFormatter.ofPattern("HH:mm:ss")),
                     unir(rs.getString("operador_nombre"), rs.getString("operador_apellido")), null, null);

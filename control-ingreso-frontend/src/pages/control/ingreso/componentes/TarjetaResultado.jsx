@@ -95,6 +95,36 @@ function configurar(r, strRol) {
         ) : <Nota><b className="font-bold">Debe ir con otro ayudante del aula</b></Nota>,
       };
     }
+    case "EXAMEN_INCORRECTO_OFFLINE":
+      return {
+        strTono: "bad", Icono: UserX, strTitulo: "INGRESO DENEGADO — EXAMEN INCORRECTO",
+        strSub: r.estadoSync === "sincronizado" ? "SINCRONIZADO · INTENTO REGISTRADO EN AUDITORÍA"
+          : r.estadoSync === "revision" ? "PENDIENTE DE REVISIÓN · AUDITORÍA NO CONFIRMADA"
+          : "GUARDADO EN EL DISPOSITIVO · PENDIENTE DE SINCRONIZAR",
+        nota: <Nota Icono={MapPin}><b className="block font-bold">ORIENTACIÓN SEGÚN DATOS DESCARGADOS</b>
+          {[r.otroExamen?.asignatura, r.otroExamen?.aula && textoAula(r.otroExamen.aula), r.otroExamen?.edificio].filter(Boolean).join(" · ")}
+          <span className="block">{r.estadoSync === "sincronizado"
+            ? "El servidor confirmó el registro y la auditoría."
+            : "Confirma el destino con el docente. La sincronización y la auditoría están sujetas a validación del servidor."}</span></Nota>,
+      };
+    case "EXAMEN_INCORRECTO":
+      return {
+        strTono: "bad", Icono: UserX, strTitulo: "INGRESO DENEGADO — EXAMEN INCORRECTO",
+        strSub: r.intentoRegistrado ? "INTENTO REGISTRADO EN AUDITORÍA" : "NO SE CONFIRMÓ EL REGISTRO",
+        nota: (
+          <Nota Icono={MapPin}>
+            <b className="block font-bold">ORIENTACIÓN DE REUBICACIÓN AL ESTUDIANTE</b>
+            {r.otroExamen ? (
+              <span>{[r.otroExamen.asignatura, r.otroExamen.nombre,
+                r.otroExamen.grupo && `Grupo ${r.otroExamen.grupo}`,
+                r.otroExamen.aula && textoAula(r.otroExamen.aula), r.otroExamen.edificio,
+                r.otroExamen.hora].filter(Boolean).join(" · ")}
+                {!r.otroExamen.aula && " · Aula asignada no disponible"}
+              </span>
+            ) : <span>{r.mensaje || "No se encontró un examen correspondiente para este horario."}</span>}
+          </Nota>
+        ),
+      };
     case "NO_INSCRITO":
       return {
         strTono: "bad", Icono: UserX, strTitulo: "NO INSCRITO EN ESTE EXAMEN", strSub: "PERTENECE A OTRO EXAMEN",
@@ -109,6 +139,12 @@ function configurar(r, strRol) {
         strTono: "bad", Icono: Ban, strTitulo: "QR INVÁLIDO", strSub: "EL CÓDIGO QR NO ES VÁLIDO",
         strQuien: "Credencial rechazada",
         nota: <Nota>{r.mensaje || "El QR no existe, fue anulado o ya expiró. Indica al estudiante que contacte a su docente."}</Nota>,
+      };
+    case "NO_EN_NOMINA_OFFLINE":
+      return {
+        strTono: "bad", Icono: SearchX, strTitulo: "NO ENCONTRADO EN LA NÓMINA", strSub: "VERIFICACIÓN SIN CONEXIÓN",
+        strQuien: "Sin coincidencias en la nómina",
+        nota: <Nota>No se encontró {r.metodo === "QR" ? "el código QR" : <>el dato «{r.valor ?? ""}»</>} en la nómina descargada de este examen. No se puede confirmar si está registrado en el sistema ni su examen correspondiente; verifica con conexión o consulta al docente. El intento no fue registrado en auditoría.</Nota>,
       };
     case "NO_ENCONTRADO":
       return {
@@ -142,7 +178,7 @@ function Foto({ strUrl, strNombre }) {
   );
 }
 
-export default function TarjetaResultado({ objResultado, onCerrar, strRol = "operador" }) {
+export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIncidencia, strRol = "operador" }) {
   const refTarjeta = useRef(null);
 
   useEffect(() => {
@@ -214,12 +250,30 @@ export default function TarjetaResultado({ objResultado, onCerrar, strRol = "ope
                   <strong className="block text-[15px] font-bold text-[#08264A]">{e.sis}</strong>
                 </div>
               )}
+              <div>
+                <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">Carrera</span>
+                <strong className="block text-[15px] font-bold text-[#08264A]">{e.carrera || "No disponible"}</strong>
+              </div>
             </div>
           )}
         </div>
       </div>
 
       {c.nota && <div className="mx-5 mb-[18px] flex flex-col gap-2 max-md:mx-4">{c.nota}</div>}
+      {objResultado.resultado === "EXAMEN_INCORRECTO" && (
+        <div className="mx-5 mb-5 max-md:mx-4">
+          <button type="button" onClick={onCerrar}
+            className="rounded-lg bg-[#003770] px-4 py-3 text-sm font-bold text-white max-md:w-full">
+            Aceptar y continuar siguiente estudiante
+          </button>
+          {onRegistrarIncidencia && (
+            <button type="button" onClick={onRegistrarIncidencia}
+              className="ml-3 rounded-lg border border-[#003770] px-4 py-3 text-sm font-bold text-[#003770] max-md:ml-0 max-md:mt-2 max-md:w-full">
+              Registrar incidencia
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
