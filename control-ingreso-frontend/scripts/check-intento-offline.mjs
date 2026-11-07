@@ -9,6 +9,8 @@ try {
     asignaturaControl: 2, examenControl: 3, ambienteControl: 4, estudianteSis: 123456,
     asignaturaDestino: 5, examenDestino: 6, ambienteDestino: 7, metodo: 'SIS', fechaCreacion: Date.now() };
   assert.doesNotThrow(() => validarIntentoPendiente(intento));
+  assert.doesNotThrow(() => validarIntentoPendiente({ ...intento, asignaturaDestino: null, examenDestino: null, ambienteDestino: null }));
+  assert.throws(() => validarIntentoPendiente({ ...intento, examenDestino: null }));
   assert.throws(() => validarIntentoPendiente({ ...intento, clientUuid: 'invalido' }));
   assert.throws(() => validarIntentoPendiente({ ...intento, operadorId: 0 }));
   assert.throws(() => validarIntentoPendiente({ ...intento, metodo: 'QR', qrHash: 'token-ficticio' }));

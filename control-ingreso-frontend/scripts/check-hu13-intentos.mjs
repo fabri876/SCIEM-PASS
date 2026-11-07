@@ -54,6 +54,8 @@ try {
     DATOS_SEMILLA_INTENTOS,
     calcularEstadisticasIntentos,
     listarReporteIntentosIncorrectos,
+    exportarIntentosExcelCsv,
+    generarReporteOficialPdf,
   } = await server.ssrLoadModule("/src/services/reporteIntentosService.js");
 
   // Verificar semillas de datos
@@ -125,11 +127,11 @@ try {
     "Debe contener KPI de total intentos"
   );
   assert.ok(
-    html.includes("Examen Incorrecto (HU-09)"),
+    html.includes("Examen Incorrecto"),
     "Debe contener KPI de examen incorrecto"
   );
   assert.ok(
-    html.includes("Aula Diferente (HU-18)"),
+    html.includes("Aula Diferente"),
     "Debe contener KPI de aula diferente"
   );
   assert.ok(
@@ -140,6 +142,35 @@ try {
     html.includes("Detalle Nominal de Intentos Incorrectos"),
     "Debe contener la tabla de detalle nominal"
   );
+  assert.ok(!html.includes("HU-09") && !html.includes("HU-18"));
+
+  console.log("3. Probando exportaciones con datos ficticios...");
+  const fila = { estudianteNombre: '=SUM(1,2)', codSis: '123456', ci: '<script>',
+    motivo: 'EXAMEN_INCORRECTO', examenAulaAsignada: 'Aula ficticia', estadoPosterior: null };
+  let ultimoBlob;
+  const crearUrlOriginal = URL.createObjectURL;
+  const revocarUrlOriginal = URL.revokeObjectURL;
+  URL.createObjectURL = (blob) => { ultimoBlob = blob; return 'blob:prueba'; };
+  URL.revokeObjectURL = () => {};
+  globalThis.document = { createElement: () => ({ style: {}, setAttribute() {}, click() {} }),
+    body: { appendChild() {}, removeChild() {} } };
+  globalThis.window = { open: () => ({ print() {} }) };
+  try {
+    exportarIntentosExcelCsv([fila]);
+    const csv = await ultimoBlob.text();
+    assert.ok(csv.includes("'=SUM(1,2)"), 'CSV debe proteger las fórmulas');
+    assert.ok(csv.includes('Aula ficticia') && csv.includes('No disponible'));
+    generarReporteOficialPdf([fila], { asignatura: '<script>' });
+    const vista = await ultimoBlob.text();
+    assert.ok(vista.includes('&lt;script&gt;') && !vista.includes('<script>'));
+    assert.ok(vista.includes('Aula ficticia') && vista.includes('No disponible'));
+  } finally {
+    URL.createObjectURL = crearUrlOriginal;
+    URL.revokeObjectURL = revocarUrlOriginal;
+    delete globalThis.document;
+    delete globalThis.window;
+  }
+  console.log('   ✓ CSV y vista imprimible conservan datos y escapan valores');
 
   console.log("   ✓ Componente SeccionReporteIntentosIncorrectos renderiza todos los elementos requeridos");
 

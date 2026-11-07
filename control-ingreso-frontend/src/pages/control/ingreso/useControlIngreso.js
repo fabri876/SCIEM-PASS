@@ -388,7 +388,8 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
               tipo = "CI";
               hallazgo = buscarDestinoJornada({ candidatos: copia.candidatos, tipo, identificador: clave, examenActual: exId, ahora: fechaCreacion });
             }
-            if (hallazgo.estado === "ENCONTRADO" && globalThis.crypto?.getRandomValues) {
+            const candidato = hallazgo.destino || hallazgo.estudiante;
+            if ((hallazgo.estado === "ENCONTRADO" || hallazgo.estado === "AMBIGUO") && candidato && globalThis.crypto?.getRandomValues) {
               const destino = hallazgo.destino;
               const identidad = `${id}|${strMetodo}|${String(strValor).trim()}`;
               const recuperada = refSolicitudPendiente.current?.identidad === identidad
@@ -396,17 +397,23 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
               const clientUuid = recuperada?.clave || generarUuid();
               await intentoExamenPendienteRepo.guardar({
                 clientUuid, operadorId, asignaturaControl: asignaturaId, examenControl: exId,
-                ambienteControl: ambienteId, estudianteSis: destino.sis,
-                asignaturaDestino: destino.idAsignatura, examenDestino: destino.idExamen, ambienteDestino: destino.idAmbiente,
+                ambienteControl: ambienteId, estudianteSis: candidato.sis,
+                asignaturaDestino: destino?.idAsignatura ?? null, examenDestino: destino?.idExamen ?? null, ambienteDestino: destino?.idAmbiente ?? null,
                 metodo: strMetodo === "QR" ? "QR" : tipo, qrHash, qrToken, fechaCreacion,
               });
               if (recuperada && refSolicitudPendiente.current === recuperada) refSolicitudPendiente.current = null;
               const mapeado = {
                 ...baseResultado("EXAMEN_INCORRECTO_OFFLINE", strMetodo === "QR" ? "" : strValor, textoMetodo(strMetodo, rVal.metodo)),
                 clientUuid, estadoSync: "pendiente",
-                estudiante: { nombres: destino.nombre, apellidos: "", sis: destino.sis, ci: destino.ci },
-                otroExamen: { asignatura: destino.asignatura, aula: destino.aula, edificio: destino.edificio },
+                estudiante: { nombres: candidato.nombre, apellidos: "", sis: candidato.sis, ci: candidato.ci },
+                otroExamen: destino ? { asignatura: destino.asignatura, aula: destino.aula, edificio: destino.edificio } : null,
+                mensaje: destino ? null : "Hay varios exámenes posibles. Consulta al docente antes de orientar al estudiante.",
               };
+              setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
+              return mapeado;
+            }
+            if (hallazgo.estado === "AMBIGUO") {
+              const mapeado = { ...baseResultado("AMBIGUO_OFFLINE", "", textoMetodo(strMetodo, rVal.metodo)) };
               setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
               return mapeado;
             }

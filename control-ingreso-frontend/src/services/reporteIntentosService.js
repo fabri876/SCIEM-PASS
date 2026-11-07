@@ -406,7 +406,7 @@ export function exportarIntentosExcelCsv(arrIntentos, _objMetadata = {}) {
         escapeCsv(item.fecha),
         escapeCsv(item.hora),
         escapeCsv(item.operador),
-        escapeCsv(item.estadoPosterior || "Sin estado posterior"),
+        escapeCsv(item.estadoPosterior || "No disponible"),
       ].join(",")
     ),
   ];
@@ -474,7 +474,7 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
       <td style="padding: 8px 6px; color: #334155;">${escaparHtml(item.operador)}</td>
       <td style="padding: 8px 6px;">
         <span style="display: inline-block; padding: 2px 6px; font-weight: bold; border-radius: 4px; font-size: 10px; background: #f0fdf4; color: #166534;">
-          ${escaparHtml(item.estadoPosterior || "No registrado")}
+          ${escaparHtml(item.estadoPosterior || "No disponible")}
         </span>
       </td>
     </tr>`

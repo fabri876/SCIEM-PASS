@@ -25,7 +25,13 @@ export function buscarDestinoJornada({ candidatos, tipo, identificador, examenAc
     }
     examenes.set(id, c);
   }
-  if (examenes.size > 1) return { estado: 'AMBIGUO', destino: null };
+  if (examenes.size > 1) {
+    const opciones = [...examenes.values()];
+    const sis = String(opciones[0].sis ?? '').trim();
+    // Un CI compartido o datos inconsistentes no identifican a una persona.
+    const estudiante = sis && opciones.every((c) => String(c.sis ?? '').trim() === sis) ? opciones[0] : null;
+    return { estado: 'AMBIGUO', destino: null, estudiante };
+  }
   if (!examenes.size) return { estado: 'SIN_COINCIDENCIA', destino: null };
   return { estado: 'ENCONTRADO', destino: examenes.values().next().value };
 }

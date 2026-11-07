@@ -6,9 +6,13 @@ const HASH = /^[0-9a-f]{64}$/;
 /** Una verificacion rechazada nunca se introduce en la cola de asistencias. */
 export function validarIntentoPendiente(item) {
   if (!item || !UUID.test(String(item.clientUuid || ''))) throw new Error('Identificador de intento invalido.');
-  for (const nombre of ['operadorId', 'asignaturaControl', 'examenControl', 'ambienteControl', 'estudianteSis', 'asignaturaDestino', 'examenDestino', 'ambienteDestino']) {
+  for (const nombre of ['operadorId', 'asignaturaControl', 'examenControl', 'ambienteControl', 'estudianteSis']) {
     if (!Number.isSafeInteger(Number(item[nombre])) || Number(item[nombre]) <= 0) throw new Error(`Campo invalido: ${nombre}.`);
   }
+  const destino = [item.asignaturaDestino, item.examenDestino, item.ambienteDestino];
+  const sinDestino = destino.every((valor) => valor == null);
+  const destinoCompleto = destino.every((valor) => valor != null && Number.isSafeInteger(Number(valor)) && Number(valor) > 0);
+  if (!sinDestino && !destinoCompleto) throw new Error('El destino debe estar completo o no especificarse.');
   if (!['SIS', 'CI', 'QR'].includes(item.metodo)) throw new Error('Metodo de verificacion invalido.');
   if (item.metodo === 'QR' && !HASH.test(String(item.qrHash || ''))) throw new Error('Huella de QR invalida.');
   if (item.metodo === 'QR' && (typeof item.qrToken !== 'string' || !item.qrToken.trim())) throw new Error('Falta la credencial QR para sincronizar.');
@@ -23,8 +27,9 @@ export const intentoExamenPendienteRepo = {
       clientUuid: item.clientUuid, operadorId: Number(item.operadorId),
       asignaturaControl: Number(item.asignaturaControl), examenControl: Number(item.examenControl),
       ambienteControl: Number(item.ambienteControl), estudianteSis: Number(item.estudianteSis),
-      asignaturaDestino: Number(item.asignaturaDestino), examenDestino: Number(item.examenDestino),
-      ambienteDestino: Number(item.ambienteDestino),
+      asignaturaDestino: item.asignaturaDestino == null ? null : Number(item.asignaturaDestino),
+      examenDestino: item.examenDestino == null ? null : Number(item.examenDestino),
+      ambienteDestino: item.ambienteDestino == null ? null : Number(item.ambienteDestino),
       metodo: item.metodo, qrHash: item.metodo === 'QR' ? item.qrHash : null,
       qrToken: item.metodo === 'QR' ? item.qrToken.trim() : null,
       fechaCreacion: item.fechaCreacion, estado: 'pendiente',
