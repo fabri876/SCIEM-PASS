@@ -29,9 +29,9 @@ const CATALOGO_TIPOS = [
 ];
 
 const CATALOGO_SEVERIDADES = [
-  { codigo: "BAJA", etiqueta: "Baja", color: "bg-[#83B7E2] text-white" },
-  { codigo: "MEDIA", etiqueta: "Media", color: "bg-[#4A97D3] text-white" },
-  { codigo: "ALTA", etiqueta: "Alta", color: "bg-[#003770] text-white" },
+  { codigo: "BAJA", etiqueta: "Baja", color: "bg-[#4A97D3] text-white" },
+  { codigo: "MEDIA", etiqueta: "Media", color: "bg-[#1860A3] text-white" },
+  { codigo: "ALTA", etiqueta: "Alta", color: "bg-[#B91C1C] text-white" },
 ];
 
 const DESCRIPCION_MIN = 15;
@@ -148,11 +148,13 @@ export default function ModalIncidencia({
   const idAmbienteActual = aulaSeleccionada?.idAmbiente ?? null;
 
   // Determina si un examen está "en curso" (fecha hoy y hora entre inicio y fin).
+  // Usa la fecha/hora LOCAL del navegador para evitar desajustes de zona horaria (UTC).
   const esExamenEnCurso = (aula) => {
     if (!aula?.fechaExamen || !aula?.horaInicio || !aula?.horaFin) return false;
-    const hoy = new Date().toISOString().slice(0, 10);
-    if (String(aula.fechaExamen).slice(0, 10) !== hoy) return false;
     const ahora = new Date();
+    const hoyLocal = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+    const fechaExamenLocal = new Date(String(aula.fechaExamen) + "T00:00:00");
+    if (fechaExamenLocal.getTime() !== hoyLocal.getTime()) return false;
     const [hI, mI] = String(aula.horaInicio).split(":").map(Number);
     const [hF, mF] = String(aula.horaFin).split(":").map(Number);
     const inicio = new Date(ahora); inicio.setHours(hI, mI, 0, 0);
@@ -188,7 +190,9 @@ export default function ModalIncidencia({
     retirarEstudiante && estudianteYaRetirado && "no se puede expulsar a un estudiante ya retirado",
     retirarEstudiante && boolAulaFija && !boolExamenActivo && "el examen debe estar en curso para registrar una expulsión",
   ].filter(Boolean);
-  const puedeRegistrar = faltantes.length === 0 && !boolGuardando && !strExito;
+  const puedeRegistrar =
+    faltantes.length === 0 && !boolGuardando && !strExito && !estudianteYaRetirado && !strErrorBusquedaEstudiante &&
+    !(boolEsExpulsion && aulasDisponiblesFiltradas.length === 0);
 
   const fnCambiarAula = (strIdAmbiente) => {
     const encontrada = aulasDisponibles.find((a) => String(a.idAmbiente) === strIdAmbiente);
@@ -213,7 +217,7 @@ export default function ModalIncidencia({
 
     try {
       const data = await consultarEstudianteIncidencia(idAmbienteActual, query);
-      if (data && data.estado !== "NO_ENCONTRADO") {
+      if (data && data.estado !== "NO_ENCONTRADO" && data.estado !== "NO_INSCRITO" && data.estado !== "SIN_INGRESO") {
         setEstudianteInvolucrado({
           nombreCompleto: data.nombreCompleto,
           ci: data.ci,
@@ -221,13 +225,19 @@ export default function ModalIncidencia({
           estado: data.estado,
           horaIngresoPrevio: data.horaIngresoPrevio,
         });
-        // Si ya fue retirado no se puede volver a expulsar.
+        // Si ya fue expulsado no se puede volver a expulsar ni registrar más incidencias.
         if (data.estado === "RETIRADO") {
           setBoolEsExpulsion(false);
           setRetirarEstudiante(false);
         }
       } else {
-        setStrErrorBusquedaEstudiante("Estudiante no encontrado");
+        setStrErrorBusquedaEstudiante(
+          data?.estado === "NO_INSCRITO"
+            ? data.mensaje || "El estudiante no está inscrito en la materia de este examen."
+            : data?.estado === "SIN_INGRESO"
+            ? data.mensaje || "El estudiante no ha ingresado a este examen; no se puede registrar una incidencia para él."
+            : "Estudiante no encontrado"
+        );
       }
     } catch (err) {
       setStrErrorBusquedaEstudiante(err.message || "No se pudo buscar al estudiante.");
@@ -260,6 +270,10 @@ export default function ModalIncidencia({
 
   const fnRegistrar = async (e) => {
     if (e) e.preventDefault();
+    if (estudianteYaRetirado) {
+      setStrError("Este estudiante ya fue expulsado de este examen; no se pueden registrar más incidencias para él.");
+      return;
+    }
     if (!puedeRegistrar) {
       if (faltantes.length) setStrError(`Falta ${faltantes.join(", ")}.`);
       return;
@@ -396,7 +410,7 @@ export default function ModalIncidencia({
               Examen y aula <span className="text-[#B91C1C]">*</span>
             </label>
             {aulasDisponiblesFiltradas.length === 0 ? (
-              <p className={`rounded-xl p-3 text-xs font-bold ${boolEsExpulsion ? "bg-[#003770] border border-[#003770] text-white" : "bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83]"}`}>
+              <p className={`rounded-xl p-3 text-xs font-bold ${boolEsExpulsion ? "bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C]" : "bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83]"}`}>
                 {boolEsExpulsion
                   ? "No hay exámenes en curso para registrar expulsiones. La expulsión solo puede realizarse mientras el examen está en desarrollo."
                   : "No tienes exámenes asignados que ya se hayan tomado. Primero debe estar asignado el examen."}
@@ -452,7 +466,7 @@ export default function ModalIncidencia({
               <div className="mt-2 rounded-xl border border-[#B6D3EE] bg-[#F0F6FC] p-3 animate-in fade-in slide-in-from-top-1 duration-150">
                 <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#003770]">
                   <FileText className="w-3.5 h-3.5" />
-                  Especifica el tipo <span className="text-[#DC2626]">*</span>
+                  Especifica el tipo <span className="text-[#B91C1C]">*</span>
                 </label>
                 <input
                   type="text"
@@ -513,7 +527,7 @@ export default function ModalIncidencia({
                 type="button"
                 onClick={fnBuscarEstudianteInvolucrado}
                 disabled={boolBuscandoEstudiante || !strBusquedaEstudiante.trim() || !idAmbienteActual}
-                className="bg-[#F1F5F9] hover:bg-[#CBD5E1] text-[#475569] font-bold px-3 py-2 rounded-xl text-xs cursor-pointer transition disabled:opacity-50 shrink-0"
+                className="bg-[#F0F6FC] hover:bg-[#D9E8F7] text-[#1860A3] border border-[#B6D3EE] font-bold px-3 py-2 rounded-xl text-xs cursor-pointer transition disabled:opacity-50 shrink-0"
               >
                 {boolBuscandoEstudiante ? "Buscando..." : "Buscar"}
               </button>
@@ -530,7 +544,7 @@ export default function ModalIncidencia({
                   <span className="text-xs font-bold text-[#003770]">
                     {estudianteInvolucrado.nombreCompleto}
                     {estudianteInvolucrado.estado === "RETIRADO"
-                      ? " · ya fue retirado"
+                      ? " · ya fue expulsado de este examen"
                       : estudianteInvolucrado.horaIngresoPrevio
                       ? ` · ingresó ${formatearHora(estudianteInvolucrado.horaIngresoPrevio)}`
                       : " · no ingresó a este examen"}
@@ -550,9 +564,16 @@ export default function ModalIncidencia({
                 </button>
               </div>
             )}
+
+            {estudianteYaRetirado && (
+              <p className="mt-2 bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] rounded-xl px-3 py-2 text-[11px] font-bold">
+                Este estudiante ya fue expulsado de este examen. No se pueden registrar más incidencias para él.
+              </p>
+            )}
+
             <div
               className={`mt-3 rounded-xl border transition-colors ${
-                boolEsExpulsion ? "border-[#003770] bg-[#F0F6FC]" : "border-[#CBD5E1] bg-white"
+                boolEsExpulsion ? "border-[#B91C1C] bg-[#FEF2F2]" : "border-[#CBD5E1] bg-white"
               }`}
             >
               <label
@@ -579,7 +600,7 @@ export default function ModalIncidencia({
                 <span
                   className={`mt-0.5 w-[18px] h-[18px] rounded-[5px] border-2 flex items-center justify-center shrink-0 transition-colors ${
                     boolEsExpulsion
-                      ? "bg-[#003770] border-[#003770]"
+                      ? "bg-[#B91C1C] border-[#B91C1C]"
                       : "bg-white border-[#CBD5E1]"
                   }`}
                 >
@@ -589,12 +610,12 @@ export default function ModalIncidencia({
                   <div className="flex items-center gap-1.5">
                     <UserMinus
                       className={`w-3.5 h-3.5 shrink-0 ${
-                        boolEsExpulsion ? "text-[#DC2626]" : "text-[#9AA8BA]"
+                        boolEsExpulsion ? "text-[#B91C1C]" : "text-[#9AA8BA]"
                       }`}
                     />
                     <span
                       className={`text-xs font-extrabold ${
-                        boolEsExpulsion ? "text-[#003770]" : "text-[#475569]"
+                        boolEsExpulsion ? "text-[#B91C1C]" : "text-[#475569]"
                       }`}
                     >
                       Expulsar al estudiante del examen
@@ -611,7 +632,7 @@ export default function ModalIncidencia({
                   )}
                   {estudianteYaRetirado && (
                     <p className="text-[10px] font-bold text-[#B91C1C] mt-1">
-                      Este estudiante ya fue retirado de este examen; no se puede volver a expulsar.
+                      Este estudiante ya fue expulsado de este examen; no se puede volver a expulsar.
                     </p>
                   )}
                 </div>
@@ -694,14 +715,18 @@ export default function ModalIncidencia({
             <button
               type="submit"
               disabled={!puedeRegistrar}
-              className="flex-[1.5] bg-[#003770] hover:bg-[#08264A] disabled:opacity-45 disabled:cursor-not-allowed text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
+              className={`flex-[1.5] disabled:opacity-45 disabled:cursor-not-allowed text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer ${
+                boolEsExpulsion
+                  ? "bg-[#B91C1C] hover:bg-[#991B1B]"
+                  : "bg-[#003770] hover:bg-[#08264A]"
+              }`}
             >
               {boolGuardando || boolCerrandoExpulsion ? (
                 <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
               ) : boolEsExpulsion ? (
                 <UserMinus className="w-4 h-4 text-white" />
               ) : (
-                <AlertTriangle className="w-4 h-4 text-[#4A97D3]" />
+                <AlertTriangle className="w-4 h-4 text-[#D9E8F7]" />
               )}
               <span>{boolEsExpulsion ? "Registrar y cerrar expulsión" : "Registrar incidencia"}</span>
             </button>
