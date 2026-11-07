@@ -135,25 +135,30 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
       </div>
 
       {objNomina && (
-        <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-xl bg-[#F0F6FC] border border-[#D9E8F7] text-xs font-bold">
-          <span className="mr-2">Nómina local:</span>
-          {objNomina.descargando ? (
+        <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-xl bg-[#F0F6FC] border border-[#D9E8F7] text-xs font-bold max-md:flex-col max-md:items-stretch max-md:gap-2.5">
+          <div className="flex items-center gap-3 min-w-0 max-md:flex-wrap">
+            <span className="shrink-0">Nómina local:</span>
+            {objNomina.descargando ? (
+              <>
+                <span>Descargando…</span>
+                <span className="text-[#003770]">{objNomina.porcentaje ?? 0}%</span>
+              </>
+            ) : objNomina.estado === "lista" ? (
+              <span className="shrink-0">Descargada</span>
+            ) : <span>Sin descargar</span>}
+            {!objNomina.descargando && objNomina.estado === "lista" && (
+              objNomina.descargadaEn ? (
+                <span className="text-[#166534] break-words">({objNomina.total ?? 0} estudiantes · {new Date(objNomina.descargadaEn).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })})</span>
+              ) : <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes)</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap justify-end max-md:w-full max-md:grid max-md:grid-cols-1">
+          {objNomina?.estado === "lista" && (
             <>
-              <span>Descargando…</span>
-              <span className="text-[#003770]">{objNomina.porcentaje ?? 0}%</span>
-            </>
-          ) : objNomina.estado === "lista" ? (
-            <>
-              <span>Descargada</span>
-              {objNomina.descargadaEn ? (
-                <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes · {new Date(objNomina.descargadaEn).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-              ) : (
-                <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes)</span>
-              )}
               <button
                 type="button"
                 onClick={fnResetearNomina}
-                className="ml-3 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#B91C1C] text-white hover:bg-[#991B1B] transition-colors cursor-pointer"
+                className="ml-3 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#B91C1C] text-white hover:bg-[#991B1B] transition-colors cursor-pointer max-md:ml-0 max-md:w-full"
               >
                 Resetear nómina local
               </button>
@@ -162,21 +167,21 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
                 onClick={() => {
                   fnDoForzar();
                 }}
-                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer"
+                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer max-md:ml-0 max-md:w-full"
               >
                 Forzar sincronización
               </button>
               <button
                 type="button"
                 onClick={() => setConfigurandoPin(true)}
-                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer"
+                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer max-md:ml-0 max-md:w-full"
               >
                 Configurar PIN
               </button>
             </>
-          ) : (
+          )}
+          {objNomina?.estado !== "lista" && (
             <>
-              <span>Sin descargar</span>
               <button
                 type="button"
                 onClick={async () => {
@@ -208,6 +213,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               </button>
             </>
           )}
+          </div>
         </div>
       )}
 
