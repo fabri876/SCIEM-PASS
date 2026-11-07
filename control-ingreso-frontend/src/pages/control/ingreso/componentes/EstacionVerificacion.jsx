@@ -81,12 +81,12 @@ function PanelQR({ onValidar, boolValidando, idExamen }) {
   const boolLeyendo = strEstado === "leyendo";
 
   return (
-    <div className="mt-5 flex flex-wrap items-center gap-7 max-md:flex-col max-md:items-stretch max-md:gap-4">
+    <div className="mt-5 flex flex-wrap items-center gap-7 max-md:flex-col max-md:items-stretch max-md:gap-3">
       <div
         aria-hidden="true"
         className={
           "ci-visor relative w-[210px] h-[210px] shrink-0 rounded-[14px] flex items-center justify-center overflow-hidden transition-colors " +
-          "max-md:w-full max-md:h-[250px] " +
+          "max-md:w-full max-md:h-[200px] " +
           (boolAcierto ? "bg-[#267BC2]" : "bg-[#08264A]") +
           (boolLeyendo ? " ci-leyendo" : "")
         }
@@ -98,8 +98,8 @@ function PanelQR({ onValidar, boolValidando, idExamen }) {
       </div>
 
       <div className="flex-1 basis-[300px] min-w-0 max-md:flex-none max-md:basis-auto max-md:text-center">
-        <h3 className="m-0 text-[17px] font-bold text-[#08264A]">Escanear QR de la credencial</h3>
-        <p className="mt-1.5 mb-4 text-sm leading-relaxed text-[#64748B]">
+        <h3 className="m-0 text-[17px] font-bold text-[#08264A] max-md:text-base">Escanear QR de la credencial</h3>
+        <p className="mt-1.5 mb-4 text-sm leading-relaxed text-[#64748B] max-md:text-[13px]">
           Acerca la credencial del estudiante a la cámara.
         </p>
         {boolLeyendo ? (
@@ -178,7 +178,7 @@ function PanelManual({ onValidar, boolValidando }) {
             "font-mono text-[28px] tracking-[6px] text-[#003770] " +
             "placeholder:font-sans placeholder:text-base placeholder:tracking-normal placeholder:text-[#9AA8BA] " +
             "focus:border-[#1860A3] focus:shadow-[0_0_0_4px_#D9E8F7] " +
-            "max-md:flex-none max-md:basis-auto max-md:h-[58px] max-md:px-4 max-md:text-[22px] max-md:tracking-[4px]"
+            "max-md:flex-none max-md:basis-auto max-md:h-[54px] max-md:px-4 max-md:text-[18px] max-md:tracking-[2px]"
           }
         />
         <button type="submit" disabled={!boolValido || boolValidando} className={CLASE_BOTON + " min-h-[62px] px-[30px] text-[15px] max-md:min-h-[52px] max-md:w-full"}>
