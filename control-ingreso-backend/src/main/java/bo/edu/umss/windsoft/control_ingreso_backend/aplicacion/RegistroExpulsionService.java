@@ -182,12 +182,14 @@ public class RegistroExpulsionService {
 
             expulsion = expulsionRepository.save(expulsion);
 
-            // Si el docente autoriza directamente, bloquea el reingreso del estudiante
-            // y deja registrada la incidencia HU06 (CERRADA, severidad ALTA).
+            // Si el docente autoriza directamente, deja registrada la incidencia HU06
+            // (CERRADA, severidad ALTA) y luego bloquea el reingreso del estudiante.
+            // La incidencia se crea antes de marcar el ingreso como retirado porque
+            // no se permite registrar incidencias para un estudiante ya expulsado.
             if (esDocente) {
+                crearIncidenciaDeExpulsion(expulsion, ingreso, evidenciaArchivo, usuario, ip);
                 ingreso.setIdExpulsion(expulsion.getIdExpulsion());
                 ingresoRepository.saveAndFlush(ingreso);
-                crearIncidenciaDeExpulsion(expulsion, ingreso, evidenciaArchivo, usuario, ip);
             }
         } catch (RuntimeException e) {
             evidenciaService.eliminarSinFallar(evidencia);
@@ -390,13 +392,14 @@ public class RegistroExpulsionService {
         expulsion.setIdUsuarioAutoriza(usuario.idUsuario());
         expulsionRepository.save(expulsion);
 
+        // HU14: una expulsión autorizada también queda registrada en Incidencias
+        // (HU06) como CERRADA con severidad ALTA. Se crea antes de bloquear el
+        // reingreso, porque no se permiten incidencias para un ingreso retirado.
+        crearIncidenciaDeExpulsion(expulsion, ingreso, null, usuario, ip);
+
         // Bloquear reingreso: setear idExpulsion en el ingreso.
         ingreso.setIdExpulsion(expulsion.getIdExpulsion());
         ingresoRepository.saveAndFlush(ingreso);
-
-        // HU14: una expulsión autorizada también queda registrada en Incidencias
-        // (HU06) como CERRADA con severidad ALTA.
-        crearIncidenciaDeExpulsion(expulsion, ingreso, null, usuario, ip);
 
         try {
             auditoriaService.registrarEnTransaccion(

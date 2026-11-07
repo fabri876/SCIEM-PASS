@@ -138,10 +138,16 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       }
     });
 
-  // Aulas del examen seleccionado
-  const aulasDelExamen = aulasAsignadas.filter(
-    (a) => strIdExamen === TODOS || String(a.idExamen) === strIdExamen
-  );
+  // Aulas del examen seleccionado (respeta la materia cuando el examen está en TODOS)
+  const aulasDelExamen = aulasAsignadas.filter((a) => {
+    if (strIdExamen !== TODOS) {
+      return String(a.idExamen) === strIdExamen;
+    }
+    if (filtroMateria !== TODOS) {
+      return String(a.idAsignatura) === String(filtroMateria);
+    }
+    return true;
+  });
 
   // Se incluyen también las aulas de hoy con el ingreso ya cerrado: si alguien
   // intenta un ingreso excepcional ahí, el backend explica el motivo y lo audita.
@@ -387,7 +393,21 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
           <select
             value={filtroAula}
-            onChange={(e) => setFiltroAula(e.target.value)}
+            onChange={(e) => {
+              const valor = e.target.value;
+              setFiltroAula(valor);
+              // Al elegir una aula específica, sincronizar materia y examen para que coincidan.
+              if (valor !== TODOS) {
+                const aulaElegida = aulasAsignadas.find((a) => String(a.idAmbiente) === valor);
+                if (aulaElegida) {
+                  setFiltroMateria(String(aulaElegida.idAsignatura));
+                  setStrIdExamen(String(aulaElegida.idExamen));
+                }
+              } else {
+                setFiltroMateria(TODOS);
+                setStrIdExamen(TODOS);
+              }
+            }}
             className="bg-white border border-[#CBD5E1] rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-[#08264A] focus:outline-none focus:border-[#4A97D3] cursor-pointer max-w-full"
           >
             <option value={TODOS}>Aula: Todas</option>
@@ -1077,7 +1097,13 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           setBoolModalIncidencia(false);
           setEstudianteParaIncidencia(null);
         }}
-        aulasDisponibles={aulasDelExamen.length > 0 ? aulasDelExamen : aulasAsignadas}
+        aulasDisponibles={
+          aulasDelExamen.length > 0
+            ? aulasDelExamen
+            : filtroMateria !== TODOS
+              ? aulasAsignadas.filter((a) => String(a.idAsignatura) === String(filtroMateria))
+              : aulasAsignadas
+        }
         aulaPreseleccionada={aulaParaIncidencia}
         estudianteInicial={estudianteParaIncidencia}
         onExito={fnTrasRegistrar}
