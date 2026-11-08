@@ -82,32 +82,6 @@ public class Ingreso {
     @Column(name = "client_uuid", length = 100, unique = true)
     private String clientUuid;
 
-    /** Metadatos de auditoría de la verificación biométrica facial. */
-    @Column(name = "score_facial")
-    private Double scoreFacial;
-
-    @Column(name = "liveness_score")
-    private Double livenessScore;
-
-    @Column(name = "model_version", length = 100)
-    private String modelVersion;
-
-    @Column(name = "device_id", length = 255)
-    private String deviceId;
-
-    @Column(name = "sincronizado_en")
-    private LocalDateTime sincronizadoEn;
-
-    @Column(name = "server_recheck_score")
-    private Double serverRecheckScore;
-
-    @Column(name = "audit_flag", nullable = false)
-    private boolean auditFlag = false;
-
-    /** Hora original capturada por el dispositivo; horaIngreso conserva la hora registrada en BD. */
-    @Column(name = "hora_marcacion")
-    private LocalDateTime horaMarcacion;
-
     public Ingreso() {
     }
 
@@ -146,20 +120,4 @@ public class Ingreso {
     public void setMetodoIngreso(MetodoIngreso metodoIngreso) { this.metodoIngreso = metodoIngreso; }
     public String getClientUuid() { return clientUuid; }
     public void setClientUuid(String clientUuid) { this.clientUuid = clientUuid; }
-    public Double getScoreFacial() { return scoreFacial; }
-    public void setScoreFacial(Double scoreFacial) { this.scoreFacial = scoreFacial; }
-    public Double getLivenessScore() { return livenessScore; }
-    public void setLivenessScore(Double livenessScore) { this.livenessScore = livenessScore; }
-    public String getModelVersion() { return modelVersion; }
-    public void setModelVersion(String modelVersion) { this.modelVersion = modelVersion; }
-    public String getDeviceId() { return deviceId; }
-    public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
-    public LocalDateTime getSincronizadoEn() { return sincronizadoEn; }
-    public void setSincronizadoEn(LocalDateTime sincronizadoEn) { this.sincronizadoEn = sincronizadoEn; }
-    public Double getServerRecheckScore() { return serverRecheckScore; }
-    public void setServerRecheckScore(Double serverRecheckScore) { this.serverRecheckScore = serverRecheckScore; }
-    public boolean isAuditFlag() { return auditFlag; }
-    public void setAuditFlag(boolean auditFlag) { this.auditFlag = auditFlag; }
-    public LocalDateTime getHoraMarcacion() { return horaMarcacion; }
-    public void setHoraMarcacion(LocalDateTime horaMarcacion) { this.horaMarcacion = horaMarcacion; }
 }

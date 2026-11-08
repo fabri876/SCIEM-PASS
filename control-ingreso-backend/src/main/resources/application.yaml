@@ -25,9 +25,3 @@ server:
   tomcat:
     max-swallow-size: 12MB
   port: 8080
-
-storage:
-  biometric:
-    # Ruta fuera de src/main/resources y del directorio público. En producción
-    # debe sobrescribirse mediante application-local.yaml o variable de entorno.
-    path: ./storage/biometrics

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRegisterBackHandler } from "../../../hooks/useAndroidBackButton";
 import { Lock, Timer } from "lucide-react";
 
 const STORAGE_KEY_FALLOS = "sciem_pin_fallos";
@@ -25,7 +24,6 @@ function leerEstadoStorage() {
 }
 
 export default function ModalPin({ visible, mensaje, fnConfirmar, fnCancelar }) {
-  useRegisterBackHandler(visible, fnCancelar);
   const [strPin, setStrPin] = useState("");
   const [numFallos, setNumFallos] = useState(() => leerEstadoStorage().fallos);
   const [numSegRestantes, setNumSegRestantes] = useState(() => leerEstadoStorage().restanteSeg);

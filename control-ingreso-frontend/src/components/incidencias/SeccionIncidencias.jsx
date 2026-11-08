@@ -1,20 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   UserCheck,
-  UserMinus,
   Plus,
   BookOpen,
   Search,
   FileText,
   ExternalLink,
   RefreshCw,
-  Download,
 } from "lucide-react";
 import {
   obtenerAulasAsignadas,
   obtenerAmbientesDelDia,
   listarIncidencias,
-  exportarIncidenciasExcel,
   obtenerDetalleIncidencia,
   marcarEnRevisionIncidencia,
   cerrarIncidencia,
@@ -58,8 +55,6 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const [filtroAula, setFiltroAula] = useState(TODOS);
   const [filtroEstado, setFiltroEstado] = useState(TODOS);
   const [filtroTipo, setFiltroTipo] = useState(TODOS);
-  const [filtroMateria, setFiltroMateria] = useState(TODOS);
-  const [boolSoloExpulsiones, setBoolSoloExpulsiones] = useState(false);
   const [strBusquedaExcepcionales, setStrBusquedaExcepcionales] = useState("");
 
   // Datos
@@ -80,10 +75,6 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const [strResolucionInput, setStrResolucionInput] = useState("");
   const [boolGuardandoResolucion, setBoolGuardandoResolucion] = useState(false);
   const [strMensajeFeedback, setStrMensajeFeedback] = useState("");
-
-  // Exportación a Excel del filtro activo
-  const [boolExportando, setBoolExportando] = useState(false);
-  const [strErrorExportar, setStrErrorExportar] = useState("");
 
   // La incidencia seleccionada se guarda en un ref para que elegir una fila no
   // vuelva a disparar la recarga de toda la lista.
@@ -110,45 +101,22 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
     fnCargarAulas();
   }, [fnCargarAulas]);
 
-  // Materias únicas a partir de las aulas asignadas (más recientes primero)
-  const materias = [];
-  const idsMateriaVistos = new Set();
+  // Exámenes únicos a partir de las aulas asignadas (más recientes primero)
+  const examenes = [];
+  const idsVistos = new Set();
   aulasAsignadas.forEach((aula) => {
-    if (!idsMateriaVistos.has(aula.idAsignatura)) {
-      idsMateriaVistos.add(aula.idAsignatura);
-      materias.push({
-        idAsignatura: aula.idAsignatura,
-        etiqueta: aula.asignatura,
+    if (!idsVistos.has(aula.idExamen)) {
+      idsVistos.add(aula.idExamen);
+      examenes.push({
+        idExamen: aula.idExamen,
+        etiqueta: `${aula.asignatura} · ${formatearFecha(aula.fechaExamen)}`,
       });
     }
   });
 
-  // Exámenes de la materia seleccionada
-  const examenesDeMateria = [];
-  const idsExamenVistos = new Set();
-  aulasAsignadas
-    .filter((a) => filtroMateria === TODOS || String(a.idAsignatura) === String(filtroMateria))
-    .forEach((aula) => {
-      if (!idsExamenVistos.has(aula.idExamen)) {
-        idsExamenVistos.add(aula.idExamen);
-        examenesDeMateria.push({
-          idExamen: aula.idExamen,
-          etiqueta: `${aula.asignatura} · ${formatearFecha(aula.fechaExamen)}`,
-        });
-      }
-    });
-
-  // Aulas del examen seleccionado (respeta la materia cuando el examen está en TODOS)
-  const aulasDelExamen = aulasAsignadas.filter((a) => {
-    if (strIdExamen !== TODOS) {
-      return String(a.idExamen) === strIdExamen;
-    }
-    if (filtroMateria !== TODOS) {
-      return String(a.idAsignatura) === String(filtroMateria);
-    }
-    return true;
-  });
-
+  const aulasDelExamen = aulasAsignadas.filter(
+    (a) => strIdExamen === TODOS || String(a.idExamen) === strIdExamen
+  );
   // Se incluyen también las aulas de hoy con el ingreso ya cerrado: si alguien
   // intenta un ingreso excepcional ahí, el backend explica el motivo y lo audita.
   const aulasHoyDelExamen = aulasHoy.filter(
@@ -286,95 +254,42 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
     setBoolModalIncidencia(true);
   };
 
-  // Filtro adicional de expulsiones (estudiante retirado) aplicado en frontend.
-  const incidenciasMostradas = incidencias.filter((i) => {
-    const coincideExpulsion = !boolSoloExpulsiones || i.estudianteRetirado === true;
-    const coincideMateria =
-      filtroMateria === TODOS || i.asignatura === materias.find((m) => m.idAsignatura === Number(filtroMateria))?.etiqueta;
-    return coincideExpulsion && coincideMateria;
-  });
-
-  // Descarga en Excel exactamente lo que se ve con los filtros activos.
-  const fnExportarExcel = async () => {
-    if (boolExportando || incidenciasMostradas.length === 0) return;
-    setBoolExportando(true);
-    setStrErrorExportar("");
-    try {
-      const blobExcel = await exportarIncidenciasExcel({
-        idExamen: strIdExamen !== TODOS ? strIdExamen : null,
-        idAmbiente: filtroAula !== TODOS ? filtroAula : null,
-        tipo: filtroTipo !== TODOS ? filtroTipo : null,
-        estado: filtroEstado !== TODOS ? filtroEstado : null,
-        soloExpulsiones: boolSoloExpulsiones,
-      });
-      const urlArchivo = window.URL.createObjectURL(blobExcel);
-      const enlace = document.createElement("a");
-      enlace.href = urlArchivo;
-      enlace.download = `incidencias-${new Date().toISOString().slice(0, 10)}.xlsx`;
-      document.body.appendChild(enlace);
-      enlace.click();
-      enlace.remove();
-      window.URL.revokeObjectURL(urlArchivo);
-    } catch (err) {
-      setStrErrorExportar(err.message || "No se pudieron exportar las incidencias.");
-    } finally {
-      setBoolExportando(false);
-    }
-  };
-
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
 
       {/* BARRA SUPERIOR: pestañas, filtros y acciones */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-[#CBD5E1] shadow-xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
 
         <div className="flex items-center gap-1 bg-[#F1F5F9] p-1 rounded-2xl w-fit max-w-full overflow-x-auto">
           <button
             onClick={() => setTabActivo("incidencias")}
             className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-              tabActivo === "incidencias" ? "bg-white text-[#003770] shadow-xs" : "text-[#64748B] hover:text-[#08264A]"
+              tabActivo === "incidencias" ? "bg-white text-[#003770] shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <span>Incidencias</span>
-            <span className={`text-[11px] px-2 py-0.5 rounded-full font-black ${tabActivo === "incidencias" ? "bg-[#FEE2E2] text-[#B91C1C]" : "bg-[#CBD5E1] text-[#64748B]"}`}>
+            <span className={`text-[11px] px-2 py-0.5 rounded-full font-black ${tabActivo === "incidencias" ? "bg-rose-100 text-rose-700" : "bg-slate-200 text-slate-600"}`}>
               {incidencias.length}
             </span>
           </button>
           <button
             onClick={() => setTabActivo("excepcionales")}
             className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-              tabActivo === "excepcionales" ? "bg-white text-[#003770] shadow-xs" : "text-[#64748B] hover:text-[#08264A]"
+              tabActivo === "excepcionales" ? "bg-white text-[#003770] shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <span>Ingresos excepcionales</span>
-            <span className={`text-[11px] px-2 py-0.5 rounded-full font-black ${tabActivo === "excepcionales" ? "bg-[#D9E8F7] text-[#124B83]" : "bg-[#CBD5E1] text-[#64748B]"}`}>
+            <span className={`text-[11px] px-2 py-0.5 rounded-full font-black ${tabActivo === "excepcionales" ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"}`}>
               {ingresosExcepcionales.length}
             </span>
           </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0F6FC] border border-[#B6D3EE] text-[#003770] text-xs font-extrabold">
-            <BookOpen className="w-3.5 h-3.5 text-[#4A97D3]" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-[#1A365D] text-xs font-extrabold">
+            <BookOpen className="w-3.5 h-3.5 text-[#2563EB]" />
             <span>{rol === "DOCENTE" ? "Mis exámenes asignados" : "Todos los exámenes"}</span>
           </div>
-
-          <select
-            value={filtroMateria}
-            onChange={(e) => {
-              setFiltroMateria(e.target.value);
-              setStrIdExamen(TODOS);
-              setFiltroAula(TODOS);
-            }}
-            className="bg-white border border-[#CBD5E1] rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-[#08264A] focus:outline-none focus:border-[#4A97D3] cursor-pointer max-w-full"
-          >
-            <option value={TODOS}>Materia: Todas</option>
-            {materias.map((m) => (
-              <option key={m.idAsignatura} value={String(m.idAsignatura)}>
-                {m.etiqueta}
-              </option>
-            ))}
-          </select>
 
           <select
             value={strIdExamen}
@@ -382,33 +297,18 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
               setStrIdExamen(e.target.value);
               setFiltroAula(TODOS);
             }}
-            disabled={filtroMateria === TODOS}
-            className="bg-white border border-[#CBD5E1] rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-[#08264A] focus:outline-none focus:border-[#4A97D3] cursor-pointer max-w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-full"
           >
             <option value={TODOS}>Examen: Todos</option>
-            {examenesDeMateria.map((ex) => (
+            {examenes.map((ex) => (
               <option key={ex.idExamen} value={String(ex.idExamen)}>{ex.etiqueta}</option>
             ))}
           </select>
 
           <select
             value={filtroAula}
-            onChange={(e) => {
-              const valor = e.target.value;
-              setFiltroAula(valor);
-              // Al elegir una aula específica, sincronizar materia y examen para que coincidan.
-              if (valor !== TODOS) {
-                const aulaElegida = aulasAsignadas.find((a) => String(a.idAmbiente) === valor);
-                if (aulaElegida) {
-                  setFiltroMateria(String(aulaElegida.idAsignatura));
-                  setStrIdExamen(String(aulaElegida.idExamen));
-                }
-              } else {
-                setFiltroMateria(TODOS);
-                setStrIdExamen(TODOS);
-              }
-            }}
-            className="bg-white border border-[#CBD5E1] rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-[#08264A] focus:outline-none focus:border-[#4A97D3] cursor-pointer max-w-full"
+            onChange={(e) => setFiltroAula(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-full"
           >
             <option value={TODOS}>Aula: Todas</option>
             {aulasDelExamen.map((aula) => (
@@ -421,7 +321,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           <select
             value={filtroTipo}
             onChange={(e) => setFiltroTipo(e.target.value)}
-            className="bg-white border border-[#CBD5E1] rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-[#08264A] focus:outline-none focus:border-[#4A97D3] cursor-pointer max-w-full"
+            className="bg-white border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] cursor-pointer max-w-full"
           >
             <option value={TODOS}>Tipo: Todos</option>
             {TIPOS_INCIDENCIA.map((t) => (
@@ -431,7 +331,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
           <button
             onClick={fnTrasRegistrar}
-            className="bg-white hover:bg-[#F1F5F9] text-[#64748B] border border-[#CBD5E1] p-2 rounded-xl transition cursor-pointer"
+            className="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 p-2 rounded-xl transition cursor-pointer"
             title="Actualizar"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${boolCargando ? "animate-spin" : ""}`} />
@@ -441,7 +341,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             onClick={fnAbrirIncidencia}
             disabled={boolCargandoAulas || aulasAsignadas.length === 0}
             title={aulasAsignadas.length === 0 ? "Primero debe estar asignado un examen" : "Registrar incidencia"}
-            className="bg-[#003770] hover:bg-[#08264A] disabled:opacity-45 disabled:cursor-not-allowed text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+            className="bg-[#1A365D] hover:bg-[#132743] disabled:opacity-45 disabled:cursor-not-allowed text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Incidencia</span>
@@ -451,21 +351,21 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             onClick={() => setBoolModalExcepcional(true)}
             disabled={boolCargandoAulas}
             title={aulasHoyDelExamen.length === 0 ? "Solo el día del examen" : "Ingreso excepcional"}
-            className="bg-white hover:bg-[#F1F5F9] disabled:opacity-45 text-[#003770] border border-[#CBD5E1] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+            className="bg-white hover:bg-slate-50 disabled:opacity-45 text-[#003770] border border-slate-300 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
           >
-            <UserCheck className="w-3.5 h-3.5 text-[#4A97D3]" />
+            <UserCheck className="w-3.5 h-3.5 text-[#2563EB]" />
             <span>Excepcional</span>
           </button>
         </div>
       </div>
 
       {strErrorCarga && (
-        <div className="bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] p-3 rounded-2xl text-xs font-bold">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-2xl text-xs font-bold">
           ✕ {strErrorCarga}
         </div>
       )}
       {!boolCargandoAulas && !strErrorCarga && aulasAsignadas.length === 0 && (
-        <div className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] p-3 rounded-2xl text-xs font-bold">
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-2xl text-xs font-bold">
           No tienes exámenes asignados que ya se hayan tomado. Las incidencias se registran sobre un examen asignado.
         </div>
       )}
@@ -479,111 +379,65 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           {/* Pills de Estado con Totales Reales de la API */}
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => {
-                setFiltroEstado("TODOS");
-                setBoolSoloExpulsiones(false);
-              }}
+              onClick={() => setFiltroEstado("TODOS")}
               className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer ${
-                filtroEstado === "TODOS" && !boolSoloExpulsiones
+                filtroEstado === "TODOS"
                   ? "bg-[#003770] text-white"
-                  : "bg-[#F1F5F9] text-[#64748B] hover:bg-[#CBD5E1]"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
               Todas
             </button>
 
             <button
-              onClick={() => {
-                setFiltroEstado("ABIERTA");
-                setBoolSoloExpulsiones(false);
-              }}
+              onClick={() => setFiltroEstado("ABIERTA")}
               className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
                 filtroEstado === "ABIERTA"
-                  ? "bg-[#4A97D3] text-white"
-                  : "bg-[#F0F6FC] text-[#4A97D3] border border-[#B6D3EE] hover:bg-[#D9E8F7]"
+                  ? "bg-rose-600 text-white"
+                  : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
               }`}
             >
-              <span className="w-2 h-2 rounded-full bg-[#4A97D3] inline-block" />
+              <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
               <span>Abiertas {totalesIncidencias.abiertas}</span>
             </button>
 
             <button
-              onClick={() => {
-                setFiltroEstado("EN_REVISION");
-                setBoolSoloExpulsiones(false);
-              }}
+              onClick={() => setFiltroEstado("EN_REVISION")}
               className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
                 filtroEstado === "EN_REVISION"
-                  ? "bg-[#003770] text-white"
-                  : "bg-[#F1F5F9] text-[#003770] border border-[#CBD5E1] hover:bg-[#CBD5E1]"
+                  ? "bg-amber-600 text-white"
+                  : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
               }`}
             >
-              <span className="w-2 h-2 rounded-full bg-[#003770] inline-block" />
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
               <span>En revisión {totalesIncidencias.enRevision}</span>
             </button>
 
             <button
-              onClick={() => {
-                setFiltroEstado("CERRADA");
-                setBoolSoloExpulsiones(false);
-              }}
+              onClick={() => setFiltroEstado("CERRADA")}
               className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
                 filtroEstado === "CERRADA"
-                  ? "bg-[#475569] text-white"
-                  : "bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1] hover:bg-[#CBD5E1]"
+                  ? "bg-slate-700 text-white"
+                  : "bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200"
               }`}
             >
-              <span className="w-2 h-2 rounded-full bg-[#9AA8BA] inline-block" />
+              <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
               <span>Cerradas {totalesIncidencias.cerradas}</span>
             </button>
-
-            <button
-              onClick={() => setBoolSoloExpulsiones((prev) => !prev)}
-              className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
-                boolSoloExpulsiones
-                  ? "bg-[#003770] text-white border border-[#003770]"
-                  : "bg-[#F1F5F9] text-[#64748B] border border-[#CBD5E1] hover:bg-[#CBD5E1]"
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-[#003770] inline-block" />
-              <span>Expulsiones</span>
-            </button>
-
-            <button
-              onClick={fnExportarExcel}
-              disabled={boolCargando || boolExportando || incidenciasMostradas.length === 0}
-              title={
-                incidenciasMostradas.length === 0
-                  ? "No hay incidencias para exportar con el filtro actual"
-                  : "Exportar a Excel el filtro actual"
-              }
-              className="ml-auto bg-[#003770] hover:bg-[#08264A] disabled:opacity-45 disabled:cursor-not-allowed text-white border border-[#003770] px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
-            >
-              <Download className={`w-3.5 h-3.5 ${boolExportando ? "animate-pulse" : ""}`} />
-              <span>{boolExportando ? "Exportando..." : "Exportar"}</span>
-            </button>
           </div>
-
-          {strErrorExportar && (
-            <div className="bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] px-3 py-2 rounded-2xl text-xs font-bold">
-              ✕ {strErrorExportar}
-            </div>
-          )}
 
           {/* Grilla: Tabla a la izquierda + Detalle de incidencia a la derecha */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
             
             {/* TABLA DE INCIDENCIAS (tarjetas en celular, tabla desde tablet) */}
-            <div className="xl:col-span-7 bg-white rounded-3xl border border-[#CBD5E1] shadow-xs overflow-hidden">
-              <div className="md:hidden divide-y divide-[#CBD5E1]">
+            <div className="xl:col-span-7 bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="md:hidden divide-y divide-slate-100">
                 {boolCargando ? (
-                  <p className="py-8 text-center text-[#9AA8BA] text-xs font-semibold animate-pulse">Cargando incidencias...</p>
-                ) : incidenciasMostradas.length === 0 ? (
-                  <p className="py-8 px-4 text-center text-[#9AA8BA] text-xs font-semibold">
-                    {boolSoloExpulsiones ? "No se encontraron expulsiones con los filtros seleccionados." : "No hay incidencias con los filtros seleccionados."}
-                  </p>
+                  <p className="py-8 text-center text-slate-400 text-xs font-semibold animate-pulse">Cargando incidencias...</p>
+                ) : incidencias.length === 0 ? (
+                  <p className="py-8 px-4 text-center text-slate-400 text-xs font-semibold">No hay incidencias con los filtros seleccionados.</p>
                 ) : (
-                  incidenciasMostradas.map((item) => (
+                  incidencias.map((item) => (
                     <button
                       key={item.idIncidencia}
                       type="button"
@@ -592,33 +446,28 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                         document.getElementById("detalle-incidencia")?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                       className={`w-full text-left p-3.5 space-y-1 transition ${
-                        incidenciaSeleccionada?.idIncidencia === item.idIncidencia ? "bg-[#F0F6FC]" : "hover:bg-[#F1F5F9]"
+                        incidenciaSeleccionada?.idIncidencia === item.idIncidencia ? "bg-[#EFF6FF]" : "hover:bg-slate-50"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono font-black text-[#003770] text-xs">{item.codigo}</span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                          item.estado === "ABIERTA" ? "bg-[#D9E8F7] text-[#124B83]"
-                            : item.estado === "EN_REVISION" ? "bg-[#F0F6FC] text-[#003770]"
-                            : "bg-[#F1F5F9] text-[#64748B]"
+                          item.estado === "ABIERTA" ? "bg-rose-100 text-rose-700"
+                            : item.estado === "EN_REVISION" ? "bg-amber-100 text-amber-800"
+                            : "bg-slate-100 text-slate-600"
                         }`}>
                           {item.estadoEtiqueta}
                         </span>
                       </div>
-                      <p className="text-xs font-bold text-[#08264A]">
+                      <p className="text-xs font-bold text-slate-800">
                         {item.tipoEtiqueta} ·{" "}
-                        <span className={item.severidad === "ALTA" ? "text-[#003770]" : item.severidad === "MEDIA" ? "text-[#4A97D3]" : "text-[#83B7E2]"}>
+                        <span className={item.severidad === "ALTA" ? "text-rose-600" : item.severidad === "MEDIA" ? "text-amber-600" : "text-emerald-600"}>
                           {item.severidadEtiqueta}
                         </span>
                       </p>
-                      <p className="text-[11px] text-[#7A8BA0] font-semibold">
+                      <p className="text-[11px] text-slate-500 font-semibold">
                         {formatearHora(item.fechaHora)} · {item.aula} · {item.reportadoPor}
                       </p>
-                      {item.estudianteRetirado && (
-                        <p className="text-[10px] font-bold text-[#003770] flex items-center gap-1">
-                          <UserMinus className="w-3 h-3" /> Expulsión
-                        </p>
-                      )}
                     </button>
                   ))
                 )}
@@ -626,32 +475,31 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-[#F1F5F9] border-b border-[#CBD5E1] text-[#7A8BA0] uppercase tracking-wider text-[10px] font-black">
+                    <tr className="bg-[#F8FAFC] border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] font-black">
                       <th className="py-3 px-3.5">Código</th>
                       <th className="py-3 px-2">Hora</th>
                       <th className="py-3 px-2">Aula</th>
                       <th className="py-3 px-3">Tipo</th>
                       <th className="py-3 px-2">Severidad</th>
                       <th className="py-3 px-3">Reportado por</th>
-                      <th className="py-3 px-2 text-center">Expulsión</th>
                       <th className="py-3 px-3.5">Estado</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#CBD5E1]">
+                  <tbody className="divide-y divide-slate-100">
                     {boolCargando ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-[#9AA8BA] font-semibold animate-pulse">
+                        <td colSpan={7} className="py-8 text-center text-slate-400 font-semibold animate-pulse">
                           Cargando incidencias del servidor...
                         </td>
                       </tr>
-                    ) : incidenciasMostradas.length === 0 ? (
+                    ) : incidencias.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-[#9AA8BA] font-semibold">
-                          {boolSoloExpulsiones ? "No se encontraron expulsiones con los filtros seleccionados." : "No hay incidencias con los filtros seleccionados."}
+                        <td colSpan={7} className="py-8 text-center text-slate-400 font-semibold">
+                          No hay incidencias con los filtros seleccionados.
                         </td>
                       </tr>
                     ) : (
-                      incidenciasMostradas.map((item) => {
+                      incidencias.map((item) => {
                         const isSelected =
                           incidenciaSeleccionada?.idIncidencia === item.idIncidencia;
 
@@ -661,53 +509,46 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                             onClick={() => fnCargarDetalle(item.idIncidencia)}
                             className={`cursor-pointer transition-colors ${
                               isSelected
-                                ? "bg-[#F0F6FC] border-l-4 border-l-[#4A97D3]"
-                                : "hover:bg-[#F1F5F9]"
+                                ? "bg-[#EFF6FF] border-l-4 border-l-[#2563EB]"
+                                : "hover:bg-slate-50"
                             }`}
                           >
                             <td className="py-3 px-3.5 font-mono font-black text-[#003770]">
                               {item.codigo}
                             </td>
-                            <td className="py-3 px-2 font-mono text-[#7A8BA0] font-bold whitespace-nowrap">
+                            <td className="py-3 px-2 font-mono text-slate-500 font-bold whitespace-nowrap">
                               {formatearHora(item.fechaHora)}
                             </td>
-                            <td className="py-3 px-2 font-bold text-[#475569]">
+                            <td className="py-3 px-2 font-bold text-slate-700">
                               {item.aula}
                             </td>
-                            <td className="py-3 px-3 font-semibold text-[#08264A]">
+                            <td className="py-3 px-3 font-semibold text-slate-800">
                               {item.tipoEtiqueta || item.tipo}
                             </td>
                             <td className="py-3 px-2">
                               <span
                                 className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                                   item.severidad === "ALTA"
-                                    ? "bg-[#003770] text-white"
+                                    ? "bg-rose-100 text-rose-700"
                                     : item.severidad === "MEDIA"
-                                    ? "bg-[#4A97D3] text-white"
-                                    : "bg-[#83B7E2] text-white"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-emerald-100 text-emerald-800"
                                 }`}
                               >
                                 {item.severidadEtiqueta || item.severidad}
                               </span>
                             </td>
-                            <td className="py-3 px-3 font-bold text-[#64748B] truncate max-w-[130px]">
+                            <td className="py-3 px-3 font-bold text-slate-600 truncate max-w-[130px]">
                               {item.reportadoPor}
-                            </td>
-                            <td className="py-3 px-2 text-center">
-                              {item.estudianteRetirado ? (
-                                <span className="text-[10px] font-bold text-[#003770]">Sí</span>
-                              ) : (
-                                <span className="text-[10px] text-[#9AA8BA]">No</span>
-                              )}
                             </td>
                             <td className="py-3 px-3.5 whitespace-nowrap">
                               <span
                                 className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                                   item.estado === "ABIERTA"
-                                    ? "bg-[#267BC2] text-white border border-[#267BC2]"
+                                    ? "bg-rose-100 text-rose-700 border border-rose-200"
                                     : item.estado === "EN_REVISION"
-                                    ? "bg-[#003770] text-white border border-[#003770]"
-                                    : "bg-[#F1F5F9] text-[#64748B] border border-[#CBD5E1]"
+                                    ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                    : "bg-slate-100 text-slate-600 border border-slate-200"
                                 }`}
                               >
                                 {item.estadoEtiqueta || (item.estado === "EN_REVISION" ? "En revisión" : item.estado)}
@@ -723,30 +564,30 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             </div>
 
             {/* PANEL DE DETALLE DE INCIDENCIA (Lateral derecho Mockup 06-D) */}
-            <div id="detalle-incidencia" className="xl:col-span-5 bg-white rounded-3xl border border-[#CBD5E1] shadow-xs p-5 space-y-4 scroll-mt-28 min-w-0 break-words">
+            <div id="detalle-incidencia" className="xl:col-span-5 bg-white rounded-3xl border border-slate-200 shadow-xs p-5 space-y-4 scroll-mt-28 min-w-0 break-words">
               {boolCargandoDetalle ? (
-                <div className="text-center py-12 text-[#9AA8BA] text-xs font-semibold animate-pulse">
+                <div className="text-center py-12 text-slate-400 text-xs font-semibold animate-pulse">
                   Cargando detalle e historial de auditoría...
                 </div>
               ) : incidenciaSeleccionada ? (
                 <>
                   {/* Encabezado del Detalle */}
-                  <div className="flex items-center justify-between pb-3 border-b border-[#CBD5E1]">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-2">
                       <h4 className="text-base font-black text-[#003770]">
                         {incidenciaSeleccionada.codigo}
                       </h4>
-                      <span className="text-xs text-[#9AA8BA] font-mono">
+                      <span className="text-xs text-slate-400 font-mono">
                         {formatearHora(incidenciaSeleccionada.fechaHora)}
                       </span>
                     </div>
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                         incidenciaSeleccionada.estado === "ABIERTA"
-                          ? "bg-[#267BC2] text-white"
+                          ? "bg-rose-100 text-rose-700"
                           : incidenciaSeleccionada.estado === "EN_REVISION"
-                          ? "bg-[#003770] text-white"
-                          : "bg-[#F1F5F9] text-[#64748B]"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-slate-100 text-slate-600"
                       }`}
                     >
                       {incidenciaSeleccionada.estadoEtiqueta ||
@@ -759,47 +600,34 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                   {/* Atributos Clave */}
                   <div className="grid grid-cols-2 gap-y-2 text-xs">
                     <div>
-                      <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block">Tipo</span>
-                      <span className="font-black text-[#08264A]">
+                      <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block">Tipo</span>
+                      <span className="font-black text-slate-800">
                         {incidenciaSeleccionada.tipoEtiqueta || incidenciaSeleccionada.tipo}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block">Severidad</span>
+                      <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block">Severidad</span>
                       <span
                         className={`font-black ${
                           incidenciaSeleccionada.severidad === "ALTA"
-                            ? "text-[#003770]"
+                            ? "text-rose-600"
                             : incidenciaSeleccionada.severidad === "MEDIA"
-                            ? "text-[#4A97D3]"
-                            : "text-[#83B7E2]"
+                            ? "text-amber-600"
+                            : "text-emerald-600"
                         }`}
                       >
                         {incidenciaSeleccionada.severidadEtiqueta || incidenciaSeleccionada.severidad}
                       </span>
                     </div>
                     <div className="col-span-2">
-                      <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block">Aula</span>
-                      <span className="font-black text-[#08264A]">
+                      <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block">Aula</span>
+                      <span className="font-black text-slate-800">
                         {incidenciaSeleccionada.aula} · {incidenciaSeleccionada.asignatura}
                       </span>
                     </div>
-                    <div className="col-span-2 flex items-center justify-between rounded-lg bg-[#F1F5F9] border border-[#CBD5E1] px-3 py-2">
-                      <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA]">
-                        Expulsión
-                      </span>
-                      <span
-                        className={`inline-flex items-center gap-1 text-xs font-black ${
-                          incidenciaSeleccionada.estudianteRetirado ? "text-[#003770]" : "text-[#7A8BA0]"
-                        }`}
-                      >
-                        {incidenciaSeleccionada.estudianteRetirado && <UserMinus className="w-3.5 h-3.5" />}
-                        {incidenciaSeleccionada.estudianteRetirado ? "Sí" : "No"}
-                      </span>
-                    </div>
                     {incidenciaSeleccionada.estudiante && (
-                      <div className="col-span-2 pt-1 border-t border-[#CBD5E1]">
-                        <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block">
+                      <div className="col-span-2 pt-1 border-t border-slate-100">
+                        <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block">
                           Estudiante involucrado
                         </span>
                         <span className="font-black text-[#003770]">
@@ -812,10 +640,10 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
                   {/* Descripción completa */}
                   <div>
-                    <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block mb-1">
+                    <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block mb-1">
                       Descripción
                     </span>
-                    <div className="bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl p-3 text-xs font-semibold text-[#475569] leading-relaxed">
+                    <div className="bg-[#F8FAFC] border border-slate-200 rounded-xl p-3 text-xs font-semibold text-slate-700 leading-relaxed">
                       {incidenciaSeleccionada.descripcion}
                     </div>
                   </div>
@@ -823,14 +651,14 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                   {/* Foto de evidencia si existe */}
                   {incidenciaSeleccionada.evidenciaUrl && (
                     <div>
-                      <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block mb-1">
+                      <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block mb-1">
                         Evidencia fotográfica
                       </span>
                       <a
                         href={incidenciaSeleccionada.evidenciaUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[#4A97D3] hover:underline bg-[#F0F6FC] border border-[#B6D3EE] rounded-xl px-3 py-2"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2563EB] hover:underline bg-blue-50 border border-blue-200 rounded-xl px-3 py-2"
                       >
                         <FileText className="w-4 h-4" />
                         <span>Ver evidencia adjunta</span>
@@ -841,30 +669,30 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
                   {/* Línea de Tiempo de Auditoría (EventoIncidenciaDto) */}
                   <div>
-                    <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block mb-2">
+                    <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block mb-2">
                       Línea de tiempo (desde auditoría)
                     </span>
-                    <div className="space-y-2 border-l-2 border-[#CBD5E1] pl-3 ml-1 text-xs">
+                    <div className="space-y-2 border-l-2 border-slate-200 pl-3 ml-1 text-xs">
                       {incidenciaSeleccionada.lineaTiempo && incidenciaSeleccionada.lineaTiempo.length > 0 ? (
                         incidenciaSeleccionada.lineaTiempo.map((ev, idx) => (
                           <div key={idx} className="relative">
-                            <div className="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full bg-[#4A97D3] border-2 border-white" />
-                            <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#9AA8BA] font-bold">
+                            <div className="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full bg-[#2563EB] border-2 border-white" />
+                            <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-400 font-bold">
                               <span>{formatearHora(ev.fechaHora)}</span>
                               <span className="text-[#003770] font-black">{ev.accion}</span>
                             </div>
-                            <p className="text-[11px] text-[#64748B] font-medium">
+                            <p className="text-[11px] text-slate-600 font-medium">
                               {ev.usuario}
                             </p>
                             {ev.detalle && (
-                              <p className="text-[10.5px] text-[#7A8BA0] font-mono">
+                              <p className="text-[10.5px] text-slate-500 font-mono">
                                 {ev.detalle}
                               </p>
                             )}
                           </div>
                         ))
                       ) : (
-                        <div className="text-[11px] text-[#9AA8BA] font-medium">
+                        <div className="text-[11px] text-slate-400 font-medium">
                           Sin eventos de auditoría adicionales.
                         </div>
                       )}
@@ -873,11 +701,11 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
                   {/* Sección Resolución */}
                   <div>
-                    <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block mb-1">
-                      Resolución {incidenciaSeleccionada.estado !== "CERRADA" && <span className="text-[#B91C1C] font-normal">(obligatoria para cerrar)</span>}
+                    <span className="text-[10.5px] uppercase font-extrabold text-slate-400 block mb-1">
+                      Resolución {incidenciaSeleccionada.estado !== "CERRADA" && <span className="text-rose-500 font-normal">(obligatoria para cerrar)</span>}
                     </span>
                     {incidenciaSeleccionada.estado === "CERRADA" ? (
-                      <div className="bg-[#F0F6FC] border border-[#B6D3EE] rounded-xl p-3 text-xs font-bold text-[#003770]">
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs font-bold text-emerald-900">
                         ✓ {incidenciaSeleccionada.resolucion || "Incidencia resuelta y archivada."}
                       </div>
                     ) : (
@@ -886,7 +714,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                         onChange={(e) => setStrResolucionInput(e.target.value)}
                         placeholder="Obligatoria para cerrar la incidencia..."
                         rows={2}
-                        className="w-full bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl p-2.5 text-xs font-semibold text-[#08264A] placeholder-[#9AA8BA] focus:outline-none focus:border-[#4A97D3]"
+                        className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB]"
                       />
                     )}
                   </div>
@@ -896,8 +724,8 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                     <p
                       className={`text-xs font-bold ${
                         strMensajeFeedback.includes("exitosamente") || strMensajeFeedback.includes("marcada")
-                          ? "text-[#267BC2]"
-                          : "text-[#B91C1C]"
+                          ? "text-emerald-600"
+                          : "text-rose-600"
                       }`}
                     >
                       {strMensajeFeedback}
@@ -912,7 +740,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                           type="button"
                           onClick={fnMarcarEnRevision}
                           disabled={boolGuardandoResolucion}
-                          className="flex-1 bg-white hover:bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1] py-2.5 px-3 rounded-xl font-bold text-xs transition cursor-pointer"
+                          className="flex-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 py-2.5 px-3 rounded-xl font-bold text-xs transition cursor-pointer"
                         >
                           Marcar en revisión
                         </button>
@@ -921,19 +749,19 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                         type="button"
                         onClick={fnCerrarIncidencia}
                         disabled={boolGuardandoResolucion}
-                        className="flex-1 bg-[#003770] hover:bg-[#08264A] text-white py-2.5 px-3 rounded-xl font-bold text-xs transition shadow-xs cursor-pointer"
+                        className="flex-1 bg-[#1A365D] hover:bg-[#132743] text-white py-2.5 px-3 rounded-xl font-bold text-xs transition shadow-xs cursor-pointer"
                       >
                         {boolGuardandoResolucion ? "Guardando..." : "Cerrar incidencia"}
                       </button>
                     </div>
                   ) : (
-                    <div className="text-center py-1 text-[#9AA8BA] text-xs font-bold">
+                    <div className="text-center py-1 text-slate-400 text-xs font-bold">
                       Esta incidencia ya está cerrada y auditada. No admite cambios.
                     </div>
                   )}
                 </>
               ) : (
-                <div className="text-center py-12 text-[#9AA8BA] text-xs font-semibold">
+                <div className="text-center py-12 text-slate-400 text-xs font-semibold">
                   Selecciona una incidencia para ver su detalle y resolución.
                 </div>
               )}
@@ -947,30 +775,30 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       {/* VISTA TAB: INGRESOS EXCEPCIONALES (Mockup 06-D) */}
       {/* =================================================================== */}
       {tabActivo === "excepcionales" && (
-        <div className="bg-white rounded-3xl border border-[#CBD5E1] shadow-xs p-5 space-y-4">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-5 space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div>
               <h4 className="text-base font-black text-[#003770]">
                 Ingresos Excepcionales Autorizados
               </h4>
-              <p className="text-xs text-[#7A8BA0] font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 Estudiantes autorizados manualmente con motivo justificado y auditoría.
               </p>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-[#9AA8BA] absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={strBusquedaExcepcionales}
                   onChange={(e) => setStrBusquedaExcepcionales(e.target.value)}
                   placeholder="Buscar por SIS o nombre..."
-                  className="w-full bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-[#08264A] placeholder-[#9AA8BA] focus:outline-none focus:border-[#4A97D3]"
+                  className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB]"
                 />
               </div>
               <button
                 onClick={() => setBoolModalExcepcional(true)}
-                className="bg-[#003770] hover:bg-[#08264A] text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer whitespace-nowrap"
+                className="bg-[#1A365D] hover:bg-[#132743] text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Nuevo</span>
@@ -981,27 +809,27 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           {/* Tarjetas en celular y tablet; tabla en computadora */}
           <div className="lg:hidden space-y-2.5">
             {boolCargando ? (
-              <p className="py-8 text-center text-[#9AA8BA] text-xs font-semibold animate-pulse">Cargando ingresos excepcionales...</p>
+              <p className="py-8 text-center text-slate-400 text-xs font-semibold animate-pulse">Cargando ingresos excepcionales...</p>
             ) : excepcionalesFiltrados.length === 0 ? (
-              <p className="py-8 text-center text-[#9AA8BA] text-xs font-semibold">No hay registros de ingresos excepcionales.</p>
+              <p className="py-8 text-center text-slate-400 text-xs font-semibold">No hay registros de ingresos excepcionales.</p>
             ) : (
               excepcionalesFiltrados.map((item, idx) => (
-                <div key={item.idIngreso || idx} className="border border-[#CBD5E1] rounded-2xl p-3.5 space-y-1.5 text-xs break-words">
+                <div key={item.idIngreso || idx} className="border border-slate-200 rounded-2xl p-3.5 space-y-1.5 text-xs break-words">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-black text-[#08264A]">{item.estudiante}</p>
+                      <p className="font-black text-slate-800">{item.estudiante}</p>
                       <p className="font-mono font-bold text-[#003770] text-[11px]">SIS {item.codSis}</p>
                     </div>
-                    <span className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] font-extrabold px-2 py-0.5 rounded-full text-[10px] text-center shrink-0">
+                    <span className="bg-blue-50 border border-blue-200 text-blue-700 font-extrabold px-2 py-0.5 rounded-full text-[10px] text-center shrink-0">
                       {item.motivoEtiqueta || item.motivo}
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#7A8BA0] font-semibold">
+                  <p className="text-[11px] text-slate-500 font-semibold">
                     {formatearHora(item.horaIngreso)} · {item.aula} · autorizó {item.autorizadoPor || "-"}
                   </p>
-                  <p className="text-[#64748B] font-medium">{item.observacion}</p>
+                  <p className="text-slate-600 font-medium">{item.observacion}</p>
                   {item.evidenciaUrl && (
-                    <a href={item.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-[#4A97D3] hover:underline">
+                    <a href={item.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2563EB] hover:underline">
                       <FileText className="w-3.5 h-3.5" />
                       <span>Ver respaldo</span>
                     </a>
@@ -1011,10 +839,10 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             )}
           </div>
 
-          <div className="hidden lg:block overflow-x-auto rounded-2xl border border-[#CBD5E1]">
+          <div className="hidden lg:block overflow-x-auto rounded-2xl border border-slate-100">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-[#F1F5F9] border-b border-[#CBD5E1] text-[#7A8BA0] uppercase tracking-wider text-[10px] font-black">
+                <tr className="bg-[#F8FAFC] border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] font-black">
                   <th className="py-3 px-3.5">Código SIS</th>
                   <th className="py-3 px-3">Estudiante</th>
                   <th className="py-3 px-2">Aula</th>
@@ -1025,43 +853,43 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                   <th className="py-3 px-3">Respaldo</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#CBD5E1]">
+              <tbody className="divide-y divide-slate-100">
                 {boolCargando ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-[#9AA8BA] font-semibold animate-pulse">
+                    <td colSpan={8} className="py-8 text-center text-slate-400 font-semibold animate-pulse">
                       Cargando ingresos excepcionales del servidor...
                     </td>
                   </tr>
                 ) : excepcionalesFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-[#9AA8BA] font-semibold">
+                    <td colSpan={8} className="py-8 text-center text-slate-400 font-semibold">
                       No hay registros de ingresos excepcionales.
                     </td>
                   </tr>
                 ) : (
                   excepcionalesFiltrados.map((item, idx) => (
-                    <tr key={item.idIngreso || idx} className="hover:bg-[#F1F5F9] transition">
+                    <tr key={item.idIngreso || idx} className="hover:bg-slate-50 transition">
                       <td className="py-3 px-3.5 font-mono font-bold text-[#003770]">
                         {item.codSis}
                       </td>
-                      <td className="py-3 px-3 font-black text-[#08264A]">
+                      <td className="py-3 px-3 font-black text-slate-800">
                         {item.estudiante}
                       </td>
-                      <td className="py-3 px-2 font-bold text-[#475569]">
+                      <td className="py-3 px-2 font-bold text-slate-700">
                         {item.aula}
                       </td>
-                      <td className="py-3 px-2 font-mono text-[#7A8BA0] font-bold whitespace-nowrap">
+                      <td className="py-3 px-2 font-mono text-slate-500 font-bold whitespace-nowrap">
                         {formatearHora(item.horaIngreso)}
                       </td>
                       <td className="py-3 px-3">
-                        <span className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] font-extrabold px-2.5 py-0.5 rounded-full text-[10.5px] whitespace-nowrap">
+                        <span className="bg-blue-50 border border-blue-200 text-blue-700 font-extrabold px-2.5 py-0.5 rounded-full text-[10.5px] whitespace-nowrap">
                           {item.motivoEtiqueta || item.motivo}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-[#64748B] font-medium max-w-xs truncate" title={item.observacion}>
+                      <td className="py-3 px-4 text-slate-600 font-medium max-w-xs truncate" title={item.observacion}>
                         {item.observacion}
                       </td>
-                      <td className="py-3 px-3 font-bold text-[#475569] whitespace-nowrap">
+                      <td className="py-3 px-3 font-bold text-slate-700 whitespace-nowrap">
                         {item.autorizadoPor || "Docente"}
                       </td>
                       <td className="py-3 px-3">
@@ -1070,13 +898,13 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                             href={item.evidenciaUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#4A97D3] hover:underline cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2563EB] hover:underline cursor-pointer"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             <span>Ver</span>
                           </a>
                         ) : (
-                          <span className="text-[#CBD5E1] font-bold">—</span>
+                          <span className="text-slate-300 font-bold">—</span>
                         )}
                       </td>
                     </tr>
@@ -1097,13 +925,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           setBoolModalIncidencia(false);
           setEstudianteParaIncidencia(null);
         }}
-        aulasDisponibles={
-          aulasDelExamen.length > 0
-            ? aulasDelExamen
-            : filtroMateria !== TODOS
-              ? aulasAsignadas.filter((a) => String(a.idAsignatura) === String(filtroMateria))
-              : aulasAsignadas
-        }
+        aulasDisponibles={aulasDelExamen.length > 0 ? aulasDelExamen : aulasAsignadas}
         aulaPreseleccionada={aulaParaIncidencia}
         estudianteInicial={estudianteParaIncidencia}
         onExito={fnTrasRegistrar}
@@ -1127,9 +949,3 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
     </div>
   );
 }
-
-
-
-
-
-

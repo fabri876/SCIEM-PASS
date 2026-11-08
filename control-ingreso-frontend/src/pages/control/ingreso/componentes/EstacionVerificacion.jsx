@@ -1,11 +1,7 @@
-import { useRegisterBackHandler } from "../../../../hooks/useAndroidBackButton";
-// Estación de verificación en dos fases:
-// 1) Identificar por QR o manual (no registra).
-// 2) Verificar el rostro del estudiante ya identificado y recién ahí registrar.
+// Estación de verificación: Escanear QR / Ingreso manual (C.I. o Código SIS)
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { QrCode, Keyboard, ScanLine, ScanFace, Check } from "lucide-react";
-import ControlFacialCamera from "../ControlFacialCamera";
+import { QrCode, Keyboard, ScanLine } from "lucide-react";
 
 const ID_LECTOR = "ci-lector-qr";
 
@@ -32,24 +28,8 @@ function BotonModo({ boolActivo, onClick, Icono, children }) {
   );
 }
 
-function Paso({ numero, texto, boolActivo, boolHecho }) {
-  const clase = boolHecho
-    ? "bg-[#166534] text-white border-[#166534]"
-    : boolActivo
-      ? "bg-[#003770] text-white border-[#003770]"
-      : "bg-white text-[#94A3B8] border-[#CBD5E1]";
-  return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider">
-      <span className={"w-5 h-5 rounded-full border flex items-center justify-center " + clase}>
-        {boolHecho ? <Check className="w-3 h-3" /> : numero}
-      </span>
-      <span className={boolActivo || boolHecho ? "text-[#08264A]" : "text-[#94A3B8]"}>{texto}</span>
-    </span>
-  );
-}
-
 /* ---------------- Lector QR ---------------- */
-function PanelQR({ onValidar, boolValidando }) {
+function PanelQR({ onValidar, boolValidando, idExamen }) {
   const [strEstado, setStrEstado] = useState("inactivo"); // inactivo | leyendo
   const [boolAcierto, setBoolAcierto] = useState(false);
   const [strAviso, setStrAviso] = useState("");
@@ -64,8 +44,6 @@ function PanelQR({ onValidar, boolValidando }) {
     }
     setStrEstado("inactivo");
   };
-
-  useRegisterBackHandler(strEstado === "leyendo", fnDetener);
 
   useEffect(() => () => { fnDetener(); }, []);
 
@@ -93,19 +71,19 @@ function PanelQR({ onValidar, boolValidando }) {
       );
     } catch {
       await fnDetener();
-      setStrAviso("No se pudo abrir la cámara. Revisa el permiso de la app en Ajustes > Apps > SCIEM-PASS > Permisos, o usa el ingreso manual.");
+      setStrAviso("No se pudo abrir la cámara. Revisa el permiso del navegador o usa el ingreso manual.");
     }
   };
 
   const boolLeyendo = strEstado === "leyendo";
 
   return (
-    <div className="mt-5 flex flex-wrap items-center gap-7 max-md:flex-col max-md:items-stretch max-md:gap-3">
+    <div className="mt-5 flex flex-wrap items-center gap-7 max-md:flex-col max-md:items-stretch max-md:gap-4">
       <div
         aria-hidden="true"
         className={
           "ci-visor relative w-[210px] h-[210px] shrink-0 rounded-[14px] flex items-center justify-center overflow-hidden transition-colors " +
-          "max-md:w-full max-md:h-[200px] " +
+          "max-md:w-full max-md:h-[250px] " +
           (boolAcierto ? "bg-[#267BC2]" : "bg-[#08264A]") +
           (boolLeyendo ? " ci-leyendo" : "")
         }
@@ -119,7 +97,7 @@ function PanelQR({ onValidar, boolValidando }) {
       <div className="flex-1 basis-[300px] min-w-0 max-md:flex-none max-md:basis-auto max-md:text-center">
         <h3 className="m-0 text-[17px] font-bold text-[#08264A]">Escanear QR de la credencial</h3>
         <p className="mt-1.5 mb-4 text-sm leading-relaxed text-[#64748B]">
-          Acerca la credencial del estudiante a la cámara para identificarlo.
+          Acerca la credencial del estudiante a la cámara.
         </p>
         {boolLeyendo ? (
           <button type="button" onClick={fnDetener} className={CLASE_BOTON + " max-md:w-full max-md:min-h-[52px]"}>
@@ -127,7 +105,7 @@ function PanelQR({ onValidar, boolValidando }) {
           </button>
         ) : (
           <button type="button" onClick={fnLeer} disabled={boolValidando} className={CLASE_BOTON + " max-md:w-full max-md:min-h-[52px]"}>
-            {boolValidando ? "Identificando…" : "Leer QR"}
+            {boolValidando ? "Verificando…" : "Leer QR"}
           </button>
         )}
         {strAviso && <p className="mt-2.5 text-[13px] text-[#B91C1C]">{strAviso}</p>}
@@ -197,11 +175,11 @@ function PanelManual({ onValidar, boolValidando }) {
             "font-mono text-[28px] tracking-[6px] text-[#003770] " +
             "placeholder:font-sans placeholder:text-base placeholder:tracking-normal placeholder:text-[#9AA8BA] " +
             "focus:border-[#1860A3] focus:shadow-[0_0_0_4px_#D9E8F7] " +
-            "max-md:flex-none max-md:basis-auto max-md:h-[54px] max-md:px-4 max-md:text-[18px] max-md:tracking-[2px]"
+            "max-md:flex-none max-md:basis-auto max-md:h-[58px] max-md:px-4 max-md:text-[22px] max-md:tracking-[4px]"
           }
         />
         <button type="submit" disabled={!boolValido || boolValidando} className={CLASE_BOTON + " min-h-[62px] px-[30px] text-[15px] max-md:min-h-[52px] max-md:w-full"}>
-          {boolValidando ? "Identificando…" : "Identificar estudiante"}
+          {boolValidando ? "Verificando…" : "Verificar ingreso"}
         </button>
       </div>
       <div id="ci-ayuda" className={"mt-2 text-[13px] " + strColorAyuda}>{strAyuda}</div>
@@ -210,74 +188,28 @@ function PanelManual({ onValidar, boolValidando }) {
 }
 
 /* ---------------- Estación ---------------- */
-export default function EstacionVerificacion({
-  onValidar,
-  boolValidando,
-  idExamen,
-  idAsignatura,
-  idAmbiente,
-  objIdentificacion = null,
-  boolSinRed = false,
-  onVerificado,
-  onSinEnrolamiento,
-  onFalloFacial,
-  onCancelarFacial,
-}) {
+export default function EstacionVerificacion({ onValidar, boolValidando, idExamen }) {
   const [strModo, setStrModo] = useState("qr");
-  const boolIdentificado = Boolean(objIdentificacion);
 
   return (
     <div className="bg-white border border-[#CBD5E1] border-t-4 border-t-[#003770] rounded-[14px] p-[22px] max-md:p-3.5 shadow-[0_2px_8px_rgba(8,38,74,.05)]">
-      {/* Título dentro de la tarjeta + pasos a la derecha */}
+      {/* Título dentro de la tarjeta + pestañas a la derecha */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#E2E8F0]">
         <div className="flex items-center gap-3">
           <span className="w-10 h-10 rounded-[10px] bg-[#003770] text-white flex items-center justify-center shrink-0">
-            {boolIdentificado ? <ScanFace className="w-5 h-5" /> : <ScanLine className="w-5 h-5" />}
+            <ScanLine className="w-5 h-5" />
           </span>
-          <div>
-            <h2 id="ci-t-verificacion" className="m-0 text-lg font-bold text-[#08264A]">Verificación de ingreso</h2>
-            <p className="m-0 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-              {boolIdentificado ? "Fase 2 de 2 · Rostro" : "Fase 1 de 2 · Identificar"}
-            </p>
-          </div>
+          <h2 id="ci-t-verificacion" className="m-0 text-lg font-bold text-[#08264A]">Verificación de ingreso</h2>
         </div>
-
-        <div className="flex items-center gap-3 max-md:w-full max-md:justify-between">
-          <Paso numero={1} texto="Identificar" boolActivo={!boolIdentificado} boolHecho={boolIdentificado} />
-          <span className="w-5 h-px bg-[#CBD5E1]" aria-hidden="true" />
-          <Paso numero={2} texto="Rostro" boolActivo={boolIdentificado} boolHecho={false} />
+        <div role="group" aria-label="Método de verificación" className="inline-flex gap-1 bg-[#F1F5F9] rounded-[10px] p-1 max-md:grid max-md:grid-cols-2 max-md:w-full">
+          <BotonModo boolActivo={strModo === "qr"} onClick={() => setStrModo("qr")} Icono={QrCode}>Escanear QR</BotonModo>
+          <BotonModo boolActivo={strModo === "manual"} onClick={() => setStrModo("manual")} Icono={Keyboard}>Ingreso manual</BotonModo>
         </div>
       </div>
 
-      {!boolIdentificado ? (
-        <>
-          <div role="group" aria-label="Método de identificación" className="mt-4 inline-flex gap-1 bg-[#F1F5F9] rounded-[10px] p-1 max-md:grid max-md:grid-cols-2 max-md:w-full">
-            <BotonModo boolActivo={strModo === "qr"} onClick={() => setStrModo("qr")} Icono={QrCode}>Escanear QR</BotonModo>
-            <BotonModo boolActivo={strModo === "manual"} onClick={() => setStrModo("manual")} Icono={Keyboard}>Ingreso manual</BotonModo>
-          </div>
-
-          {strModo === "qr" && (
-            <PanelQR onValidar={onValidar} boolValidando={boolValidando} />
-          )}
-          {strModo === "manual" && (
-            <PanelManual onValidar={onValidar} boolValidando={boolValidando} />
-          )}
-        </>
-      ) : (
-        <div className="mt-4">
-          <ControlFacialCamera
-            idExamen={idExamen}
-            idAsignatura={idAsignatura}
-            idAmbiente={idAmbiente}
-            estudianteIdentificado={objIdentificacion.estudiante}
-            boolSinRed={boolSinRed}
-            onVerificado={onVerificado}
-            onSinEnrolamiento={onSinEnrolamiento}
-            onFalloFacial={onFalloFacial}
-            onCancelar={onCancelarFacial}
-          />
-        </div>
-      )}
+      {strModo === "qr"
+        ? <PanelQR onValidar={onValidar} boolValidando={boolValidando} idExamen={idExamen} />
+        : <PanelManual onValidar={onValidar} boolValidando={boolValidando} />}
     </div>
   );
 }

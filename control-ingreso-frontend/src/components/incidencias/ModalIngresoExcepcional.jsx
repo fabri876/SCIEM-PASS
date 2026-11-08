@@ -24,8 +24,6 @@ const MOTIVOS_EXCEPCION = [
   { codigo: "NO_FIGURA_EN_LISTA", titulo: "No figura en la lista", descripcion: "Error de habilitación con respaldo" },
   { codigo: "LLEGADA_TARDIA", titulo: "Llegada tardía", descripcion: "Fuera de la tolerancia por causa justificada" },
   { codigo: "TRASLADO_AULA", titulo: "Traslado desde otra aula", descripcion: "Reasignación autorizada por capacidad" },
-  { codigo: "FALLO_FACIAL", titulo: "Fallo en reconocimiento facial", descripcion: "Se agotaron los intentos de verificación biométrica" },
-  { codigo: "SIN_ENROLAMIENTO_FACIAL", titulo: "Sin enrolamiento facial", descripcion: "El estudiante no cuenta con rostro registrado" },
 ];
 
 const OBSERVACION_MIN = 20;
@@ -41,37 +39,23 @@ const ETIQUETA_ESTADO = {
 };
 
 /**
- * Ingreso excepcional (HU06). Docente asignado al examen, administrador y, en el
- * flujo facial del control de ingreso, el operador.
+ * Ingreso excepcional (HU06). Solo docente asignado al examen o administrador.
  *
  * - aulasDisponibles: aulas de HOY asignadas (GET /api/incidencias/ambientes). Si el ingreso ya
  *   cerró, la búsqueda lo explica y el backend registra el intento en auditoría.
  *   El ingreso excepcional solo se autoriza durante el examen; el backend también lo valida.
- * - boolSoloFacial: el operador solo autoriza los motivos faciales
- *   (FALLO_FACIAL y SIN_ENROLAMIENTO_FACIAL).
  */
 export default function ModalIngresoExcepcional({
   boolAbierto,
   onCerrar,
   aulasDisponibles = [],
   aulaPreseleccionada = null,
-  motivoPreseleccionado = null,
-  observacionSugerida = "",
-  idAmbienteBloqueado = null,
-  estudiantePreseleccionado = null,
-  boolSoloFacial = false,
   onExito,
   onAbrirIncidenciaConEstudiante,
 }) {
   const usuarioSesion = obtenerUsuarioActual();
   const strNombreAutoriza = `${usuarioSesion?.nombre || ""} ${usuarioSesion?.apellido || ""}`.trim();
   const inputBusquedaRef = useRef(null);
-
-  // El operador autoriza únicamente desde el flujo facial: no debe poder
-  // elegir motivos que el backend le va a rechazar.
-  const listMotivos = boolSoloFacial
-    ? MOTIVOS_EXCEPCION.filter((mot) => mot.codigo === "FALLO_FACIAL" || mot.codigo === "SIN_ENROLAMIENTO_FACIAL")
-    : MOTIVOS_EXCEPCION;
 
   // Paso 1: búsqueda y verificación. Paso 2: formulario de ingreso.
   const [paso, setPaso] = useState(1);
@@ -95,25 +79,18 @@ export default function ModalIngresoExcepcional({
   useEffect(() => {
     if (!boolAbierto) return;
 
-    setPaso(estudiantePreseleccionado ? 2 : 1);
+    setPaso(1);
     setStrBusqueda("");
-    setConsultaResultado(estudiantePreseleccionado ? {
-      codSis: estudiantePreseleccionado.codsisEstudiante,
-      nombreCompleto: estudiantePreseleccionado.nombreCompleto,
-      estado: "HABILITADO",
-    } : null);
+    setConsultaResultado(null);
     setStrErrorBusqueda("");
     setStrErrorGuardado("");
     setStrExitoMensaje("");
-    setStrObservacion(observacionSugerida || "");
+    setStrObservacion("");
     setArchivoRespaldo(null);
-    setMotivoSeleccionado(motivoPreseleccionado || null);
+    setMotivoSeleccionado(null);
     setBoolGuardando(false);
 
-    const aulaBloqueada = idAmbienteBloqueado != null
-      ? aulasDisponibles.find((item) => Number(item.idAmbiente) === Number(idAmbienteBloqueado))
-      : null;
-    const aula = aulaBloqueada || aulaPreseleccionada || aulasDisponibles[0] || null;
+    const aula = aulaPreseleccionada || aulasDisponibles[0] || null;
     setAulaSeleccionada(aula);
     setAforoActual(aula?.aforo || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,12 +136,12 @@ export default function ModalIngresoExcepcional({
   const fnDerivarAIncidencia = () => {
     const estudiante = consultaResultado && consultaResultado.estado !== "NO_ENCONTRADO"
       ? {
-        nombreCompleto: consultaResultado.nombreCompleto,
-        ci: consultaResultado.ci,
-        codSis: consultaResultado.codSis,
-        estado: consultaResultado.estado,
-        horaIngresoPrevio: consultaResultado.horaIngresoPrevio,
-      }
+          nombreCompleto: consultaResultado.nombreCompleto,
+          ci: consultaResultado.ci,
+          codSis: consultaResultado.codSis,
+          estado: consultaResultado.estado,
+          horaIngresoPrevio: consultaResultado.horaIngresoPrevio,
+        }
       : null;
     onCerrar();
     if (onAbrirIncidenciaConEstudiante) onAbrirIncidenciaConEstudiante(estudiante, aulaSeleccionada);
@@ -229,12 +206,12 @@ export default function ModalIngresoExcepcional({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[95vh] overflow-y-auto border border-[#CBD5E1] animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[95vh] overflow-y-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
 
         {/* PASO 1: BÚSQUEDA Y VERIFICACIÓN */}
         {paso === 1 && (
           <div className="flex flex-col">
-            <div className="bg-gradient-to-r from-[#08264A] via-[#003770] to-[#1860A3] text-white p-5 relative">
+            <div className="bg-gradient-to-r from-[#1A365D] via-[#2563EB] to-[#DC2626] text-white p-5 relative">
               <button onClick={onCerrar} className="absolute top-4 right-4 text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 transition cursor-pointer" title="Cerrar">
                 <X className="w-5 h-5" />
               </button>
@@ -252,23 +229,22 @@ export default function ModalIngresoExcepcional({
 
             <div className="p-5 space-y-4">
               {aulasDisponibles.length === 0 ? (
-                <p className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] rounded-xl p-3 text-xs font-bold">
+                <p className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs font-bold">
                   El ingreso excepcional solo se autoriza el día del examen: hoy no tienes exámenes asignados.
                 </p>
               ) : (
                 <>
                   <div>
-                    <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1">Aula</label>
+                    <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Aula</label>
                     <select
                       value={idAmbienteActual ?? ""}
-                      disabled={idAmbienteBloqueado != null}
                       onChange={(e) => {
                         const encontrada = aulasDisponibles.find((a) => String(a.idAmbiente) === e.target.value);
                         setAulaSeleccionada(encontrada || null);
                         setAforoActual(encontrada?.aforo || null);
                         setConsultaResultado(null);
                       }}
-                      className="w-full bg-[var(--color-bg-app)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--color-text-title)] focus:outline-none focus:border-[var(--color-primary-blue)] transition disabled:cursor-not-allowed disabled:opacity-70"
+                      className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] transition"
                     >
                       {aulasDisponibles.map((aula) => (
                         <option key={aula.idAmbiente} value={aula.idAmbiente}>
@@ -279,26 +255,26 @@ export default function ModalIngresoExcepcional({
                   </div>
 
                   <form onSubmit={fnBuscarEstudiante} className="space-y-2">
-                    <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B]">
+                    <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
                       Buscar estudiante (CI o Código SIS)
                     </label>
                     <div className="flex gap-2">
                       <div className="relative flex-1 min-w-0">
-                        <Search className="w-4 h-4 text-[#9AA8BA] absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                           ref={inputBusquedaRef}
                           type="text"
                           value={strBusqueda}
                           onChange={(e) => setStrBusqueda(e.target.value)}
                           placeholder="CI o Código SIS"
-                          className="w-full bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-[#08264A] placeholder-[#9AA8BA] focus:outline-none focus:border-[#4A97D3] transition"
+                          className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB] transition"
                           autoFocus
                         />
                       </div>
                       <button
                         type="submit"
                         disabled={boolBuscando}
-                        className="bg-[#003770] hover:bg-[#124B83] text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer disabled:opacity-50 shrink-0"
+                        className="bg-[#1A365D] hover:bg-[#132743] text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer disabled:opacity-50 shrink-0"
                       >
                         {boolBuscando ? (
                           <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
@@ -308,22 +284,23 @@ export default function ModalIngresoExcepcional({
                         <span>Buscar</span>
                       </button>
                     </div>
-                    {strErrorBusqueda && <p className="text-[11px] text-[#B91C1C] font-bold">{strErrorBusqueda}</p>}
+                    {strErrorBusqueda && <p className="text-[11px] text-rose-600 font-bold">{strErrorBusqueda}</p>}
                   </form>
                 </>
               )}
 
               {consultaResultado && (
                 <div
-                  className={`p-4 rounded-2xl border transition-all ${consultaResultado.estado === "DUPLICADO"
-                      ? "bg-[#F1F5F9] border-[#CBD5E1]"
+                  className={`p-4 rounded-2xl border transition-all ${
+                    consultaResultado.estado === "DUPLICADO"
+                      ? "bg-amber-50/70 border-amber-200"
                       : consultaResultado.estado === "HABILITADO"
-                        ? "bg-[#F0F6FC] border-[#B6D3EE]"
-                        : "bg-[#FEF2F2] border-[#FEE2E2]"
-                    }`}
+                      ? "bg-emerald-50/70 border-emerald-200"
+                      : "bg-rose-50/70 border-rose-200"
+                  }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#83B7E2] to-[#4A97D3] text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-300 to-slate-400 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
                       {iniciales}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -332,43 +309,37 @@ export default function ModalIngresoExcepcional({
                           {consultaResultado.nombreCompleto || "Estudiante no registrado"}
                         </h4>
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${consultaResultado.estado === "DUPLICADO"
-                              ? "bg-[#F1F5F9] text-[#64748B] border border-[#CBD5E1]"
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            consultaResultado.estado === "DUPLICADO"
+                              ? "bg-amber-100 text-amber-900 border border-amber-300"
                               : consultaResultado.estado === "HABILITADO"
-                                ? "bg-[#1860A3] text-white"
-                                : "bg-[#B91C1C] text-white"
-                            }`}
+                              ? "bg-emerald-600 text-white"
+                              : "bg-rose-600 text-white"
+                          }`}
                         >
                           {consultaResultado.estado === "DUPLICADO" ? <Clock className="w-3 h-3" />
                             : consultaResultado.estado === "HABILITADO" ? <CheckCircle2 className="w-3 h-3" />
-                              : <XCircle className="w-3 h-3" />}
+                            : <XCircle className="w-3 h-3" />}
                           <span>{ETIQUETA_ESTADO[consultaResultado.estado] || consultaResultado.estado}</span>
                         </span>
                       </div>
                       {consultaResultado.estado !== "NO_ENCONTRADO" && (
-                        <p className="text-xs text-[#64748B] font-bold mt-0.5">
+                        <p className="text-xs text-slate-600 font-bold mt-0.5">
                           CI {consultaResultado.ci || "-"} · SIS {consultaResultado.codSis || "-"}
                         </p>
                       )}
-                      <div
-                        className={`mt-2.5 pt-2 border-t border-[#CBD5E1]/80 text-[11.5px] font-extrabold ${consultaResultado.estado === "HABILITADO"
-                            ? "text-[#1860A3]"
-                            : consultaResultado.estado === "DUPLICADO"
-                              ? "text-[#64748B]"
-                              : "text-[#B91C1C]"
-                          }`}
-                      >
+                      <div className="mt-2.5 pt-2 border-t border-slate-200/80 text-[11.5px] font-extrabold text-rose-700">
                         {consultaResultado.mensaje}
                       </div>
                     </div>
                   </div>
 
                   {/* Botones según los flags del backend */}
-                  <div className="mt-4 pt-3 border-t border-[#CBD5E1]/60 flex flex-col sm:flex-row gap-2">
+                  <div className="mt-4 pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row gap-2">
                     {consultaResultado.puedeAutorizarExcepcional && (
                       <button
                         onClick={() => setPaso(2)}
-                        className="flex-1 bg-[#003770] hover:bg-[#124B83] text-white py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
+                        className="flex-1 bg-[#1A365D] hover:bg-[#132743] text-white py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
                       >
                         <UserCheck className="w-4 h-4" />
                         <span>Autorizar ingreso excepcional</span>
@@ -377,14 +348,14 @@ export default function ModalIngresoExcepcional({
                     {consultaResultado.puedeRegistrarIncidencia && (
                       <button
                         onClick={fnDerivarAIncidencia}
-                        className="bg-[#F0F6FC] hover:bg-[#D9E8F7] text-[#124B83] border border-[#B6D3EE] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                        className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
                       >
-                        <AlertTriangle className="w-4 h-4 text-[#4A97D3]" />
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
                         <span>Registrar incidencia</span>
                       </button>
                     )}
                     {consultaResultado.estado !== "DUPLICADO" && consultaResultado.estado !== "RETIRADO" && (
-                      <button type="button" onClick={fnLimpiarResultado} className="text-[#64748B] hover:text-[#475569] font-bold text-xs px-3 py-2">
+                      <button type="button" onClick={fnLimpiarResultado} className="text-slate-500 hover:text-slate-700 font-bold text-xs px-3 py-2">
                         Rechazar y continuar
                       </button>
                     )}
@@ -398,24 +369,24 @@ export default function ModalIngresoExcepcional({
         {/* PASO 2: FORMULARIO */}
         {paso === 2 && consultaResultado && (
           <div className="p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#CBD5E1] pb-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <button onClick={() => setPaso(1)} disabled={boolGuardando} className="p-1.5 rounded-xl border border-[#CBD5E1] text-[#64748B] hover:bg-[#F1F5F9] transition cursor-pointer" title="Volver">
+                <button onClick={() => setPaso(1)} disabled={boolGuardando} className="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition cursor-pointer" title="Volver">
                   <ArrowLeft className="w-4 h-4" />
                 </button>
                 <h3 className="text-base font-black text-[#003770]">Ingreso Excepcional</h3>
               </div>
-              <button onClick={onCerrar} disabled={boolGuardando} className="text-[#9AA8BA] hover:text-[#64748B] p-1 rounded-full hover:bg-[#F1F5F9] transition cursor-pointer" title="Cerrar">
+              <button onClick={onCerrar} disabled={boolGuardando} className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition cursor-pointer" title="Cerrar">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Estudiante */}
-            <div className="bg-[#F1F5F9] border border-[#CBD5E1] rounded-2xl p-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#B6D3EE] text-[#003770] font-black text-xs flex items-center justify-center shrink-0">{iniciales}</div>
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-300 text-slate-700 font-black text-xs flex items-center justify-center shrink-0">{iniciales}</div>
               <div className="min-w-0 flex-1">
                 <p className="font-black text-xs text-[#003770] truncate">{consultaResultado.nombreCompleto}</p>
-                <p className="text-[11px] text-[#64748B] font-bold">
+                <p className="text-[11px] text-slate-500 font-bold">
                   SIS {consultaResultado.codSis} · {ETIQUETA_ESTADO[consultaResultado.estado] || consultaResultado.estado}
                 </p>
               </div>
@@ -423,26 +394,27 @@ export default function ModalIngresoExcepcional({
 
             {/* Motivo */}
             <div>
-              <label className={`block text-[11px] font-extrabold uppercase tracking-wider mb-1.5 ${motivoSeleccionado ? "text-[#64748B]" : "text-[#B91C1C]"}`}>
-                Motivo <span className="text-[#B91C1C]">* {!motivoSeleccionado && "(obligatorio)"}</span>
+              <label className={`block text-[11px] font-extrabold uppercase tracking-wider mb-1.5 ${motivoSeleccionado ? "text-slate-600" : "text-rose-600"}`}>
+                Motivo <span className="text-rose-600">* {!motivoSeleccionado && "(obligatorio)"}</span>
               </label>
               <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl ${motivoSeleccionado ? "" : "ring-2 ring-rose-200 p-1"}`}>
-                {listMotivos.map((mot) => {
+                {MOTIVOS_EXCEPCION.map((mot) => {
                   const isChecked = motivoSeleccionado === mot.codigo;
                   return (
                     <button
                       type="button"
                       key={mot.codigo}
                       onClick={() => setMotivoSeleccionado(mot.codigo)}
-                      className={`p-3 rounded-xl border text-xs text-left cursor-pointer transition flex items-start gap-2.5 ${isChecked ? "bg-[#F0F6FC] border-[#003770] text-[#003770] shadow-xs" : "bg-white border-[#CBD5E1] text-[#475569] hover:bg-[#F1F5F9]"
-                        }`}
+                      className={`p-3 rounded-xl border text-xs text-left cursor-pointer transition flex items-start gap-2.5 ${
+                        isChecked ? "bg-blue-50/70 border-[#2563EB] text-[#003770] shadow-xs" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                      }`}
                     >
-                      <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${isChecked ? "border-[#003770] bg-[#003770]" : "border-[#CBD5E1]"}`}>
+                      <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${isChecked ? "border-[#2563EB] bg-[#2563EB]" : "border-slate-300"}`}>
                         {isChecked && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
                       <div>
                         <span className="font-extrabold block text-xs leading-snug">{mot.titulo}</span>
-                        <span className="text-[10px] text-[#64748B] block leading-tight mt-0.5">{mot.descripcion}</span>
+                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">{mot.descripcion}</span>
                       </div>
                     </button>
                   );
@@ -450,25 +422,25 @@ export default function ModalIngresoExcepcional({
               </div>
             </div>
 
-            {/* Autorizador: siempre el usuario de la sesión */}
+            {/* Docente que autoriza: siempre el usuario de la sesión */}
             <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1">Docente que autoriza</label>
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">Docente que autoriza</label>
               <input
                 type="text"
                 value={strNombreAutoriza}
                 readOnly
                 disabled
-                className="w-full bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-bold text-[#475569] cursor-not-allowed"
+                className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 cursor-not-allowed"
               />
             </div>
 
             {/* Observación */}
             <div>
               <div className="flex justify-between items-center mb-1 gap-2">
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B]">
-                  Observación <span className="text-[#B91C1C]">*</span>
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                  Observación <span className="text-rose-600">*</span>
                 </label>
-                <span className={`text-[10px] font-mono font-bold ${observacionValida ? "text-[#9AA8BA]" : "text-[#B91C1C]"}`}>
+                <span className={`text-[10px] font-mono font-bold ${observacionValida ? "text-slate-400" : "text-rose-600"}`}>
                   {strObservacion.length}/{OBSERVACION_MAX} {!observacionValida && `(mín. ${OBSERVACION_MIN})`}
                 </span>
               </div>
@@ -478,34 +450,34 @@ export default function ModalIngresoExcepcional({
                 maxLength={OBSERVACION_MAX}
                 placeholder="Explica por qué se autoriza el ingreso y qué respaldo presentó..."
                 rows={3}
-                className="w-full bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl p-3 text-xs font-medium text-[#08264A] placeholder-[#9AA8BA] focus:outline-none focus:border-[#4A97D3] transition"
+                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2563EB] transition"
               />
             </div>
 
             {/* Respaldo */}
             <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1">
-                Respaldo <span className="text-[#9AA8BA] font-normal">(opcional · JPG o PNG, máx. 5 MB)</span>
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">
+                Respaldo <span className="text-slate-400 font-normal">(opcional · JPG o PNG, máx. 5 MB)</span>
               </label>
-              <div className="border border-dashed border-[#CBD5E1] hover:border-[#4A97D3] rounded-xl p-3 bg-white flex items-center justify-between gap-3 transition">
+              <div className="border border-dashed border-slate-300 hover:border-[#2563EB] rounded-xl p-3 bg-white flex items-center justify-between gap-3 transition">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-[#F1F5F9] text-[#64748B] flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
                     <Upload className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#475569] truncate">{archivoRespaldo ? archivoRespaldo.name : "Sin archivo"}</p>
-                    <p className="text-[10px] text-[#9AA8BA]">
+                    <p className="text-xs font-bold text-slate-700 truncate">{archivoRespaldo ? archivoRespaldo.name : "Sin archivo"}</p>
+                    <p className="text-[10px] text-slate-400">
                       {archivoRespaldo ? `${(archivoRespaldo.size / 1024 / 1024).toFixed(2)} MB` : "Adjuntar es opcional"}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {archivoRespaldo && (
-                    <button type="button" onClick={() => setArchivoRespaldo(null)} className="text-[#B91C1C] hover:bg-[#FEF2F2] p-1.5 rounded-lg" title="Quitar archivo">
+                    <button type="button" onClick={() => setArchivoRespaldo(null)} className="text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg" title="Quitar archivo">
                       <X className="w-4 h-4" />
                     </button>
                   )}
-                  <label className="bg-[#F1F5F9] hover:bg-[#CBD5E1] text-[#475569] font-bold text-[11px] px-3 py-1.5 rounded-lg cursor-pointer transition">
+                  <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] px-3 py-1.5 rounded-lg cursor-pointer transition">
                     {archivoRespaldo ? "Cambiar" : "Examinar"}
                     <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={fnSeleccionarRespaldo} />
                   </label>
@@ -514,32 +486,33 @@ export default function ModalIngresoExcepcional({
             </div>
 
             {/* Aforo */}
-            <div className="bg-[#F1F5F9] p-3 rounded-xl border border-[#CBD5E1]">
-              <div className="flex justify-between items-center text-xs font-bold text-[#475569] mb-1 gap-2">
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div className="flex justify-between items-center text-xs font-bold text-slate-700 mb-1 gap-2">
                 <span>Aforo {aulaSeleccionada?.aula}</span>
-                <span className={porcentajeOcupacion >= 90 ? "text-[#B91C1C]" : "text-[#124B83]"}>{textoAforo(aforoActual)}</span>
+                <span className={porcentajeOcupacion >= 90 ? "text-rose-600" : "text-amber-700"}>{textoAforo(aforoActual)}</span>
               </div>
               {capacidad != null && (
-                <div className="w-full bg-[#CBD5E1] h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ${porcentajeOcupacion >= 90 ? "bg-[#B91C1C]" : porcentajeOcupacion >= 70 ? "bg-[#4A97D3]" : "bg-[#1860A3]"
-                      }`}
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      porcentajeOcupacion >= 90 ? "bg-rose-500" : porcentajeOcupacion >= 70 ? "bg-amber-500" : "bg-emerald-500"
+                    }`}
                     style={{ width: `${porcentajeOcupacion}%` }}
                   />
                 </div>
               )}
             </div>
 
-            <div className="bg-[#F0F6FC] border border-[#B6D3EE] rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-[#124B83] font-bold">
-              <ShieldCheck className="w-4 h-4 text-[#4A97D3] shrink-0 mt-0.5" />
+            <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-blue-900 font-bold">
+              <ShieldCheck className="w-4 h-4 text-[#2563EB] shrink-0 mt-0.5" />
               <span>Quedará en el historial de auditoría con tu usuario, la fecha y hora oficiales y tu IP.</span>
             </div>
 
             {strErrorGuardado && (
-              <div className="bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] p-2.5 rounded-xl text-xs font-bold">✕ {strErrorGuardado}</div>
+              <div className="bg-rose-50 border border-rose-200 text-rose-700 p-2.5 rounded-xl text-xs font-bold">✕ {strErrorGuardado}</div>
             )}
             {strExitoMensaje && (
-              <div className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] p-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>{strExitoMensaje}</span>
               </div>
@@ -550,7 +523,7 @@ export default function ModalIngresoExcepcional({
                 type="button"
                 onClick={onCerrar}
                 disabled={boolGuardando}
-                className="flex-1 bg-white hover:bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1] py-2.5 px-4 rounded-xl font-bold text-xs transition cursor-pointer"
+                className="flex-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 py-2.5 px-4 rounded-xl font-bold text-xs transition cursor-pointer"
               >
                 Cancelar
               </button>
@@ -558,12 +531,12 @@ export default function ModalIngresoExcepcional({
                 type="button"
                 onClick={fnConfirmarIngreso}
                 disabled={!puedeConfirmar}
-                className="flex-[1.6] bg-[#003770] hover:bg-[#124B83] disabled:opacity-45 disabled:cursor-not-allowed text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
+                className="flex-[1.6] bg-[#1A365D] hover:bg-[#132743] disabled:opacity-45 disabled:cursor-not-allowed text-white py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
               >
                 {boolGuardando ? (
                   <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
                 ) : (
-                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 )}
                 <span>Confirmar ingreso</span>
               </button>

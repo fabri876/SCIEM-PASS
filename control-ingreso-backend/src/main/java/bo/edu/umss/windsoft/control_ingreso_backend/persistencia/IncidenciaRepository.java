@@ -14,8 +14,6 @@ public interface IncidenciaRepository extends JpaRepository<Incidencia, Integer>
 
     Optional<Incidencia> findByClaveSolicitud(UUID claveSolicitud);
 
-    boolean existsByClaveSolicitud(UUID claveSolicitud);
-
     List<Incidencia> findByIdAmbienteInOrderByFechaHoraDesc(Collection<Integer> idsAmbiente);
 
     List<Incidencia> findAllByOrderByFechaHoraDesc();

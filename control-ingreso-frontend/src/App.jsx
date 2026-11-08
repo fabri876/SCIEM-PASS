@@ -1,7 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { BackButtonProvider } from "./hooks/useAndroidBackButton";
-import { useNativeLifecycle } from "./hooks/useNativeLifecycle";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, registrarActividad, estaSesionExpirada, cerrarSesion, setModoOfflineForzado } from "./services/authService";
 import { configRepo } from "./offline/configRepo.js";
 
@@ -28,8 +26,6 @@ import OperadorProvider from "./pages/control/OperadorProvider";
 
 // Páginas de Estudiante
 import HomeEstudiante from "./pages/estudiante/HomeEstudiante";
-import EnrolamientoFacialPage from "./pages/estudiante/EnrolamientoFacialPage";
-import { obtenerEstadoEnrolamiento } from "./services/facialService";
 
 // Páginas de Personal de Control (Operador)
 import HomeControl from "./pages/control/HomeControl";
@@ -73,14 +69,6 @@ function RutaProtegida({ children, listRolesPermitidos }) {
     return <Navigate to={strRutaDestino} replace />;
   }
 
-  return children;
-}
-
-function GuardEnrolamientoEstudiante({ children }) {
-  const [estado, setEstado] = React.useState("cargando");
-  useEffect(() => { obtenerEstadoEnrolamiento().then((dato) => setEstado(dato?.estado || "pendiente")).catch(() => setEstado("error")); }, []);
-  if (estado === "cargando") return null;
-  if (estado === "pendiente" || estado === "bloqueado") return <Navigate to="/estudiante/enrolamiento-facial" replace />;
   return children;
 }
 
@@ -132,7 +120,6 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AppRouterWrapper>
       <Routes>
         {/* Rutas Públicas (Redirigen al Home si el usuario ya inició sesión) */}
         <Route
@@ -218,12 +205,11 @@ function App() {
           path="/estudiante"
           element={
             <RutaProtegida listRolesPermitidos={["ESTUDIANTE"]}>
-              <GuardEnrolamientoEstudiante><HomeEstudiante /></GuardEnrolamientoEstudiante>
+              <HomeEstudiante />
             </RutaProtegida>
           }
         />
         <Route path="/home/estudiante" element={<Navigate to="/estudiante" replace />} />
-        <Route path="/estudiante/enrolamiento-facial" element={<RutaProtegida listRolesPermitidos={["ESTUDIANTE"]}><EnrolamientoFacialPage /></RutaProtegida>} />
 
         {/* Rutas del Personal de Control (Operador) */}
         <Route
@@ -244,19 +230,7 @@ function App() {
         {/* Redirección por defecto: ahora entra directo al Home */}
         <Route path="/" element={<Navigate to="/inicio" replace />} />
       </Routes>
-      </AppRouterWrapper>
     </BrowserRouter>
-  );
-}
-
-function AppRouterWrapper({ children }) {
-  const navigate = useNavigate();
-  const location = useLocation();
-  useNativeLifecycle();
-  return (
-    <BackButtonProvider navigate={navigate} pathname={location.pathname}>
-      {children}
-    </BackButtonProvider>
   );
 }
 
