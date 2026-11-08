@@ -10,8 +10,6 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenRespu
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AmbienteRespuestaDto;
 
 import jakarta.validation.Valid;
-import jakarta.servlet.http.HttpServletRequest;
-import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpResolver;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -34,8 +32,8 @@ public class ExamenController {
     }
 
     @PostMapping
-    public ResponseEntity<Examen> registrarExamen(@Valid @RequestBody ExamenRequest request, HttpServletRequest httpRequest) {
-        Examen examen = examenService.registrarExamen(request, ClientIpResolver.resolver(httpRequest));
+    public ResponseEntity<Examen> registrarExamen(@Valid @RequestBody ExamenRequest request) {
+        Examen examen = examenService.registrarExamen(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(examen);
     }
 
@@ -43,8 +41,8 @@ public class ExamenController {
     @PutMapping("/{id}")
     public ResponseEntity<ExamenRespuestaDto> actualizarExamen(
             @PathVariable Integer id,
-            @Valid @RequestBody ExamenRequest request, HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(examenService.actualizarExamen(id, request, ClientIpResolver.resolver(httpRequest)));
+            @Valid @RequestBody ExamenRequest request) {
+        return ResponseEntity.ok(examenService.actualizarExamen(id, request));
     }
 
     @GetMapping("/horarios-regulares")

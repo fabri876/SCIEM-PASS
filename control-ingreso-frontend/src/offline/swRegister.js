@@ -58,8 +58,7 @@ function iniciarMonitoreoActualizaciones() {
  * Solo opera en producción (import.meta.env.PROD) y si el navegador tiene soporte.
  */
 export function registrarSW() {
-  // En APK de Capacitor no se registra Service Worker
-  if (!import.meta.env.PROD || import.meta.env.VITE_IS_CAPACITOR === 'true') {
+  if (!import.meta.env.PROD) {
     return;
   }
 

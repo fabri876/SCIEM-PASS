@@ -16,7 +16,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -115,22 +114,6 @@ public class IncidenciaController {
                                                      HttpServletRequest request) {
         return ResponseEntity.ok(incidenciaService.listar(idExamen, idAmbiente, tipo, estado,
                 ClientIpResolver.resolver(request)));
-    }
-
-    @GetMapping("/exportar")
-    public ResponseEntity<byte[]> exportar(@RequestParam(required = false) Integer idExamen,
-                                           @RequestParam(required = false) Integer idAmbiente,
-                                           @RequestParam(required = false) String tipo,
-                                           @RequestParam(required = false) String estado,
-                                           @RequestParam(defaultValue = "false") boolean soloExpulsiones,
-                                           HttpServletRequest request) {
-        byte[] archivo = incidenciaService.exportarExcel(idExamen, idAmbiente, tipo, estado, soloExpulsiones,
-                ClientIpResolver.resolver(request));
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"incidencias.xlsx\"")
-                .contentType(MediaType.parseMediaType(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(archivo);
     }
 
     @GetMapping("/abiertas/total")

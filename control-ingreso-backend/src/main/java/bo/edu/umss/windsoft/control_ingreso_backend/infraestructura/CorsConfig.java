@@ -7,7 +7,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -18,28 +17,12 @@ public class CorsConfig {
     @Value("${cors.allowed-origin:http://localhost:5173}")
     private String allowedOrigin;
 
-    public List<String> resolverOrigenesPermitidos(String configuracion) {
-        Stream<String> origenesConfigurados = (configuracion == null || configuracion.isBlank())
-                ? Stream.empty()
-                : Arrays.stream(configuracion.split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isBlank());
-
-        return Stream.concat(origenesConfigurados, Stream.of(
-                "http://localhost:5173",
-                "http://localhost:4173",
-                "http://localhost",
-                "https://localhost",
-                "capacitor://localhost"
-        ))
-                .distinct()
-                .toList();
-    }
-
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(resolverOrigenesPermitidos(allowedOrigin));
+        configuration.setAllowedOrigins(Stream.of(allowedOrigin, "http://localhost:4173")
+                .distinct()
+                .toList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Requested-With", "Accept"));
         // Date se expone para que el cliente pueda calcular desfases de reloj

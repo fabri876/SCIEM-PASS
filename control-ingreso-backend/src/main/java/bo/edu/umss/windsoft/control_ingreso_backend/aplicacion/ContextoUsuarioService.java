@@ -44,10 +44,6 @@ public class ContextoUsuarioService {
         public boolean esOperador() {
             return TipoUsuarioResolver.OPERADOR.equals(rol);
         }
-
-        public boolean esEstudiante() {
-            return TipoUsuarioResolver.ESTUDIANTE.equals(rol);
-        }
     }
 
     private static final String ASIGNACION_ACTIVA = "ACTIVO";

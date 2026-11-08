@@ -83,8 +83,7 @@ export async function consultarEstudianteExcepcional(idAmbiente, strBusqueda) {
  * Parámetros obligatorios:
  *  - idAmbiente (número)
  *  - codSis (número)
- *  - motivo (código: SIN_CARNET_QR | NO_FIGURA_EN_LISTA | LLEGADA_TARDIA |
- *    TRASLADO_AULA | FALLO_FACIAL | SIN_ENROLAMIENTO_FACIAL)
+ *  - motivo (código: SIN_CARNET_QR | NO_FIGURA_EN_LISTA | LLEGADA_TARDIA | TRASLADO_AULA)
  *  - observacion (texto de 20 a 500 caracteres)
  *  - respaldo (archivo JPG/PNG máx 5 MB, opcional)
  *

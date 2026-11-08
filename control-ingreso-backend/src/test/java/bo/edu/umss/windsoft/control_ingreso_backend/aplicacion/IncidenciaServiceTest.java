@@ -25,7 +25,6 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AsignaturaRepos
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AulaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteAsignaturaRepository;
-import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteGrupoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExpulsionRepository;
@@ -87,7 +86,6 @@ class IncidenciaServiceTest {
     @Mock private DocenteAsignaturaRepository docenteAsignaturaRepository;
     @Mock private AyudanteExamenRepository ayudanteExamenRepository;
     @Mock private EstudianteRepository estudianteRepository;
-    @Mock private EstudianteGrupoRepository estudianteGrupoRepository;
     @Mock private HabilitacionRepository habilitacionRepository;
     @Mock private EvidenciaService evidenciaService;
     @Mock private AuditoriaService auditoriaService;
@@ -102,7 +100,7 @@ class IncidenciaServiceTest {
         AmbienteExamenService ambientes = new AmbienteExamenService(ambienteRepository, aulaRepository,
                 asignaturaRepository, examenRepository, ingresoRepository, contexto);
         EstudianteExamenService estudiantes = new EstudianteExamenService(estudianteRepository, usuarioRepository,
-                habilitacionRepository, estudianteGrupoRepository);
+                habilitacionRepository);
         service = new IncidenciaService(incidenciaRepository, ingresoRepository, expulsionRepository,
                 usuarioRepository, ambientes, estudiantes, contexto, evidenciaService, auditoriaService);
 
@@ -137,7 +135,6 @@ class IncidenciaServiceTest {
         when(estudianteRepository.findByCodsisestudiante(CODSIS)).thenReturn(Optional.of(new Estudiante(ID_ESTUDIANTE, CODSIS)));
         when(usuarioRepository.findById(ID_ESTUDIANTE)).thenReturn(Optional.of(estudiante));
         when(usuarioRepository.findAllById(any())).thenReturn(List.of(estudiante));
-        when(estudianteGrupoRepository.existeInscripcionEnAsignatura(CODSIS, ID_ASIGNATURA)).thenReturn(true);
 
         when(incidenciaRepository.findByClaveSolicitud(any())).thenReturn(Optional.empty());
         when(incidenciaRepository.saveAndFlush(any(Incidencia.class))).thenAnswer(inv -> {
@@ -171,7 +168,7 @@ class IncidenciaServiceTest {
         assertEquals("ABIERTA", dto.estado());
         assertEquals("Aula 601", dto.aula());
         assertEquals(1, dto.lineaTiempo().size());
-        verify(auditoriaService).registrarEnTransaccion(eq("INCIDENCIA_REGISTRADA"), eq("ana.rocha@umss.edu"), anyString(),
+        verify(auditoriaService).registrar(eq("INCIDENCIA_REGISTRADA"), eq("ana.rocha@umss.edu"), anyString(),
                 contains("INC-014"), eq("ip"));
     }
 
@@ -267,7 +264,7 @@ class IncidenciaServiceTest {
         when(ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(CODSIS, ID_ASIGNATURA, ID_EXAMEN))
                 .thenReturn(Optional.empty());
 
-        assertThrows(SolicitudInvalidaException.class, () -> service.registrar(UUID.randomUUID().toString(),
+        assertThrows(ConflictoEstadoException.class, () -> service.registrar(UUID.randomUUID().toString(),
                 ID_AMBIENTE, "SUPLANTACION", "ALTA", DESCRIPCION, CODSIS, true, null, "ip"));
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
@@ -285,33 +282,8 @@ class IncidenciaServiceTest {
 
         assertEquals(5, ingreso.getIdExpulsion());
         verify(ingresoRepository).saveAndFlush(ingreso);
-        verify(auditoriaService).registrarEnTransaccion(eq("EXPULSION_REGISTRADA"), anyString(), eq("j.perez@est.umss.edu"),
+        verify(auditoriaService).registrar(eq("EXPULSION_REGISTRADA"), anyString(), eq("j.perez@est.umss.edu"),
                 contains("ingreso #1203"), anyString());
-    }
-
-    @Test
-    @DisplayName("No se puede registrar una incidencia de un estudiante que no ingresó al examen")
-    void registrar_estudianteSinIngreso() {
-        when(ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(CODSIS, ID_ASIGNATURA, ID_EXAMEN))
-                .thenReturn(Optional.empty());
-
-        assertThrows(SolicitudInvalidaException.class, () -> service.registrar(UUID.randomUUID().toString(),
-                ID_AMBIENTE, "OTRO", "BAJA", DESCRIPCION, CODSIS, false, null, "ip"));
-        verify(incidenciaRepository, never()).saveAndFlush(any());
-    }
-
-    @Test
-    @DisplayName("No se puede registrar otra incidencia de un estudiante ya expulsado del examen")
-    void registrar_estudianteYaExpulsado() {
-        Ingreso ingreso = new Ingreso();
-        ReflectionTestUtils.setField(ingreso, "idIngreso", 1203);
-        ingreso.setIdExpulsion(5);
-        when(ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(CODSIS, ID_ASIGNATURA, ID_EXAMEN))
-                .thenReturn(Optional.of(ingreso));
-
-        assertThrows(ConflictoEstadoException.class, () -> service.registrar(UUID.randomUUID().toString(),
-                ID_AMBIENTE, "CONDUCTA_INAPROPIADA", "MEDIA", DESCRIPCION, CODSIS, false, null, "ip"));
-        verify(incidenciaRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -336,7 +308,7 @@ class IncidenciaServiceTest {
         IncidenciaDetalleDto dto = service.cerrar(14, "Se devolvió el celular al terminar.", "ip");
         assertEquals("CERRADA", dto.estado());
         assertEquals(ID_DOCENTE, incidencia.getIdUsuarioResuelve());
-        verify(auditoriaService).registrarEnTransaccion(eq("INCIDENCIA_CERRADA"), anyString(), anyString(),
+        verify(auditoriaService).registrar(eq("INCIDENCIA_CERRADA"), anyString(), anyString(),
                 contains("EN_REVISION → CERRADA"), anyString());
     }
 
@@ -358,7 +330,7 @@ class IncidenciaServiceTest {
 
         assertEquals("EN_REVISION", dto.estado());
         assertEquals(2, dto.lineaTiempo().size());
-        verify(auditoriaService).registrarEnTransaccion(eq("INCIDENCIA_EN_REVISION"), anyString(), anyString(), anyString(), anyString());
+        verify(auditoriaService).registrar(eq("INCIDENCIA_EN_REVISION"), anyString(), anyString(), anyString(), anyString());
     }
 
     private Incidencia incidenciaGuardada(EstadoIncidencia estado) {

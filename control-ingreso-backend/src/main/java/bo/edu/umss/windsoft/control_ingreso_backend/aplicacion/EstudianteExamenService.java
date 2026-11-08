@@ -4,7 +4,6 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
-import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteGrupoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HabilitacionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
@@ -30,15 +29,12 @@ public class EstudianteExamenService {
     private final EstudianteRepository estudianteRepository;
     private final UsuarioRepository usuarioRepository;
     private final HabilitacionRepository habilitacionRepository;
-    private final EstudianteGrupoRepository estudianteGrupoRepository;
 
     public EstudianteExamenService(EstudianteRepository estudianteRepository, UsuarioRepository usuarioRepository,
-                                   HabilitacionRepository habilitacionRepository,
-                                   EstudianteGrupoRepository estudianteGrupoRepository) {
+                                   HabilitacionRepository habilitacionRepository) {
         this.estudianteRepository = estudianteRepository;
         this.usuarioRepository = usuarioRepository;
         this.habilitacionRepository = habilitacionRepository;
-        this.estudianteGrupoRepository = estudianteGrupoRepository;
     }
 
     /** Acepta Código SIS (numérico) o CI. Vacío si no existe. */
@@ -62,12 +58,6 @@ public class EstudianteExamenService {
 
     public Optional<EstudianteEncontrado> buscarPorCodSis(Integer codSis) {
         return codSis == null ? Optional.empty() : buscar(String.valueOf(codSis));
-    }
-
-    /** ¿El estudiante está inscrito en la asignatura (materia) en el semestre actual? */
-    public boolean estaInscritoEnAsignatura(Integer codSis, Integer idAsignatura) {
-        return codSis != null && idAsignatura != null
-                && estudianteGrupoRepository.existeInscripcionEnAsignatura(codSis, idAsignatura);
     }
 
     /** Habilitación del estudiante para el examen del aula. */

@@ -63,9 +63,6 @@ public class IntentoNoAutorizado {
     @Column(name = "idambienteasignado")
     private Integer idAmbienteAsignado;
 
-    @Column(name = "hu09_metodo", insertable = false, updatable = false)
-    private String metodoVerificacion;
-
     public IntentoNoAutorizado() {
     }
 
@@ -90,5 +87,4 @@ public class IntentoNoAutorizado {
     public void setIdAmbiente(Integer idAmbiente) { this.idAmbiente = idAmbiente; }
     public Integer getIdAmbienteAsignado() { return idAmbienteAsignado; }
     public void setIdAmbienteAsignado(Integer idAmbienteAsignado) { this.idAmbienteAsignado = idAmbienteAsignado; }
-    public String getMetodoVerificacion() { return metodoVerificacion; }
 }

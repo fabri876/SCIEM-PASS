@@ -35,7 +35,7 @@ const nombreNormal = textoNombre;
 export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegistrado, strRol = "operador", boolMostrarRegistro, numRegistrados = null, boolSinRed = false }) {
   const boolRegistro = boolMostrarRegistro ?? strRol !== "operador";
   const FILA = FILA_BASE + (boolRegistro ? "" : "ci-sin-registro ");
-  const strTitulo = strRol === "operador" ? "Mis últimos registros" : "Últimos registros";
+  const strTitulo = strRol === "operador" ? "Mis últimos ingresos" : "Últimos ingresos";
   const boolMostrarTotal = strRol !== "operador" && numRegistrados != null;
 
   return (
@@ -45,7 +45,7 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
       <div className="flex items-center justify-between gap-3 px-5 py-3.5 bg-[#003770] text-white max-md:px-4">
         <h2 id="ci-t-ultimos" className="m-0 text-[15px] font-bold">
           {strTitulo}
-          {boolMostrarTotal && <span className="ml-2 text-xs font-semibold text-white/80">· {numRegistrados} ingresos permitidos</span>}
+          {boolMostrarTotal && <span className="ml-2 text-xs font-semibold text-white/80">· {numRegistrados} registrados</span>}
         </h2>
         {boolSinRed ? (
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold">
@@ -69,7 +69,7 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
 
         {listUltimos.length === 0 && (
           <li className="block text-center text-sm text-[#64748B] px-5 py-7 border-t border-[#E2E8F0]">
-            {strRol === "operador" ? "Todavía no registraste actividad en este examen." : "Todavía no hay registros en este examen."}
+            {strRol === "operador" ? "Todavía no registraste ingresos en este examen." : "Todavía no se registraron ingresos en este examen."}
           </li>
         )}
 
@@ -79,7 +79,7 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
           const strDatos = [e.sis && `SIS ${e.sis}`, e.ci && `C.I. ${e.ci}`].filter(Boolean).join(" · ");
           return (
             <li
-              key={r.idRegistro || (e.ci || e.sis) + r.hora}
+              key={(e.ci || e.sis) + r.hora}
               className={
                 FILA + "py-3 border-t border-[#E2E8F0] " +
                 (boolNuevo ? "bg-[#F0F6FC] shadow-[inset_4px_0_0_#003770]" : i % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white")
@@ -89,11 +89,6 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
               <div className="min-w-0">
                 <div className="text-sm font-bold text-[#08264A] truncate">
                   {nombreNormal(`${e.nombres} ${e.apellidos || ""}`)}
-                  {r.estado && r.estado !== "PERMITIDO" && (
-                    <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-800">
-                      {r.estado.replaceAll("_", " ")}
-                    </span>
-                  )}
                   {r.sinSincronizar && (
                     <span className="ml-2 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEF3C7] text-[#92400E]">sin sincronizar</span>
                   )}
@@ -102,9 +97,6 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
               </div>
               <span className="text-[13px] text-[#334155] max-md:col-start-2 max-md:text-xs">
                 <span className="md:hidden text-[#64748B]">Método: </span>{r.metodo}
-                {r.conFacial != null && (
-                  <span className="text-[#64748B]"> · {r.conFacial ? "con facial" : "sin facial"}</span>
-                )}
               </span>
               {boolRegistro && (
                 <span className="min-w-0 truncate text-[13px] text-[#334155] max-md:col-start-2 max-md:text-xs" title={textoRegistro(r.registradoPor) || ""}>

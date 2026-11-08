@@ -1,5 +1,8 @@
-// HU12 y HU13: generación y descarga de reportes oficiales de asistencia e intentos incorrectos.
-// El backend provee los endpoints oficiales en Spring Boot.
+// HU12: descarga del reporte de asistencia de un examen finalizado (PDF o Excel).
+// El archivo lo genera el backend:
+//   GET /api/reportes/examenes/{idExamen}/asistencia?formato=pdf|xlsx&secciones=resumen,asistentes,ausentes,inhabilitados
+// Debe responder el archivo (application/pdf o
+// application/vnd.openxmlformats-officedocument.spreadsheetml.sheet) con su nombre en Content-Disposition.
 import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken, cerrarSesion } from "./authService";
 
@@ -54,12 +57,3 @@ export async function descargarReporteAsistencia(idExamen, strFormato, listSecci
     strNombre: nombreDesdeCabecera(response.headers.get("Content-Disposition")),
   };
 }
-
-// Re-exportación de servicios de HU13 (Reporte de Intentos de Ingreso Incorrectos)
-export {
-  listarReporteIntentosIncorrectos,
-  calcularEstadisticasIntentos,
-  exportarIntentosExcelCsv,
-  generarReporteOficialPdf,
-  DATOS_SEMILLA_INTENTOS,
-} from "./reporteIntentosService";

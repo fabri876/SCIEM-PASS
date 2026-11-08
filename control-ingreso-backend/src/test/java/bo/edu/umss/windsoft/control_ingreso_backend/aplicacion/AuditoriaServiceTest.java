@@ -11,15 +11,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.interceptor.TransactionInterceptor;
-import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
-import org.springframework.transaction.support.SimpleTransactionStatus;
-import org.springframework.aop.framework.ProxyFactory;
 
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -57,36 +52,6 @@ class AuditoriaServiceTest {
 
         verify(auditoriaRepository).save(any(Auditoria.class));
         verify(transactionManager).commit(any());
-    }
-
-    @Test
-    @DisplayName("registrarEnTransaccion: propaga el fallo para impedir confirmar la operacion critica")
-    void registrarEnTransaccion_propagaFallo() {
-        when(usuarioRepository.findByCorreousuario(any())).thenReturn(Optional.empty());
-        when(auditoriaRepository.save(any())).thenThrow(new RuntimeException("falla simulada"));
-        AuditoriaService service = new AuditoriaService(auditoriaRepository, usuarioRepository, transactionManager);
-
-        assertThrows(RuntimeException.class, () -> service.registrarEnTransaccion(
-                "CREACION_USUARIO", "admin@umss.edu", "usuario@umss.edu", "detalle", "ip"));
-    }
-
-    @Test
-    @DisplayName("El interceptor transaccional solicita rollback al fallar el guardado")
-    void registrarEnTransaccion_solicitaRollback() {
-        when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        when(usuarioRepository.findByCorreousuario(any())).thenReturn(Optional.empty());
-        when(auditoriaRepository.save(any())).thenThrow(new RuntimeException("falla simulada"));
-
-        AuditoriaService servicio = new AuditoriaService(auditoriaRepository, usuarioRepository, transactionManager);
-        ProxyFactory fabrica = new ProxyFactory(servicio);
-        fabrica.setProxyTargetClass(true);
-        fabrica.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
-        AuditoriaService proxy = (AuditoriaService) fabrica.getProxy();
-
-        assertThrows(RuntimeException.class, () -> proxy.registrarEnTransaccion(
-                "CREACION_USUARIO", "admin@umss.edu", "usuario@umss.edu", "detalle", "ip"));
-        verify(transactionManager).rollback(any());
-        verify(transactionManager, never()).commit(any());
     }
 
     @Test

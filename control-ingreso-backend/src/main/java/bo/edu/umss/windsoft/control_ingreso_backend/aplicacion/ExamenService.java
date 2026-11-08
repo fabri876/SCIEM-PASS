@@ -52,7 +52,6 @@ public class ExamenService {
     private final EstudianteGrupoRepository estudianteGrupoRepository;
     private final EstudianteRepository estudianteRepository;
     private final IngresoRepository ingresoRepository;
-    private final AuditoriaService auditoriaService;
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -73,8 +72,7 @@ public class ExamenService {
             EstudianteGrupoRepository estudianteGrupoRepository,
             EstudianteRepository estudianteRepository,
             IngresoRepository ingresoRepository,
-            CambioExamenService cambiosExamen,
-            AuditoriaService auditoriaService) {
+            CambioExamenService cambiosExamen) {
 
         this.cambiosExamen = cambiosExamen;
         this.examenRepository = examenRepository;
@@ -95,7 +93,6 @@ public class ExamenService {
         this.estudianteGrupoRepository = estudianteGrupoRepository;
         this.estudianteRepository = estudianteRepository;
         this.ingresoRepository = ingresoRepository;
-        this.auditoriaService = auditoriaService;
     }
 
     // -------------------------------------------------------------------------
@@ -103,7 +100,7 @@ public class ExamenService {
     // -------------------------------------------------------------------------
 
     @Transactional
-    public Examen registrarExamen(ExamenRequest request, String ip) {
+    public Examen registrarExamen(ExamenRequest request) {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean esAdmin = auth.getAuthorities().stream()
@@ -118,10 +115,7 @@ public class ExamenService {
             request.setCodsisDocente(docente.getCodsisdocente());
         }
 
-        Examen creado = crearOActualizarExamen(null, request);
-        auditoriaService.registrarEnTransaccion("CREACION_EXAMEN", auth.getName(), null,
-                "examen=" + creado.getIdExamen() + ", asignatura=" + creado.getIdAsignatura(), ip);
-        return creado;
+        return crearOActualizarExamen(null, request);
     }
 
     // -------------------------------------------------------------------------
@@ -129,7 +123,7 @@ public class ExamenService {
     // -------------------------------------------------------------------------
 
     @Transactional
-    public ExamenRespuestaDto actualizarExamen(Integer idExamen, ExamenRequest request, String ip) {
+    public ExamenRespuestaDto actualizarExamen(Integer idExamen, ExamenRequest request) {
 
         Examen examenExistente = examenRepository.findById(idExamen)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -163,8 +157,6 @@ public class ExamenService {
         ambienteRepository.flush();
         cambiosExamen.registrar(idExamen, antes,
                 cambiosExamen.estado(actualizado.getFechaExamen(), ambienteRepository.findByIdExamen(idExamen)));
-        auditoriaService.registrarEnTransaccion("EDICION_EXAMEN", auth.getName(), null,
-                "examen=" + idExamen + ", asignatura=" + actualizado.getIdAsignatura(), ip);
         return enriquecerExamen(actualizado);
     }
 
@@ -209,15 +201,6 @@ public class ExamenService {
                             + tipoExamen.getNombreTipoExamen() + "' para esta asignatura.");
         }
 
-        if ("Segundo Parcial".equalsIgnoreCase(tipoExamen.getNombreTipoExamen())
-                && !esElMismoExamenConMismoTipo) {
-            TipoExamen primero = tipoExamenRepository.findByNombreTipoExamenIgnoreCase("Primer Parcial")
-                    .orElseThrow(() -> new IllegalArgumentException("No está configurado el Primer Parcial."));
-            if (!tiposYaUsados.contains(primero.getIdTipoExamen())) {
-                throw new IllegalArgumentException("Debe registrar el Primer Parcial antes del Segundo Parcial.");
-            }
-        }
-
         Integer idAula;
         LocalTime horaInicio;
         LocalTime horaFin;
@@ -252,9 +235,6 @@ public class ExamenService {
             idAula = request.getIdAula();
             horaInicio = request.getHoraInicio();
             horaFin = request.getHoraFin();
-            if (horaInicio.isBefore(LocalTime.of(6, 45)) || horaFin.isAfter(LocalTime.of(21, 45))) {
-                throw new IllegalArgumentException("El horario eventual debe estar entre 06:45 y 21:45.");
-            }
         }
 
         Duration duracion = Duration.between(horaInicio, horaFin);
@@ -280,8 +260,6 @@ public class ExamenService {
 
         Integer idExamenActual = examenAActualizar != null ? examenAActualizar.getIdExamen() : null;
         LocalDate fechaDelExamen = request.getFechaExamen().toLocalDate();
-        validarSinSolapamientoDocente(request.getIdUsuario(), request.getCodsisDocente(), fechaDelExamen,
-                horaInicio, horaFin, idExamenActual);
         validarSinSolapamiento(idAula, fechaDelExamen, horaInicio, horaFin, idExamenActual);
         if (aulasAdicionales != null) {
             for (Integer idAulaAdicional : aulasAdicionales) {
@@ -420,17 +398,13 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró el docente solicitado."));
         List<Examen> propios = examenRepository.findByIdUsuarioAndCodsisDocente(idUsuario, docente.getCodsisdocente());
         ZonedDateTime ahora = ZonedDateTime.now(ZoneId.of("America/La_Paz"));
-        Map<Integer, Ambiente> ambientePorExamen = ambienteRepository.findByIdExamenIn(
-                        propios.stream().map(Examen::getIdExamen).toList())
-                .stream()
-                .collect(Collectors.toMap(Ambiente::getIdExamen, a -> a, (a, b) -> a));
         List<Integer> ids = propios.stream().filter(e -> {
-            Ambiente ambiente = ambientePorExamen.get(e.getIdExamen());
+            Ambiente ambiente = ambienteRepository.findByIdExamen(e.getIdExamen()).stream().findFirst().orElse(null);
             return ambiente != null && (ahora.toLocalDate().isAfter(e.getFechaExamen())
                     || (ahora.toLocalDate().equals(e.getFechaExamen()) && ahora.toLocalTime().isAfter(ambiente.getHoraFin())));
         }).map(Examen::getIdExamen).toList();
         if (ids.isEmpty()) return List.of();
-        return enriquecerLote(examenRepository.findAllById(ids), false);
+        return enriquecerLote(examenRepository.findAllById(ids));
     }
 
     /** Exámenes en los que el estudiante autenticado tiene habilitación. */
@@ -462,11 +436,6 @@ public class ExamenService {
      * una consulta por examen. Evita el patrón N+1.
      */
     private List<ExamenRespuestaDto> enriquecerLote(List<Examen> examenes) {
-        return enriquecerLote(examenes, true);
-    }
-
-    /** Enriquecimiento liviano para selectores que no necesitan contadores ni normas. */
-    private List<ExamenRespuestaDto> enriquecerLote(List<Examen> examenes, boolean incluirResumen) {
         if (examenes.isEmpty()) {
             return List.of();
         }
@@ -498,8 +467,7 @@ public class ExamenService {
                 .collect(Collectors.groupingBy(Ambiente::getIdExamen));
 
         // --- NUEVO: batch de normas generales ---
-        List<ExamenNormaGeneral> todasRelaciones = incluirResumen
-                ? examenNormaGeneralRepository.findByIdIdExamenIn(idsExamen) : List.of();
+        List<ExamenNormaGeneral> todasRelaciones = examenNormaGeneralRepository.findByIdIdExamenIn(idsExamen);
         List<Integer> idsNormaGeneral = todasRelaciones.stream()
                 .map(rel -> rel.getId().getIdNormaGeneral()).distinct().toList();
         Map<Integer, NormaGeneral> normasGeneralesPorId = idsNormaGeneral.isEmpty()
@@ -592,18 +560,16 @@ public class ExamenService {
             }).collect(Collectors.toList());
             dto.setAmbientes(ambientesDto);
 
-            if (incluirResumen) {
-                int totalHabilitados = (int) habilitacionRepository
-                        .countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(examen.getIdAsignatura(), examen.getIdExamen());
-                int inhabilitados = (int) habilitacionRepository
-                        .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(examen.getIdAsignatura(), examen.getIdExamen());
-                int ingresados = (int) ingresoRepository
-                        .countByIdAsignaturaAndIdExamenAndIdExpulsionIsNull(examen.getIdAsignatura(), examen.getIdExamen());
-                dto.setIngresados(ingresados);
-                dto.setInhabilitados(inhabilitados);
-                dto.setTotalInscritos(totalHabilitados);
-                dto.setNoLlegan(Math.max(0, totalHabilitados - ingresados));
-            }
+            int totalHabilitados = (int) habilitacionRepository
+                    .countByIdAsignaturaAndIdExamenAndEstadohabilitacionTrue(examen.getIdAsignatura(), examen.getIdExamen());
+            int inhabilitados = (int) habilitacionRepository
+                    .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(examen.getIdAsignatura(), examen.getIdExamen());
+            int ingresados = (int) ingresoRepository
+                    .countByIdAsignaturaAndIdExamenAndIdExpulsionIsNull(examen.getIdAsignatura(), examen.getIdExamen());
+            dto.setIngresados(ingresados);
+            dto.setInhabilitados(inhabilitados);
+            dto.setTotalInscritos(totalHabilitados);
+            dto.setNoLlegan(Math.max(0, totalHabilitados - ingresados));
 
             // --- NUEVO: poblar normasGenerales del DTO ---
             List<ExamenNormaGeneral> relacionesDeEsteExamen = relacionesPorExamen.getOrDefault(examen.getIdExamen(),
@@ -766,22 +732,6 @@ public class ExamenService {
                         "El aula con id " + idAula + " ya está ocupada el " + fecha
                                 + " entre " + existente.getHoraInicio() + " y " + existente.getHoraFin()
                                 + " (examen id " + existente.getIdExamen() + ").");
-            }
-        }
-    }
-
-    private void validarSinSolapamientoDocente(Integer idUsuario, Integer codsisDocente, LocalDate fecha,
-                                                LocalTime inicio, LocalTime fin, Integer idExamenAExcluir) {
-        List<Integer> ids = examenRepository.findByIdUsuarioAndCodsisDocente(idUsuario, codsisDocente).stream()
-                .filter(examen -> fecha.equals(examen.getFechaExamen()))
-                .map(Examen::getIdExamen)
-                .filter(id -> id != null && !id.equals(idExamenAExcluir))
-                .toList();
-        if (ids.isEmpty()) return;
-        for (Ambiente ambiente : ambienteRepository.findByIdExamenIn(ids)) {
-            if (ambiente.getHoraInicio() != null && ambiente.getHoraFin() != null
-                    && inicio.isBefore(ambiente.getHoraFin()) && fin.isAfter(ambiente.getHoraInicio())) {
-                throw new IllegalArgumentException("El docente ya tiene un examen programado en ese horario.");
             }
         }
     }

@@ -186,8 +186,6 @@ const MAPA_ESTADOS = {
   PERMITIDO: "PERMITIDO",
   REGISTRADO: "PERMITIDO",
   EXITOSO: "PERMITIDO",
-  // Fase 1 del control: identificado sin registrar (falta el facial).
-  IDENTIFICADO: "IDENTIFICADO",
   INHABILITADO: "NO_HABILITADO",
   NO_HABILITADO: "NO_HABILITADO",
   DUPLICADO: "YA_REGISTRADO",
@@ -206,37 +204,21 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
   registrarActividad();
   const strIdentificador = String(strValor).trim();
   const strToken = obtenerToken();
-  let resp;
-  try {
-    resp = await fetch(`${strApiBaseUrl}/api/v1/control/ingresos`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
-      },
-      body: JSON.stringify({
-        identificador: strIdentificador,
-        idasignatura: objExamen.idasignatura,
-        idexamen: objExamen.idexamen ?? idExamen,
-        idambiente: objExamen.idambiente,
-        metodoIngreso: strMetodo === "QR" ? "ESCANEO" : "MANUAL", // el backend usa ESCANEO | MANUAL
-        ...(objOpciones.solicitud ? { solicitud: objOpciones.solicitud } : {}),
-        ...(objOpciones.ignorarFila ? { ignorarFila: true } : {}),
-        // Fase 1: validar todo sin crear el ingreso (el registro ocurre tras el facial).
-        ...(objOpciones.soloVerificar ? { soloVerificar: true } : {}),
-        // Scores del facial aprobado: el ingreso queda como QR/MANUAL "con facial".
-        ...(objOpciones.scoreFacial != null ? { scoreFacial: objOpciones.scoreFacial } : {}),
-        ...(objOpciones.livenessScore != null ? { livenessScore: objOpciones.livenessScore } : {}),
-        ...(objOpciones.modelVersion ? { modelVersion: objOpciones.modelVersion } : {}),
-        ...(objOpciones.deviceId ? { deviceId: objOpciones.deviceId } : {}),
-      }),
-    });
-  } catch (causa) {
-    const error = new Error("No se pudo conectar con el servidor para verificar el ingreso.");
-    error.esErrorRed = true;
-    error.cause = causa;
-    throw error;
-  }
+  const resp = await fetch(`${strApiBaseUrl}/api/v1/control/ingresos`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
+    },
+    body: JSON.stringify({
+      identificador: strIdentificador,
+      idasignatura: objExamen.idasignatura,
+      idexamen: objExamen.idexamen ?? idExamen,
+      idambiente: objExamen.idambiente,
+      metodoIngreso: strMetodo === "QR" ? "ESCANEO" : "MANUAL", // el backend usa ESCANEO | MANUAL
+      ...(objOpciones.ignorarFila ? { ignorarFila: true } : {}),
+    }),
+  });
 
   if (resp.status === 401) fnSesionVencida();
 
@@ -260,7 +242,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
       sis: strSis,
       nombres: est.nombreCompleto || est.nombres || "",
       apellidos: est.nombreCompleto ? "" : est.apellidos || "",
-      carrera: est.carrera || "Carrera no disponible",
+      carrera: est.carrera || "Carrera no asignada",
       fotoUrl: est.fotoUrl,
       // HU10: en "aula diferente" el aula ASIGNADA viene en primerIngreso.nombreAmbiente
       aulaAsignada: (strResultado === "OTRA_AULA" && objData.primerIngreso?.nombreAmbiente)
@@ -296,7 +278,6 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
       : null,
     motivos: objData.motivoInhabilitacion ? [objData.motivoInhabilitacion] : objData.motivos || [],
     otroExamen: objData.otroExamen || null,
-    intentoRegistrado: objData.intentoRegistrado === true,
     filaCorrecta: objData.filaCorrecta
       ? {
         desde: objData.filaCorrecta.letraDesde || objData.filaCorrecta.desde,
@@ -349,15 +330,9 @@ export async function obtenerUltimosIngresos(idExamen, numLimite = 5, objExamen 
     return res.map((r) => {
       const est = r.estudiante || {};
       const strMetodo = String(r.metodoIngreso || r.metodo || "").toUpperCase();
-      const boolConFacial = Boolean(r.verificacionFacial ?? (r.scoreFacial != null));
       return {
-        idRegistro: `${r.estado || "PERMITIDO"}:${r.idIngreso ?? ""}`,
-        estado: r.estado || "PERMITIDO",
         hora: soloHora(r.horaIngreso || r.hora),
         metodo: strMetodo === "ESCANEO" || strMetodo === "QR" ? "QR" : "Manual",
-        // Se deriva de score_facial: no existe un método "facial" separado.
-        conFacial: boolConFacial,
-        scoreFacial: r.scoreFacial ?? null,
         registradoPor: nombreRegistrador(r),
         estudiante: {
           nombres: est.nombreCompleto || est.nombres || r.nombreCompleto || "",
@@ -383,8 +358,6 @@ export async function obtenerMisRegistros(numLimite = 100) {
     hora: soloHora(r.horaIngreso || r.hora),
     fechaHora: r.horaIngreso || r.hora,
     metodo: String(r.metodoIngreso || r.metodo || "").toUpperCase() === "ESCANEO" ? "QR" : "Manual",
-    conFacial: Boolean(r.verificacionFacial ?? (r.scoreFacial != null)),
-    scoreFacial: r.scoreFacial ?? null,
     registradoPor: r.registradoPor || "Registro propio",
     estudiante: {
       nombres: r.estudiante?.nombreCompleto || "",

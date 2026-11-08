@@ -1,10 +1,7 @@
-import { useRegisterBackHandler } from "../../../hooks/useAndroidBackButton";
 export default function ModalCierreSesion({
   visibleConfirm, mensajeConfirm, visibleCerrada, resumen,
   onConfirmar, onCancelar, onReiniciar,
 }) {
-  useRegisterBackHandler(Boolean(visibleConfirm || visibleCerrada), onCancelar);
-
   if (!visibleConfirm && !visibleCerrada) return null;
 
   return (
@@ -41,10 +38,10 @@ export default function ModalCierreSesion({
             <p className="text-xs font-semibold text-slate-500">{resumen}</p>
             <button
               type="button"
-              onClick={onReiniciar || (() => { window.location.href = "/login"; })}
+              onClick={onReiniciar}
               className="w-full h-11 rounded-xl bg-[#003770] hover:bg-[#124B83] text-white font-extrabold text-xs transition-colors cursor-pointer"
             >
-              Volver a iniciar sesión
+              Reiniciar demo
             </button>
           </div>
         </div>

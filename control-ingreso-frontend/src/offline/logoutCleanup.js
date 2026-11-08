@@ -44,7 +44,6 @@ const LIMPIEZA_DEFAULTS = {
   // Si se necesita borrar, debe ser decisión explícita con flag force=true
   tablasProtegidas: [
     "asistencias_pendientes",
-    "intentos_examen_pendientes",
     "nominas",
     "logs_sincronizacion",
     "fotos",

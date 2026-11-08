@@ -4,6 +4,5 @@ package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 public enum MotivoIntento {
     DUPLICADO,
     AMBIENTE_DIFERENTE,
-    INHABILITADO,
-    EXAMEN_INCORRECTO
+    INHABILITADO
 }
