@@ -160,7 +160,11 @@ export async function registrarIngreso({
   rol,
   clockOffsetMs = 0,
   verificacionVisual = false,
-  qrToken = null
+  qrToken = null,
+  scoreFacial = null,
+  livenessScore = null,
+  modelVersion = null,
+  deviceId = null
 }) {
   const inicio = performance.now();
   const exId = Number(examenId);
@@ -178,7 +182,11 @@ export async function registrarIngreso({
       rol,
       clockOffsetMs,
       verificacionVisual,
-      qrToken
+      qrToken,
+      scoreFacial,
+      livenessScore,
+      modelVersion,
+      deviceId
     });
 
     const est = await db.nominas.get([exId, String(codigoSis).trim()]);
@@ -287,7 +295,11 @@ export async function validarIngreso({
   aulaControl = null,
   rangoApellidos = null,
   verificacionVisual = false,
-  registrar = true
+  registrar = true,
+  scoreFacial = null,
+  livenessScore = null,
+  modelVersion = null,
+  deviceId = null
 }) {
   const exId = Number(examenId);
 
@@ -368,8 +380,8 @@ export async function validarIngreso({
     if (!estudiante) {
       return {
         ...respuestaBase,
-        resultado: RESULTADO_VALIDACION.QR_INVALIDO,
-        motivo: 'QR no registrado en la nómina del examen.',
+        resultado: RESULTADO_VALIDACION.NO_EN_NOMINA,
+        motivo: 'QR no encontrado en la nómina descargada de este examen.',
         metodo: 'QR',
         tiempoMs: calcularTiempo()
       };
@@ -561,7 +573,11 @@ export async function validarIngreso({
     rol,
     clockOffsetMs,
     verificacionVisual,
-    qrToken: tokenQrUtilizado
+    qrToken: tokenQrUtilizado,
+    scoreFacial,
+    livenessScore,
+    modelVersion,
+    deviceId
   });
 
   return {

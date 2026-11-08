@@ -10,6 +10,17 @@ public record UltimoIngresoDTO(
         String registradoPor,
         Integer idAsignatura,
         Integer idExamen,
-        Integer idAmbiente
+        Integer idAmbiente,
+        /** true cuando el ingreso se registró con verificación facial aprobada. */
+        boolean verificacionFacial,
+        /** Similitud facial 0..1; null cuando el ingreso fue sin facial. */
+        Double scoreFacial
+        String estado
 ) {
+    public UltimoIngresoDTO(Integer idIngreso, LocalDateTime horaIngreso, String metodoIngreso,
+                            EstudianteResumenDTO estudiante, String registradoPor, Integer idAsignatura,
+                            Integer idExamen, Integer idAmbiente) {
+        this(idIngreso, horaIngreso, metodoIngreso, estudiante, registradoPor, idAsignatura, idExamen,
+                idAmbiente, "PERMITIDO");
+    }
 }

@@ -7,6 +7,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MetodoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.BatchSyncRequestDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ResultadoIngresoDTO;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -37,7 +39,8 @@ public class BatchSyncController {
 
     @PostMapping("/batch-sync")
     @PreAuthorize("hasAnyRole('OPERADOR','DOCENTE','ADMINISTRADOR')")
-    public ResponseEntity<Map<String, Object>> sincronizar(@RequestBody BatchSyncRequestDTO request) {
+    public ResponseEntity<Map<String, Object>> sincronizar(@RequestBody BatchSyncRequestDTO request,
+                                                           HttpServletRequest httpRequest) {
         Integer usuario = contexto.actual().idUsuario();
         List<Map<String, Object>> resultados = new ArrayList<>();
         Set<String> codsisYaEnLote = new HashSet<>();
@@ -86,11 +89,13 @@ public class BatchSyncController {
                 MetodoIngreso metodo = "QR".equalsIgnoreCase(item.metodo())
                         ? MetodoIngreso.ESCANEO : MetodoIngreso.MANUAL;
                 var dto = new bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.VerificarIngresoRequestDTO(
-                        item.codigoSis(), item.asignaturaId(), item.examenId(), item.ambienteId(), metodo);
+                        item.codigoSis(), item.asignaturaId(), item.examenId(), item.ambienteId(), metodo,
+                        false, item.scoreFacial(), item.livenessScore(), item.modelVersion(),
+                        item.deviceId() != null ? item.deviceId() : request.deviceId());
                 LocalDateTime horaMarcacion = item.marcadoEn() == null ? null
                         : item.marcadoEn().atZoneSameInstant(ZoneId.of("America/La_Paz")).toLocalDateTime();
                 ResponseEntity<ResultadoIngresoDTO> respuesta = service.registrarIngreso(
-                        dto, usuario, horaMarcacion, item.clientUuid());
+                        dto, usuario, horaMarcacion, item.clientUuid(), ClientIpResolver.resolver(httpRequest));
                 ResultadoIngresoDTO cuerpo = respuesta.getBody();
                 String estado = respuesta.getStatusCode().value() == 403 ? "NO_AUTORIZADO"
                         : respuesta.getStatusCode().value() == 409 ? "DUPLICADO"
