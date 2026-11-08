@@ -8,11 +8,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer; // <-- ESTA ES LA LÍNEA QUE FALTABA
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -70,6 +72,8 @@ public class SecurityConfig {
                                 "/api/incidencias/ambientes", "/api/incidencias/aulas-asignadas",
                                 "/api/incidencias/estudiante")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/ingresos-excepcionales")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
                         .requestMatchers("/api/incidencias/**", "/api/ingresos-excepcionales/**",
                                 "/api/monitoreo/**")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR")
@@ -94,6 +98,7 @@ public class SecurityConfig {
                                 "/api/expulsiones/historial")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
                         .requestMatchers("/api/admin/expulsiones").hasRole("ADMINISTRADOR")
+                        .requestMatchers("/api/face/**").hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR", "ESTUDIANTE")
 
                         .requestMatchers("/api/v1/control/**").hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
 

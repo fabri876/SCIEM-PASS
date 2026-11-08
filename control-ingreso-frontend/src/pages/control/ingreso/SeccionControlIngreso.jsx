@@ -47,7 +47,7 @@ function FranjaEstado({ boolSinRed, objFila }) {
 // nodoAcciones: botones dentro del encabezado azul (por ejemplo "Lista oficial del aula")
 // listAvisos: chips extra en el encabezado (por ejemplo "Registro desde las 19:15")
 // objFilaSinRed: tramo de apellidos guardado en el equipo (por ejemplo, el docente que también controla el ingreso)
-export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true, nodoAcciones = null, listAvisos = [], objFilaSinRed = null }) {
+export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true, nodoAcciones = null, listAvisos = [], objFilaSinRed = null, onExcepcional = null }) {
   const { fnMostrarToast, fnDoForzar, setConfigurandoPin, estadoRed } = useOperador();
 
   // Hora actual (cada 30 s): el registro solo se permite desde 15 min antes del inicio hasta el fin,
@@ -60,7 +60,8 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
   }, []);
   const {
     listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
-    boolValidando, strError, strUltimoRegistrado, fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
+    boolValidando, strError, strUltimoRegistrado, objIdentificacion, fnIdentificar, fnRegistrarConFacial, fnRegistrarSinFacial,
+    fnLimpiarIdentificacion, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
   } = ctrl;
 
   const fnResetearNomina = async () => {
@@ -98,6 +99,11 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     );
   }
 
+  // La estación facial necesita los identificadores del contexto académico.
+  // El examen puede provenir del API o del respaldo offline, que usan distinta
+  // convención de nombre para estas propiedades.
+  const idAsignatura = examenActual?.idasignatura ?? examenActual?.idAsignatura ?? null;
+  const idAmbiente = examenActual?.idambiente ?? examenActual?.idAmbiente ?? null;
   const objRangoHorario = { fechaExamen: examenActual?.fecha, horaInicio: examenActual?.horaInicio, horaFin: examenActual?.horaFin };
   const { fin: dateFin } = rangoExamen(objRangoHorario);
   const dateApertura = aperturaControl(objRangoHorario);
@@ -110,8 +116,30 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
   // El tramo de apellidos solo aplica al ayudante y solo sin internet (motor offline).
   // El docente puede registrar a cualquiera de su aula.
   const fnValidarRol = boolOperador
-    ? fnValidar
-    : (strValor, strMetodo, objOpciones = {}) => fnValidar(strValor, strMetodo, { ...objOpciones, ignorarFila: true });
+    ? fnIdentificar
+    : (strValor, strMetodo, objOpciones = {}) => fnIdentificar(strValor, strMetodo, { ...objOpciones, ignorarFila: true });
+
+  // Sin enrolamiento, paquete/cámara caídos o 3 fallos: online se autoriza
+  // como excepcional (docente/operador); offline se registra normal sin facial
+  // para no detener la fila.
+  const fnFallbackFacial = (strMotivo) => {
+    const objIdent = ctrl.objIdentificacion;
+    if (!objIdent) return;
+    if (objIdent.offline) {
+      fnRegistrarSinFacial();
+      return;
+    }
+    const e = objIdent.estudiante;
+    onExcepcional?.({
+      motivo: strMotivo,
+      idAmbiente,
+      estudiante: {
+        codsisEstudiante: e?.sis ?? objIdent.codigoSis ?? null,
+        idUsuarioEstudiante: e?.idusuario ?? null,
+        nombreCompleto: `${e?.nombres || ""} ${e?.apellidos || ""}`.trim(),
+      },
+    });
+  };
 
   return (
     <div className="flex flex-col gap-7 max-md:gap-[22px] text-[#08264A]">
@@ -242,7 +270,19 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
           </>
         ) : (
           <>
-            <EstacionVerificacion onValidar={fnValidarRol} boolValidando={boolValidando} idExamen={idExamen} />
+            <EstacionVerificacion
+              onValidar={fnValidarRol}
+              boolValidando={boolValidando}
+              idExamen={examenActual?.idexamen ?? idExamen}
+              idAsignatura={idAsignatura}
+              idAmbiente={idAmbiente}
+              objIdentificacion={objIdentificacion}
+              boolSinRed={estadoRed?.net === "offline" || Boolean(ctrl.boolOffline)}
+              onVerificado={fnRegistrarConFacial}
+              onSinEnrolamiento={() => fnFallbackFacial("SIN_ENROLAMIENTO_FACIAL")}
+              onFalloFacial={() => fnFallbackFacial("FALLO_FACIAL")}
+              onCancelarFacial={fnLimpiarIdentificacion}
+            />
             {strError && (
               <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
             )}

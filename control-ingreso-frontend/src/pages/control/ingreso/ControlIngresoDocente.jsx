@@ -19,6 +19,8 @@ import useUltimosLocales from "./useUltimosLocales";
 import ToastSyncConfirmacion from "../components/ToastSyncConfirmacion";
 import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilidadesExamenDocente";
 import ModalIncidencia from "../../../components/incidencias/ModalIncidencia";
+import ModalIngresoExcepcional from "../../../components/incidencias/ModalIngresoExcepcional";
+import { obtenerAulasAsignadas } from "../../../services/incidenciaService";
 
 export default function ControlIngresoDocente() {
   const { idExamen } = useParams();
@@ -45,6 +47,8 @@ export default function ControlIngresoDocente() {
   const { estadoRed, fnCambiarRed } = useOperador();
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
   const [mostrarModalIncidencia, setMostrarModalIncidencia] = useState(false);
+  const [aulasIncidencia, setAulasIncidencia] = useState([]);
+  const [excepcionFacial, setExcepcionFacial] = useState(null);
 
   const fnCerrarLista = useCallback(() => setBoolListaAbierta(false), []);
 
@@ -77,15 +81,15 @@ export default function ControlIngresoDocente() {
   const idAmbienteIncidencia = examen?.idambiente ?? idAmbiente;
   const aulaIncidenciaActual = idAmbienteIncidencia
     ? {
-        idAmbiente: Number(idAmbienteIncidencia),
-        idAsignatura: examen?.idasignatura ?? idAsignatura,
-        idExamen: Number(examen?.idexamen ?? idExamen),
-        aula: examen?.aula || objExamenInicial?.aula || "Aula asignada",
-        asignatura: examen?.materia || objExamenInicial?.materia || "Examen",
-        fechaExamen: examen?.fecha || objExamenInicial?.fecha || null,
-        horaInicio: examen?.horaInicio || objExamenInicial?.horaInicio || null,
-        horaFin: examen?.horaFin || objExamenInicial?.horaFin || null,
-      }
+      idAmbiente: Number(idAmbienteIncidencia),
+      idAsignatura: examen?.idasignatura ?? idAsignatura,
+      idExamen: Number(examen?.idexamen ?? idExamen),
+      aula: examen?.aula || objExamenInicial?.aula || "Aula asignada",
+      asignatura: examen?.materia || objExamenInicial?.materia || "Examen",
+      fechaExamen: examen?.fecha || objExamenInicial?.fecha || null,
+      horaInicio: examen?.horaInicio || objExamenInicial?.horaInicio || null,
+      horaFin: examen?.horaFin || objExamenInicial?.horaFin || null,
+    }
     : null;
 
   return (
@@ -146,6 +150,7 @@ export default function ControlIngresoDocente() {
             strRol="docente"
             boolPermitirVolver={false}
             objFilaSinRed={boolSinRed ? objRangoDocente : null}
+            onExcepcional={(detalle) => setExcepcionFacial(detalle)}
             listAvisos={[
               boolAdmin && strNombreDocente ? `Docente: ${strNombreDocente}` : null,
               boolAunNoEmpieza ? `Registro desde las ${strHoraApertura}` : null,
@@ -209,6 +214,24 @@ export default function ControlIngresoDocente() {
         />
       )}
       <ToastSyncConfirmacion />
+      <ModalIngresoExcepcional
+        boolAbierto={Boolean(excepcionFacial)}
+        onCerrar={() => {
+          setExcepcionFacial(null);
+          ctrl.fnLimpiarIdentificacion();
+        }}
+        aulasDisponibles={ctrl.examenActual?.idambiente ? [{
+          idAmbiente: ctrl.examenActual.idambiente,
+          idAsignatura: ctrl.examenActual.idasignatura,
+          idExamen: ctrl.examenActual.idexamen,
+          aula: ctrl.examenActual.aula || "Aula asignada"
+        }] : []}
+        idAmbienteBloqueado={excepcionFacial?.idAmbiente}
+        estudiantePreseleccionado={excepcionFacial?.estudiante}
+        motivoPreseleccionado={excepcionFacial?.motivo}
+        observacionSugerida={excepcionFacial?.motivo === "FALLO_FACIAL" ? "Se agotaron tres intentos de verificación facial." : "El estudiante no cuenta con enrolamiento facial activo."}
+        onExito={(respuesta) => ctrl.fnFinalizarExcepcional(respuesta)}
+      />
       <ModalIncidencia
         boolAbierto={mostrarModalIncidencia}
         onCerrar={() => setMostrarModalIncidencia(false)}

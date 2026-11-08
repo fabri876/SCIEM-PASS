@@ -14,11 +14,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor-community/camera-preview": "^8.0.2",
+    "@capacitor-community/sqlite": "^8.1.1",
     "@capacitor/android": "^8.6.0",
     "@capacitor/app": "^8.1.2",
     "@capacitor/cli": "^8.6.0",
     "@capacitor/core": "^8.6.0",
+    "@capacitor/network": "^8.0.1",
     "@tailwindcss/vite": "^4.3.3",
+    "@vladmandic/human": "^3.3.6",
     "dexie": "^4.4.6",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.45.0",

@@ -41,10 +41,10 @@ export default function ModalCierreSesion({
             <p className="text-xs font-semibold text-slate-500">{resumen}</p>
             <button
               type="button"
-              onClick={onReiniciar}
+              onClick={onReiniciar || (() => { window.location.href = "/login"; })}
               className="w-full h-11 rounded-xl bg-[#003770] hover:bg-[#124B83] text-white font-extrabold text-xs transition-colors cursor-pointer"
             >
-              Reiniciar demo
+              Volver a iniciar sesión
             </button>
           </div>
         </div>

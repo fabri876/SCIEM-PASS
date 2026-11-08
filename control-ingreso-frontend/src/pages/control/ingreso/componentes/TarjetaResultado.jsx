@@ -100,7 +100,7 @@ function configurar(r, strRol) {
         strTono: "bad", Icono: UserX, strTitulo: "INGRESO DENEGADO — EXAMEN INCORRECTO",
         strSub: r.estadoSync === "sincronizado" ? "SINCRONIZADO · INTENTO REGISTRADO EN AUDITORÍA"
           : r.estadoSync === "revision" ? "PENDIENTE DE REVISIÓN · AUDITORÍA NO CONFIRMADA"
-          : "GUARDADO EN EL DISPOSITIVO · PENDIENTE DE SINCRONIZAR",
+            : "GUARDADO EN EL DISPOSITIVO · PENDIENTE DE SINCRONIZAR",
         nota: <Nota Icono={MapPin}><b className="block font-bold">ORIENTACIÓN SEGÚN DATOS DESCARGADOS</b>
           {r.otroExamen ? [r.otroExamen.asignatura, r.otroExamen.aula && textoAula(r.otroExamen.aula), r.otroExamen.edificio].filter(Boolean).join(" · ") : r.mensaje}
           <span className="block">{r.estadoSync === "sincronizado"
@@ -121,9 +121,9 @@ function configurar(r, strRol) {
             <b className="block font-bold">ORIENTACIÓN DE REUBICACIÓN AL ESTUDIANTE</b>
             {r.otroExamen ? (
               <span>{[r.otroExamen.asignatura, r.otroExamen.nombre,
-                r.otroExamen.grupo && `Grupo ${r.otroExamen.grupo}`,
-                r.otroExamen.aula && textoAula(r.otroExamen.aula), r.otroExamen.edificio,
-                r.otroExamen.hora].filter(Boolean).join(" · ")}
+              r.otroExamen.grupo && `Grupo ${r.otroExamen.grupo}`,
+              r.otroExamen.aula && textoAula(r.otroExamen.aula), r.otroExamen.edificio,
+              r.otroExamen.hora].filter(Boolean).join(" · ")}
                 {!r.otroExamen.aula && " · Aula asignada no disponible"}
               </span>
             ) : <span>{r.mensaje || "No se encontró un examen correspondiente para este horario."}</span>}
@@ -239,8 +239,14 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
       {/* Foto + datos del estudiante */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 px-4 sm:px-5 py-4 sm:py-[18px]">
         <Foto strUrl={e?.fotoUrl} strNombre={strNombre} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[20px] sm:text-[22px] font-extrabold text-[#08264A] leading-tight break-words">{strNombre}</div>
+        <div className="min-w-0">
+          <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{strNombre}</div>
+          {objResultado.metodo && (
+            <span className="mt-1.5 inline-flex items-center rounded-full bg-[#F0F6FC] border border-[#D9E8F7] px-2.5 py-0.5 text-[11px] font-bold text-[#124B83]">
+              {objResultado.metodo}
+              {objResultado.conFacial != null && ` · ${objResultado.conFacial ? "con facial" : "sin facial"}`}
+            </span>
+          )}
           {e && (e.ci || e.sis) && (
             <div className="mt-2.5 flex flex-wrap gap-x-5 sm:gap-x-7 gap-y-2">
               {e.ci && (

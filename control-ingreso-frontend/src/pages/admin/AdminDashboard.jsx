@@ -17,6 +17,8 @@ import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias"
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
 import SeccionReporteIntentosIncorrectos from "../../components/reportes/SeccionReporteIntentosIncorrectos";
+import GestionEnrolamientosAdmin from "./GestionEnrolamientosAdmin";
+import AuditoriaFacialAdmin from "./AuditoriaFacialAdmin";
 import { obtenerUsuarioActual } from "../../services/authService";
 import {
     listarUsuarios,
@@ -234,6 +236,8 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                         HISTORIAL DE SEMESTRES
                         ================================================= */}
                     {activeMenu === "Historial de Semestres" && <HistorialSemestres onCambio={() => { setRevisionAcademica(v => v + 1); void fnCargarUsuarios(); }} />}
+                    {activeMenu === "Enrolamientos Faciales" && <GestionEnrolamientosAdmin />}
+                    {activeMenu === "Auditoría Facial" && <AuditoriaFacialAdmin />}
 
                     {/* =================================================
                         HISTORIAL INMODIFICABLE (HU15)

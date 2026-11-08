@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Calendar, UserCheck, History, Shield, AlertTriangle, BookOpen, Activity, FileText, Upload, XCircle } from "lucide-react";
+import { Users, Calendar, UserCheck, History, Shield, AlertTriangle, BookOpen, Activity, FileText, Upload, XCircle, ScanFace } from "lucide-react";
 import { obtenerTotalIncidenciasAbiertas } from "../../../services/incidenciaService";
 
 const baseMenuItems = [
@@ -15,6 +15,8 @@ const baseMenuItems = [
     { id: "Reporte de Intentos Incorrectos", label: "Intentos Incorrectos", icon: XCircle },
     { id: "Incidencias", label: "Incidencias", icon: AlertTriangle, esIncidencia: true },
     { id: "Historial Inmodificable", label: "Historial Inmodificable", icon: History },
+    { id: "Enrolamientos Faciales", label: "Enrolamientos Faciales", icon: ScanFace },
+    { id: "Auditoría Facial", label: "Auditoría Facial", icon: AlertTriangle },
 ];
 
 export default function AdminSidebar({ activeMenu, setActiveMenu }) {
