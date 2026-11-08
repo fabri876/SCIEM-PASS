@@ -200,6 +200,12 @@ export default function TarjetaResultado({ objResultado, onCerrar, strRol = "ope
         <Foto strUrl={e?.fotoUrl} strNombre={strNombre} />
         <div className="min-w-0">
           <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{strNombre}</div>
+          {objResultado.metodo && (
+            <span className="mt-1.5 inline-flex items-center rounded-full bg-[#F0F6FC] border border-[#D9E8F7] px-2.5 py-0.5 text-[11px] font-bold text-[#124B83]">
+              {objResultado.metodo}
+              {objResultado.conFacial != null && ` · ${objResultado.conFacial ? "con facial" : "sin facial"}`}
+            </span>
+          )}
           {e && (e.ci || e.sis) && (
             <div className="mt-2.5 flex flex-wrap gap-x-7 gap-y-2">
               {e.ci && (

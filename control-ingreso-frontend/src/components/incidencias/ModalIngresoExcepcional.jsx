@@ -24,6 +24,8 @@ const MOTIVOS_EXCEPCION = [
   { codigo: "NO_FIGURA_EN_LISTA", titulo: "No figura en la lista", descripcion: "Error de habilitación con respaldo" },
   { codigo: "LLEGADA_TARDIA", titulo: "Llegada tardía", descripcion: "Fuera de la tolerancia por causa justificada" },
   { codigo: "TRASLADO_AULA", titulo: "Traslado desde otra aula", descripcion: "Reasignación autorizada por capacidad" },
+  { codigo: "FALLO_FACIAL", titulo: "Fallo en reconocimiento facial", descripcion: "Se agotaron los intentos de verificación biométrica" },
+  { codigo: "SIN_ENROLAMIENTO_FACIAL", titulo: "Sin enrolamiento facial", descripcion: "El estudiante no cuenta con rostro registrado" },
 ];
 
 const OBSERVACION_MIN = 20;
@@ -39,23 +41,37 @@ const ETIQUETA_ESTADO = {
 };
 
 /**
- * Ingreso excepcional (HU06). Solo docente asignado al examen o administrador.
+ * Ingreso excepcional (HU06). Docente asignado al examen, administrador y, en el
+ * flujo facial del control de ingreso, el operador.
  *
  * - aulasDisponibles: aulas de HOY asignadas (GET /api/incidencias/ambientes). Si el ingreso ya
  *   cerró, la búsqueda lo explica y el backend registra el intento en auditoría.
  *   El ingreso excepcional solo se autoriza durante el examen; el backend también lo valida.
+ * - boolSoloFacial: el operador solo autoriza los motivos faciales
+ *   (FALLO_FACIAL y SIN_ENROLAMIENTO_FACIAL).
  */
 export default function ModalIngresoExcepcional({
   boolAbierto,
   onCerrar,
   aulasDisponibles = [],
   aulaPreseleccionada = null,
+  motivoPreseleccionado = null,
+  observacionSugerida = "",
+  idAmbienteBloqueado = null,
+  estudiantePreseleccionado = null,
+  boolSoloFacial = false,
   onExito,
   onAbrirIncidenciaConEstudiante,
 }) {
   const usuarioSesion = obtenerUsuarioActual();
   const strNombreAutoriza = `${usuarioSesion?.nombre || ""} ${usuarioSesion?.apellido || ""}`.trim();
   const inputBusquedaRef = useRef(null);
+
+  // El operador autoriza únicamente desde el flujo facial: no debe poder
+  // elegir motivos que el backend le va a rechazar.
+  const listMotivos = boolSoloFacial
+    ? MOTIVOS_EXCEPCION.filter((mot) => mot.codigo === "FALLO_FACIAL" || mot.codigo === "SIN_ENROLAMIENTO_FACIAL")
+    : MOTIVOS_EXCEPCION;
 
   // Paso 1: búsqueda y verificación. Paso 2: formulario de ingreso.
   const [paso, setPaso] = useState(1);
@@ -79,18 +95,25 @@ export default function ModalIngresoExcepcional({
   useEffect(() => {
     if (!boolAbierto) return;
 
-    setPaso(1);
+    setPaso(estudiantePreseleccionado ? 2 : 1);
     setStrBusqueda("");
-    setConsultaResultado(null);
+    setConsultaResultado(estudiantePreseleccionado ? {
+      codSis: estudiantePreseleccionado.codsisEstudiante,
+      nombreCompleto: estudiantePreseleccionado.nombreCompleto,
+      estado: "HABILITADO",
+    } : null);
     setStrErrorBusqueda("");
     setStrErrorGuardado("");
     setStrExitoMensaje("");
-    setStrObservacion("");
+    setStrObservacion(observacionSugerida || "");
     setArchivoRespaldo(null);
-    setMotivoSeleccionado(null);
+    setMotivoSeleccionado(motivoPreseleccionado || null);
     setBoolGuardando(false);
 
-    const aula = aulaPreseleccionada || aulasDisponibles[0] || null;
+    const aulaBloqueada = idAmbienteBloqueado != null
+      ? aulasDisponibles.find((item) => Number(item.idAmbiente) === Number(idAmbienteBloqueado))
+      : null;
+    const aula = aulaBloqueada || aulaPreseleccionada || aulasDisponibles[0] || null;
     setAulaSeleccionada(aula);
     setAforoActual(aula?.aforo || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -238,13 +261,14 @@ export default function ModalIngresoExcepcional({
                     <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-1">Aula</label>
                     <select
                       value={idAmbienteActual ?? ""}
-                      onChange={(e) => {
+                       disabled={idAmbienteBloqueado != null}
+                       onChange={(e) => {
                         const encontrada = aulasDisponibles.find((a) => String(a.idAmbiente) === e.target.value);
                         setAulaSeleccionada(encontrada || null);
                         setAforoActual(encontrada?.aforo || null);
                         setConsultaResultado(null);
                       }}
-                      className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2563EB] transition"
+                       className="w-full bg-[var(--color-bg-app)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--color-text-title)] focus:outline-none focus:border-[var(--color-primary-blue)] transition disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {aulasDisponibles.map((aula) => (
                         <option key={aula.idAmbiente} value={aula.idAmbiente}>
@@ -398,7 +422,7 @@ export default function ModalIngresoExcepcional({
                 Motivo <span className="text-rose-600">* {!motivoSeleccionado && "(obligatorio)"}</span>
               </label>
               <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl ${motivoSeleccionado ? "" : "ring-2 ring-rose-200 p-1"}`}>
-                {MOTIVOS_EXCEPCION.map((mot) => {
+                {listMotivos.map((mot) => {
                   const isChecked = motivoSeleccionado === mot.codigo;
                   return (
                     <button
@@ -422,9 +446,9 @@ export default function ModalIngresoExcepcional({
               </div>
             </div>
 
-            {/* Docente que autoriza: siempre el usuario de la sesión */}
+            {/* Autorizador: siempre el usuario de la sesión */}
             <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">Docente que autoriza</label>
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">Autorizado por</label>
               <input
                 type="text"
                 value={strNombreAutoriza}

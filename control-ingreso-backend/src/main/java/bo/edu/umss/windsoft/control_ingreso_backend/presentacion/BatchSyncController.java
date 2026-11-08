@@ -89,7 +89,9 @@ public class BatchSyncController {
                 MetodoIngreso metodo = "QR".equalsIgnoreCase(item.metodo())
                         ? MetodoIngreso.ESCANEO : MetodoIngreso.MANUAL;
                 var dto = new bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.VerificarIngresoRequestDTO(
-                        item.codigoSis(), item.asignaturaId(), item.examenId(), item.ambienteId(), metodo);
+                        item.codigoSis(), item.asignaturaId(), item.examenId(), item.ambienteId(), metodo,
+                        false, item.scoreFacial(), item.livenessScore(), item.modelVersion(),
+                        item.deviceId() != null ? item.deviceId() : request.deviceId());
                 LocalDateTime horaMarcacion = item.marcadoEn() == null ? null
                         : item.marcadoEn().atZoneSameInstant(ZoneId.of("America/La_Paz")).toLocalDateTime();
                 ResponseEntity<ResultadoIngresoDTO> respuesta = service.registrarIngreso(

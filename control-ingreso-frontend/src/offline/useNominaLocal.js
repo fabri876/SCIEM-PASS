@@ -8,6 +8,7 @@ import {
   eliminarNominaLocal
 } from './nominaLoader.js';
 import { descargarAsignacionesOperadores } from './asignacionLoader.js';
+import { descargarPaqueteFacial } from './paqueteFacial.js';
 
 export function useNominaLocal(examenId) {
   const [estado, setEstado] = useState({
@@ -96,6 +97,14 @@ export function useNominaLocal(examenId) {
         await descargarAsignacionesOperadores({ examenId: exId });
       } catch (errAsign) {
         console.warn('[useNominaLocal] No se pudieron descargar asignaciones de operadores:', errAsign.message);
+      }
+
+      // El paquete facial viaja junto con la nómina: una sola descarga para
+      // habilitar el control facial offline. Si falla, la nómina sigue válida.
+      try {
+        await descargarPaqueteFacial(exId);
+      } catch (errPaquete) {
+        console.warn('[useNominaLocal] Paquete facial pendiente:', errPaquete.message);
       }
 
       return { ok: true, ...res };

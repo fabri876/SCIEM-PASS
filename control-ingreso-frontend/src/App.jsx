@@ -28,6 +28,8 @@ import OperadorProvider from "./pages/control/OperadorProvider";
 
 // Páginas de Estudiante
 import HomeEstudiante from "./pages/estudiante/HomeEstudiante";
+import EnrolamientoFacialPage from "./pages/estudiante/EnrolamientoFacialPage";
+import { obtenerEstadoEnrolamiento } from "./services/facialService";
 
 // Páginas de Personal de Control (Operador)
 import HomeControl from "./pages/control/HomeControl";
@@ -71,6 +73,14 @@ function RutaProtegida({ children, listRolesPermitidos }) {
     return <Navigate to={strRutaDestino} replace />;
   }
 
+  return children;
+}
+
+function GuardEnrolamientoEstudiante({ children }) {
+  const [estado, setEstado] = React.useState("cargando");
+  useEffect(() => { obtenerEstadoEnrolamiento().then((dato) => setEstado(dato?.estado || "pendiente")).catch(() => setEstado("error")); }, []);
+  if (estado === "cargando") return null;
+  if (estado === "pendiente" || estado === "bloqueado") return <Navigate to="/estudiante/enrolamiento-facial" replace />;
   return children;
 }
 
@@ -208,11 +218,12 @@ function App() {
           path="/estudiante"
           element={
             <RutaProtegida listRolesPermitidos={["ESTUDIANTE"]}>
-              <HomeEstudiante />
+              <GuardEnrolamientoEstudiante><HomeEstudiante /></GuardEnrolamientoEstudiante>
             </RutaProtegida>
           }
         />
         <Route path="/home/estudiante" element={<Navigate to="/estudiante" replace />} />
+        <Route path="/estudiante/enrolamiento-facial" element={<RutaProtegida listRolesPermitidos={["ESTUDIANTE"]}><EnrolamientoFacialPage /></RutaProtegida>} />
 
         {/* Rutas del Personal de Control (Operador) */}
         <Route

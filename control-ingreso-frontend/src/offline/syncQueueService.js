@@ -68,7 +68,12 @@ export function construirPayload({ batchId, deviceId, items }) {
       clockOffsetMs: item.clockOffsetMs || 0,
       rol: item.rol,
       verificacionVisual: Boolean(item.verificacionVisual),
-      qrToken: item.qrToken || null
+      qrToken: item.qrToken || null,
+      // Scores del facial aprobado offline (null si el ingreso fue sin facial).
+      scoreFacial: item.scoreFacial ?? null,
+      livenessScore: item.livenessScore ?? null,
+      modelVersion: item.modelVersion || null,
+      deviceId: item.deviceId || null
     }))
   };
 }

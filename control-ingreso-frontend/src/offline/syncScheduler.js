@@ -3,6 +3,8 @@ import { asistenciaRepo } from './asistenciaRepo.js';
 import { incidenciaRepo } from './incidenciaRepo.js';
 import { solicitarPersistencia } from './almacenamiento.js';
 import { sincronizarPendientes, sincronizarIncidenciasPendientes, iniciarSync, suscribirSync } from './syncQueueService.js';
+import { sincronizarPendientesFaciales } from './facialSyncService.js';
+import { contarPendientesFaciales } from './facialSqliteDb.js';
 import {
   iniciarConectividad,
   detenerConectividad,
@@ -103,10 +105,21 @@ async function dispararSincronizacion(motivo) {
       origen: 'automatico'
     });
     const resIncidencias = await sincronizarIncidenciasPendientes({ tamanoLote: tamano });
+    let resFacial = null;
+    if (!res?.omitido && !res?.pausadaPorAuth && !res?.huboFalloDeRed) {
+      // Si la sincronización automática está desactivada, el modo offline está
+      // forzado, la sesión expiró o la red falló, la cola facial también espera:
+      // misma política que asistencias.
+      try {
+        resFacial = await sincronizarPendientesFaciales();
+      } catch (errFacial) {
+        console.warn('[syncScheduler] Error en sincronizacion facial:', errFacial);
+      }
+    }
 
     if (!res?.omitido) {
       ultimaSync = Date.now();
-      ultimoResultado = { asistencias: res, incidencias: resIncidencias };
+      ultimoResultado = { asistencias: res, incidencias: resIncidencias, facial: resFacial };
     }
 
     if (res?.pausadaPorAuth) {
@@ -149,6 +162,16 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
     origen: 'manual'
   });
   const resIncidencias = await sincronizarIncidenciasPendientes({ tamanoLote: loteSize });
+  let resFacial = null;
+  // Si otro envío seguía en curso (omitido), ese mismo ciclo ya incluye la cola
+  // facial; lanzarla aquí duplicaría la petición.
+  if (!res?.omitido && !res?.pausadaPorAuth && !res?.huboFalloDeRed) {
+    try {
+      resFacial = await sincronizarPendientesFaciales();
+    } catch (errFacial) {
+      console.warn('[syncScheduler] Error en sincronizacion facial manual:', errFacial);
+    }
+  }
   console.log('[syncScheduler] Resultado sincronizarPendientes:', res);
 
   if (res?.omitido) {
@@ -159,7 +182,7 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
   }
 
   ultimaSync = Date.now();
-  ultimoResultado = { asistencias: res, incidencias: resIncidencias };
+  ultimoResultado = { asistencias: res, incidencias: resIncidencias, facial: resFacial };
 
   if (res?.pausadaPorAuth) {
     pausadoPorAuth = true;
@@ -186,15 +209,16 @@ function programarCicloPeriodico() {
     const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
 
     if (visible && !pausadoPorAuth && !(typeof navigator !== 'undefined' && navigator.onLine === false)) {
-      const [pendientes, incidenciasPendientes] = await Promise.all([
+      const [pendientes, incidenciasPendientes, facialesPendientes] = await Promise.all([
         asistenciaRepo.pendientes(1),
-        incidenciaRepo.pendientes(1)
+        incidenciaRepo.pendientes(1),
+        contarPendientesFaciales()
       ]);
 
       // Comprobar de nuevo tras el await
       if (!activo || generacion !== genAlProgramar) return;
 
-      if (pendientes.length > 0 || incidenciasPendientes.length > 0) {
+      if (pendientes.length > 0 || incidenciasPendientes.length > 0 || facialesPendientes > 0) {
         await dispararSincronizacion('intervalo_periodico');
       }
     }
@@ -372,8 +396,8 @@ export async function iniciarSincronizacionAutomatica({
     // 11. Intento inicial si hay red y pendientes
     const connInicial = obtenerEstadoConexion();
     if (connInicial.estado === 'online' || connInicial.estado === 'degraded') {
-      Promise.all([asistenciaRepo.pendientes(1), incidenciaRepo.pendientes(1)]).then(([pendientes, incidenciasPendientes]) => {
-        if (pendientes.length > 0 || incidenciasPendientes.length > 0) {
+      Promise.all([asistenciaRepo.pendientes(1), incidenciaRepo.pendientes(1), contarPendientesFaciales()]).then(([pendientes, incidenciasPendientes, facialesPendientes]) => {
+        if (pendientes.length > 0 || incidenciasPendientes.length > 0 || facialesPendientes > 0) {
           dispararSincronizacion('arranque_con_pendientes').catch(() => {});
         }
       }).catch(() => {});

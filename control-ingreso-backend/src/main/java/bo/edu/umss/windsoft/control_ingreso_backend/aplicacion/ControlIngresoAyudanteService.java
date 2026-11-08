@@ -15,6 +15,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AsignacionNoActivaException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AsignaturaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AulaRepository;
@@ -268,7 +269,9 @@ public class ControlIngresoAyudanteService {
                             registradoPor,
                             ing.getIdAsignatura(),
                             ing.getIdExamen(),
-                            ing.getIdAmbiente());
+                            ing.getIdAmbiente(),
+                            ing.getScoreFacial() != null,
+                            ing.getScoreFacial());
                 })
                 .toList();
     }
@@ -290,7 +293,8 @@ public class ControlIngresoAyudanteService {
                 "Carrera no asignada", null);
         String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
         return new UltimoIngresoDTO(ing.getIdIngreso(), ing.getHoraIngreso(), metodo, resumen,
-                "Registro propio", ing.getIdAsignatura(), ing.getIdExamen(), ing.getIdAmbiente());
+                "Registro propio", ing.getIdAsignatura(), ing.getIdExamen(), ing.getIdAmbiente(),
+                ing.getScoreFacial() != null, ing.getScoreFacial());
     }
 
     @Transactional
@@ -523,6 +527,22 @@ public class ControlIngresoAyudanteService {
                     null));
         }
 
+        // 4.2 Identificación sin registro (primera fase del control).
+        // Se validó QR, horario, habilitación, duplicado y aula, pero el ingreso
+        // todavía no se crea: primero el operador/docente verifica el rostro.
+        if (Boolean.TRUE.equals(dto.soloVerificar())) {
+            return ResponseEntity.ok(new ResultadoIngresoDTO(
+                    "IDENTIFICADO",
+                    "IDENTIFICADO - Continúe con la verificación facial para registrar el ingreso.",
+                    estudianteResumen,
+                    null,
+                    null,
+                    null));
+        }
+
+        // 4.3 Verificación facial: si llegan scores deben ser consistentes.
+        validarScoresFaciales(dto);
+
         // 5. Registro Exitoso del Ingreso
         Ingreso nuevoIngreso = new Ingreso();
         nuevoIngreso.setIdUsuarioEstudiante(usuario.getIdusuario());
@@ -536,6 +556,10 @@ public class ControlIngresoAyudanteService {
         nuevoIngreso.setClientUuid(clientUuid);
         nuevoIngreso.setTipoIngreso(TipoIngreso.NORMAL);
         nuevoIngreso.setMetodoIngreso(dto.metodoIngreso() != null ? dto.metodoIngreso() : MetodoIngreso.MANUAL);
+        nuevoIngreso.setScoreFacial(dto.scoreFacial());
+        nuevoIngreso.setLivenessScore(dto.livenessScore());
+        nuevoIngreso.setModelVersion(dto.modelVersion());
+        nuevoIngreso.setDeviceId(dto.deviceId());
 
         try {
             ingresoRepository.saveAndFlush(nuevoIngreso);
@@ -572,6 +596,36 @@ public class ControlIngresoAyudanteService {
                 null);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
+    }
+
+    /**
+     * Los scores faciales son opcionales. Si vienen, la similitud y el liveness
+     * deben estar presentes y en rango, con la versión del modelo y el
+     * dispositivo que los produjo (trazabilidad).
+     */
+    private void validarScoresFaciales(VerificarIngresoRequestDTO dto) {
+        Double score = dto.scoreFacial();
+        Double liveness = dto.livenessScore();
+        if (score == null && liveness == null) {
+            return;
+        }
+        if (score == null || liveness == null) {
+            throw new SolicitudInvalidaException(
+                    "La verificación facial requiere similitud y prueba de vida (liveness).");
+        }
+        if (score < 0d || score > 1d) {
+            throw new SolicitudInvalidaException("La similitud facial debe estar entre 0 y 1.");
+        }
+        if (liveness < 0d || liveness > 1d) {
+            throw new SolicitudInvalidaException("La prueba de vida debe estar entre 0 y 1.");
+        }
+        if (dto.modelVersion() == null || dto.modelVersion().isBlank()) {
+            throw new SolicitudInvalidaException("La versión del modelo facial es obligatoria.");
+        }
+        if (dto.deviceId() == null || dto.deviceId().isBlank()) {
+            throw new SolicitudInvalidaException(
+                    "El identificador del dispositivo es obligatorio para la verificación facial.");
+        }
     }
 
     private ResponseEntity<ResultadoIngresoDTO> validarHorarioOnline(VerificarIngresoRequestDTO dto) {

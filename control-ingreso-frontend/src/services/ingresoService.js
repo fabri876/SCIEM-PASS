@@ -186,6 +186,8 @@ const MAPA_ESTADOS = {
   PERMITIDO: "PERMITIDO",
   REGISTRADO: "PERMITIDO",
   EXITOSO: "PERMITIDO",
+  // Fase 1 del control: identificado sin registrar (falta el facial).
+  IDENTIFICADO: "IDENTIFICADO",
   INHABILITADO: "NO_HABILITADO",
   NO_HABILITADO: "NO_HABILITADO",
   DUPLICADO: "YA_REGISTRADO",
@@ -217,6 +219,13 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
       idambiente: objExamen.idambiente,
       metodoIngreso: strMetodo === "QR" ? "ESCANEO" : "MANUAL", // el backend usa ESCANEO | MANUAL
       ...(objOpciones.ignorarFila ? { ignorarFila: true } : {}),
+      // Fase 1: validar todo sin crear el ingreso (el registro ocurre tras el facial).
+      ...(objOpciones.soloVerificar ? { soloVerificar: true } : {}),
+      // Scores del facial aprobado: el ingreso queda como QR/MANUAL "con facial".
+      ...(objOpciones.scoreFacial != null ? { scoreFacial: objOpciones.scoreFacial } : {}),
+      ...(objOpciones.livenessScore != null ? { livenessScore: objOpciones.livenessScore } : {}),
+      ...(objOpciones.modelVersion ? { modelVersion: objOpciones.modelVersion } : {}),
+      ...(objOpciones.deviceId ? { deviceId: objOpciones.deviceId } : {}),
     }),
   });
 
@@ -330,9 +339,13 @@ export async function obtenerUltimosIngresos(idExamen, numLimite = 5, objExamen 
     return res.map((r) => {
       const est = r.estudiante || {};
       const strMetodo = String(r.metodoIngreso || r.metodo || "").toUpperCase();
+      const boolConFacial = Boolean(r.verificacionFacial ?? (r.scoreFacial != null));
       return {
         hora: soloHora(r.horaIngreso || r.hora),
         metodo: strMetodo === "ESCANEO" || strMetodo === "QR" ? "QR" : "Manual",
+        // Se deriva de score_facial: no existe un método "facial" separado.
+        conFacial: boolConFacial,
+        scoreFacial: r.scoreFacial ?? null,
         registradoPor: nombreRegistrador(r),
         estudiante: {
           nombres: est.nombreCompleto || est.nombres || r.nombreCompleto || "",
@@ -358,6 +371,8 @@ export async function obtenerMisRegistros(numLimite = 100) {
     hora: soloHora(r.horaIngreso || r.hora),
     fechaHora: r.horaIngreso || r.hora,
     metodo: String(r.metodoIngreso || r.metodo || "").toUpperCase() === "ESCANEO" ? "QR" : "Manual",
+    conFacial: Boolean(r.verificacionFacial ?? (r.scoreFacial != null)),
+    scoreFacial: r.scoreFacial ?? null,
     registradoPor: r.registradoPor || "Registro propio",
     estudiante: {
       nombres: r.estudiante?.nombreCompleto || "",
