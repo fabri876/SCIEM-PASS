@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
 import {
   AlertTriangle,
   XCircle,
@@ -34,6 +34,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
   const [strError, setStrError] = useState("");
   const [strMensajeExito, setStrMensajeExito] = useState("");
   const [boolExportando, setBoolExportando] = useState(false);
+  const ultimaConsulta = useRef(0);
 
   // Filtros de entrada
   const [filtroAsignatura, setFiltroAsignatura] = useState("TODAS");
@@ -56,18 +57,22 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
 
   // Carga de intentos
   const fnCargarDatos = useCallback(async (filtros) => {
+    const consulta = ++ultimaConsulta.current;
     setBoolCargando(true);
     setStrError("");
     setStrMensajeExito("");
 
     try {
       const data = await listarReporteIntentosIncorrectos(filtros);
+      if (consulta !== ultimaConsulta.current) return;
       setArrIntentos(Array.isArray(data) ? data : []);
       setIntPaginaActual(1);
     } catch (err) {
+      if (consulta !== ultimaConsulta.current) return;
+      setArrIntentos([]);
       setStrError(err.message || "Error al consultar los registros de intentos incorrectos.");
     } finally {
-      setBoolCargando(false);
+      if (consulta === ultimaConsulta.current) setBoolCargando(false);
     }
   }, []);
 
@@ -204,21 +209,21 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
     const m = (motivo || "").toUpperCase();
     if (m.includes("EXAMEN_INCORRECTO")) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-rose-50 text-rose-700 border border-rose-200">
-          EXAMEN INCORRECTO (HU-09)
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-[#003770] border border-slate-200">
+          EXAMEN INCORRECTO
         </span>
       );
     }
     if (m.includes("AMBIENTE_DIFERENTE") || m.includes("AULA_DIFERENTE")) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-50 text-amber-700 border border-amber-200">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-[#003770] border border-slate-200">
           AMBIENTE DIFERENTE
         </span>
       );
     }
     if (m.includes("DUPLICADO")) {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-purple-50 text-purple-700 border border-purple-200">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-[#003770] border border-slate-200">
           DUPLICADO BLOQUEADO
         </span>
       );
@@ -231,16 +236,10 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
   };
 
   // Badges de estado posterior
-  const fnRenderBadgeEstadoPosterior = (estado, tipo) => {
-    let estilo = "bg-slate-100 text-slate-700 border-slate-200";
-    if (tipo === "teal") estilo = "bg-teal-50 text-teal-700 border-teal-200";
-    if (tipo === "emerald") estilo = "bg-emerald-50 text-emerald-700 border-emerald-200";
-    if (tipo === "rose") estilo = "bg-rose-50 text-rose-700 border-rose-200";
-    if (tipo === "amber") estilo = "bg-amber-50 text-amber-700 border-amber-200";
-
+  const fnRenderBadgeEstadoPosterior = (estado) => {
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${estilo}`}>
-        {estado || "Registrado"}
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border bg-slate-100 text-slate-700 border-slate-200">
+        {estado || "No disponible"}
       </span>
     );
   };
@@ -250,12 +249,12 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
       {/* =========================================================================
           ENCABEZADO DE LA SECCIÓN (Conforme al Mockup Oficial HU13)
           ========================================================================= */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#003770] bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200 inline-block mb-1">
             Módulo de Fiscalización y Trazabilidad
           </span>
-          <h1 className="text-xl lg:text-2xl font-extrabold text-[#003770] tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-[#003770] tracking-tight">
             Reporte de Estudiantes con Intentos de Ingreso Incorrectos
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
@@ -264,12 +263,12 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
         </div>
 
         {/* Botones de Exportación (Mockup HU13) */}
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
           <button
             type="button"
             onClick={fnDescargarPdf}
             disabled={boolExportando || arrIntentos.length === 0}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#DC2626] text-white text-xs font-bold hover:bg-[#B91C1C] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#DC2626] text-white text-xs font-bold hover:bg-[#B91C1C] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             title="Descargar documento PDF con formato oficial y actas"
           >
             <FileText className="w-4 h-4" />
@@ -280,7 +279,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             type="button"
             onClick={fnExportarCsv}
             disabled={boolExportando || arrIntentos.length === 0}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#15803D] text-white text-xs font-bold hover:bg-[#166534] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#15803D] text-white text-xs font-bold hover:bg-[#166534] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             title="Exportar archivo estructurado para Excel"
           >
             <FileSpreadsheet className="w-4 h-4" />
@@ -290,7 +289,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           <button
             type="button"
             onClick={() => fnCargarDatos(filtrosActivos)}
-            className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+            className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition cursor-pointer shrink-0"
             title="Actualizar datos"
           >
             <RefreshCw className={`w-4 h-4 ${boolCargando ? "animate-spin text-primary-blue" : ""}`} />
@@ -350,9 +349,9 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           )}
         </div>
 
-        <form onSubmit={fnAplicarFiltros} className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
+        <form onSubmit={fnAplicarFiltros} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
           {/* Asignatura */}
-          <div className="md:col-span-3 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-3 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Asignatura
             </label>
@@ -371,7 +370,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           </div>
 
           {/* Examen */}
-          <div className="md:col-span-3 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-3 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Examen
             </label>
@@ -390,25 +389,29 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           </div>
 
           {/* Motivo del Intento */}
-          <div className="md:col-span-3 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-3 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Motivo del Intento
             </label>
             <select
               value={filtroMotivo}
-              onChange={(e) => setFiltroMotivo(e.target.value)}
+              onChange={(e) => {
+                const motivo = e.target.value;
+                setFiltroMotivo(motivo);
+                setFiltrosActivos((actuales) => ({ ...actuales, motivo }));
+              }}
               className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-primary-blue focus:bg-white transition"
             >
-              <option value="TODOS">Todos los Motivos Incorrectos ({arrIntentos.length})</option>
-              <option value="EXAMEN_INCORRECTO">Examen Incorrecto (HU-09)</option>
-              <option value="AMBIENTE_DIFERENTE">Aula Diferente (HU-18)</option>
+              <option value="TODOS">Todos los Motivos Incorrectos</option>
+              <option value="EXAMEN_INCORRECTO">Examen Incorrecto</option>
+              <option value="AMBIENTE_DIFERENTE">Aula Diferente</option>
               <option value="DUPLICADO">Duplicados Bloqueados</option>
               <option value="INHABILITADO">Inhabilitado Académico</option>
             </select>
           </div>
 
           {/* Fecha */}
-          <div className="md:col-span-2 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-2 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Fecha
             </label>
@@ -421,7 +424,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
           </div>
 
           {/* Botón Filtrar */}
-          <div className="md:col-span-1">
+          <div className="col-span-1 sm:col-span-2 lg:col-span-1">
             <button
               type="submit"
               className="w-full h-10 inline-flex items-center justify-center gap-1.5 bg-[#003770] text-white rounded-xl text-xs font-bold hover:bg-[#021B3B] transition shadow-xs cursor-pointer"
@@ -459,16 +462,16 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-              Examen Incorrecto (HU-09)
+              Examen Incorrecto
             </span>
-            <div className="text-2xl lg:text-3xl font-extrabold text-[#DC2626] mt-1 tracking-tight">
+            <div className="text-2xl lg:text-3xl font-extrabold text-[#003770] mt-1 tracking-tight">
               {kpis.examenIncorrecto}
             </div>
-            <span className="text-[11px] text-rose-600 font-semibold">
-              {kpis.porcentajeExamenInc}% estudiantes no programados
+            <span className="text-[11px] text-slate-500 font-semibold">
+              {kpis.porcentajeExamenInc}% de los intentos
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600 border border-rose-100">
+          <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-[#003770] border border-slate-200">
             <XCircle className="w-5 h-5" />
           </div>
         </div>
@@ -477,16 +480,16 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-              Aula Diferente (HU-18)
+              Aula Diferente
             </span>
-            <div className="text-2xl lg:text-3xl font-extrabold text-[#D97706] mt-1 tracking-tight">
+            <div className="text-2xl lg:text-3xl font-extrabold text-[#003770] mt-1 tracking-tight">
               {kpis.aulaDiferente}
             </div>
-            <span className="text-[11px] text-amber-600 font-semibold">
+            <span className="text-[11px] text-slate-500 font-semibold">
               Reubicación requerida en puerta
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100">
+          <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-[#003770] border border-slate-200">
             <Split className="w-5 h-5" />
           </div>
         </div>
@@ -497,14 +500,14 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
               Duplicados Bloqueados
             </span>
-            <div className="text-2xl lg:text-3xl font-extrabold text-[#7C3AED] mt-1 tracking-tight">
+            <div className="text-2xl lg:text-3xl font-extrabold text-[#003770] mt-1 tracking-tight">
               {kpis.duplicadosBloqueados}
             </div>
-            <span className="text-[11px] text-purple-600 font-semibold">
+            <span className="text-[11px] text-slate-500 font-semibold">
               Ingresos previos detectados
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 border border-purple-100">
+          <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-[#003770] border border-slate-200">
             <Copy className="w-5 h-5" />
           </div>
         </div>
@@ -565,7 +568,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
                     {filtrosActivos.idAsignatura !== "TODAS" ||
                     filtrosActivos.idExamen !== "TODOS" ||
                     filtrosActivos.motivo !== "TODOS" ||
-                    filtrosActivos.fecha ? (
+                    filtrosActivos.fecha || filtrosActivos.busqueda ? (
                       <div className="space-y-1">
                         <p className="font-bold text-slate-600">No se encontraron registros de intentos incorrectos con los filtros aplicados.</p>
                         <p className="text-slate-400">Modifica los filtros de búsqueda para consultar otros eventos.</p>
@@ -601,7 +604,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
 
                     {/* Examen / Aula Asignada */}
                     <td className="py-3.5 px-4 font-medium text-primary-blue">
-                      {item.examenAulaAsignada}
+                      {item.examenAulaAsignada || fnRenderBadgeEstadoPosterior(null)}
                     </td>
 
                     {/* Hora */}
@@ -616,7 +619,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
 
                     {/* Estado Posterior */}
                     <td className="py-3.5 px-4 whitespace-nowrap">
-                      {fnRenderBadgeEstadoPosterior(item.estadoPosterior, item.estadoPosteriorTipo)}
+                      {fnRenderBadgeEstadoPosterior(item.estadoPosterior)}
                     </td>
                   </tr>
                 ))
@@ -633,7 +636,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
               <span className="font-bold text-slate-700">{intTotalPaginas}</span>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 max-w-full overflow-x-auto py-1">
               <button
                 type="button"
                 onClick={() => setIntPaginaActual((p) => Math.max(1, p - 1))}

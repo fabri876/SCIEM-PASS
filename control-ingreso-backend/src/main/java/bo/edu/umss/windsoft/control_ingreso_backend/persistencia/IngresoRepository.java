@@ -41,6 +41,10 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Integer> {
     long countByIdAsignaturaAndIdExamenAndIdExpulsionIsNull(Integer idAsignatura, Integer idExamen);
 
     List<Ingreso> findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByIdIngresoDesc(Integer idAsignatura, Integer idExamen, Integer idAmbiente);
+    List<Ingreso> findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIngresoDesc(Integer idAsignatura, Integer idExamen, Integer idAmbiente);
+
+    List<Ingreso> findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteAndIdUsuarioRegistraOrderByHoraIngresoDesc(
+            Integer idAsignatura, Integer idExamen, Integer idAmbiente, Integer idUsuarioRegistra);
 
     List<Ingreso> findByIdUsuarioRegistraOrderByHoraIngresoDesc(Integer idUsuarioRegistra);
 

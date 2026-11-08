@@ -10,6 +10,10 @@ import TarjetaExamen from "./componentes/TarjetaExamen";
 import EstacionVerificacion from "./componentes/EstacionVerificacion";
 import TarjetaResultado from "./componentes/TarjetaResultado";
 import TablaUltimosIngresos from "./componentes/TablaUltimosIngresos";
+import ModalIncidencia from "../../../components/incidencias/ModalIncidencia";
+import { intentoExamenPendienteRepo } from "../../../offline/intentoExamenPendienteRepo";
+import { sincronizarIntentosExamen } from "../../../offline/syncIntentosExamen";
+import { obtenerUsuarioActual } from "../../../services/authService";
 import { rangoExamen, aperturaControl } from "../../docente/utilidadesExamenDocente";
 
 // Franja de estado debajo del encabezado del examen.
@@ -49,6 +53,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
   // Hora actual (cada 30 s): el registro solo se permite desde 15 min antes del inicio hasta el fin,
   // con o sin internet, para el ayudante, el docente y el administrador
   const [dateAhora, setDateAhora] = useState(() => new Date());
+  const [mostrarIncidenciaHU09, setMostrarIncidenciaHU09] = useState(false);
   useEffect(() => {
     const t = setInterval(() => setDateAhora(new Date()), 30000);
     return () => clearInterval(t);
@@ -163,25 +168,30 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
       </div>
 
       {objNomina && (
-        <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-xl bg-[#F0F6FC] border border-[#D9E8F7] text-xs font-bold">
-          <span className="mr-2">Nómina local:</span>
-          {objNomina.descargando ? (
+        <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-xl bg-[#F0F6FC] border border-[#D9E8F7] text-xs font-bold max-md:flex-col max-md:items-stretch max-md:gap-2.5">
+          <div className="flex items-center gap-3 min-w-0 max-md:flex-wrap">
+            <span className="shrink-0">Nómina local:</span>
+            {objNomina.descargando ? (
+              <>
+                <span>Descargando…</span>
+                <span className="text-[#003770]">{objNomina.porcentaje ?? 0}%</span>
+              </>
+            ) : objNomina.estado === "lista" ? (
+              <span className="shrink-0">Descargada</span>
+            ) : <span>Sin descargar</span>}
+            {!objNomina.descargando && objNomina.estado === "lista" && (
+              objNomina.descargadaEn ? (
+                <span className="text-[#166534] break-words">({objNomina.total ?? 0} estudiantes · {new Date(objNomina.descargadaEn).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })})</span>
+              ) : <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes)</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap justify-end max-md:w-full max-md:grid max-md:grid-cols-1">
+          {objNomina?.estado === "lista" && (
             <>
-              <span>Descargando…</span>
-              <span className="text-[#003770]">{objNomina.porcentaje ?? 0}%</span>
-            </>
-          ) : objNomina.estado === "lista" ? (
-            <>
-              <span>Descargada</span>
-              {objNomina.descargadaEn ? (
-                <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes · {new Date(objNomina.descargadaEn).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-              ) : (
-                <span className="text-[#166534]">({objNomina.total ?? 0} estudiantes)</span>
-              )}
               <button
                 type="button"
                 onClick={fnResetearNomina}
-                className="ml-3 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#B91C1C] text-white hover:bg-[#991B1B] transition-colors cursor-pointer"
+                className="ml-3 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#B91C1C] text-white hover:bg-[#991B1B] transition-colors cursor-pointer max-md:ml-0 max-md:w-full"
               >
                 Resetear nómina local
               </button>
@@ -190,21 +200,21 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
                 onClick={() => {
                   fnDoForzar();
                 }}
-                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer"
+                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer max-md:ml-0 max-md:w-full"
               >
                 Forzar sincronización
               </button>
               <button
                 type="button"
                 onClick={() => setConfigurandoPin(true)}
-                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer"
+                className="ml-2 px-3 py-1 rounded-xl text-[11px] font-bold bg-[#08264A] text-white hover:bg-[#0a3d62] transition-colors cursor-pointer max-md:ml-0 max-md:w-full"
               >
                 Configurar PIN
               </button>
             </>
-          ) : (
+          )}
+          {objNomina?.estado !== "lista" && (
             <>
-              <span>Sin descargar</span>
               <button
                 type="button"
                 onClick={async () => {
@@ -236,6 +246,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               </button>
             </>
           )}
+          </div>
         </div>
       )}
 
@@ -275,7 +286,8 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
             {strError && (
               <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
             )}
-            <TarjetaResultado objResultado={objResultado} onCerrar={fnCerrarResultado} strRol={strRol} />
+            <TarjetaResultado objResultado={objResultado} onCerrar={fnCerrarResultado} strRol={strRol}
+              onRegistrarIncidencia={() => setMostrarIncidenciaHU09(true)} />
           </>
         )}
       </section>
@@ -286,6 +298,42 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         strRol={strRol}
         numRegistrados={objContador?.ingresaron ?? null}
         boolSinRed={estadoRed?.net === "offline" || Boolean(ctrl.boolOffline)}
+      />
+      {(ctrl.objIntentosPendientes?.pendientes > 0 || ctrl.objIntentosPendientes?.revision > 0) && (
+        <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs sm:text-sm text-amber-900 space-y-2">
+          {ctrl.objIntentosPendientes.pendientes > 0 && <p className="font-semibold">{ctrl.objIntentosPendientes.pendientes} intento(s) de examen incorrecto pendientes de sincronización.</p>}
+          {ctrl.objIntentosPendientes.revision > 0 && <p>{ctrl.objIntentosPendientes.revision} intento(s) requieren revisión; no se confirmó su registro en auditoría. Contacta al administrador.</p>}
+          {ctrl.objIntentosPendientes.revisiones?.map((item) => (
+            <div key={item.clientUuid} className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 bg-amber-100/60 rounded-lg">
+              <span className="font-medium break-all">SIS {item.estudianteSis} · {new Date(item.fechaCreacion).toLocaleString("es-BO", { timeZone: "America/La_Paz" })}</span>
+              <button type="button" className="w-full sm:w-auto rounded-lg border border-amber-800 bg-white px-3 py-1.5 font-bold text-xs text-amber-900 hover:bg-amber-50 transition cursor-pointer text-center shrink-0"
+                onClick={async () => {
+                  try {
+                    await intentoExamenPendienteRepo.reintentarRevision(item.clientUuid, obtenerUsuarioActual()?.idUsuario);
+                    await sincronizarIntentosExamen();
+                  } catch { fnMostrarToast("No se pudo reintentar; el intento permanece guardado en el dispositivo."); }
+                }}>Reintentar sincronización</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <ModalIncidencia boolAbierto={mostrarIncidenciaHU09} onCerrar={() => setMostrarIncidenciaHU09(false)}
+        aulasDisponibles={examenActual?.idambiente ? [{
+          idAmbiente: examenActual.idambiente, idAsignatura: examenActual.idasignatura,
+          idExamen: examenActual.idexamen, aula: examenActual.aula,
+          asignatura: examenActual.materia, fechaExamen: examenActual.fecha,
+          horaInicio: examenActual.horaInicio, horaFin: examenActual.horaFin,
+        }] : []}
+        aulaPreseleccionada={examenActual?.idambiente ? {
+          idAmbiente: examenActual.idambiente, idAsignatura: examenActual.idasignatura,
+          idExamen: examenActual.idexamen, aula: examenActual.aula,
+          asignatura: examenActual.materia, fechaExamen: examenActual.fecha,
+          horaInicio: examenActual.horaInicio, horaFin: examenActual.horaFin,
+        } : null}
+        estudianteInicial={objResultado?.estudiante ? {
+          nombreCompleto: [objResultado.estudiante.nombres, objResultado.estudiante.apellidos].filter(Boolean).join(" "),
+          ci: objResultado.estudiante.ci, codSis: objResultado.estudiante.sis, estado: "DESCONOCIDO",
+        } : null}
       />
     </div>
   );

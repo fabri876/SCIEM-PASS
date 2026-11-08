@@ -54,6 +54,8 @@ try {
     DATOS_SEMILLA_INTENTOS,
     calcularEstadisticasIntentos,
     listarReporteIntentosIncorrectos,
+    exportarIntentosExcelCsv,
+    generarReporteOficialPdf,
   } = await server.ssrLoadModule("/src/services/reporteIntentosService.js");
 
   // Verificar semillas de datos
@@ -69,21 +71,33 @@ try {
   assert.ok(stats.porcentajeExamenInc > 0, "Debe calcular porcentaje correcto");
   console.log("   ✓ Cálculo de estadísticas y KPIs oficiales correcto:", stats);
 
-  // Probar filtrado por motivo
+  // El servicio depende del backend; no debe fabricar datos cuando está vacío.
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    return { ok: true, status: 200, json: async () => [] };
+  };
+  assert.deepEqual(await listarReporteIntentosIncorrectos(), []);
+
+  // Los filtros se envían al servidor, no se aplican sobre datos ficticios.
   const filtradosExamen = await listarReporteIntentosIncorrectos({ motivo: "EXAMEN_INCORRECTO" });
-  assert.ok(filtradosExamen.every((item) => item.motivo.includes("EXAMEN_INCORRECTO")));
+  assert.deepEqual(filtradosExamen, []);
+  assert.ok(urls.at(-1).includes("motivo=EXAMEN_INCORRECTO"));
   console.log(`   ✓ Filtrado por motivo EXAMEN_INCORRECTO: ${filtradosExamen.length} registros`);
 
   // Probar filtrado por fecha
   const filtradosFecha = await listarReporteIntentosIncorrectos({ fecha: "2026-10-28" });
-  assert.ok(filtradosFecha.every((item) => item.fecha === "2026-10-28"));
+  assert.deepEqual(filtradosFecha, []);
+  assert.ok(urls.at(-1).includes("fecha=2026-10-28"));
   console.log(`   ✓ Filtrado por fecha 2026-10-28: ${filtradosFecha.length} registros`);
 
   // Probar búsqueda de texto por estudiante
   const filtradosBusqueda = await listarReporteIntentosIncorrectos({ busqueda: "Arce Valdivia" });
-  assert.equal(filtradosBusqueda.length, 1);
-  assert.equal(filtradosBusqueda[0].codSis, "202104859");
-  console.log("   ✓ Búsqueda nominal y por código SIS exitosa:", filtradosBusqueda[0].estudianteNombre);
+  assert.deepEqual(filtradosBusqueda, []);
+  assert.ok(urls.at(-1).includes("busqueda=Arce+Valdivia"));
+  globalThis.fetch = async () => ({ ok: false, status: 500, json: async () => ({ mensaje: "Error de prueba" }) });
+  await assert.rejects(listarReporteIntentosIncorrectos(), /Error de prueba/);
+  console.log("   ✓ Resultados vacíos y errores no generan datos de demostración");
 
   console.log("2. Probando renderizado del componente SeccionReporteIntentosIncorrectos...");
   const { default: SeccionReporteIntentosIncorrectos } = await server.ssrLoadModule(
@@ -113,11 +127,11 @@ try {
     "Debe contener KPI de total intentos"
   );
   assert.ok(
-    html.includes("Examen Incorrecto (HU-09)"),
+    html.includes("Examen Incorrecto"),
     "Debe contener KPI de examen incorrecto"
   );
   assert.ok(
-    html.includes("Aula Diferente (HU-18)"),
+    html.includes("Aula Diferente"),
     "Debe contener KPI de aula diferente"
   );
   assert.ok(
@@ -128,6 +142,39 @@ try {
     html.includes("Detalle Nominal de Intentos Incorrectos"),
     "Debe contener la tabla de detalle nominal"
   );
+  assert.ok(!html.includes("HU-09") && !html.includes("HU-18"));
+
+  console.log("3. Probando exportaciones con datos ficticios...");
+  const fila = { estudianteNombre: '=SUM(1,2)', codSis: '123456', ci: '<script>',
+    motivo: 'EXAMEN_INCORRECTO', examenAulaAsignada: 'Aula ficticia', fecha: '2026-11-07', hora: '13:13:41', estadoPosterior: null };
+  let ultimoBlob;
+  const crearUrlOriginal = URL.createObjectURL;
+  const revocarUrlOriginal = URL.revokeObjectURL;
+  URL.createObjectURL = (blob) => { ultimoBlob = blob; return 'blob:prueba'; };
+  URL.revokeObjectURL = () => {};
+  globalThis.document = { createElement: () => ({ style: {}, setAttribute() {}, click() {} }),
+    body: { appendChild() {}, removeChild() {} } };
+  globalThis.window = { open: () => ({ print() {} }) };
+  try {
+    exportarIntentosExcelCsv([fila]);
+    const csv = await ultimoBlob.text();
+    assert.ok(csv.includes("'=SUM(1,2)"), 'CSV debe proteger las fórmulas');
+    assert.ok(csv.includes('Aula ficticia') && csv.includes('No disponible'));
+    exportarIntentosExcelCsv([{ ...fila, examenAulaAsignada: null }]);
+    assert.ok((await ultimoBlob.text()).includes('No disponible'));
+    generarReporteOficialPdf([fila], { asignatura: '<script>' });
+    const vista = await ultimoBlob.text();
+    assert.ok(vista.includes('&lt;script&gt;') && !vista.includes('<script>'));
+    assert.ok(vista.includes('Aula ficticia') && vista.includes('No disponible'));
+    assert.ok(vista.includes('2026-11-07') && vista.includes('13:13:41'));
+    assert.ok(vista.includes('A4 landscape') && vista.includes('table-header-group') && vista.includes('table-layout: fixed'));
+  } finally {
+    URL.createObjectURL = crearUrlOriginal;
+    URL.revokeObjectURL = revocarUrlOriginal;
+    delete globalThis.document;
+    delete globalThis.window;
+  }
+  console.log('   ✓ CSV y vista imprimible conservan datos y escapan valores');
 
   console.log("   ✓ Componente SeccionReporteIntentosIncorrectos renderiza todos los elementos requeridos");
 

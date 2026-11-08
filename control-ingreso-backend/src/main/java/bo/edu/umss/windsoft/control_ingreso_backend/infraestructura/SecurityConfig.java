@@ -100,6 +100,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/expulsiones").hasRole("ADMINISTRADOR")
                         .requestMatchers("/api/face/**").hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR", "ESTUDIANTE")
 
+                        .requestMatchers("/api/v1/control/**").hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+
+                        .requestMatchers("/api/reportes/intentos-incorrectos/**").hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers("/api/examenes/**").hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers("/api/usuarios/**").hasAnyRole("ADMINISTRADOR", "DOCENTE")
                         .anyRequest().authenticated())

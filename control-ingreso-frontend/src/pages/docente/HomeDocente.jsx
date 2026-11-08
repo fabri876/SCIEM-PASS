@@ -22,8 +22,7 @@ import TarjetaExamenInicio from "./components/TarjetaExamenInicio";
 import ProximoExamenDocente from "./components/ProximoExamenDocente";
 import AsignarOperadoresDocente from "./operadores/AsignarOperadoresDocente";
 import { estadoExamen, marcaTiempo, esHoy } from "./utilidadesExamenDocente";
-import Expulsiones from "./expulsiones/Expulsiones";
-import { UserMinus } from "lucide-react";
+
 
 // Un docente no puede registrar a otro docente, solo Operador o Estudiante
 // (el backend ya lo valida igual en UsuarioService.validarPermisosRegistro).
@@ -322,7 +321,7 @@ export default function HomeDocente() {
                                     }`}
                             >
                                 <svg className={`w-4 h-4 ${strMenuActivo === "intentos-incorrectos" ? "text-white" : "text-[#1A365D]"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path></svg>
-                                Intentos Incorrectos (HU13)
+                                Intentos Incorrectos
                             </button>
                             <button
                                 onClick={() => setStrMenuActivo("incidencias")}
@@ -345,19 +344,7 @@ export default function HomeDocente() {
                                 )}
                             </button>
 
-                            {/* Módulo Expulsiones */}
-                            <button
-                                onClick={() => setStrMenuActivo("expulsiones")}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "expulsiones"
-                                    ? "bg-[#1A365D] text-white shadow-xs"
-                                    : "text-slate-700 hover:bg-slate-50"
-                                    }`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <UserMinus className={`w-4 h-4 ${strMenuActivo === "expulsiones" ? "text-white" : "text-[#1A365D]"}`} />
-                                    <span>Expulsiones</span>
-                                </div>
-                            </button>
+
                             <button onClick={() => { setStrSeccionRegistro("individual"); setBoolModalRegistroAbierto(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs text-left whitespace-nowrap transition cursor-pointer">
                                 <svg className="w-4 h-4 shrink-0 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
                                 Registrar Estudiante/Ayudante
@@ -413,8 +400,6 @@ export default function HomeDocente() {
                             })()
                         ) : strMenuActivo === "control-ingresos" ? (
                             <SeccionControlIngresosDocente examenes={examenes} boolCargando={boolCargando} onAsignarOperadores={fnAbrirOperadores} />
-                        ) : strMenuActivo === "expulsiones" ? (
-                            <Expulsiones />
                         ) : (
                             <>
                                 <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>

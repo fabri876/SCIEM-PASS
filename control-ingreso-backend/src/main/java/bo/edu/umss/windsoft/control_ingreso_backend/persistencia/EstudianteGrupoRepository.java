@@ -28,4 +28,11 @@ public interface EstudianteGrupoRepository extends JpaRepository<EstudianteGrupo
 
     @Query("SELECT g FROM Grupo g JOIN EstudianteGrupo eg ON g.idGrupo = eg.idGrupo WHERE g.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL') AND eg.idUsuario = :idUsuario")
     List<Grupo> findGruposByEstudiante(@Param("idUsuario") Integer idUsuario);
+
+    /** ¿El estudiante está inscrito en algún grupo de la asignatura en el semestre actual? */
+    @Query("SELECT COUNT(eg) > 0 FROM EstudianteGrupo eg JOIN Grupo g ON eg.idGrupo = g.idGrupo " +
+           "WHERE g.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL') " +
+           "AND eg.codSisEstudiante = :codSis AND g.idAsignatura = :idAsignatura")
+    boolean existeInscripcionEnAsignatura(@Param("codSis") Integer codSis,
+                                          @Param("idAsignatura") Integer idAsignatura);
 }

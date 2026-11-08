@@ -211,7 +211,7 @@ export default function HistorialInmodificable() {
       case "ING_EXCEPCIONAL":
         return "bg-amber-50 text-amber-700 border-amber-200";
       case "HABILITACIONES":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
+        return "bg-teal-50 text-teal-700 border-teal-200";
       case "CARGA_MASIVA":
         return "bg-indigo-50 text-indigo-700 border-indigo-200";
       case "EXAMENES":
@@ -228,14 +228,14 @@ export default function HistorialInmodificable() {
       {/* =========================================================================
           ENCABEZADO DE LA SECCIÓN (Conforme al Mockup de HU15)
           ========================================================================= */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl lg:text-2xl font-extrabold text-[#003770] tracking-tight">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-[#003770] tracking-tight">
               Historial Inmodificable de las Operaciones del Sistema
             </h1>
-            <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <ShieldCheck className="w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-blue-50 text-[#003770] border border-blue-200">
+              <ShieldCheck className="w-3.5 h-3.5 text-primary-blue" />
               Auditoría
             </span>
           </div>
@@ -244,14 +244,14 @@ export default function HistorialInmodificable() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
           <button
             type="button"
             onClick={fnEjecutarVerificacionCadena}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-bold hover:bg-emerald-100 transition shadow-xs cursor-pointer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-blue-200 bg-blue-50/70 text-[#003770] text-xs font-bold hover:bg-blue-100/80 transition shadow-xs cursor-pointer"
             title="Verificar encadenamiento de toda la base histórica"
           >
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <ShieldCheck className="w-4 h-4 text-primary-blue" />
             <span>Verificar Cadena Completa</span>
           </button>
 
@@ -259,7 +259,7 @@ export default function HistorialInmodificable() {
             type="button"
             onClick={fnExportarCsv}
             disabled={boolExportando || arrBloques.length === 0}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#003770] text-white text-xs font-bold hover:bg-[#021B3B] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#003770] text-white text-xs font-bold hover:bg-[#021B3B] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <Download className="w-4 h-4" />
             <span>{boolExportando ? "Exportando..." : "Exportar Registro Completo (CSV)"}</span>
@@ -268,7 +268,7 @@ export default function HistorialInmodificable() {
           <button
             type="button"
             onClick={() => fnCargarHistorial(filtrosActivos)}
-            className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+            className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition cursor-pointer shrink-0"
             title="Actualizar eventos"
           >
             <RefreshCw className={`w-4 h-4 ${boolCargando ? "animate-spin text-primary-blue" : ""}`} />
@@ -324,9 +324,9 @@ export default function HistorialInmodificable() {
           )}
         </div>
 
-        <form onSubmit={fnAplicarFiltros} className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
+        <form onSubmit={fnAplicarFiltros} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
           {/* Módulo */}
-          <div className="md:col-span-4 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-4 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Módulo del Sistema
             </label>
@@ -336,7 +336,7 @@ export default function HistorialInmodificable() {
               className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-primary-blue focus:bg-white transition"
             >
               <option value="TODOS">Todos los Módulos (Auditoría General)</option>
-              <option value="CONTROL_INGRESO">CONTROL_INGRESO (HU-09 / Verificación)</option>
+              <option value="CONTROL_INGRESO">CONTROL DE INGRESO (Verificación)</option>
               <option value="EXPULSIONES">EXPULSIONES (HU-14 / Incidentes)</option>
               <option value="ING_EXCEPCIONAL">ING_EXCEPCIONAL (HU-06)</option>
               <option value="HABILITACIONES">HABILITACIONES (Nóminas)</option>
@@ -349,7 +349,7 @@ export default function HistorialInmodificable() {
           </div>
 
           {/* Usuario / Ejecutor */}
-          <div className="md:col-span-4 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-4 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Usuario / Ejecutor
             </label>
@@ -366,7 +366,7 @@ export default function HistorialInmodificable() {
           </div>
 
           {/* Rango de Fecha */}
-          <div className="md:col-span-2 space-y-1">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-2 space-y-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
               Fecha de Registro
             </label>
@@ -381,7 +381,7 @@ export default function HistorialInmodificable() {
           </div>
 
           {/* Botón Aplicar */}
-          <div className="md:col-span-2">
+          <div className="col-span-1 sm:col-span-1 lg:col-span-2">
             <button
               type="submit"
               className="w-full h-10 inline-flex items-center justify-center gap-2 bg-[#021B3B] text-white rounded-xl text-xs font-bold hover:bg-[#003770] transition shadow-xs cursor-pointer"
@@ -526,7 +526,7 @@ export default function HistorialInmodificable() {
               <span className="font-bold text-slate-700">{intTotalPaginas}</span>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 max-w-full overflow-x-auto py-1">
               <button
                 type="button"
                 onClick={() => setIntPaginaActual((p) => Math.max(1, p - 1))}
@@ -600,8 +600,8 @@ export default function HistorialInmodificable() {
                   Calculando SHA-256...
                 </span>
               ) : verificacionBloqueActual?.esValido ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-300 shadow-xs">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-blue-50 text-[#003770] border border-blue-200 shadow-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary-blue" />
                   SELLO CRIPTOGRÁFICO VÁLIDO
                 </span>
               ) : (
@@ -664,10 +664,10 @@ export default function HistorialInmodificable() {
 
           {/* Cadena Criptográfica de Integridad (SHA-256 WORM Chaining) */}
           <div className="bg-[#021B3B] text-slate-100 rounded-xl p-4 sm:p-5 space-y-4 shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-2.5">
+            <div className="flex items-center justify-between border-b border-slate-700/80 pb-2.5">
               <div className="flex items-center gap-2">
-                <Lock className="w-4 h-4 text-emerald-400" />
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300">
+                <Lock className="w-4 h-4 text-blue-400" />
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-200">
                   Cadena criptográfica de integridad (SHA-256)
                 </span>
               </div>
@@ -685,12 +685,12 @@ export default function HistorialInmodificable() {
                 <button
                   type="button"
                   onClick={() => fnCopiarTexto(bloqueSeleccionado.selloSha256, "actual")}
-                  className="inline-flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[10px] text-blue-300 hover:text-blue-100 transition cursor-pointer"
                 >
                   {strCopiadoKey === "actual" ? (
                     <>
-                      <Check className="w-3 h-3" />
-                      <span>Copiado</span>
+                      <Check className="w-3 h-3 text-blue-400" />
+                      <span className="text-blue-300 font-bold">Copiado</span>
                     </>
                   ) : (
                     <>
@@ -700,7 +700,7 @@ export default function HistorialInmodificable() {
                   )}
                 </button>
               </div>
-              <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-700 font-mono text-[11px] text-emerald-400 break-all select-all">
+              <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-700 font-mono text-[11px] text-blue-200 break-all select-all">
                 {bloqueSeleccionado.selloSha256}
               </div>
             </div>
@@ -714,12 +714,12 @@ export default function HistorialInmodificable() {
                 <button
                   type="button"
                   onClick={() => fnCopiarTexto(bloqueSeleccionado.hashBloqueAnterior, "anterior")}
-                  className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-300 transition cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200 transition cursor-pointer"
                 >
                   {strCopiadoKey === "anterior" ? (
                     <>
-                      <Check className="w-3 h-3" />
-                      <span>Copiado</span>
+                      <Check className="w-3 h-3 text-blue-400" />
+                      <span className="text-blue-300 font-bold">Copiado</span>
                     </>
                   ) : (
                     <>
@@ -749,8 +749,8 @@ export default function HistorialInmodificable() {
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
-                  <ShieldCheck className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#003770] flex items-center justify-center border border-blue-200">
+                  <ShieldCheck className="w-4 h-4 text-primary-blue" />
                 </div>
                 <div>
                   <h4 className="text-sm font-extrabold text-[#021B3B]">

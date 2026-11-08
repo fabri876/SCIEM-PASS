@@ -5,6 +5,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MetodoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.*;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.VerificarIngresoRequestDTO;
 import org.junit.jupiter.api.AfterEach;
@@ -40,15 +42,23 @@ class ControlIngresoAuditoriaTest {
     @Mock EstudianteRepository estudianteRepository;
     @Mock GrupoRepository grupoRepository;
     @Mock CredencialRepository credencialRepository;
+    @Mock CarreraEstudianteRepository carreraEstudianteRepository;
     @Mock AsignacionAulaService asignacionAulaService;
     @Mock IntentoIngresoService intentoIngresoService;
     @Mock AuditoriaService auditoriaService;
+    @Mock IntentoExamenIncorrectoService intentoExamenIncorrectoService;
     @InjectMocks ControlIngresoAyudanteService service;
 
     @BeforeEach
     void preparar() {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 "admin@umss.edu", null, List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))));
+        Examen examen = new Examen();
+        examen.setIdExamen(2); examen.setIdAsignatura(1); examen.setIdUsuario(20);
+        Ambiente ambiente = new Ambiente();
+        ambiente.setIdAmbiente(3); ambiente.setIdExamen(2); ambiente.setIdAsignatura(1);
+        lenient().when(examenRepository.findById(2)).thenReturn(Optional.of(examen));
+        lenient().when(ambienteRepository.findById(3)).thenReturn(Optional.of(ambiente));
         Estudiante estudiante = new Estudiante(10, 12345);
         Usuario usuario = new Usuario("123456", "Ana", "Perez", 70000000, "ana@umss.edu", "hash", true);
         usuario.setIdusuario(10);

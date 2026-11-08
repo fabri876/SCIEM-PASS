@@ -42,6 +42,13 @@ db.version(3).stores({
   expulsiones_pendientes: 'clientUuid, incidenciaClientUuid, syncStatus',
 });
 
+// Datos de orientacion separados de las asistencias y ligados al operador.
+// Las verificaciones pendientes no deben borrarse hasta confirmar su recepcion.
+db.version(4).stores({
+  orientacion_jornada: '[operadorId+examenControl], operadorId, fecha',
+  intentos_examen_pendientes: 'clientUuid, operadorId, estado, fechaCreacion',
+});
+
 if (import.meta.env.DEV) {
   window.__sciem_db = db;
 }

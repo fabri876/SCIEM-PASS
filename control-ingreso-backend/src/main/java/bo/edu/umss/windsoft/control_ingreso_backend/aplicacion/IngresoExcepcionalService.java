@@ -113,6 +113,17 @@ public class IngresoExcepcionalService {
 
         EstudianteEncontrado est = encontrado.get();
         Integer codSis = est.estudiante().getCodsisestudiante();
+
+        // En el flujo de incidencias solo se puede reportar a estudiantes de la materia del examen.
+        // Esta validación debe ir antes de verificar el ingreso previo, para que un estudiante
+        // que no pertenece a la materia no pueda ser reportado aunque tenga algún registro.
+        if (permiteOperador && !estudianteExamenService.estaInscritoEnAsignatura(codSis, ambiente.getIdAsignatura())) {
+            return new ConsultaEstudianteDto("NO_INSCRITO",
+                    "El estudiante no está inscrito en la materia de este examen.",
+                    codSis, est.usuario().getCiusuario(), est.nombreCompleto(), null, null,
+                    false, false, false, aforo, estadoAula.cerrado());
+        }
+
         Optional<Ingreso> ingresoPrevio = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
                 codSis, ambiente.getIdAsignatura(), ambiente.getIdExamen());
 
@@ -129,6 +140,15 @@ public class IngresoExcepcionalService {
             return new ConsultaEstudianteDto(retirado ? "RETIRADO" : "DUPLICADO", mensaje,
                     codSis, est.usuario().getCiusuario(), est.nombreCompleto(), previo.getHoraIngreso(),
                     aulaPrevia, false, true, !retirado, aforo, estadoAula.cerrado());
+        }
+
+        // En el flujo de incidencias, un estudiante que no ha ingresado al examen no puede
+        // estar involucrado en una incidencia (no podría haber causado un incidente sin haber ingresado).
+        if (permiteOperador) {
+            return new ConsultaEstudianteDto("SIN_INGRESO",
+                    "El estudiante no ha ingresado a este examen; no se puede registrar una incidencia para él.",
+                    codSis, est.usuario().getCiusuario(), est.nombreCompleto(), null, null,
+                    false, false, false, aforo, estadoAula.cerrado());
         }
 
         HabilitacionExamen habilitacion = estudianteExamenService.habilitacion(codSis, ambiente);

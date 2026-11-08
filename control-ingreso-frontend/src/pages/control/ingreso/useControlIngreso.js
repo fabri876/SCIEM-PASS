@@ -14,6 +14,13 @@ import {
 } from "../../../services/ingresoService";
 import { obtenerUsuarioActual, registrarActividad } from "../../../services/authService";
 import { obtenerOrigenExamenes } from "../../../offline/examenRepo";
+import { orientacionJornadaRepo } from "../../../offline/orientacionJornadaRepo";
+import { buscarDestinoJornada } from "../../../offline/orientacionJornada";
+import { intentoExamenPendienteRepo } from "../../../offline/intentoExamenPendienteRepo";
+import { generarUuid } from "../../../offline/uuid";
+import { useIntentosExamenPendientes } from "../../../offline/useIntentosExamenPendientes";
+import { liveQuery } from "dexie";
+import { db } from "../../../offline/db";
 import {
   useConectividad,
   useNominaLocal,
@@ -116,11 +123,11 @@ function mapearResultadoOffline(r, strValor, strMetodo) {
         estudiante: e,
         ingresoPrevio: r.marcadoEn
           ? {
-              hora: horaDeIso(r.marcadoEn),
-              fecha: fechaDeIso(r.marcadoEn),
-              aula: e?.aulaAsignada || null,
-              registradoPor: r.marcadoPor || null,
-            }
+            hora: horaDeIso(r.marcadoEn),
+            fecha: fechaDeIso(r.marcadoEn),
+            aula: e?.aulaAsignada || null,
+            registradoPor: r.marcadoPor || null,
+          }
           : null,
       };
     case "NO_HABILITADO":
@@ -142,6 +149,10 @@ function mapearResultadoOffline(r, strValor, strMetodo) {
         mensaje: r.motivo,
       };
     case "NO_EN_NOMINA":
+      return {
+        ...baseResultado("NO_EN_NOMINA_OFFLINE", strValor, metodo),
+        mensaje: r.motivo,
+      };
     default:
       return {
         ...baseResultado("NO_ENCONTRADO", strValor, metodo),
@@ -172,6 +183,8 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const [numVersion, setNumVersion] = useState(0); // sube cada vez que hay un ingreso nuevo
 
   const refIdExamen = useRef(idExamen);
+  const refVerificacionEnCurso = useRef(false);
+  const refSolicitudPendiente = useRef(null);
   refIdExamen.current = idExamen;
   const refIdentificacion = useRef(null);
   refIdentificacion.current = objIdentificacion;
@@ -180,6 +193,20 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const examenPorId = (id) => refExamenes.current.find((e) => e.id === id) || {};
 
   const examenActual = listExamenes.find((e) => e.id === idExamen) || null;
+  const objIntentosPendientes = useIntentosExamenPendientes(obtenerUsuarioActual()?.idUsuario);
+
+  useEffect(() => {
+    const uuid = objResultado?.clientUuid;
+    if (!uuid || objResultado?.resultado !== "EXAMEN_INCORRECTO_OFFLINE") return undefined;
+    const sub = liveQuery(() => db.intentos_examen_pendientes.get(uuid)).subscribe({
+      next: (registro) => {
+        if (!registro) return;
+        setObjResultado((actual) => actual?.clientUuid === uuid && actual.estadoSync !== registro.estado
+          ? { ...actual, estadoSync: registro.estado } : actual);
+      },
+    });
+    return () => sub.unsubscribe();
+  }, [objResultado?.clientUuid, objResultado?.resultado]);
 
   // Conectividad real + nómina local del examen elegido (HU07).
   const conn = useConectividad();
@@ -261,6 +288,26 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       if (res && res.ok === false && !res.omitido) reintentar();
     }).catch(reintentar);
   }, [examenActual?.idexamen, boolOffline, nomina.estado.lista, nomina.descargando, nomina.descargar, numReintentoPrecache]);
+
+  // Descarga independiente: un fallo aqui nunca convierte la nomina en completa
+  // ni impide el control habitual. El resultado es solo una copia informativa.
+  useEffect(() => {
+    const usuario = obtenerUsuarioActual();
+    if (boolOffline || !usuario?.idUsuario || !examenActual?.idasignatura ||
+      !examenActual?.idexamen || !examenActual?.idambiente) return undefined;
+    const controller = new AbortController();
+    orientacionJornadaRepo.descargar({
+      operadorId: usuario.idUsuario,
+      asignaturaControl: examenActual.idasignatura,
+      examenControl: examenActual.idexamen,
+      ambienteControl: examenActual.idambiente,
+      signal: controller.signal,
+    }).catch(() => {
+      // Si no se dispone de una copia de la jornada se mantiene la respuesta
+      // conservadora de no encontrado en nomina, sin inventar orientacion.
+    });
+    return () => controller.abort();
+  }, [boolOffline, examenActual?.idasignatura, examenActual?.idexamen, examenActual?.idambiente]);
 
   // Tiempo real (polling): la lista se actualiza cuando no hay examen elegido,
   // y el contador + últimos ingresos cuando sí lo hay
@@ -364,6 +411,62 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       }
 
       if (rVal.resultado !== "PERMITIDO") {
+        if (rVal.resultado === "NO_EN_NOMINA" && !rVal.ambiguo) {
+          const copia = await orientacionJornadaRepo.obtener({ operadorId, examenControl: exId });
+          if (copia) {
+            let tipo = "SIS";
+            let clave = String(strValor).trim();
+            let qrHash = null;
+            let qrToken = null;
+            if (strMetodo === "QR") {
+              const match = /^SCIEMPASS:1:(.+)$/.exec(clave);
+              if (match && globalThis.crypto?.subtle) {
+                qrToken = match[1].trim();
+                const bytes = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(qrToken));
+                qrHash = Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
+                clave = qrHash;
+                tipo = "QR_HASH";
+              } else {
+                clave = "";
+              }
+            }
+            const fechaCreacion = Date.now() + obtenerClockOffsetMs();
+            let hallazgo = buscarDestinoJornada({ candidatos: copia.candidatos, tipo, identificador: clave, examenActual: exId, ahora: fechaCreacion });
+            if (strMetodo !== "QR" && hallazgo.estado === "SIN_COINCIDENCIA") {
+              tipo = "CI";
+              hallazgo = buscarDestinoJornada({ candidatos: copia.candidatos, tipo, identificador: clave, examenActual: exId, ahora: fechaCreacion });
+            }
+            const candidato = hallazgo.destino || hallazgo.estudiante;
+            if ((hallazgo.estado === "ENCONTRADO" || hallazgo.estado === "AMBIGUO") && candidato && globalThis.crypto?.getRandomValues) {
+              const destino = hallazgo.destino;
+              const identidad = `${id}|${strMetodo}|${String(strValor).trim()}`;
+              const recuperada = refSolicitudPendiente.current?.identidad === identidad
+                ? refSolicitudPendiente.current : null;
+              const clientUuid = recuperada?.clave || generarUuid();
+              await intentoExamenPendienteRepo.guardar({
+                clientUuid, operadorId, asignaturaControl: asignaturaId, examenControl: exId,
+                ambienteControl: ambienteId, estudianteSis: candidato.sis,
+                asignaturaDestino: destino?.idAsignatura ?? null, examenDestino: destino?.idExamen ?? null, ambienteDestino: destino?.idAmbiente ?? null,
+                metodo: strMetodo === "QR" ? "QR" : tipo, qrHash, qrToken, fechaCreacion,
+              });
+              if (recuperada && refSolicitudPendiente.current === recuperada) refSolicitudPendiente.current = null;
+              const mapeado = {
+                ...baseResultado("EXAMEN_INCORRECTO_OFFLINE", strMetodo === "QR" ? "" : strValor, textoMetodo(strMetodo, rVal.metodo)),
+                clientUuid, estadoSync: "pendiente",
+                estudiante: { nombres: candidato.nombre, apellidos: "", sis: candidato.sis, ci: candidato.ci },
+                otroExamen: destino ? { asignatura: destino.asignatura, aula: destino.aula, edificio: destino.edificio } : null,
+                mensaje: destino ? null : "Hay varios exámenes posibles. Consulta al docente antes de orientar al estudiante.",
+              };
+              setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
+              return mapeado;
+            }
+            if (hallazgo.estado === "AMBIGUO") {
+              const mapeado = { ...baseResultado("AMBIGUO_OFFLINE", "", textoMetodo(strMetodo, rVal.metodo)) };
+              setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
+              return mapeado;
+            }
+          }
+        }
         const mapeado = mapearResultadoOffline(rVal, strValor, strMetodo);
         setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
         return mapeado;
@@ -421,17 +524,32 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     setObjResultado(null);
     setObjIdentificacion(null);
 
+    // Un doble clic no debe producir dos verificaciones simultaneas.
+    if (refVerificacionEnCurso.current) return null;
+
     const boolSinRed = boolOffline || (typeof navigator !== "undefined" && navigator.onLine === false);
     if (boolSinRed) {
       return await fnIdentificarOffline(strValor, strMetodo, objOpciones, ex);
     }
 
+    refVerificacionEnCurso.current = true;
     setBoolValidando(true);
     setStrError("");
     try {
-      // Solo verifica: el backend valida QR, horario, habilitación, duplicado
-      // y aula, pero NO crea el ingreso. El registro ocurre tras el facial.
-      const r = await validarIngreso(id, String(strValor).trim(), strMetodo, ex, { ...objOpciones, soloVerificar: true });
+      const identidad = `${id}|${strMetodo}|${String(strValor).trim()}`;
+      if (refSolicitudPendiente.current?.identidad !== identidad) {
+        if (!globalThis.crypto?.getRandomValues) throw new Error("El dispositivo no permite generar una clave segura para la verificación.");
+        const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+        refSolicitudPendiente.current = { identidad, clave: `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` };
+      }
+      const r = await validarIngreso(id, String(strValor).trim(), strMetodo, ex,
+        { ...objOpciones, soloVerificar: true, solicitud: refSolicitudPendiente.current.clave });
+      refSolicitudPendiente.current = null;
+      setObjResultado({ ...r, metodoOriginal: strMetodo, clave: Date.now() });
+      if (r.resultado === "EXAMEN_INCORRECTO" || r.resultado === "YA_REGISTRADO") fnRefrescar();
       if (r.resultado === "IDENTIFICADO" || r.resultado === "PERMITIDO") {
         const est = r.estudiante || null;
         setObjIdentificacion({
@@ -448,7 +566,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       return r;
     } catch (e) {
       // Si la nómina local está descargada y el servidor falla (timeout, error de red o backend caído),
-      // derivar automáticamente al motor offline para no detener la fila.
+      // derivar automáticamente al motor offline para no detener el ingreso de los estudiantes.
       if (nomina.estado.lista || (typeof navigator !== "undefined" && navigator.onLine === false)) {
         return await fnIdentificarOffline(strValor, strMetodo, objOpciones, ex);
       }
@@ -456,6 +574,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       setStrError(e.message);
       return null;
     } finally {
+      refVerificacionEnCurso.current = false;
       setBoolValidando(false);
     }
   }, [boolOffline, fnIdentificarOffline, nomina.estado.lista]);
@@ -603,6 +722,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   return {
     listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objIdentificacion,
     boolValidando, strError, strUltimoRegistrado, numVersion, boolOffline, objNomina, fnDescargarNomina,
+    objIntentosPendientes,
     fnIdentificar, fnRegistrarConFacial, fnRegistrarSinFacial, fnFinalizarExcepcional, fnLimpiarIdentificacion,
     fnCerrarResultado, fnElegirExamen, fnVolverALista, fnRefrescar,
   };

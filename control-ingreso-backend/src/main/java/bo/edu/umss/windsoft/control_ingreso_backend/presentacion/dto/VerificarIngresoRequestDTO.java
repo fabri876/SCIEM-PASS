@@ -43,5 +43,10 @@ public record VerificarIngresoRequestDTO(
     public VerificarIngresoRequestDTO(String identificador, Integer idasignatura, Integer idexamen,
                                       Integer idambiente, MetodoIngreso metodoIngreso) {
         this(identificador, idasignatura, idexamen, idambiente, metodoIngreso, false, null, null, null, null);
+        java.util.UUID solicitud
+) {
+    public VerificarIngresoRequestDTO(String identificador, Integer idasignatura, Integer idexamen,
+                                      Integer idambiente, MetodoIngreso metodoIngreso) {
+        this(identificador, idasignatura, idexamen, idambiente, metodoIngreso, null);
     }
 }
