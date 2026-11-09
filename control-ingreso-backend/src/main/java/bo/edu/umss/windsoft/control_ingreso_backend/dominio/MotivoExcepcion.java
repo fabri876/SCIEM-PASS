@@ -5,9 +5,7 @@ public enum MotivoExcepcion {
     SIN_CARNET_QR("Sin carnet o QR"),
     NO_FIGURA_EN_LISTA("No figura en la lista"),
     LLEGADA_TARDIA("Llegada tardía"),
-    TRASLADO_AULA("Traslado desde otra aula"),
-    FALLO_FACIAL("Fallo de verificación facial"),
-    SIN_ENROLAMIENTO_FACIAL("Sin enrolamiento facial");
+    TRASLADO_AULA("Traslado desde otra aula");
 
     private final String etiqueta;
 
@@ -17,10 +15,5 @@ public enum MotivoExcepcion {
 
     public String getEtiqueta() {
         return etiqueta;
-    }
-
-    /** Motivos que puede autorizar el operador desde el control de ingreso. */
-    public boolean esFacial() {
-        return this == FALLO_FACIAL || this == SIN_ENROLAMIENTO_FACIAL;
     }
 }

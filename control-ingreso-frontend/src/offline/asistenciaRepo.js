@@ -21,11 +21,7 @@ export const asistenciaRepo = {
     rol,
     clockOffsetMs = 0,
     verificacionVisual = false,
-    qrToken = null,
-    scoreFacial = null,
-    livenessScore = null,
-    modelVersion = null,
-    deviceId: deviceIdExplicito = null
+    qrToken = null
   }) {
     const exId = Number(examenId);
     const sis = normalizarCodigo(codigoSis);
@@ -39,7 +35,7 @@ export const asistenciaRepo = {
       throw error;
     }
 
-    const deviceId = deviceIdExplicito || await obtenerDeviceId();
+    const deviceId = await obtenerDeviceId();
     const timestampLocal = new Date().toISOString();
     const clientUuid = generarUuid();
 
@@ -94,10 +90,6 @@ export const asistenciaRepo = {
         timestampLocal,
         verificacionVisual: Boolean(verificacionVisual),
         qrToken: qrToken ? String(qrToken).trim() : null,
-        // Scores del facial aprobado. Nulos cuando el ingreso se registra sin facial.
-        scoreFacial: scoreFacial ?? null,
-        livenessScore: livenessScore ?? null,
-        modelVersion: modelVersion ?? null,
         syncStatus: ESTADO_SYNC.PENDIENTE,
         intentos: 0,
         nextRetryAt: 0,

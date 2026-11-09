@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">SCIEM-PASS</string>
-    <string name="title_activity_main">SCIEM-PASS</string>
-    <string name="package_name">bo.edu.umss.windsoft.sciempass</string>
-    <string name="custom_url_scheme">bo.edu.umss.windsoft.sciempass</string>
-</resources>

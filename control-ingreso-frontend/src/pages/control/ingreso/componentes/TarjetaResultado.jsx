@@ -39,14 +39,14 @@ function sonar(boolOk) {
 // Nota debajo de los datos (solo cuando el ayudante necesita saber qué hacer)
 function Nota({ strTipo = "rojo", Icono = null, children }) {
   const strColor = {
-    rojo: "bg-[#FEF2F2] text-[#B91C1C] border border-[#FEE2E2]",
-    azul: "bg-[#F0F6FC] text-[#124B83] border border-[#D9E8F7]",
-    gris: "bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]",
+    rojo: "bg-[#FEF2F2] text-[#B91C1C]",
+    azul: "bg-[#F0F6FC] text-[#124B83]",
+    gris: "bg-[#F1F5F9] text-[#475569]",
   }[strTipo];
   return (
-    <div className={"flex items-start gap-2.5 p-3.5 sm:p-4 rounded-xl text-xs sm:text-sm leading-relaxed " + strColor}>
-      {Icono && <Icono className="w-5 h-5 shrink-0 mt-0.5 text-current" />}
-      <div className="min-w-0 flex-1 break-words">{children}</div>
+    <div className={"flex items-start gap-2 px-4 py-3 rounded-lg text-[15px] " + strColor}>
+      {Icono && <Icono className="w-[18px] h-[18px] shrink-0 mt-0.5" />}
+      <div>{children}</div>
     </div>
   );
 }
@@ -95,41 +95,6 @@ function configurar(r, strRol) {
         ) : <Nota><b className="font-bold">Debe ir con otro ayudante del aula</b></Nota>,
       };
     }
-    case "EXAMEN_INCORRECTO_OFFLINE":
-      return {
-        strTono: "bad", Icono: UserX, strTitulo: "INGRESO DENEGADO — EXAMEN INCORRECTO",
-        strSub: r.estadoSync === "sincronizado" ? "SINCRONIZADO · INTENTO REGISTRADO EN AUDITORÍA"
-          : r.estadoSync === "revision" ? "PENDIENTE DE REVISIÓN · AUDITORÍA NO CONFIRMADA"
-            : "GUARDADO EN EL DISPOSITIVO · PENDIENTE DE SINCRONIZAR",
-        nota: <Nota Icono={MapPin}><b className="block font-bold">ORIENTACIÓN SEGÚN DATOS DESCARGADOS</b>
-          {r.otroExamen ? [r.otroExamen.asignatura, r.otroExamen.aula && textoAula(r.otroExamen.aula), r.otroExamen.edificio].filter(Boolean).join(" · ") : r.mensaje}
-          <span className="block">{r.estadoSync === "sincronizado"
-            ? "El servidor confirmó el registro y la auditoría."
-            : "Confirma el destino con el docente. La sincronización y la auditoría están sujetas a validación del servidor."}</span></Nota>,
-      };
-    case "AMBIGUO_OFFLINE":
-      return {
-        strTono: "bad", Icono: SearchX, strTitulo: "VERIFICACIÓN INCONCLUSA", strSub: "DATOS AMBIGUOS SIN CONEXIÓN",
-        nota: <Nota>Los datos descargados no permiten identificar un destino o estudiante de forma inequívoca. Consulta al docente; el intento no se registró en auditoría.</Nota>,
-      };
-    case "EXAMEN_INCORRECTO":
-      return {
-        strTono: "bad", Icono: UserX, strTitulo: "INGRESO DENEGADO — EXAMEN INCORRECTO",
-        strSub: r.intentoRegistrado ? "INTENTO REGISTRADO EN AUDITORÍA" : "NO SE CONFIRMÓ EL REGISTRO",
-        nota: (
-          <Nota Icono={MapPin}>
-            <b className="block font-bold">ORIENTACIÓN DE REUBICACIÓN AL ESTUDIANTE</b>
-            {r.otroExamen ? (
-              <span>{[r.otroExamen.asignatura, r.otroExamen.nombre,
-              r.otroExamen.grupo && `Grupo ${r.otroExamen.grupo}`,
-              r.otroExamen.aula && textoAula(r.otroExamen.aula), r.otroExamen.edificio,
-              r.otroExamen.hora].filter(Boolean).join(" · ")}
-                {!r.otroExamen.aula && " · Aula asignada no disponible"}
-              </span>
-            ) : <span>{r.mensaje || "No se encontró un examen correspondiente para este horario."}</span>}
-          </Nota>
-        ),
-      };
     case "NO_INSCRITO":
       return {
         strTono: "bad", Icono: UserX, strTitulo: "NO INSCRITO EN ESTE EXAMEN", strSub: "PERTENECE A OTRO EXAMEN",
@@ -144,12 +109,6 @@ function configurar(r, strRol) {
         strTono: "bad", Icono: Ban, strTitulo: "QR INVÁLIDO", strSub: "EL CÓDIGO QR NO ES VÁLIDO",
         strQuien: "Credencial rechazada",
         nota: <Nota>{r.mensaje || "El QR no existe, fue anulado o ya expiró. Indica al estudiante que contacte a su docente."}</Nota>,
-      };
-    case "NO_EN_NOMINA_OFFLINE":
-      return {
-        strTono: "bad", Icono: SearchX, strTitulo: "NO ENCONTRADO EN LA NÓMINA", strSub: "VERIFICACIÓN SIN CONEXIÓN",
-        strQuien: "Sin coincidencias en la nómina",
-        nota: <Nota>No se encontró {r.metodo === "QR" ? "el código QR" : <>el dato «{r.valor ?? ""}»</>} en la nómina descargada de este examen. No se puede confirmar si está registrado en el sistema ni su examen correspondiente; verifica con conexión o consulta al docente. El intento no fue registrado en auditoría.</Nota>,
       };
     case "NO_ENCONTRADO":
       return {
@@ -183,7 +142,7 @@ function Foto({ strUrl, strNombre }) {
   );
 }
 
-export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIncidencia, strRol = "operador" }) {
+export default function TarjetaResultado({ objResultado, onCerrar, strRol = "operador" }) {
   const refTarjeta = useRef(null);
 
   useEffect(() => {
@@ -237,54 +196,30 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
       </div>
 
       {/* Foto + datos del estudiante */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 px-4 sm:px-5 py-4 sm:py-[18px]">
+      <div className="flex items-center gap-5 px-5 py-[18px] max-md:gap-4 max-md:px-4">
         <Foto strUrl={e?.fotoUrl} strNombre={strNombre} />
         <div className="min-w-0">
           <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{strNombre}</div>
-          {objResultado.metodo && (
-            <span className="mt-1.5 inline-flex items-center rounded-full bg-[#F0F6FC] border border-[#D9E8F7] px-2.5 py-0.5 text-[11px] font-bold text-[#124B83]">
-              {objResultado.metodo}
-              {objResultado.conFacial != null && ` · ${objResultado.conFacial ? "con facial" : "sin facial"}`}
-            </span>
-          )}
           {e && (e.ci || e.sis) && (
-            <div className="mt-2.5 flex flex-wrap gap-x-5 sm:gap-x-7 gap-y-2">
+            <div className="mt-2.5 flex flex-wrap gap-x-7 gap-y-2">
               {e.ci && (
                 <div>
                   <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">C.I.</span>
-                  <strong className="block text-[14px] sm:text-[15px] font-bold text-[#08264A]">{e.ci}</strong>
+                  <strong className="block text-[15px] font-bold text-[#08264A]">{e.ci}</strong>
                 </div>
               )}
               {e.sis && (
                 <div>
                   <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">Código SIS</span>
-                  <strong className="block text-[14px] sm:text-[15px] font-bold text-[#08264A]">{e.sis}</strong>
+                  <strong className="block text-[15px] font-bold text-[#08264A]">{e.sis}</strong>
                 </div>
               )}
-              <div>
-                <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">Carrera</span>
-                <strong className="block text-[14px] sm:text-[15px] font-bold text-[#08264A]">{e.carrera || "No disponible"}</strong>
-              </div>
             </div>
           )}
         </div>
       </div>
 
-      {c.nota && <div className="mx-4 sm:mx-5 mb-4 sm:mb-[18px] flex flex-col gap-2">{c.nota}</div>}
-      {objResultado.resultado === "EXAMEN_INCORRECTO" && (
-        <div className="mx-4 sm:mx-5 mb-4 sm:mb-5 flex flex-col sm:flex-row gap-2.5 sm:gap-3">
-          <button type="button" onClick={onCerrar}
-            className="w-full sm:w-auto rounded-xl bg-[#003770] px-4 py-3 text-sm font-bold text-white hover:bg-[#021B3B] transition shadow-xs cursor-pointer text-center">
-            Aceptar y continuar siguiente estudiante
-          </button>
-          {onRegistrarIncidencia && (
-            <button type="button" onClick={onRegistrarIncidencia}
-              className="w-full sm:w-auto rounded-xl border border-[#003770] bg-white px-4 py-3 text-sm font-bold text-[#003770] hover:bg-blue-50 transition shadow-xs cursor-pointer text-center">
-              Registrar incidencia
-            </button>
-          )}
-        </div>
-      )}
+      {c.nota && <div className="mx-5 mb-[18px] flex flex-col gap-2 max-md:mx-4">{c.nota}</div>}
     </div>
   );
 }

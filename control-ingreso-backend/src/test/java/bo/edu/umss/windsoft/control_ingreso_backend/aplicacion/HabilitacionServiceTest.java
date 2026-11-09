@@ -33,9 +33,6 @@ class HabilitacionServiceTest {
     @Mock
     private MotivoInhabilitacionRepository motivoInhabilitacionRepository;
 
-    @Mock
-    private AuditoriaService auditoriaService;
-
     @InjectMocks
     private HabilitacionService habilitacionService;
 
@@ -50,7 +47,7 @@ class HabilitacionServiceTest {
         u.setIdusuario(1);
 
         when(habilitacionRepository.findAllConDetalles()).thenReturn(Collections.singletonList(h));
-        when(usuarioRepository.findAllById(any())).thenReturn(List.of(u));
+        when(usuarioRepository.findById(1)).thenReturn(Optional.of(u));
 
         List<HabilitacionResponseDto> resultado = habilitacionService.obtenerTodas();
 
@@ -78,14 +75,12 @@ class HabilitacionServiceTest {
         when(habilitacionRepository.findById(101)).thenReturn(Optional.of(h));
         when(habilitacionRepository.save(any(Habilitacion.class))).thenAnswer(i -> i.getArgument(0));
 
-        HabilitacionResponseDto res = habilitacionService.actualizarHabilitacion(101, request, "docente@umss.edu", "127.0.0.1");
+        HabilitacionResponseDto res = habilitacionService.actualizarHabilitacion(101, request);
 
         assertNotNull(res);
         assertTrue(res.getEstadoHabilitacion());
         assertEquals("HABILITADO", res.getEstado());
         assertNull(res.getObservacionHabilitacion());
-        verify(auditoriaService).registrarEnTransaccion(eq("CAMBIO_HABILITACION"), eq("docente@umss.edu"),
-                isNull(), contains("estado_anterior=false, estado_nuevo=true"), eq("127.0.0.1"));
     }
 
     @Test
@@ -98,7 +93,7 @@ class HabilitacionServiceTest {
         when(habilitacionRepository.findById(101)).thenReturn(Optional.of(h));
         when(habilitacionRepository.save(any(Habilitacion.class))).thenAnswer(i -> i.getArgument(0));
 
-        HabilitacionResponseDto res = habilitacionService.actualizarHabilitacion(101, request, "docente@umss.edu", "127.0.0.1");
+        HabilitacionResponseDto res = habilitacionService.actualizarHabilitacion(101, request);
 
         assertNotNull(res);
         assertFalse(res.getEstadoHabilitacion());

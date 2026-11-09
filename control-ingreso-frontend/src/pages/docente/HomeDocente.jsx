@@ -10,7 +10,6 @@ import { obtenerMisExamenes } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
-import SeccionReporteIntentosIncorrectos from "../../components/reportes/SeccionReporteIntentosIncorrectos";
 import SeccionControlIngresosDocente from "./components/SeccionControlIngresosDocente";
 import { obtenerTotalIncidenciasAbiertas } from "../../services/incidenciaService";
 import { AlertTriangle, ScanLine, Activity } from "lucide-react";
@@ -22,7 +21,6 @@ import TarjetaExamenInicio from "./components/TarjetaExamenInicio";
 import ProximoExamenDocente from "./components/ProximoExamenDocente";
 import AsignarOperadoresDocente from "./operadores/AsignarOperadoresDocente";
 import { estadoExamen, marcaTiempo, esHoy } from "./utilidadesExamenDocente";
-
 
 // Un docente no puede registrar a otro docente, solo Operador o Estudiante
 // (el backend ya lo valida igual en UsuarioService.validarPermisosRegistro).
@@ -314,16 +312,6 @@ export default function HomeDocente() {
                                 Reportes y Asistencia
                             </button>
                             <button
-                                onClick={() => setStrMenuActivo("intentos-incorrectos")}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "intentos-incorrectos"
-                                    ? "bg-[#1A365D] text-white shadow-xs"
-                                    : "text-slate-700 hover:bg-slate-50"
-                                    }`}
-                            >
-                                <svg className={`w-4 h-4 ${strMenuActivo === "intentos-incorrectos" ? "text-white" : "text-[#1A365D]"}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path></svg>
-                                Intentos Incorrectos
-                            </button>
-                            <button
                                 onClick={() => setStrMenuActivo("incidencias")}
                                 className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "incidencias"
                                     ? "bg-[#1A365D] text-white shadow-xs"
@@ -343,8 +331,6 @@ export default function HomeDocente() {
                                     </span>
                                 )}
                             </button>
-
-
                             <button onClick={() => { setStrSeccionRegistro("individual"); setBoolModalRegistroAbierto(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs text-left whitespace-nowrap transition cursor-pointer">
                                 <svg className="w-4 h-4 shrink-0 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
                                 Registrar Estudiante/Ayudante
@@ -356,8 +342,6 @@ export default function HomeDocente() {
                     <main className="flex-1 min-w-0 space-y-6">
                         {strMenuActivo === "reportes" ? (
                             <SeccionReportesAsistencia strRol="DOCENTE" />
-                        ) : strMenuActivo === "intentos-incorrectos" ? (
-                            <SeccionReporteIntentosIncorrectos strRol="DOCENTE" />
                         ) : strMenuActivo === "incidencias" ? (
                             <SeccionIncidencias rol="DOCENTE" />
                         ) : strMenuActivo === "monitoreo" ? (

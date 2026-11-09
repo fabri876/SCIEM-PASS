@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import {
   useEstadoSync,
-  usePendientesCount,
+  sincronizarAhora,
   asistenciaRepo
 } from '../../../offline';
 
@@ -17,9 +17,6 @@ export default function PanelSincronizacion() {
     ultimoResultado,
     sincronizarAhora: fnSincronizarAhora
   } = useEstadoSync();
-
-  // Incluye la cola facial cifrada, que Dexie no puede observar.
-  const pendientesTotales = usePendientesCount();
 
   const [conteo, setConteo] = useState({
     pendiente: 0,
@@ -44,7 +41,7 @@ export default function PanelSincronizacion() {
     cargarConteo();
   }, [cargarConteo, pendientesRestantes, ultimoResultado]);
 
-  const hayPendientes = pendientesTotales > 0;
+  const hayPendientes = conteo.pendiente > 0 || conteo.syncing > 0;
   const hayErrores = conteo.error > 0;
   const estaEnviando = estadoSync === 'enviando';
 
@@ -88,7 +85,7 @@ export default function PanelSincronizacion() {
         <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1]">
           <Clock className="w-3 h-3" />
           <span>
-            <b>{pendientesTotales}</b> pendientes
+            <b>{conteo.pendiente}</b> pendientes
           </span>
         </div>
         <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#D9E8F7] text-[#124B83] border border-[#BFD7F2]">
