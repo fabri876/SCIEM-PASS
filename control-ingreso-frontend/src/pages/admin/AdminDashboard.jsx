@@ -8,7 +8,7 @@ import BulkUploadCard from "./components/BulkUploadCard";
 import GestionGruposAsignaturaCard from "./components/GestionAcademicaCard";
 import CatalogoAcademicoTable from "./components/CatalogoAcademicoTable";
 import UserTableCard from "./components/UserTableCard";
-import AuditoriaTable from "./components/AuditoriaTable";
+import HistorialInmodificable from "./components/HistorialInmodificable";
 import RolesTable from "./components/RolesTable";
 import SeccionRegistroExamenes from "./components/SeccionRegistroExamenes";
 import SeccionGestionHabilitacionesAdmin from "./components/SeccionGestionHabilitacionesAdmin";
@@ -16,6 +16,9 @@ import CargaExamenesPasados from "./components/CargaExamenesPasados";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
+import SeccionReporteIntentosIncorrectos from "../../components/reportes/SeccionReporteIntentosIncorrectos";
+import GestionEnrolamientosAdmin from "./GestionEnrolamientosAdmin";
+import AuditoriaFacialAdmin from "./AuditoriaFacialAdmin";
 import { obtenerUsuarioActual } from "../../services/authService";
 import {
     listarUsuarios,
@@ -24,7 +27,6 @@ import {
     cambiarRolUsuario,
     cambiarEstadoUsuario,
     eliminarUsuario,
-    listarAuditoria,
     listarRoles,
     cargarUsuariosMasivo
 } from "../../services/adminService";
@@ -34,16 +36,13 @@ export default function AdminDashboard({ onNavigateToLogin }) {
     // navigate("/admin", { state: { menu: "Gestión de Exámenes" } })
     const objUbicacion = useLocation();
     const [activeMenu, setActiveMenu] = useState(objUbicacion.state?.menu || "Gestión de Usuarios");
+    const [menuAdminMovilAbierto, setMenuAdminMovilAbierto] = useState(false);
     const [revisionAcademica, setRevisionAcademica] = useState(0);
     const usuarioSesion = obtenerUsuarioActual();
 
     const [usuarios, setUsuarios] = useState([]);
     const [boolCargandoUsuarios, setBoolCargandoUsuarios] = useState(true);
     const [strErrorUsuarios, setStrErrorUsuarios] = useState("");
-
-    const [auditoria, setAuditoria] = useState([]);
-    const [boolCargandoAuditoria, setBoolCargandoAuditoria] = useState(false);
-    const [strErrorAuditoria, setStrErrorAuditoria] = useState("");
 
     const [roles, setRoles] = useState([]);
     const [boolCargandoRoles, setBoolCargandoRoles] = useState(false);
@@ -66,36 +65,6 @@ export default function AdminDashboard({ onNavigateToLogin }) {
     useEffect(() => {
         fnCargarUsuarios();
     }, [fnCargarUsuarios]);
-
-    useEffect(() => {
-        if (activeMenu !== "Historial de Auditoría") return;
-
-        let cancelado = false;
-
-        setBoolCargandoAuditoria(true);
-        setStrErrorAuditoria("");
-
-        listarAuditoria()
-            .then((data) => {
-                if (!cancelado) {
-                    setAuditoria(data || []);
-                }
-            })
-            .catch((error) => {
-                if (!cancelado) {
-                    setStrErrorAuditoria(error.message);
-                }
-            })
-            .finally(() => {
-                if (!cancelado) {
-                    setBoolCargandoAuditoria(false);
-                }
-            });
-
-        return () => {
-            cancelado = true;
-        };
-    }, [activeMenu]);
 
     useEffect(() => {
         if (activeMenu !== "Roles y Permisos") return;
@@ -192,6 +161,23 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     ==================================================== */}
                 <main className="flex-1 min-w-0 p-4 lg:p-8 space-y-6 overflow-x-hidden">
 
+                    <div className="lg:hidden">
+                        <button type="button" aria-expanded={menuAdminMovilAbierto}
+                            aria-controls="menu-administracion-movil"
+                            onClick={() => setMenuAdminMovilAbierto(abierto => !abierto)}
+                            className="rounded-xl bg-primary-navy px-4 py-2 text-sm font-bold text-white">
+                            {menuAdminMovilAbierto ? "Cerrar menú de administración" : "Menú de administración"}
+                        </button>
+                        {menuAdminMovilAbierto && (
+                            <nav id="menu-administracion-movil" aria-label="Menú de administración" className="mt-2 rounded-xl overflow-hidden">
+                                <AdminSidebar activeMenu={activeMenu} setActiveMenu={menu => {
+                                    setActiveMenu(menu);
+                                    setMenuAdminMovilAbierto(false);
+                                }} />
+                            </nav>
+                        )}
+                    </div>
+
                     <div className="flex justify-between items-start">
                         <div>
                             <h1 className="text-xl lg:text-h2 font-extrabold text-primary-navy tracking-tight leading-none">
@@ -247,15 +233,17 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     </div>}
 
                     {/* =================================================
-                        HISTORIAL DE AUDITORÍA
+                        HISTORIAL DE SEMESTRES
                         ================================================= */}
                     {activeMenu === "Historial de Semestres" && <HistorialSemestres onCambio={() => { setRevisionAcademica(v => v + 1); void fnCargarUsuarios(); }} />}
-                    {activeMenu === "Historial de Auditoría" && (
-                        <AuditoriaTable
-                            registros={auditoria}
-                            boolCargando={boolCargandoAuditoria}
-                            strError={strErrorAuditoria}
-                        />
+                    {activeMenu === "Enrolamientos Faciales" && <GestionEnrolamientosAdmin />}
+                    {activeMenu === "Auditoría Facial" && <AuditoriaFacialAdmin />}
+
+                    {/* =================================================
+                        HISTORIAL INMODIFICABLE (HU15)
+                        ================================================= */}
+                    {(activeMenu === "Historial Inmodificable" || activeMenu === "Historial de Auditoría") && (
+                        <HistorialInmodificable />
                     )}
 
                     {/* =================================================
@@ -305,6 +293,13 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                         ================================================= */}
                     {activeMenu === "Reportes y Asistencia" && (
                         <SeccionReportesAsistencia strRol="ADMINISTRADOR" boolMostrarTitulo={false} />
+                    )}
+
+                    {/* =================================================
+                        REPORTE DE INTENTOS INCORRECTOS (HU13)
+                        ================================================= */}
+                    {activeMenu === "Reporte de Intentos Incorrectos" && (
+                        <SeccionReporteIntentosIncorrectos strRol="ADMINISTRADOR" />
                     )}
                 </main>
             </div>

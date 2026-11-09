@@ -6,7 +6,7 @@
 //        /admin/examenes/:idExamen/control-ingreso         (administrador)
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ListChecks } from "lucide-react";
+import { AlertTriangle, ListChecks } from "lucide-react";
 import Header from "../../../components/layout/Header";
 import { useOperador } from "../operadorContexto";
 import useControlIngreso from "./useControlIngreso";
@@ -18,6 +18,9 @@ import useRangoLocal from "./useRangoLocal";
 import useUltimosLocales from "./useUltimosLocales";
 import ToastSyncConfirmacion from "../components/ToastSyncConfirmacion";
 import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilidadesExamenDocente";
+import ModalIncidencia from "../../../components/incidencias/ModalIncidencia";
+import ModalIngresoExcepcional from "../../../components/incidencias/ModalIngresoExcepcional";
+import { obtenerAulasAsignadas } from "../../../services/incidenciaService";
 
 export default function ControlIngresoDocente() {
   const { idExamen } = useParams();
@@ -43,6 +46,9 @@ export default function ControlIngresoDocente() {
   const ctrl = useControlIngreso(idControl, { examenInicial: objExamenInicial });
   const { estadoRed, fnCambiarRed } = useOperador();
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
+  const [mostrarModalIncidencia, setMostrarModalIncidencia] = useState(false);
+  const [aulasIncidencia, setAulasIncidencia] = useState([]);
+  const [excepcionFacial, setExcepcionFacial] = useState(null);
 
   const fnCerrarLista = useCallback(() => setBoolListaAbierta(false), []);
 
@@ -68,6 +74,23 @@ export default function ControlIngresoDocente() {
   const strHoraApertura = dateApertura
     ? `${String(dateApertura.getHours()).padStart(2, "0")}:${String(dateApertura.getMinutes()).padStart(2, "0")}`
     : "";
+  const boolExamenActivo = Boolean(examen) && !boolAunNoEmpieza && !(dateFinExamen && dateAhora > dateFinExamen);
+
+  // Dentro del control de ingreso la incidencia pertenece sí o sí a este
+  // examen/aula: no se ofrece elegir entre otros exámenes asignados.
+  const idAmbienteIncidencia = examen?.idambiente ?? idAmbiente;
+  const aulaIncidenciaActual = idAmbienteIncidencia
+    ? {
+      idAmbiente: Number(idAmbienteIncidencia),
+      idAsignatura: examen?.idasignatura ?? idAsignatura,
+      idExamen: Number(examen?.idexamen ?? idExamen),
+      aula: examen?.aula || objExamenInicial?.aula || "Aula asignada",
+      asignatura: examen?.materia || objExamenInicial?.materia || "Examen",
+      fechaExamen: examen?.fecha || objExamenInicial?.fecha || null,
+      horaInicio: examen?.horaInicio || objExamenInicial?.horaInicio || null,
+      horaFin: examen?.horaFin || objExamenInicial?.horaFin || null,
+    }
+    : null;
 
   return (
     // Mismo layout que HomeControl: header fijo arriba y contenido con pt-[115px]
@@ -127,18 +150,31 @@ export default function ControlIngresoDocente() {
             strRol="docente"
             boolPermitirVolver={false}
             objFilaSinRed={boolSinRed ? objRangoDocente : null}
+            onExcepcional={(detalle) => setExcepcionFacial(detalle)}
             listAvisos={[
               boolAdmin && strNombreDocente ? `Docente: ${strNombreDocente}` : null,
               boolAunNoEmpieza ? `Registro desde las ${strHoraApertura}` : null,
             ]}
             nodoAcciones={
-              <button
-                type="button"
-                onClick={() => setBoolListaAbierta(true)}
-                className="min-h-10 px-4 rounded-lg bg-white text-[#003770] text-[14px] font-bold inline-flex items-center justify-center gap-2 hover:bg-[#F0F6FC] cursor-pointer max-md:w-full"
-              >
-                <ListChecks className="w-4 h-4" /> {boolSinRed && objRangoDocente ? "Mi lista" : "Lista oficial del aula"}
-              </button>
+              <div className="flex items-center gap-2 max-md:w-full max-md:flex-col">
+                <button
+                  type="button"
+                  onClick={() => setBoolListaAbierta(true)}
+                  className="min-h-10 px-4 rounded-lg bg-white text-[#003770] text-[14px] font-bold inline-flex items-center justify-center gap-2 hover:bg-[#F0F6FC] cursor-pointer max-md:w-full"
+                >
+                  <ListChecks className="w-4 h-4" /> {boolSinRed && objRangoDocente ? "Mi lista" : "Lista oficial del aula"}
+                </button>
+                {boolExamenActivo && (
+                  <button
+                    type="button"
+                    onClick={() => setMostrarModalIncidencia(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl font-bold text-sm hover:bg-rose-700 transition max-md:w-full justify-center"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    Registrar incidencia
+                  </button>
+                )}
+              </div>
             }
           />
         </div>
@@ -178,6 +214,32 @@ export default function ControlIngresoDocente() {
         />
       )}
       <ToastSyncConfirmacion />
+      <ModalIngresoExcepcional
+        boolAbierto={Boolean(excepcionFacial)}
+        onCerrar={() => {
+          setExcepcionFacial(null);
+          ctrl.fnLimpiarIdentificacion();
+        }}
+        aulasDisponibles={ctrl.examenActual?.idambiente ? [{
+          idAmbiente: ctrl.examenActual.idambiente,
+          idAsignatura: ctrl.examenActual.idasignatura,
+          idExamen: ctrl.examenActual.idexamen,
+          aula: ctrl.examenActual.aula || "Aula asignada"
+        }] : []}
+        idAmbienteBloqueado={excepcionFacial?.idAmbiente}
+        estudiantePreseleccionado={excepcionFacial?.estudiante}
+        motivoPreseleccionado={excepcionFacial?.motivo}
+        observacionSugerida={excepcionFacial?.motivo === "FALLO_FACIAL" ? "Se agotaron tres intentos de verificación facial." : "El estudiante no cuenta con enrolamiento facial activo."}
+        onExito={(respuesta) => ctrl.fnFinalizarExcepcional(respuesta)}
+      />
+      <ModalIncidencia
+        boolAbierto={mostrarModalIncidencia}
+        onCerrar={() => setMostrarModalIncidencia(false)}
+        aulasDisponibles={aulaIncidenciaActual ? [aulaIncidenciaActual] : []}
+        aulaPreseleccionada={aulaIncidenciaActual}
+        boolAulaFija
+        boolExamenActivo={boolExamenActivo}
+      />
     </div>
   );
 }
