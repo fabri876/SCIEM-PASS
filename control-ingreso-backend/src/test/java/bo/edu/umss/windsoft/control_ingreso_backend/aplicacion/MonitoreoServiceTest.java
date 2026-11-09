@@ -296,25 +296,36 @@ class MonitoreoServiceTest {
         verify(cambioAmbienteRepository).save(cambio.capture());
         assertEquals(AMB_601, cambio.getValue().getIdAmbiente());
         assertEquals(AMB_604, cambio.getValue().getIdAmbienteOrigen());
+        assertEquals(77, cambio.getValue().getIdIntentoOrigen());
         ArgumentCaptor<Ingreso> ingreso = ArgumentCaptor.forClass(Ingreso.class);
         verify(ingresoRepository).saveAndFlush(ingreso.capture());
         assertEquals(AMB_601, ingreso.getValue().getIdAmbiente());
         assertEquals(MetodoIngreso.MANUAL, ingreso.getValue().getMetodoIngreso());
         verify(ingresoRepository).bloquearAmbiente(AMB_601);
-        verify(auditoriaService).registrar(eq("REUBICACION_EXPRESS"), anyString(), anyString(), anyString(), eq("ip"));
+        verify(auditoriaService).registrarEnTransaccion(eq("REUBICACION_EXPRESS"), anyString(), anyString(), anyString(), eq("ip"));
     }
 
     @Test
-    @DisplayName("Reubicar y Autorizar: al terminar bien, la auditoría se escribe DESPUÉS del commit")
-    void reubicar_ok_auditaDespuesDelCommit() {
+    @DisplayName("Reubicar y Autorizar: la auditoría se escribe antes del commit")
+    void reubicar_ok_auditaAntesDelCommit() {
         when(intentoRepository.findById(77)).thenReturn(Optional.of(intentoAulaDiferente()));
 
         service.reubicarYAutorizar(77, "ip");
 
         InOrder orden = inOrder(transactionManager, auditoriaService);
+        orden.verify(auditoriaService).registrarEnTransaccion(eq("REUBICACION_EXPRESS"), anyString(), anyString(), anyString(), eq("ip"));
         orden.verify(transactionManager).commit(estadoTransaccion);
-        orden.verify(auditoriaService).registrar(eq("REUBICACION_EXPRESS"), anyString(), anyString(), anyString(), eq("ip"));
         verify(transactionManager, never()).rollback(any());
+    }
+
+    @Test
+    void reubicar_falloAuditoriaRevierteLaTransaccion() {
+        when(intentoRepository.findById(77)).thenReturn(Optional.of(intentoAulaDiferente()));
+        doThrow(new IllegalStateException("auditoria no disponible")).when(auditoriaService)
+                .registrarEnTransaccion(eq("REUBICACION_EXPRESS"), anyString(), anyString(), anyString(), eq("ip"));
+        assertThrows(IllegalStateException.class, () -> service.reubicarYAutorizar(77, "ip"));
+        verify(transactionManager).rollback(estadoTransaccion);
+        verify(transactionManager, never()).commit(any());
     }
 
     @Test

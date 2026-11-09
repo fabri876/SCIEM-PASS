@@ -54,6 +54,7 @@ try {
     DATOS_SEMILLA_INTENTOS,
     calcularEstadisticasIntentos,
     listarReporteIntentosIncorrectos,
+    listarCatalogoReporteIntentos,
     exportarIntentosExcelCsv,
     generarReporteOficialPdf,
   } = await server.ssrLoadModule("/src/services/reporteIntentosService.js");
@@ -78,6 +79,8 @@ try {
     return { ok: true, status: 200, json: async () => [] };
   };
   assert.deepEqual(await listarReporteIntentosIncorrectos(), []);
+  assert.deepEqual(await listarCatalogoReporteIntentos(), []);
+  assert.ok(urls.at(-1).endsWith('/api/reportes/intentos-incorrectos/catalogo'));
 
   // Los filtros se envían al servidor, no se aplican sobre datos ficticios.
   const filtradosExamen = await listarReporteIntentosIncorrectos({ motivo: "EXAMEN_INCORRECTO" });
@@ -143,6 +146,7 @@ try {
     "Debe contener la tabla de detalle nominal"
   );
   assert.ok(!html.includes("HU-09") && !html.includes("HU-18"));
+  assert.ok(html.includes("Fecha / Hora"), "La tabla debe identificar fecha y hora");
 
   console.log("3. Probando exportaciones con datos ficticios...");
   const fila = { estudianteNombre: '=SUM(1,2)', codSis: '123456', ci: '<script>',

@@ -1,6 +1,7 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.persistencia;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ReporteIntentoDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CatalogoReporteExamenDto;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -16,6 +17,21 @@ public class ReporteIntentosRepository {
 
     public ReporteIntentosRepository(NamedParameterJdbcTemplate jdbc) { this.jdbc = jdbc; }
 
+    public List<CatalogoReporteExamenDto> catalogo(Integer docente) {
+        return jdbc.query("""
+                SELECT e.idasignatura, a.nombreasignatura, e.idexamen, t.nombretipoexamen, e.fechaexamen
+                  FROM public.examen e
+                  LEFT JOIN public.asignatura a ON a.idasignatura = e.idasignatura
+                  LEFT JOIN public.tipoexamen t ON t.idtipoexamen = e.idtipoexamen
+                 WHERE (:docente IS NULL OR e.idusuario = :docente)
+                 ORDER BY a.nombreasignatura, e.fechaexamen DESC, e.idexamen DESC
+                """, new MapSqlParameterSource().addValue("docente", docente, java.sql.Types.INTEGER), (rs, row) -> {
+            var fecha = rs.getDate("fechaexamen");
+            return new CatalogoReporteExamenDto(rs.getInt("idasignatura"), rs.getString("nombreasignatura"),
+                    rs.getInt("idexamen"), unir(rs.getString("nombretipoexamen"), fecha == null ? null : fecha.toString()));
+        });
+    }
+
     public List<ReporteIntentoDto> listar(Integer docente, Integer asignatura, Integer examen,
                                           String motivo, LocalDate fecha, String busqueda) {
         StringBuilder sql = new StringBuilder("""
@@ -25,7 +41,8 @@ public class ReporteIntentosRepository {
                        aa.nombreaula AS aula_asignada, ad.nombreasignatura AS asignatura_destino,
                        td.nombretipoexamen AS tipo_examen_destino, ed.fechaexamen AS fecha_examen_destino,
                        aad.nombreaula AS aula_destino, i.fechaintento, i.horaintento,
-                       op.nombreusuario AS operador_nombre, op.apellidousuario AS operador_apellido
+                       op.nombreusuario AS operador_nombre, op.apellidousuario AS operador_apellido,
+                       EXISTS (SELECT 1 FROM public.cambioambiente ca WHERE ca.idintento_origen = i.idintento) AS reubicacion_registrada
                   FROM public.intentosnoautorizados i
                   JOIN public.examen e ON e.idexamen = i.idexamen AND e.idasignatura = i.idasignatura
                   LEFT JOIN public.asignatura a ON a.idasignatura = i.idasignatura
@@ -81,7 +98,8 @@ public class ReporteIntentosRepository {
                     motivoReal, etiqueta, rs.getString("aula_presentada"), asignado,
                     fechaIntento == null ? null : fechaIntento.toString(),
                     hora == null ? null : hora.toLocalDateTime().format(DateTimeFormatter.ofPattern("HH:mm:ss")),
-                    unir(rs.getString("operador_nombre"), rs.getString("operador_apellido")), null, null);
+                     unir(rs.getString("operador_nombre"), rs.getString("operador_apellido")),
+                     rs.getBoolean("reubicacion_registrada") ? "Reubicado e ingreso registrado" : null, null);
         });
     }
 

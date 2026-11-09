@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import {
   listarReporteIntentosIncorrectos,
+  listarCatalogoReporteIntentos,
   calcularEstadisticasIntentos,
   exportarIntentosExcelCsv,
   generarReporteOficialPdf,
@@ -30,6 +31,8 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
 
   // Estados de datos
   const [arrIntentos, setArrIntentos] = useState([]);
+  const [arrCatalogo, setArrCatalogo] = useState([]);
+  const [errorCatalogo, setErrorCatalogo] = useState("");
   const [boolCargando, setBoolCargando] = useState(true);
   const [strError, setStrError] = useState("");
   const [strMensajeExito, setStrMensajeExito] = useState("");
@@ -80,21 +83,31 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
     fnCargarDatos(filtrosActivos);
   }, [fnCargarDatos, filtrosActivos]);
 
+  useEffect(() => {
+    let activo = true;
+    listarCatalogoReporteIntentos().then((datos) => {
+      if (activo) { setArrCatalogo(datos); setErrorCatalogo(""); }
+    }).catch(() => {
+      if (activo) setErrorCatalogo("No se pudieron cargar las asignaturas y exámenes del filtro. Actualiza la página para reintentar.");
+    });
+    return () => { activo = false; };
+  }, []);
+
   // Lista de asignaturas disponibles para el filtro (según rol)
   const listAsignaturasDisponibles = useMemo(() => {
     const mapa = new Map();
-    for (const item of arrIntentos) {
+    for (const item of arrCatalogo) {
       if (item.idAsignatura && !mapa.has(item.idAsignatura)) {
         mapa.set(item.idAsignatura, item.nombreAsignatura || `Asignatura #${item.idAsignatura}`);
       }
     }
     return Array.from(mapa.entries()).map(([id, nombre]) => ({ id, nombre }));
-  }, [arrIntentos]);
+  }, [arrCatalogo]);
 
   // Lista de exámenes dependientes de la asignatura seleccionada
   const listExamenesDisponibles = useMemo(() => {
     const mapa = new Map();
-    for (const item of arrIntentos) {
+    for (const item of arrCatalogo) {
       if (
         filtroAsignatura === "TODAS" ||
         String(item.idAsignatura) === String(filtroAsignatura)
@@ -105,7 +118,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
       }
     }
     return Array.from(mapa.entries()).map(([id, nombre]) => ({ id, nombre }));
-  }, [arrIntentos, filtroAsignatura]);
+  }, [arrCatalogo, filtroAsignatura]);
 
   // Al cambiar la asignatura, resetear el selector de examen
   const fnCambiarAsignatura = (nuevaAsig) => {
@@ -246,6 +259,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
 
   return (
     <div className="space-y-6">
+      {errorCatalogo && <div role="alert" className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs">{errorCatalogo}</div>}
       {/* =========================================================================
           ENCABEZADO DE LA SECCIÓN (Conforme al Mockup Oficial HU13)
           ========================================================================= */}
@@ -268,7 +282,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             type="button"
             onClick={fnDescargarPdf}
             disabled={boolExportando || arrIntentos.length === 0}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#DC2626] text-white text-xs font-bold hover:bg-[#B91C1C] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#003770] text-white text-xs font-bold hover:bg-[#021B3B] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             title="Descargar documento PDF con formato oficial y actas"
           >
             <FileText className="w-4 h-4" />
@@ -279,7 +293,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             type="button"
             onClick={fnExportarCsv}
             disabled={boolExportando || arrIntentos.length === 0}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#15803D] text-white text-xs font-bold hover:bg-[#166534] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-[#003770] text-xs font-bold hover:bg-slate-50 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             title="Exportar archivo estructurado para Excel"
           >
             <FileSpreadsheet className="w-4 h-4" />
@@ -547,7 +561,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
                 <th className="py-3 px-4">Motivo del Intento</th>
                 <th className="py-3 px-4">Se Presentó En</th>
                 <th className="py-3 px-4">Examen / Aula Asignada</th>
-                <th className="py-3 px-4">Hora</th>
+                <th className="py-3 px-4">Fecha / Hora</th>
                 <th className="py-3 px-4">Operador</th>
                 <th className="py-3 px-4">Estado Posterior</th>
               </tr>
@@ -607,9 +621,10 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
                       {item.examenAulaAsignada || fnRenderBadgeEstadoPosterior(null)}
                     </td>
 
-                    {/* Hora */}
+                    {/* Fecha y hora del intento */}
                     <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                      {item.hora}
+                      <div>{item.fecha || "No disponible"}</div>
+                      <div>{item.hora || "No disponible"}</div>
                     </td>
 
                     {/* Operador */}
