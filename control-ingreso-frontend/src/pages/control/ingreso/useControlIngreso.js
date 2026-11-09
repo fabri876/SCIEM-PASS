@@ -14,6 +14,13 @@ import {
 } from "../../../services/ingresoService";
 import { obtenerUsuarioActual, registrarActividad } from "../../../services/authService";
 import { obtenerOrigenExamenes } from "../../../offline/examenRepo";
+import { orientacionJornadaRepo } from "../../../offline/orientacionJornadaRepo";
+import { buscarDestinoJornada } from "../../../offline/orientacionJornada";
+import { intentoExamenPendienteRepo } from "../../../offline/intentoExamenPendienteRepo";
+import { generarUuid } from "../../../offline/uuid";
+import { useIntentosExamenPendientes } from "../../../offline/useIntentosExamenPendientes";
+import { liveQuery } from "dexie";
+import { db } from "../../../offline/db";
 import {
   useConectividad,
   useNominaLocal,
@@ -116,11 +123,11 @@ function mapearResultadoOffline(r, strValor, strMetodo) {
         estudiante: e,
         ingresoPrevio: r.marcadoEn
           ? {
-              hora: horaDeIso(r.marcadoEn),
-              fecha: fechaDeIso(r.marcadoEn),
-              aula: e?.aulaAsignada || null,
-              registradoPor: r.marcadoPor || null,
-            }
+            hora: horaDeIso(r.marcadoEn),
+            fecha: fechaDeIso(r.marcadoEn),
+            aula: e?.aulaAsignada || null,
+            registradoPor: r.marcadoPor || null,
+          }
           : null,
       };
     case "NO_HABILITADO":
@@ -142,6 +149,10 @@ function mapearResultadoOffline(r, strValor, strMetodo) {
         mensaje: r.motivo,
       };
     case "NO_EN_NOMINA":
+      return {
+        ...baseResultado("NO_EN_NOMINA_OFFLINE", strValor, metodo),
+        mensaje: r.motivo,
+      };
     default:
       return {
         ...baseResultado("NO_ENCONTRADO", strValor, metodo),
@@ -163,18 +174,39 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const [listUltimosServidor, setListUltimosServidor] = useState(null); // null = el backend aún no lo da
   const [objLocales, setObjLocales] = useState({}); // ingresos registrados en esta sesión, por examen
   const [objResultado, setObjResultado] = useState(null);
+  // Fase 1 del control: estudiante identificado (aún sin registrar) que espera
+  // la verificación facial. null = todavía no se identificó a nadie.
+  const [objIdentificacion, setObjIdentificacion] = useState(null);
   const [boolValidando, setBoolValidando] = useState(false);
   const [strError, setStrError] = useState("");
   const [strUltimoRegistrado, setStrUltimoRegistrado] = useState(null);
   const [numVersion, setNumVersion] = useState(0); // sube cada vez que hay un ingreso nuevo
 
   const refIdExamen = useRef(idExamen);
+  const refVerificacionEnCurso = useRef(false);
+  const refSolicitudPendiente = useRef(null);
   refIdExamen.current = idExamen;
+  const refIdentificacion = useRef(null);
+  refIdentificacion.current = objIdentificacion;
   const refExamenes = useRef(listExamenes);
   refExamenes.current = listExamenes;
   const examenPorId = (id) => refExamenes.current.find((e) => e.id === id) || {};
 
   const examenActual = listExamenes.find((e) => e.id === idExamen) || null;
+  const objIntentosPendientes = useIntentosExamenPendientes(obtenerUsuarioActual()?.idUsuario);
+
+  useEffect(() => {
+    const uuid = objResultado?.clientUuid;
+    if (!uuid || objResultado?.resultado !== "EXAMEN_INCORRECTO_OFFLINE") return undefined;
+    const sub = liveQuery(() => db.intentos_examen_pendientes.get(uuid)).subscribe({
+      next: (registro) => {
+        if (!registro) return;
+        setObjResultado((actual) => actual?.clientUuid === uuid && actual.estadoSync !== registro.estado
+          ? { ...actual, estadoSync: registro.estado } : actual);
+      },
+    });
+    return () => sub.unsubscribe();
+  }, [objResultado?.clientUuid, objResultado?.resultado]);
 
   // Conectividad real + nómina local del examen elegido (HU07).
   const conn = useConectividad();
@@ -187,11 +219,23 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
 
   // Exámenes asignados (con su resumen)
   const fnCargarExamenes = useCallback(async () => {
+    const usuario = obtenerUsuarioActual();
+    const boolEsOperador = usuario?.rol === "OPERADOR";
+
+    // Docente / Administrador: entran con el examen ya elegido desde "Mis
+    // exámenes" (ControlIngresoDocente pasa el examen inicial). No consultan
+    // /api/v1/examenes/delegados, que es exclusivo del OPERADOR y exige
+    // hasRole('OPERADOR') en el backend (ahora activo con @EnableMethodSecurity).
+    if (!boolEsOperador) {
+      setListExamenes(objExamenInicial ? [objExamenInicial] : []);
+      setBoolCargandoExamenes(false);
+      return;
+    }
+
     try {
       const listCargada = await obtenerExamenesAsignados();
       // En la vista docente la ruta de delegados puede no devolver datos;
       // conservar el examen recibido desde Mis exámenes.
-      const usuario = obtenerUsuarioActual();
       const origenInfo = obtenerOrigenExamenes("delegados", usuario?.idUsuario ?? null);
       const faltaRespaldo = origenInfo?.origen === "local" && !origenInfo?.guardadoEn;
       setSinRespaldoOffline(Boolean(faltaRespaldo));
@@ -201,7 +245,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     } finally {
       setBoolCargandoExamenes(false);
     }
-  }, []);
+  }, [objExamenInicial?.id]);
 
   // Contador + últimos ingresos del examen elegido
   const fnRefrescar = useCallback(async () => {
@@ -245,6 +289,26 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     }).catch(reintentar);
   }, [examenActual?.idexamen, boolOffline, nomina.estado.lista, nomina.descargando, nomina.descargar, numReintentoPrecache]);
 
+  // Descarga independiente: un fallo aqui nunca convierte la nomina en completa
+  // ni impide el control habitual. El resultado es solo una copia informativa.
+  useEffect(() => {
+    const usuario = obtenerUsuarioActual();
+    if (boolOffline || !usuario?.idUsuario || !examenActual?.idasignatura ||
+      !examenActual?.idexamen || !examenActual?.idambiente) return undefined;
+    const controller = new AbortController();
+    orientacionJornadaRepo.descargar({
+      operadorId: usuario.idUsuario,
+      asignaturaControl: examenActual.idasignatura,
+      examenControl: examenActual.idexamen,
+      ambienteControl: examenActual.idambiente,
+      signal: controller.signal,
+    }).catch(() => {
+      // Si no se dispone de una copia de la jornada se mantiene la respuesta
+      // conservadora de no encontrado en nomina, sin inventar orientacion.
+    });
+    return () => controller.abort();
+  }, [boolOffline, examenActual?.idasignatura, examenActual?.idexamen, examenActual?.idambiente]);
+
   // Tiempo real (polling): la lista se actualiza cuando no hay examen elegido,
   // y el contador + últimos ingresos cuando sí lo hay
   useEffect(() => {
@@ -254,8 +318,39 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     return () => clearInterval(t);
   }, [idExamen, fnCargarExamenes, fnRefrescar]);
 
-  // Validación con el motor local (offline-first).
-  const fnValidarOffline = useCallback(async (strValor, strMetodo, objOpciones, ex) => {
+  /* ---------- Actualización común tras un registro exitoso ---------- */
+  const fnAplicarRegistro = useCallback((mapeado, identificacion) => {
+    setObjResultado({ ...mapeado, clave: Date.now() });
+    setObjIdentificacion(null);
+    setStrUltimoRegistrado(mapeado.estudiante?.ci ?? null);
+    setNumVersion((v) => v + 1);
+    setObjContador((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        ingresaron: (prev.ingresaron ?? 0) + 1,
+        pendientes: Math.max(0, (prev.pendientes ?? 1) - 1),
+      };
+    });
+    const id = refIdExamen.current;
+    setObjLocales((prev) => ({
+      ...prev,
+      [id]: [
+        {
+          hora: mapeado.horaIngreso,
+          metodo: mapeado.metodo,
+          conFacial: mapeado.conFacial,
+          registradoPor: mapeado.registradoPor || identificacion?.registradoPor || null,
+          estudiante: mapeado.estudiante,
+        },
+        ...(prev[id] || []),
+      ].slice(0, LIMITE_ULTIMOS),
+    }));
+    fnRefrescar();
+  }, [fnRefrescar]);
+
+  /* ---------- Fase 1: identificar sin registrar (offline) ---------- */
+  const fnIdentificarOffline = useCallback(async (strValor, strMetodo, objOpciones, ex) => {
     const id = refIdExamen.current;
     // Si id es compuesto "idasignatura-idexamen-idambiente", desglosar partes
     const partesId = typeof id === "string" && id.includes("-") ? id.split("-") : [];
@@ -316,13 +411,68 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       }
 
       if (rVal.resultado !== "PERMITIDO") {
+        if (rVal.resultado === "NO_EN_NOMINA" && !rVal.ambiguo) {
+          const copia = await orientacionJornadaRepo.obtener({ operadorId, examenControl: exId });
+          if (copia) {
+            let tipo = "SIS";
+            let clave = String(strValor).trim();
+            let qrHash = null;
+            let qrToken = null;
+            if (strMetodo === "QR") {
+              const match = /^SCIEMPASS:1:(.+)$/.exec(clave);
+              if (match && globalThis.crypto?.subtle) {
+                qrToken = match[1].trim();
+                const bytes = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(qrToken));
+                qrHash = Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
+                clave = qrHash;
+                tipo = "QR_HASH";
+              } else {
+                clave = "";
+              }
+            }
+            const fechaCreacion = Date.now() + obtenerClockOffsetMs();
+            let hallazgo = buscarDestinoJornada({ candidatos: copia.candidatos, tipo, identificador: clave, examenActual: exId, ahora: fechaCreacion });
+            if (strMetodo !== "QR" && hallazgo.estado === "SIN_COINCIDENCIA") {
+              tipo = "CI";
+              hallazgo = buscarDestinoJornada({ candidatos: copia.candidatos, tipo, identificador: clave, examenActual: exId, ahora: fechaCreacion });
+            }
+            const candidato = hallazgo.destino || hallazgo.estudiante;
+            if ((hallazgo.estado === "ENCONTRADO" || hallazgo.estado === "AMBIGUO") && candidato && globalThis.crypto?.getRandomValues) {
+              const destino = hallazgo.destino;
+              const identidad = `${id}|${strMetodo}|${String(strValor).trim()}`;
+              const recuperada = refSolicitudPendiente.current?.identidad === identidad
+                ? refSolicitudPendiente.current : null;
+              const clientUuid = recuperada?.clave || generarUuid();
+              await intentoExamenPendienteRepo.guardar({
+                clientUuid, operadorId, asignaturaControl: asignaturaId, examenControl: exId,
+                ambienteControl: ambienteId, estudianteSis: candidato.sis,
+                asignaturaDestino: destino?.idAsignatura ?? null, examenDestino: destino?.idExamen ?? null, ambienteDestino: destino?.idAmbiente ?? null,
+                metodo: strMetodo === "QR" ? "QR" : tipo, qrHash, qrToken, fechaCreacion,
+              });
+              if (recuperada && refSolicitudPendiente.current === recuperada) refSolicitudPendiente.current = null;
+              const mapeado = {
+                ...baseResultado("EXAMEN_INCORRECTO_OFFLINE", strMetodo === "QR" ? "" : strValor, textoMetodo(strMetodo, rVal.metodo)),
+                clientUuid, estadoSync: "pendiente",
+                estudiante: { nombres: candidato.nombre, apellidos: "", sis: candidato.sis, ci: candidato.ci },
+                otroExamen: destino ? { asignatura: destino.asignatura, aula: destino.aula, edificio: destino.edificio } : null,
+                mensaje: destino ? null : "Hay varios exámenes posibles. Consulta al docente antes de orientar al estudiante.",
+              };
+              setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
+              return mapeado;
+            }
+            if (hallazgo.estado === "AMBIGUO") {
+              const mapeado = { ...baseResultado("AMBIGUO_OFFLINE", "", textoMetodo(strMetodo, rVal.metodo)) };
+              setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
+              return mapeado;
+            }
+          }
+        }
         const mapeado = mapearResultadoOffline(rVal, strValor, strMetodo);
         setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
         return mapeado;
       }
 
       // Apellido fuera del tramo de este ayudante: solo aviso, no registra (salvo que se ignore el tramo).
-      // Se busca el tramo del otro ayudante al que le corresponde el estudiante.
       if (rVal.fueraDeRango && !objOpciones.ignorarFila) {
         const estOffline = estudianteOffline(rVal.estudiante);
         const strInicial = inicialSinTildes(rVal.estudiante?.apellidoPaterno || estOffline?.apellidos);
@@ -338,113 +488,206 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         return mapeado;
       }
 
-      // Chequeo proactivo de espacio antes de escribir en IndexedDB
-      const almacenamiento = await verificarAlmacenamiento();
-      if (almacenamiento.disponible && almacenamiento.critico) {
-        setStrError("Espacio de almacenamiento local insuficiente para registrar el ingreso. Libera espacio en el navegador.");
-        setObjResultado(null);
-        return null;
-      }
-
-      const rReg = await motorRegistrar({
+      const est = estudianteOffline(rVal.estudiante);
+      const identificacion = {
+        estudiante: est,
+        codigoSis: rVal.estudiante?.codigoSis ?? est?.sis ?? "",
+        valor: String(strValor).trim(),
+        metodo: textoMetodo(strMetodo, rVal.metodo),
+        metodoOriginal: strMetodo === "QR" ? "QR" : "MANUAL",
+        metodoMotor: rVal.metodo || (strMetodo === "QR" ? "QR" : undefined),
+        offline: true,
         examenId: exId,
         asignaturaId,
         ambienteId,
-        codigoSis: rVal.estudiante.codigoSis,
-        metodo: rVal.metodo || parametros.metodo || "CI",
         operadorId,
         rol,
-        clockOffsetMs: obtenerClockOffsetMs(),
-      });
-
-      const mapeado = mapearResultadoOffline(rReg, strValor, strMetodo);
-      setObjResultado({ ...mapeado, metodoOriginal: strMetodo, clave: Date.now() });
-
-      if (mapeado.resultado === "PERMITIDO" || mapeado.resultado === "REGISTRADO_OFFLINE") {
-        setStrUltimoRegistrado(mapeado.estudiante?.ci ?? null);
-        setNumVersion((v) => v + 1);
-        setObjContador((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            ingresaron: (prev.ingresaron ?? 0) + 1,
-            pendientes: Math.max(0, (prev.pendientes ?? 1) - 1),
-          };
-        });
-        setObjLocales((prev) => ({
-          ...prev,
-          [id]: [
-            {
-              hora: mapeado.horaIngreso,
-              metodo: mapeado.metodo,
-              registradoPor: mapeado.registradoPor,
-              estudiante: mapeado.estudiante,
-            },
-            ...(prev[id] || []),
-          ].slice(0, LIMITE_ULTIMOS),
-        }));
-      }
-      return mapeado;
+      };
+      setObjResultado(null);
+      setObjIdentificacion(identificacion);
+      return identificacion;
     } catch (e) {
       setObjResultado(null);
-      setStrError(e.message || "El registro del ingreso no se completó. Si hubo conexión previa, el intento queda pendiente para sincronizar.");
+      setStrError(e.message || "No se pudo identificar al estudiante.");
       return null;
     } finally {
       setBoolValidando(false);
     }
   }, [strRolConfig]);
 
-  // objOpciones.ignorarFila = registrar aunque el apellido le toque a otro operador
-  const fnValidar = useCallback(async (strValor, strMetodo, objOpciones = {}) => {
+  /* ---------- Fase 1: identificar sin registrar (online) ---------- */
+  const fnIdentificar = useCallback(async (strValor, strMetodo, objOpciones = {}) => {
     registrarActividad();
     const id = refIdExamen.current;
     if (id == null || !String(strValor || "").trim()) return null;
     const ex = examenPorId(id);
+    setObjResultado(null);
+    setObjIdentificacion(null);
+
+    // Un doble clic no debe producir dos verificaciones simultaneas.
+    if (refVerificacionEnCurso.current) return null;
 
     const boolSinRed = boolOffline || (typeof navigator !== "undefined" && navigator.onLine === false);
     if (boolSinRed) {
-      return await fnValidarOffline(strValor, strMetodo, objOpciones, ex);
+      return await fnIdentificarOffline(strValor, strMetodo, objOpciones, ex);
     }
 
+    refVerificacionEnCurso.current = true;
     setBoolValidando(true);
     setStrError("");
     try {
-      const r = await validarIngreso(id, String(strValor).trim(), strMetodo, ex, objOpciones);
-      setObjResultado({ ...r, metodoOriginal: strMetodo, clave: Date.now() });
-      if (r.resultado === "PERMITIDO") {
-        setStrUltimoRegistrado(r.estudiante ? r.estudiante.ci : null);
-        setNumVersion((v) => v + 1);
-        if (r.contador) setObjContador(r.contador);
-        // Se guarda en la sesión para la tabla de últimos ingresos
-        setObjLocales((prev) => ({
-          ...prev,
-          [id]: [
-            { hora: r.horaIngreso, metodo: r.metodo, registradoPor: r.registradoPor, estudiante: r.estudiante },
-            ...(prev[id] || []),
-          ].slice(0, LIMITE_ULTIMOS),
-        }));
-        fnRefrescar();
+      const identidad = `${id}|${strMetodo}|${String(strValor).trim()}`;
+      if (refSolicitudPendiente.current?.identidad !== identidad) {
+        if (!globalThis.crypto?.getRandomValues) throw new Error("El dispositivo no permite generar una clave segura para la verificación.");
+        const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+        refSolicitudPendiente.current = { identidad, clave: `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` };
       }
+      const r = await validarIngreso(id, String(strValor).trim(), strMetodo, ex,
+        { ...objOpciones, soloVerificar: true, solicitud: refSolicitudPendiente.current.clave });
+      refSolicitudPendiente.current = null;
+      setObjResultado({ ...r, metodoOriginal: strMetodo, clave: Date.now() });
+      if (r.resultado === "EXAMEN_INCORRECTO" || r.resultado === "YA_REGISTRADO") fnRefrescar();
+      if (r.resultado === "IDENTIFICADO" || r.resultado === "PERMITIDO") {
+        const est = r.estudiante || null;
+        setObjIdentificacion({
+          estudiante: est,
+          codigoSis: est?.sis ?? "",
+          valor: String(strValor).trim(),
+          metodo: r.metodo,
+          metodoOriginal: strMetodo === "QR" ? "QR" : "MANUAL",
+          offline: false,
+        });
+        return r;
+      }
+      setObjResultado({ ...r, metodoOriginal: strMetodo, clave: Date.now() });
       return r;
     } catch (e) {
       // Si la nómina local está descargada y el servidor falla (timeout, error de red o backend caído),
       // derivar automáticamente al motor offline para no detener el ingreso de los estudiantes.
       if (nomina.estado.lista || (typeof navigator !== "undefined" && navigator.onLine === false)) {
-        return await fnValidarOffline(strValor, strMetodo, objOpciones, ex);
+        return await fnIdentificarOffline(strValor, strMetodo, objOpciones, ex);
       }
       setObjResultado(null);
       setStrError(e.message);
       return null;
     } finally {
+      refVerificacionEnCurso.current = false;
       setBoolValidando(false);
     }
-  }, [boolOffline, fnRefrescar, fnValidarOffline, nomina.estado.lista]);
+  }, [boolOffline, fnIdentificarOffline, nomina.estado.lista]);
+
+  /* ---------- Fase 2: registrar con facial ---------- */
+  const fnRegistrarEnMotor = useCallback(async (identificacion, scores = null) => {
+    // Chequeo proactivo de espacio antes de escribir en IndexedDB
+    const almacenamiento = await verificarAlmacenamiento();
+    if (almacenamiento.disponible && almacenamiento.critico) {
+      setStrError("Espacio de almacenamiento local insuficiente para registrar el ingreso. Libera espacio en el navegador.");
+      setObjResultado(null);
+      return null;
+    }
+
+    const rReg = await motorRegistrar({
+      examenId: identificacion.examenId ?? refIdExamen.current,
+      asignaturaId: identificacion.asignaturaId,
+      ambienteId: identificacion.ambienteId,
+      codigoSis: identificacion.codigoSis,
+      metodo: identificacion.metodoMotor || identificacion.metodoOriginal || "CI",
+      operadorId: identificacion.operadorId,
+      rol: identificacion.rol,
+      clockOffsetMs: obtenerClockOffsetMs(),
+      scoreFacial: scores?.scoreFacial ?? null,
+      livenessScore: scores?.livenessScore ?? null,
+      modelVersion: scores?.modelVersion ?? null,
+      deviceId: scores?.deviceId ?? null,
+    });
+
+    const mapeado = mapearResultadoOffline(rReg, identificacion.valor, identificacion.metodo);
+    const enriquecido = {
+      ...mapeado,
+      conFacial: scores?.scoreFacial != null,
+      registradoPor: mapeado.registradoPor || identificacion.registradoPor || null,
+    };
+    fnAplicarRegistro(enriquecido, identificacion);
+    return enriquecido;
+  }, [fnAplicarRegistro]);
+
+  const fnRegistrarConFacial = useCallback(async (scores) => {
+    const ident = refIdentificacion.current;
+    if (!ident || !scores || scores.scoreFacial == null) return null;
+    setBoolValidando(true);
+    setStrError("");
+    try {
+      if (ident.offline) {
+        return await fnRegistrarEnMotor(ident, scores);
+      }
+      const ex = examenPorId(refIdExamen.current);
+      const r = await validarIngreso(refIdExamen.current, ident.valor, ident.metodoOriginal, ex, scores);
+      const enriquecido = { ...r, conFacial: true };
+      fnAplicarRegistro(enriquecido, ident);
+      return enriquecido;
+    } catch (e) {
+      // Sin red o servidor caído: se registra en el motor local con los scores.
+      if (nomina.estado.lista || (typeof navigator !== "undefined" && navigator.onLine === false)) {
+        return await fnRegistrarEnMotor(ident, scores);
+      }
+      setObjResultado(null);
+      setStrError(e.message || "No se pudo registrar el ingreso con verificación facial.");
+      return null;
+    } finally {
+      setBoolValidando(false);
+    }
+  }, [fnAplicarRegistro, fnRegistrarEnMotor, nomina.estado.lista]);
+
+  /* ---------- Fase 2 sin facial (solo offline) ---------- */
+  const fnRegistrarSinFacial = useCallback(async () => {
+    const ident = refIdentificacion.current;
+    if (!ident) return null;
+    setBoolValidando(true);
+    setStrError("");
+    try {
+      return await fnRegistrarEnMotor(ident, null);
+    } catch (e) {
+      setObjResultado(null);
+      setStrError(e.message || "No se pudo registrar el ingreso sin verificación facial.");
+      return null;
+    } finally {
+      setBoolValidando(false);
+    }
+  }, [fnRegistrarEnMotor]);
+
+  /* ---------- Excepcional facial autorizado (operador/docente online) ---------- */
+  const fnFinalizarExcepcional = useCallback((respuesta) => {
+    const ident = refIdentificacion.current;
+    const hora = respuesta?.horaIngreso
+      ? horaDeIso(respuesta.horaIngreso)
+      : new Date().toLocaleTimeString("es-BO", { hour12: false });
+    const mapeado = {
+      ...baseResultado("PERMITIDO", ident?.valor ?? "", "Manual"),
+      estudiante: ident?.estudiante ?? null,
+      horaIngreso: hora,
+      fechaIngreso: fechaDeIso(respuesta?.horaIngreso) || fechaDeIso(new Date().toISOString()),
+      registradoPor: respuesta?.autorizadoPor || null,
+      conFacial: false,
+      excepcional: true,
+    };
+    fnAplicarRegistro(mapeado, ident);
+    return mapeado;
+  }, [fnAplicarRegistro]);
+
+  const fnLimpiarIdentificacion = useCallback(() => {
+    setObjIdentificacion(null);
+    setStrError("");
+  }, []);
 
   const fnCerrarResultado = useCallback(() => setObjResultado(null), []);
 
   const fnElegirExamen = useCallback((id) => {
     setIdExamen(id);
     setObjResultado(null);
+    setObjIdentificacion(null);
     setListUltimosServidor(null);
     setObjContador(null);
     setStrUltimoRegistrado(null);
@@ -477,10 +720,11 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   };
 
   return {
-    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado,
-    boolValidando, strError, strUltimoRegistrado, numVersion, boolOffline,
-    objNomina, fnDescargarNomina,
-    fnValidar, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnRefrescar,
+    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objIdentificacion,
+    boolValidando, strError, strUltimoRegistrado, numVersion, boolOffline, objNomina, fnDescargarNomina,
+    objIntentosPendientes,
+    fnIdentificar, fnRegistrarConFacial, fnRegistrarSinFacial, fnFinalizarExcepcional, fnLimpiarIdentificacion,
+    fnCerrarResultado, fnElegirExamen, fnVolverALista, fnRefrescar,
   };
 }
 

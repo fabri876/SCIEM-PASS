@@ -54,7 +54,9 @@ u horario del semestre actual:
 
 Los exámenes antiguos sin grupo definido se relacionan por asignatura y semestre.
 Los que ya tienen grupo exigen la coincidencia de ese grupo. Los avisos próximos
-se muestran para los siguientes siete días; los cambios se conservan en la ventana
+se muestran solo para hoy, mañana y pasado mañana (hasta hoy + 2 días inclusive,
+según America/La_Paz). El backend limita tanto la cartelera pública como los
+próximos de las notificaciones personales. Los cambios se conservan en la ventana
 de siete días existente. Las marcas de lectura del navegador se guardan por usuario.
 
 Sin sesión se muestra “Inicie sesión para ver sus notificaciones”, sin contador ni

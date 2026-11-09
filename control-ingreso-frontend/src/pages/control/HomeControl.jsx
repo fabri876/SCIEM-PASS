@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import Header from "../../components/layout/Header";
 import OperadorProvider from "./OperadorProvider";
 import { useOperador } from "./operadorContexto";
@@ -14,6 +14,7 @@ import { LayoutAyudanteContexto } from "./layoutAyudanteContexto";
 // en el banner de Inicio y arriba de la pantalla de registro (ver SelectorConexion).
 // En la pantalla de registro de ingreso el menú lateral se oculta (pantalla completa).
 function ContenidoOperador() {
+  const navigate = useNavigate();
   const [boolPantallaCompleta, setBoolPantallaCompleta] = useState(false);
   const {
     fnCerrarSesion,
@@ -47,6 +48,7 @@ function ContenidoOperador() {
         resumen={resumenSesion}
         onConfirmar={fnCerrarSesion}
         onCancelar={fnCancelarLogout}
+        onReiniciar={() => navigate("/login")}
       />
       <ToastOperador />
       <ToastSyncConfirmacion />

@@ -8,11 +8,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer; // <-- ESTA ES LA LÍNEA QUE FALTABA
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -44,7 +46,7 @@ public class SecurityConfig {
                         // falla como error de CORS sin ni siquiera intentar autenticar.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/registro", "/api/auth/registro-personal").denyAll()
-                        .requestMatchers(HttpMethod.GET, "/api/publico/examenes/proximos", "/api/publico/examenes/cambios").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/publico/examenes/proximos", "/api/publico/examenes/cambios", "/api/publico/examenes/pasados", "/api/publico/examenes/pasados/*/pdf").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/ping",
@@ -70,6 +72,8 @@ public class SecurityConfig {
                                 "/api/incidencias/ambientes", "/api/incidencias/aulas-asignadas",
                                 "/api/incidencias/estudiante")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/ingresos-excepcionales")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
                         .requestMatchers("/api/incidencias/**", "/api/ingresos-excepcionales/**",
                                 "/api/monitoreo/**")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR")
@@ -80,6 +84,25 @@ public class SecurityConfig {
                                 .hasRole("ADMINISTRADOR")
                         .requestMatchers(HttpMethod.POST, "/api/grupos/**")
                                 .hasAnyRole("ADMINISTRADOR", "DOCENTE")
+                        // HU14: Expulsiones (antes que /api/examenes/** para que se evalúen primero).
+                        .requestMatchers(HttpMethod.POST, "/api/examenes/*/expulsiones")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/examenes/*/expulsiones",
+                                "/api/examenes/*/expulsiones/pendientes",
+                                "/api/examenes/*/expulsiones/pendientes/total")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/examenes/*/expulsiones/*/autorizar",
+                                "/api/examenes/*/expulsiones/*/denegar")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/expulsiones/pendientes",
+                                "/api/expulsiones/historial")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers("/api/admin/expulsiones").hasRole("ADMINISTRADOR")
+                        .requestMatchers("/api/face/**").hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR", "ESTUDIANTE")
+
+                        .requestMatchers("/api/v1/control/**").hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+
+                        .requestMatchers("/api/reportes/intentos-incorrectos/**").hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers("/api/examenes/**").hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers("/api/usuarios/**").hasAnyRole("ADMINISTRADOR", "DOCENTE")
                         .anyRequest().authenticated())

@@ -391,6 +391,47 @@ export async function listarIncidencias({ idExamen, idAmbiente, tipo, estado } =
 }
 
 /**
+ * Descarga las incidencias filtradas como Excel (.xlsx).
+ * GET /api/incidencias/exportar?idExamen=&idAmbiente=&tipo=&estado=&soloExpulsiones=
+ * Roles: ADMINISTRADOR, DOCENTE
+ * Devuelve el Blob del archivo .xlsx.
+ */
+export async function exportarIncidenciasExcel({ idExamen, idAmbiente, tipo, estado, soloExpulsiones } = {}) {
+  const params = new URLSearchParams();
+  if (idExamen) params.set("idExamen", idExamen);
+  if (idAmbiente && idAmbiente !== "TODAS") params.set("idAmbiente", idAmbiente);
+  if (tipo && tipo !== "TODOS") params.set("tipo", tipo);
+  if (estado && estado !== "TODOS") params.set("estado", estado);
+  if (soloExpulsiones) params.set("soloExpulsiones", "true");
+
+  const strToken = obtenerToken();
+  let response;
+  try {
+    response = await fetch(`${strApiBaseUrl}/api/incidencias/exportar?${params.toString()}`, {
+      headers: { ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}) },
+    });
+  } catch {
+    throw new Error("No se pudo conectar con el servidor para exportar.");
+  }
+
+  if (response.status === 401) {
+    cerrarSesion();
+    sessionStorage.setItem("mensajeSesion", "Tu sesión expiró, vuelve a iniciar sesión");
+    window.location.href = "/login";
+    throw new Error("Tu sesión expiró, vuelve a iniciar sesión");
+  }
+
+  if (!response.ok) {
+    const objError = await response.json().catch(() => null);
+    throw new Error(
+      objError?.mensaje || objError?.error || `Error ${response.status} al exportar.`
+    );
+  }
+
+  return response.blob();
+}
+
+/**
  * Obtiene el total de incidencias abiertas para el badge del menú lateral.
  * GET /api/incidencias/abiertas/total
  * Roles: ADMINISTRADOR, DOCENTE
