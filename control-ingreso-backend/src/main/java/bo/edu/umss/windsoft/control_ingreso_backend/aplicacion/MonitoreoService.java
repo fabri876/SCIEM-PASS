@@ -421,10 +421,9 @@ public class MonitoreoService {
      * asignación ni se descuenta el cupo.
      *
      * Este método NO es @Transactional a propósito (BUG-038): la transacción se abre
-     * con TransactionTemplate dentro de {@link #ejecutarReubicacion}. Así la auditoría
-     * (REUBICACION_RECHAZADA / REUBICACION_EXPRESS) se escribe DESPUÉS del rollback o
-     * del commit, cuando el bloqueo FOR UPDATE del aula ya se liberó, y un fallo al
-     * auditar nunca convierte el 409 en un 500.
+     * con TransactionTemplate dentro de {@link #ejecutarReubicacion}. El rechazo se
+     * audita después del rollback para preservar el 409; el éxito se audita dentro
+     * de la transacción para no confirmar un ingreso sin su evento de auditoría.
      */
     public ReubicacionDto reubicarYAutorizar(Integer idIntento, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
@@ -444,13 +443,10 @@ public class MonitoreoService {
             throw rechazo;
         }
 
-        // La transacción ya hizo commit
-        auditoriaService.registrar("REUBICACION_EXPRESS", usuario.correo(), resultado.correoEstudiante(),
-                resultado.contexto() + " · ingreso #" + resultado.idIngreso(), ip);
         return resultado.dto();
     }
 
-    /** Cuerpo transaccional de la reubicación. No audita: lo hace el método público al terminar. */
+    /** Cuerpo transaccional de la reubicación y su auditoría de éxito. */
     private ResultadoReubicacion ejecutarReubicacion(UsuarioActual usuario, Integer idIntento, String ip) {
         IntentoNoAutorizado intento = intentoRepository.findById(idIntento)
                 .filter(i -> i.getMotivo() == MotivoIntento.AMBIENTE_DIFERENTE)
@@ -508,6 +504,7 @@ public class MonitoreoService {
             cambio.setFechaCambio(ahora.toLocalDate());
             cambio.setFechaHoraCambio(ahora);
             cambio.setIdUsuarioAutoriza(usuario.idUsuario());
+            cambio.setIdIntentoOrigen(idIntento);
             cambioAmbienteRepository.save(cambio);
 
             ingreso = new Ingreso();
@@ -530,6 +527,8 @@ public class MonitoreoService {
         ReubicacionDto dto = new ReubicacionDto(codSis, nombreEstudiante, aulaOrigen, infoDestino.aula(),
                 ingreso.getHoraIngreso(),
                 nombreEstudiante + " quedó reubicado en el " + infoDestino.aula() + " y su ingreso fue registrado.");
+        auditoriaService.registrarEnTransaccion("REUBICACION_EXPRESS", usuario.correo(), correoEstudiante,
+                contexto + " · ingreso #" + ingreso.getIdIngreso(), ip);
         return new ResultadoReubicacion(dto, correoEstudiante, contexto, ingreso.getIdIngreso());
     }
 
