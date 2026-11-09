@@ -59,6 +59,15 @@ class ExamenServiceTest {
     @Mock private DocenteRepository docenteRepository;
     @Mock private AsignaturaRepository asignaturaRepository;
     @Mock private UsuarioRepository usuarioRepository;
+    @Mock private AuditoriaService auditoriaService;
+    @Mock private GrupoRepository grupoRepository;
+    @Mock private DocenteGrupoRepository docenteGrupoRepository;
+    @Mock private HabilitacionRepository habilitacionRepository;
+    @Mock private EstudianteGrupoRepository estudianteGrupoRepository;
+    @Mock private EstudianteRepository estudianteRepository;
+    @Mock private IngresoRepository ingresoRepository;
+    @Mock private NormaGeneralRepository normaGeneralRepository;
+    @Mock private CambioExamenService cambiosExamen;
 
     @InjectMocks
     private ExamenService examenService;
@@ -80,6 +89,8 @@ class ExamenServiceTest {
         TipoExamen segundoParcial = tipoExamen(2, "Segundo Parcial");
         when(tipoExamenRepository.findById(1)).thenReturn(Optional.of(primerParcial));
         when(tipoExamenRepository.findById(2)).thenReturn(Optional.of(segundoParcial));
+        when(tipoExamenRepository.findByNombreTipoExamenIgnoreCase("Primer Parcial"))
+                .thenReturn(Optional.of(primerParcial));
 
         // Por defecto, el docente todavía no registró ningún examen en la asignatura.
         when(examenRepository.findTiposUsadosByAsignaturaAndDocente(anyInt(), anyInt()))
@@ -154,14 +165,53 @@ class ExamenServiceTest {
     // ---------------------------------------------------------------------
 
     @Test
+    @DisplayName("La creacion exitosa solicita auditoria en la misma transaccion")
+    void registrarExamen_guardaAuditoria() {
+        ExamenRequest request = solicitudEventual(1, fechaFutura(LocalTime.of(9, 0)), ID_AULA,
+                LocalTime.of(9, 0), LocalTime.of(11, 0));
+        Examen resultado = examenService.registrarExamen(request, "127.0.0.1");
+        assertEquals(100, resultado.getIdExamen());
+        verify(auditoriaService).registrarEnTransaccion(eq("CREACION_EXAMEN"), eq("admin@gmail.com"),
+                isNull(), contains("examen=100"), eq("127.0.0.1"));
+    }
+
+    @Test
+    @DisplayName("Un fallo de auditoria impide confirmar la creacion del examen")
+    void registrarExamen_fallaSiAuditoriaFalla() {
+        ExamenRequest request = solicitudEventual(1, fechaFutura(LocalTime.of(9, 0)), ID_AULA,
+                LocalTime.of(9, 0), LocalTime.of(11, 0));
+        doThrow(new IllegalStateException("auditoria no disponible"))
+                .when(auditoriaService).registrarEnTransaccion(eq("CREACION_EXAMEN"), anyString(),
+                        isNull(), anyString(), anyString());
+        assertThrows(IllegalStateException.class, () -> examenService.registrarExamen(request, "127.0.0.1"));
+    }
+
+    @Test
     @DisplayName("C6-C8 - No se permite registrar el Segundo Parcial sin haber registrado el Primer Parcial")
     void registrarExamen_segundoParcialSinPrimero_rechaza() {
         // El docente no tiene ningún examen registrado (tiposUsados vacío).
         ExamenRequest request = solicitudEventual(2, fechaFutura(LocalTime.of(9, 0)), ID_AULA,
                 LocalTime.of(9, 0), LocalTime.of(11, 0));
 
-        assertThrows(IllegalArgumentException.class, () -> examenService.registrarExamen(request));
+        assertThrows(IllegalArgumentException.class, () -> examenService.registrarExamen(request, "127.0.0.1"));
         verify(examenRepository, never()).save(any(Examen.class));
+    }
+
+    @Test
+    @DisplayName("Se admite el Segundo Parcial cuando ya existe el Primero")
+    void registrarExamen_segundoParcialConPrimero_permite() {
+        when(examenRepository.findTiposUsadosByAsignaturaAndDocente(anyInt(), anyInt())).thenReturn(List.of(1));
+        ExamenRequest request = solicitudEventual(2, fechaFutura(LocalTime.of(9, 0)), ID_AULA,
+                LocalTime.of(9, 0), LocalTime.of(11, 0));
+        assertNotNull(examenService.registrarExamen(request, "127.0.0.1"));
+    }
+
+    @Test
+    @DisplayName("El horario eventual permite los limites institucionales")
+    void registrarExamen_horarioEnLimites_permite() {
+        ExamenRequest request = solicitudEventual(1, fechaFutura(LocalTime.of(6, 45)), ID_AULA,
+                LocalTime.of(6, 45), LocalTime.of(21, 45));
+        assertNotNull(examenService.registrarExamen(request, "127.0.0.1"));
     }
 
     @Test
@@ -171,7 +221,7 @@ class ExamenServiceTest {
                 LocalTime.of(10, 0), LocalTime.of(9, 0));
 
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> examenService.registrarExamen(request));
+                () -> examenService.registrarExamen(request, "127.0.0.1"));
         assertEquals("La hora de fin debe ser posterior a la hora de inicio.", error.getMessage());
         verify(examenRepository, never()).save(any(Examen.class));
     }
@@ -183,7 +233,7 @@ class ExamenServiceTest {
         ExamenRequest request = solicitudEventual(1, fechaFutura(LocalTime.of(6, 0)), ID_AULA,
                 LocalTime.of(6, 0), LocalTime.of(7, 30));
 
-        assertThrows(IllegalArgumentException.class, () -> examenService.registrarExamen(request));
+        assertThrows(IllegalArgumentException.class, () -> examenService.registrarExamen(request, "127.0.0.1"));
         verify(examenRepository, never()).save(any(Examen.class));
     }
 
@@ -194,7 +244,7 @@ class ExamenServiceTest {
                 LocalTime.of(9, 0), LocalTime.of(11, 0));
 
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> examenService.registrarExamen(request));
+                () -> examenService.registrarExamen(request, "127.0.0.1"));
         assertEquals("La fecha del examen no puede ser anterior a la fecha actual.", error.getMessage());
         verify(examenRepository, never()).save(any(Examen.class));
     }
@@ -212,7 +262,7 @@ class ExamenServiceTest {
                 LocalTime.of(9, 0), LocalTime.of(11, 0));
 
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> examenService.registrarExamen(request));
+                () -> examenService.registrarExamen(request, "127.0.0.1"));
         assertTrue(error.getMessage().contains("ya está ocupada"));
         verify(examenRepository, never()).save(any(Examen.class));
     }
@@ -234,7 +284,7 @@ class ExamenServiceTest {
         ExamenRequest request = solicitudEventual(1, fechaFutura(LocalTime.of(9, 0)), 20,
                 LocalTime.of(9, 0), LocalTime.of(11, 0));
 
-        assertThrows(IllegalArgumentException.class, () -> examenService.registrarExamen(request));
+        assertThrows(IllegalArgumentException.class, () -> examenService.registrarExamen(request, "127.0.0.1"));
         verify(examenRepository, never()).save(any(Examen.class));
     }
 }

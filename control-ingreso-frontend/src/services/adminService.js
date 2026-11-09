@@ -1,14 +1,14 @@
 /**
  * adminService.js
  *
- * Llamadas al backend para el panel de administración de usuarios, roles
- * y auditoría (HU16), bajo /api/admin/**. Todas requieren el token JWT
- * del administrador logueado (ver authService.js), que se agrega acá
- * mismo con fetchAutenticado en vez de repetirlo en cada función.
+ * Llamadas al backend para el panel de administración de usuarios, roles,
+ * auditoría y el historial inmodificable criptográfico (HU15 y HU16), bajo /api/admin/**.
+ * Todas requieren el token JWT del administrador logueado (ver authService.js),
+ * que se agrega acá mismo con fetchAutenticado en vez de repetirlo en cada función.
  *
  * Si el backend responde 401 (token vencido o ausente), se cierra la
  * sesión local y se manda al usuario a /login mostrando el mensaje de
- * "Sesión expirada" (criterio de aceptación #9 de HU16).
+ * "Sesión expirada" (criterio de aceptación #9 de HU16 y #30 de HU15).
  */
 import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken, cerrarSesion } from "./authService";
@@ -96,9 +96,15 @@ export async function listarAuditoria() {
   return fetchAutenticado("/api/admin/auditoria");
 }
 
-// Movido a usuarioService.js (lo consume también el panel de Docente, que no
-// tiene acceso a /api/admin/**) — se re-exporta acá para no romper los
-// imports existentes de AdminDashboard.jsx.
+// Re-exportación de servicios especializados
+export {
+  listarHistorialInmodificable,
+  verificarIntegridadBloque,
+  verificarCadenaCompleta,
+  exportarRegistroCompletoCsv,
+  calcularSha256,
+} from "./historialInmodificableService";
+
 export { cargarUsuariosMasivo } from "./usuarioService";
 
 export function eliminarUsuario(idUsuario) {

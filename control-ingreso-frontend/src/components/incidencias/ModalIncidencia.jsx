@@ -15,11 +15,9 @@ import {
   registrarIncidencia,
   cerrarIncidencia,
   notificarCambioIncidencias,
-  verificarIngresoLocal,
 } from "../../services/incidenciaService";
 import { formatearFecha, formatearHora, validarImagen, etiquetaAula } from "./utilidadesIncidencias";
 import { incidenciaRepo } from "../../offline/incidenciaRepo";
-import { estaSinRed } from "../../offline/connectivityService";
 
 const CATALOGO_TIPOS = [
   { codigo: "SUPLANTACION", etiqueta: "Suplantación" },
@@ -211,8 +209,6 @@ export default function ModalIncidencia({
     const query = strBusquedaEstudiante.trim();
     if (!query || !idAmbienteActual) return;
 
-    const idExamenActual = aulaSeleccionada?.idExamen ?? null;
-
     setBoolBuscandoEstudiante(true);
     setStrErrorBusquedaEstudiante("");
     setEstudianteInvolucrado(null);
@@ -220,11 +216,7 @@ export default function ModalIncidencia({
     setRetirarEstudiante(false);
 
     try {
-      const data = await consultarEstudianteIncidencia(
-        idAmbienteActual,
-        query,
-        idExamenActual
-      );
+      const data = await consultarEstudianteIncidencia(idAmbienteActual, query);
       if (data && data.estado !== "NO_ENCONTRADO" && data.estado !== "NO_INSCRITO" && data.estado !== "SIN_INGRESO") {
         setEstudianteInvolucrado({
           nombreCompleto: data.nombreCompleto,
@@ -309,9 +301,7 @@ export default function ModalIncidencia({
       registradoEn: new Date().toISOString(),
     };
     const guardarOffline = async () => {
-      // La foto (si hay) se guarda como Blob dentro del registro pendiente y se
-      // envía con la incidencia cuando vuelva la conexión.
-      const clientUuid = await incidenciaRepo.encolar(datosIncidencia, archivoFoto);
+      const clientUuid = await incidenciaRepo.encolar(datosIncidencia);
       if (boolRetirarAhora) {
         await incidenciaRepo.encolarExpulsion({
           incidenciaClientUuid: clientUuid,
@@ -319,10 +309,9 @@ export default function ModalIncidencia({
           examenId: aulaSeleccionada?.idExamen,
         });
       }
-      const strConFoto = archivoFoto ? " con su foto de evidencia" : "";
       setStrExito(boolRetirarAhora
-        ? `Sin conexión. La expulsión${strConFoto} se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal.`
-        : `Sin conexión. La incidencia${strConFoto} se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal.`);
+        ? "Sin conexión. La expulsión se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal."
+        : "Sin conexión. La incidencia se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal.");
       notificarCambioIncidencias();
       setTimeout(() => {
         if (onExito) onExito({ clientUuid, offline: true });
@@ -331,23 +320,7 @@ export default function ModalIncidencia({
     };
 
     try {
-      if (estaSinRed()) {
-        // Igual que el backend: solo se registra una incidencia de un estudiante
-        // que ya ingresó al examen (según los datos locales de Dexie).
-        if (estudianteInvolucrado?.codSis) {
-          const boolIngreso = await verificarIngresoLocal(
-            aulaSeleccionada?.idExamen,
-            estudianteInvolucrado.codSis
-          );
-          if (!boolIngreso) {
-            setStrError(
-              "El estudiante no ha ingresado a este examen; no se puede registrar una incidencia para él."
-            );
-            setBoolGuardando(false);
-            return;
-          }
-        }
-
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
         await guardarOffline();
         return;
       }
@@ -380,12 +353,7 @@ export default function ModalIncidencia({
         onCerrar();
       }, 900);
     } catch (err) {
-      const esErrorDeRed =
-        estaSinRed() ||
-        err.message?.includes("No se pudo conectar") ||
-        /Failed to fetch|network|timeout|ECONNREFUSED|connection/i.test(err.message ?? "");
-
-      if (esErrorDeRed) {
+      if (err.message?.includes("No se pudo conectar") || (typeof navigator !== "undefined" && navigator.onLine === false)) {
         try {
           await guardarOffline();
         } catch (errorOffline) {
@@ -547,11 +515,7 @@ export default function ModalIncidencia({
                 <input
                   type="text"
                   value={strBusquedaEstudiante}
-                  onChange={(e) => {
-                    setStrBusquedaEstudiante(e.target.value);
-                    // El error del intento anterior ya no aplica al nuevo texto.
-                    if (strErrorBusquedaEstudiante) setStrErrorBusquedaEstudiante("");
-                  }}
+                  onChange={(e) => setStrBusquedaEstudiante(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") fnBuscarEstudianteInvolucrado(e);
                   }}

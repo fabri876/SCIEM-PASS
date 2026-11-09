@@ -4,20 +4,9 @@ import { ESTADO_SYNC } from './constantes.js';
 import { generarUuid } from './uuid.js';
 
 export const incidenciaRepo = {
-  /**
-   * Guarda una incidencia pendiente de sincronizar.
-   *
-   * `evidencia` es opcional: si el operador adjuntó una foto, se almacena el
-   * archivo (Blob/File) dentro del mismo registro. IndexedDB conserva el
-   * contenido binario, por lo que la sincronización posterior puede enviarla
-   * aunque el dispositivo se haya quedado sin conexión.
-   */
-  async encolar(
-    { idAmbiente, tipo, severidad, descripcion, codSisEstudiante, retirarEstudiante, registradoEn },
-    evidencia = null
-  ) {
+  async encolar({ idAmbiente, tipo, severidad, descripcion, codSisEstudiante, retirarEstudiante, registradoEn }) {
     const clientUuid = generarUuid();
-    const registro = {
+    await db.incidencias_pendientes.add({
       clientUuid,
       idAmbiente: Number(idAmbiente),
       tipo,
@@ -30,27 +19,7 @@ export const incidenciaRepo = {
       intentos: 0,
       nextRetryAt: 0,
       ultimoError: null,
-    };
-
-    if (evidencia) {
-      registro.evidenciaBlob = evidencia;
-      registro.evidenciaNombre = evidencia.name || `evidencia-${clientUuid}.jpg`;
-      registro.evidenciaTipo = evidencia.type || 'image/jpeg';
-      registro.evidenciaSincronizada = false;
-    }
-
-    try {
-      await db.incidencias_pendientes.add(registro);
-    } catch (err) {
-      const strError = `${err?.name || ''} ${err?.message || ''}`;
-      if (/quota/i.test(strError)) {
-        throw new Error(
-          "No hay espacio suficiente en el dispositivo para guardar la incidencia y su foto. " +
-            "Sincroniza los registros pendientes o elimina fotos descargadas e inténtalo de nuevo."
-        );
-      }
-      throw err;
-    }
+    });
     return clientUuid;
   },
 

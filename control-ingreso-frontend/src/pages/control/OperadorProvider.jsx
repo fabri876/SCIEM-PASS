@@ -12,6 +12,7 @@ import {
 } from "../../offline";
 import { useArranqueOffline } from "../../offline/useArranqueOffline";
 import { cerrarSesion, obtenerUsuarioActual } from "../../services/authService";
+import { detenerPreviewNativo } from "../../hooks/nativeCameraPreview";
 import ModalPin from "./components/ModalPin";
 import ConfigurarPin from "./components/ConfigurarPin";
 
@@ -169,7 +170,14 @@ export default function OperadorProvider({ children }) {
   }, []);
 
   const fnCerrarSesion = useCallback((resumenExtra) => {
-    cerrarSesion({ limpiarDatosLocales: true });
+    try {
+      detenerPreviewNativo();
+    } catch {}
+    try {
+      cerrarSesion({ limpiarDatosLocales: true });
+    } catch (e) {
+      console.warn("[OperadorProvider] Error durante limpieza de sesión:", e);
+    }
     if (pendReal > 0) {
       setResumenSesion(resumenExtra || "Sesion cerrada con " + pendReal + " marcas sin sincronizar.");
     } else {

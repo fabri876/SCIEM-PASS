@@ -38,7 +38,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * HU06 · Ingreso excepcional: solo DOCENTE (de la materia) y ADMINISTRADOR.
+ * HU06 · Ingreso excepcional: DOCENTE (de la materia), ADMINISTRADOR y, desde
+ * el control de ingreso, OPERADOR cuando el motivo es facial
+ * ({@code FALLO_FACIAL} o {@code SIN_ENROLAMIENTO_FACIAL}).
  * Quien registra el ingreso es quien lo autoriza (ingreso.idusuario).
  * Todo intento, aceptado o rechazado, queda en auditoría.
  */
@@ -111,6 +113,17 @@ public class IngresoExcepcionalService {
 
         EstudianteEncontrado est = encontrado.get();
         Integer codSis = est.estudiante().getCodsisestudiante();
+
+        // En el flujo de incidencias solo se puede reportar a estudiantes de la materia del examen.
+        // Esta validación debe ir antes de verificar el ingreso previo, para que un estudiante
+        // que no pertenece a la materia no pueda ser reportado aunque tenga algún registro.
+        if (permiteOperador && !estudianteExamenService.estaInscritoEnAsignatura(codSis, ambiente.getIdAsignatura())) {
+            return new ConsultaEstudianteDto("NO_INSCRITO",
+                    "El estudiante no está inscrito en la materia de este examen.",
+                    codSis, est.usuario().getCiusuario(), est.nombreCompleto(), null, null,
+                    false, false, false, aforo, estadoAula.cerrado());
+        }
+
         Optional<Ingreso> ingresoPrevio = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
                 codSis, ambiente.getIdAsignatura(), ambiente.getIdExamen());
 
@@ -127,6 +140,15 @@ public class IngresoExcepcionalService {
             return new ConsultaEstudianteDto(retirado ? "RETIRADO" : "DUPLICADO", mensaje,
                     codSis, est.usuario().getCiusuario(), est.nombreCompleto(), previo.getHoraIngreso(),
                     aulaPrevia, false, true, !retirado, aforo, estadoAula.cerrado());
+        }
+
+        // En el flujo de incidencias, un estudiante que no ha ingresado al examen no puede
+        // estar involucrado en una incidencia (no podría haber causado un incidente sin haber ingresado).
+        if (permiteOperador) {
+            return new ConsultaEstudianteDto("SIN_INGRESO",
+                    "El estudiante no ha ingresado a este examen; no se puede registrar una incidencia para él.",
+                    codSis, est.usuario().getCiusuario(), est.nombreCompleto(), null, null,
+                    false, false, false, aforo, estadoAula.cerrado());
         }
 
         HabilitacionExamen habilitacion = estudianteExamenService.habilitacion(codSis, ambiente);
@@ -161,11 +183,17 @@ public class IngresoExcepcionalService {
                                            MultipartFile respaldo, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         Ambiente ambiente = ambienteExamenService.obtener(idAmbiente);
-        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, true,
                 "Autorizar ingreso excepcional", ip);
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
 
         MotivoExcepcion motivo = leerMotivo(motivoTexto);
+        // El operador autoriza únicamente desde el flujo facial del control de
+        // ingreso; el resto de motivos sigue siendo potestad del docente/admin.
+        if (usuario.esOperador() && !motivo.esFacial()) {
+            throw new SolicitudInvalidaException(
+                    "El operador solo puede autorizar ingresos excepcionales por motivos faciales.");
+        }
         String observacionLimpia = observacion == null ? "" : observacion.trim();
         if (observacionLimpia.length() < OBSERVACION_MIN || observacionLimpia.length() > OBSERVACION_MAX) {
             throw new SolicitudInvalidaException("La observación debe tener entre " + OBSERVACION_MIN + " y "
@@ -195,7 +223,11 @@ public class IngresoExcepcionalService {
             throw rechazar(usuario, correoEstudiante, contexto + " · " + mensaje, ip, new ConflictoEstadoException(mensaje));
         }
 
-        if (estudianteExamenService.habilitacion(codSis, ambiente).estado() == EstadoHabilitacion.HABILITADO) {
+        // Un motivo facial se autoriza incluso si el estudiante está habilitado:
+        // el facial es obligatorio cuando tiene enrolamiento, y si falló o no
+        // pudo hacerse, el ingreso debe quedar como excepcional.
+        if (!motivo.esFacial()
+                && estudianteExamenService.habilitacion(codSis, ambiente).estado() == EstadoHabilitacion.HABILITADO) {
             String mensaje = "El estudiante está habilitado: debe registrar su ingreso por el control normal.";
             throw rechazar(usuario, correoEstudiante, contexto + " · " + mensaje, ip, new ConflictoEstadoException(mensaje));
         }
@@ -245,8 +277,13 @@ public class IngresoExcepcionalService {
             throw e;
         }
 
-        auditoriaService.registrar("INGRESO_EXCEPCIONAL", usuario.correo(), correoEstudiante,
-                contexto + " · ingreso #" + ingreso.getIdIngreso(), ip);
+        try {
+            auditoriaService.registrarEnTransaccion("INGRESO_EXCEPCIONAL", usuario.correo(), correoEstudiante,
+                    contexto + " · ingreso #" + ingreso.getIdIngreso(), ip);
+        } catch (RuntimeException e) {
+            evidenciaService.eliminarSinFallar(evidencia);
+            throw e;
+        }
 
         return aDto(ingreso, info, est.nombreCompleto(), ambienteExamenService.aforo(idAmbiente));
     }

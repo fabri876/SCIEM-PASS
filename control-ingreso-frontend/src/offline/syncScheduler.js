@@ -3,6 +3,9 @@ import { asistenciaRepo } from './asistenciaRepo.js';
 import { incidenciaRepo } from './incidenciaRepo.js';
 import { solicitarPersistencia } from './almacenamiento.js';
 import { sincronizarPendientes, sincronizarIncidenciasPendientes, iniciarSync, suscribirSync } from './syncQueueService.js';
+import { sincronizarPendientesFaciales } from './facialSyncService.js';
+import { contarPendientesFaciales } from './facialSqliteDb.js';
+import { sincronizarIntentosExamen } from './syncIntentosExamen.js';
 import {
   iniciarConectividad,
   detenerConectividad,
@@ -74,7 +77,7 @@ export function reanudarSync() {
   pausadoPorAuth = false;
   notificarCambioScheduler();
   if (activo) {
-    dispararSincronizacion('reanudacion_auth').catch(() => {});
+    dispararSincronizacion('reanudacion_auth').catch(() => { });
   }
 }
 
@@ -102,20 +105,30 @@ async function dispararSincronizacion(motivo) {
       tamanoLote: tamano,
       origen: 'automatico'
     });
+    const resIncidencias = await sincronizarIncidenciasPendientes({ tamanoLote: tamano });
 
-    // Cola de incidencias/expulsiones: comparte el mismo ciclo y la misma
-    // politica de pausa (401) y backoff que las asistencias.
-    if (!res?.omitido && !res?.pausadaPorAuth) {
+    let resFacial = null;
+    if (!res?.omitido && !res?.pausadaPorAuth && !res?.huboFalloDeRed) {
+      // Si la sincronización automática está desactivada, el modo offline está
+      // forzado, la sesión expiró o la red falló, la cola facial también espera:
+      // misma política que asistencias.
       try {
-        await sincronizarIncidenciasPendientes({ tamanoLote: tamano });
-      } catch (errIncidencias) {
-        console.warn('[syncScheduler] Error en sincronizacion de incidencias:', errIncidencias);
+        resFacial = await sincronizarPendientesFaciales();
+      } catch (errFacial) {
+        console.warn('[syncScheduler] Error en sincronizacion facial:', errFacial);
       }
     }
 
+    const resIntentos = await sincronizarIntentosExamen();
+
     if (!res?.omitido) {
       ultimaSync = Date.now();
-      ultimoResultado = res;
+      ultimoResultado = {
+        asistencias: res,
+        incidencias: resIncidencias,
+        facial: resFacial,
+        intentos: resIntentos
+      };
     }
 
     if (res?.pausadaPorAuth) {
@@ -138,7 +151,7 @@ async function dispararSincronizacion(motivo) {
  * - Si res.omitido es true: devuelve con motivo: 'envio_en_curso' sin actualizar ultimaSync ni ultimoResultado.
  */
 export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
-  const pendientesRestantes = await asistenciaRepo.contarPendientes();
+  const pendientesRestantes = (await asistenciaRepo.contarPendientes()) + (await incidenciaRepo.contarPendientes());
 
   console.log('[syncScheduler] sincronizarAhora llamado. Pendientes:', pendientesRestantes);
   pausadoPorAuth = false;
@@ -157,6 +170,18 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
     tamanoLote: loteSize,
     origen: 'manual'
   });
+  const resIncidencias = await sincronizarIncidenciasPendientes({ tamanoLote: loteSize });
+  let resFacial = null;
+  // Si otro envío seguía en curso (omitido), ese mismo ciclo ya incluye la cola
+  // facial; lanzarla aquí duplicaría la petición.
+  if (!res?.omitido && !res?.pausadaPorAuth && !res?.huboFalloDeRed) {
+    try {
+      resFacial = await sincronizarPendientesFaciales();
+    } catch (errFacial) {
+      console.warn('[syncScheduler] Error en sincronizacion facial manual:', errFacial);
+    }
+  }
+  const resIntentos = await sincronizarIntentosExamen();
   console.log('[syncScheduler] Resultado sincronizarPendientes:', res);
 
   if (res?.omitido) {
@@ -166,15 +191,13 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
     };
   }
 
-  // Incidencias/expulsiones pendientes en el mismo envio manual.
-  try {
-    await sincronizarIncidenciasPendientes({ tamanoLote: loteSize });
-  } catch (errIncidencias) {
-    console.warn('[syncScheduler] Error en sincronizacion manual de incidencias:', errIncidencias);
-  }
-
   ultimaSync = Date.now();
-  ultimoResultado = res;
+  ultimoResultado = {
+    asistencias: res,
+    incidencias: resIncidencias,
+    facial: resFacial,
+    intentos: resIntentos
+  };
 
   if (res?.pausadaPorAuth) {
     pausadoPorAuth = true;
@@ -201,15 +224,16 @@ function programarCicloPeriodico() {
     const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
 
     if (visible && !pausadoPorAuth && !(typeof navigator !== 'undefined' && navigator.onLine === false)) {
-      const [pendientes, incidenciasPendientes] = await Promise.all([
+      const [pendientes, incidenciasPendientes, facialesPendientes] = await Promise.all([
         asistenciaRepo.pendientes(1),
-        incidenciaRepo.pendientes(1)
+        incidenciaRepo.pendientes(1),
+        contarPendientesFaciales()
       ]);
 
       // Comprobar de nuevo tras el await
       if (!activo || generacion !== genAlProgramar) return;
 
-      if (pendientes.length > 0 || incidenciasPendientes.length > 0) {
+      if (pendientes.length > 0 || incidenciasPendientes.length > 0 || facialesPendientes > 0) {
         await dispararSincronizacion('intervalo_periodico');
       }
     }
@@ -223,7 +247,7 @@ function programarCicloPeriodico() {
 
 function handleVisibilityChange() {
   if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-    dispararSincronizacion('pestana_visible').catch(() => {});
+    dispararSincronizacion('pestana_visible').catch(() => { });
   }
 }
 
@@ -280,7 +304,6 @@ export async function iniciarSincronizacionAutomatica({
     // 1. Revertir huerfanos
     try {
       await iniciarSync();
-      // Marcas de incidencias que quedaron en 'syncing' por un cierre brusco.
       await incidenciaRepo.revertirSyncingHuerfanos();
     } catch (err) {
       console.warn('[syncScheduler] Error en iniciarSync:', err);
@@ -327,14 +350,13 @@ export async function iniciarSincronizacionAutomatica({
     fnHookCreating = function (primKey, obj, trans) {
       if (debounceMarcaTimer) clearTimeout(debounceMarcaTimer);
       debounceMarcaTimer = setTimeout(() => {
-        dispararSincronizacion('marca_creada').catch(() => {});
+        dispararSincronizacion('marca_creada').catch(() => { });
       }, configActual.esperaTrasMarcaMs);
     };
-    // Una incidencia encolada dispara el mismo ciclo (sin esperar al intervalo).
     fnHookCreatingIncidencias = function () {
       if (debounceMarcaTimer) clearTimeout(debounceMarcaTimer);
       debounceMarcaTimer = setTimeout(() => {
-        dispararSincronizacion('incidencia_creada').catch(() => {});
+        dispararSincronizacion('incidencia_creada').catch(() => { });
       }, configActual.esperaTrasMarcaMs);
     };
     try {
@@ -355,7 +377,7 @@ export async function iniciarSincronizacionAutomatica({
         if (temporizadorJitterRecuperacion) clearTimeout(temporizadorJitterRecuperacion);
         temporizadorJitterRecuperacion = setTimeout(() => {
           temporizadorJitterRecuperacion = null;
-          dispararSincronizacion('recuperacion_red').catch(() => {});
+          dispararSincronizacion('recuperacion_red').catch(() => { });
         }, esperaJitter);
       }
       estadoPrevio = conn.estado;
@@ -389,11 +411,11 @@ export async function iniciarSincronizacionAutomatica({
     // 11. Intento inicial si hay red y pendientes
     const connInicial = obtenerEstadoConexion();
     if (connInicial.estado === 'online' || connInicial.estado === 'degraded') {
-      Promise.all([asistenciaRepo.pendientes(1), incidenciaRepo.pendientes(1)]).then(([pendientes, incidenciasPendientes]) => {
-        if (pendientes.length > 0 || incidenciasPendientes.length > 0) {
-          dispararSincronizacion('arranque_con_pendientes').catch(() => {});
+      Promise.all([asistenciaRepo.pendientes(1), incidenciaRepo.pendientes(1), contarPendientesFaciales()]).then(([pendientes, incidenciasPendientes, facialesPendientes]) => {
+        if (pendientes.length > 0 || incidenciasPendientes.length > 0 || facialesPendientes > 0) {
+          dispararSincronizacion('arranque_con_pendientes').catch(() => { });
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     notificarCambioScheduler();
@@ -432,6 +454,15 @@ export function detenerSincronizacionAutomatica() {
   }
 
   try {
+    if (fnHookCreatingIncidencias && typeof db.incidencias_pendientes?.hook === 'function') {
+      db.incidencias_pendientes.hook('creating').unsubscribe(fnHookCreatingIncidencias);
+      fnHookCreatingIncidencias = null;
+    }
+  } catch (e) {
+    console.warn('[syncScheduler] Error al desuscribir hook de incidencias:', e);
+  }
+
+  try {
     if (debounceMarcaTimer) {
       clearTimeout(debounceMarcaTimer);
       debounceMarcaTimer = null;
@@ -456,15 +487,6 @@ export function detenerSincronizacionAutomatica() {
     }
   } catch (e) {
     console.warn('[syncScheduler] Error al desuscribir hook creating:', e);
-  }
-
-  try {
-    if (fnHookCreatingIncidencias && typeof db.incidencias_pendientes?.hook === 'function') {
-      db.incidencias_pendientes.hook('creating').unsubscribe(fnHookCreatingIncidencias);
-      fnHookCreatingIncidencias = null;
-    }
-  } catch (e) {
-    console.warn('[syncScheduler] Error al desuscribir hook de incidencias:', e);
   }
 
   try {

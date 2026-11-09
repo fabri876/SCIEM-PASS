@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Users, Calendar, UserCheck, History, Shield, LogOut, AlertTriangle, BookOpen, Activity, FileText, Upload } from "lucide-react";
-import { cerrarSesion } from "../../../services/authService";
+import { useState, useEffect } from "react";
+import { Users, Calendar, UserCheck, History, Shield, AlertTriangle, BookOpen, Activity, FileText, Upload, XCircle, ScanFace } from "lucide-react";
 import { obtenerTotalIncidenciasAbiertas } from "../../../services/incidenciaService";
 
 const baseMenuItems = [
@@ -14,12 +12,14 @@ const baseMenuItems = [
     { id: "Carga de Exámenes Pasados", label: "Carga de Exámenes Pasados", icon: Upload },
     { id: "Monitoreo de Asistencia", label: "Monitoreo de Asistencia", icon: Activity },
     { id: "Reportes y Asistencia", label: "Reportes y Asistencia", icon: FileText },
+    { id: "Reporte de Intentos Incorrectos", label: "Intentos Incorrectos", icon: XCircle },
     { id: "Incidencias", label: "Incidencias", icon: AlertTriangle, esIncidencia: true },
-    { id: "Historial de Auditoría", label: "Historial de Auditoría", icon: History },
+    { id: "Historial Inmodificable", label: "Historial Inmodificable", icon: History },
+    { id: "Enrolamientos Faciales", label: "Enrolamientos Faciales", icon: ScanFace },
+    { id: "Auditoría Facial", label: "Auditoría Facial", icon: AlertTriangle },
 ];
 
 export default function AdminSidebar({ activeMenu, setActiveMenu }) {
-    const navigate = useNavigate();
     const [totalAbiertas, setTotalAbiertas] = useState(0);
 
     useEffect(() => {
@@ -30,7 +30,7 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
                 if (!cancel && res && typeof res.total === "number") {
                     setTotalAbiertas(res.total);
                 }
-            } catch (err) {
+            } catch {
                 // Silencioso si aún no hay conexión
             }
         }
@@ -43,11 +43,6 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
         };
     }, [activeMenu]);
 
-    const fnCerrarSesion = () => {
-        cerrarSesion();
-        navigate("/login", { replace: true });
-    };
-
     return (
         <div className="w-full h-full bg-primary-navy text-bg-card p-4 flex flex-col justify-between shrink-0 border-r border-border/20">
             <div className="space-y-2">
@@ -59,12 +54,15 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
 
                 {baseMenuItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = activeMenu === item.id;
+                    // Compatible con "Historial Inmodificable" y "Historial de Auditoría"
+                    const isActive = activeMenu === item.id ||
+                        (item.id === "Historial Inmodificable" && activeMenu === "Historial de Auditoría");
                     const badgeValor = item.esIncidencia ? (totalAbiertas > 0 ? totalAbiertas : null) : item.badge;
 
                     return (
                         <button
                             key={item.id}
+                            type="button"
                             onClick={() => setActiveMenu && setActiveMenu(item.id)}
                             className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-secondary font-bold transition-all cursor-pointer ${isActive
                                 ? "bg-gradient-to-r from-primary-blue to-primary-navy text-bg-card shadow-md border border-bg-card/20"
@@ -76,9 +74,8 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
                                 <span>{item.label}</span>
                             </div>
                             {badgeValor !== null && badgeValor !== undefined && (
-                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                    isActive ? "bg-white text-rose-600" : "bg-rose-500 text-white"
-                                }`}>
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isActive ? "bg-white text-rose-600" : "bg-rose-500 text-white"
+                                    }`}>
                                     {badgeValor}
                                 </span>
                             )}

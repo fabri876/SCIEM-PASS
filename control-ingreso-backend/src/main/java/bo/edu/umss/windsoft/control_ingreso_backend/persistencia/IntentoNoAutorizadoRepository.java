@@ -15,4 +15,9 @@ public interface IntentoNoAutorizadoRepository extends JpaRepository<IntentoNoAu
     List<IntentoNoAutorizado> findByIdAsignaturaAndIdExamenAndMotivoOrderByHoraIntentoDesc(Integer idAsignatura,
                                                                                           Integer idExamen,
                                                                                           MotivoIntento motivo);
+
+    List<IntentoNoAutorizado> findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIntentoDesc(
+            Integer idAsignatura, Integer idExamen, Integer idAmbiente);
+    List<IntentoNoAutorizado> findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteAndIdUsuarioRegistraOrderByHoraIntentoDesc(
+            Integer idAsignatura, Integer idExamen, Integer idAmbiente, Integer idUsuarioRegistra);
 }
