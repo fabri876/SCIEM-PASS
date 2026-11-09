@@ -1,5 +1,6 @@
 import { db } from './db.js';
 import { asistenciaRepo } from './asistenciaRepo.js';
+import { incidenciaRepo } from './incidenciaRepo.js';
 import { syncLogRepo } from './syncLogRepo.js';
 import { configRepo } from './configRepo.js';
 import { obtenerDeviceId } from './deviceId.js';
@@ -9,6 +10,10 @@ import { strApiBaseUrl } from '../services/apiConfig.js';
 import { obtenerToken } from '../services/authService.js';
 
 export const URL_BATCH_SYNC = '/api/v1/asistencias/batch-sync';
+// El registro de incidencias es idempotente por `claveSolicitud` y acepta la
+// evidencia en la misma petición multipart, por eso la sincronización offline
+// reutiliza el endpoint de registro online.
+export const URL_INCIDENCIAS = '/api/incidencias';
 
 // Estados devueltos por el backend en batch-sync que NO deben reintentarse
 // (datos invalidos o peticion no autorizada: reintentar no cambiaria el resultado).
@@ -66,7 +71,12 @@ export function construirPayload({ batchId, deviceId, items }) {
       clockOffsetMs: item.clockOffsetMs || 0,
       rol: item.rol,
       verificacionVisual: Boolean(item.verificacionVisual),
-      qrToken: item.qrToken || null
+      qrToken: item.qrToken || null,
+      // Scores del facial aprobado offline (null si el ingreso fue sin facial).
+      scoreFacial: item.scoreFacial ?? null,
+      livenessScore: item.livenessScore ?? null,
+      modelVersion: item.modelVersion || null,
+      deviceId: item.deviceId || null
     }))
   };
 }
@@ -535,3 +545,201 @@ export async function sincronizarPendientes({
     };
   });
 }
+
+/** Tiempo máximo para subir una incidencia (con foto puede tardar más). */
+const TIMEOUT_ENVIO_INCIDENCIA_MS = 60000;
+
+/** Códigos HTTP que no cambian al reintentar: se marcan como ERROR definitivo. */
+const ESTADOS_HTTP_NO_REINTENTABLES = new Set([400, 404, 409, 413, 415, 422]);
+
+/**
+ * Envía una incidencia pendiente al backend con multipart/form-data.
+ *
+ * Se usa el mismo endpoint que el registro online (`POST /api/incidencias`)
+ * porque ya es idempotente por `claveSolicitud` y acepta la foto de evidencia
+ * en la misma petición. Así la evidencia guardada en IndexedDB se envía junto
+ * con la incidencia, sin necesidad de un segundo paso.
+ */
+async function enviarIncidenciaOffline(item) {
+  const formData = new FormData();
+  formData.append('claveSolicitud', item.clientUuid);
+  formData.append('idAmbiente', String(item.idAmbiente));
+  formData.append('tipo', item.tipo);
+  formData.append('severidad', item.severidad);
+  formData.append('descripcion', item.descripcion);
+  formData.append('retirarEstudiante', String(Boolean(item.retirarEstudiante)));
+
+  if (item.codSisEstudiante) {
+    formData.append('codSisEstudiante', String(item.codSisEstudiante));
+  }
+
+  if (item.evidenciaBlob) {
+    const nombre = item.evidenciaNombre || `evidencia-${item.clientUuid}.jpg`;
+    formData.append('evidencia', item.evidenciaBlob, nombre);
+  }
+
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const temporizador = controller ? setTimeout(() => controller.abort(), TIMEOUT_ENVIO_INCIDENCIA_MS) : null;
+  const token = obtenerToken();
+
+  try {
+    return await fetch(`${strApiBaseUrl}${URL_INCIDENCIAS}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+  } finally {
+    if (temporizador) clearTimeout(temporizador);
+  }
+}
+
+/** Sincroniza incidencias offline (con su evidencia, si la tienen). */
+export async function sincronizarIncidenciasPendientes({ tamanoLote = 50 } = {}) {
+  let procesados = 0;
+  let duplicados = 0;
+  let errores = 0;
+
+  while (true) {
+    const lote = await incidenciaRepo.pendientes(Math.max(1, tamanoLote));
+    if (lote.length === 0) break;
+
+    for (const item of lote) {
+      await incidenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.SYNCING);
+    }
+
+    const batchId = generarUuid();
+    let falloRed = null;
+    let falloAuth = false;
+    let procesadosLote = 0;
+    let erroresLote = 0;
+
+    for (const item of lote) {
+      // Sesión expirada: la cola espera sin consumir reintentos.
+      if (falloAuth) {
+        await incidenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.PENDIENTE, {
+          nextRetryAt: 0,
+          ultimoError: 'SESION_EXPIRADA',
+        });
+        continue;
+      }
+
+      // Tras un fallo de red no se insiste con el resto del lote: se
+      // reprograma con backoff para no bloquear el ciclo de sincronización.
+      if (falloRed) {
+        const intentos = (item.intentos || 0) + 1;
+        await incidenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.PENDIENTE, {
+          intentos,
+          nextRetryAt: Date.now() + calcularBackoffMs(intentos),
+          ultimoError: falloRed.message || 'FALLO_CONEXION',
+        });
+        errores++;
+        erroresLote++;
+        continue;
+      }
+
+      try {
+        const response = await enviarIncidenciaOffline(item);
+
+        if (response.status === 401) {
+          const error = new Error('Sesión expirada o no autorizada (401)');
+          error.status = 401;
+          throw error;
+        }
+
+        if (!response.ok) {
+          const cuerpo = await response.json().catch(() => null);
+          const error = new Error(
+            cuerpo?.mensaje || cuerpo?.error || `Error ${response.status} al sincronizar la incidencia.`
+          );
+          error.status = response.status;
+          throw error;
+        }
+
+        const resultado = await response.json().catch(() => null);
+
+        // La evidencia ya viajó en esta petición: se borra el blob local para
+        // liberar espacio (el archivo queda en Cloudinary).
+        const extras = {
+          sincronizadoEn: Date.now(),
+          idIncidencia: resultado?.idIncidencia || null,
+          ultimoError: null,
+        };
+        if (item.evidenciaBlob) {
+          extras.evidenciaBlob = null;
+          extras.evidenciaSincronizada = true;
+        }
+
+        await incidenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.SINCRONIZADO, extras);
+
+        const expulsiones = await incidenciaRepo.expulsionesPendientesDe(item.clientUuid);
+        for (const expulsion of expulsiones) {
+          await incidenciaRepo.marcarEstadoExpulsion(expulsion.clientUuid, ESTADO_SYNC.SINCRONIZADO, {
+            sincronizadoEn: Date.now(),
+            idIncidencia: resultado?.idIncidencia || null,
+          });
+        }
+
+        procesados++;
+        procesadosLote++;
+      } catch (error) {
+        errores++;
+        erroresLote++;
+
+        if (error.status === 401) {
+          falloAuth = true;
+          await incidenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.PENDIENTE, {
+            nextRetryAt: 0,
+            ultimoError: error.message,
+          });
+          continue;
+        }
+
+        const intentos = (item.intentos || 0) + 1;
+        const reintentable = !ESTADOS_HTTP_NO_REINTENTABLES.has(error.status);
+
+        if (!reintentable) {
+          // Error de negocio (validación, sin permiso, etc.): reintentar no
+          // cambiaría el resultado. Se descarta la foto para no ocupar espacio.
+          const extras = {
+            intentos,
+            nextRetryAt: 0,
+            ultimoError: error.message || 'ERROR_VALIDACION',
+          };
+          if (item.evidenciaBlob) {
+            extras.evidenciaBlob = null;
+            extras.evidenciaError = error.message || 'ERROR_VALIDACION';
+          }
+          await incidenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.ERROR, extras);
+          continue;
+        }
+
+        // Sin red, timeout o 5xx: se reintenta más tarde.
+        falloRed = error;
+        await incidenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.PENDIENTE, {
+          intentos,
+          nextRetryAt: Date.now() + calcularBackoffMs(intentos),
+          ultimoError: error.message || 'FALLO_CONEXION',
+        });
+      }
+    }
+
+    await syncLogRepo.registrarLog({
+      batchId,
+      total: lote.length,
+      exitosos: procesadosLote,
+      duplicados: 0,
+      fallidos: erroresLote,
+      mensaje: '[incidencias] Lote sincronizado',
+    });
+
+    if (falloAuth) {
+      notificar({ estado: 'auth', pendientesRestantes: await incidenciaRepo.contarPendientes() });
+      break;
+    }
+    if (falloRed) break;
+  }
+
+  return { procesados, duplicados, errores, pendientesRestantes: await incidenciaRepo.contarPendientes() };
+}
+
