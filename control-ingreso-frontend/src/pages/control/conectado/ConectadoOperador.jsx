@@ -21,6 +21,7 @@ import TarjetaHoyAyudante from "../inicio/TarjetaHoyAyudante";
 import CalendarioExamenes from "../../credencial/componentes/CalendarioExamenes";
 import ProximoExamenDocente from "../../docente/components/ProximoExamenDocente";
 import { estadoAyudante, esHoyAyudante, ordenarExamenes, textoAula } from "../utilidadesAyudante";
+import ModalIngresoExcepcional from "../../../components/incidencias/ModalIngresoExcepcional";
 
 function fechaDeHoy() {
   const str = new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" });
@@ -35,6 +36,7 @@ export default function ConectadoOperador() {
   const { estadoRed } = useOperador();
   const strNombre = (obtenerUsuarioActual()?.nombre || "").split(" ")[0];
   const [boolMiListaAbierta, setBoolMiListaAbierta] = useState(false);
+  const [excepcionFacial, setExcepcionFacial] = useState(null);
   const fnCerrarMiLista = useCallback(() => setBoolMiListaAbierta(false), []);
   const boolSinRed = estadoRed.net === "offline" || Boolean(ctrl.boolOffline);
   const listUltimosLocales = useUltimosLocales(ctrl.examenActual?.idexamen, ctrl.idExamen != null && boolSinRed, ctrl.numVersion, estadoRed.pend);
@@ -86,6 +88,7 @@ export default function ConectadoOperador() {
         <SeccionControlIngreso
           ctrl={boolSinRed ? { ...ctrl, listUltimos: listUltimosLocales } : ctrl}
           strRol="operador"
+          onExcepcional={(detalle) => setExcepcionFacial(detalle)}
           nodoAcciones={
             <button
               type="button"
@@ -105,6 +108,26 @@ export default function ConectadoOperador() {
           numPendientes={estadoRed.pend}
           strUltimoRegistrado={ctrl.strUltimoRegistrado}
           strNominaDescargadaEn={ctrl.objNomina?.descargadaEn}
+        />
+        <ModalIngresoExcepcional
+          boolAbierto={Boolean(excepcionFacial)}
+          onCerrar={() => {
+            setExcepcionFacial(null);
+            ctrl.fnLimpiarIdentificacion();
+          }}
+          aulasDisponibles={ctrl.examenActual?.idambiente ? [{
+            idAmbiente: ctrl.examenActual.idambiente,
+            idAsignatura: ctrl.examenActual.idasignatura,
+            idExamen: ctrl.examenActual.idexamen,
+            aula: ctrl.examenActual.aula || "Aula asignada"
+          }] : []}
+          idAmbienteBloqueado={excepcionFacial?.idAmbiente}
+          estudiantePreseleccionado={excepcionFacial?.estudiante}
+          motivoPreseleccionado={excepcionFacial?.motivo}
+          // El operador solo autoriza motivos faciales.
+          boolSoloFacial
+          observacionSugerida={excepcionFacial?.motivo === "FALLO_FACIAL" ? "Se agotaron tres intentos de verificación facial." : "El estudiante no cuenta con enrolamiento facial activo."}
+          onExito={(respuesta) => ctrl.fnFinalizarExcepcional(respuesta)}
         />
       </div>
     );

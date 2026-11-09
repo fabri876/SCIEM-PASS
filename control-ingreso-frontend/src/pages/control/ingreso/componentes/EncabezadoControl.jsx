@@ -27,7 +27,7 @@ function BannerOffline({ net, pend }) {
   if (net === "online") return null;
   return (
     <div className="w-full bg-[#FEF2F2]/80 border border-[#FEE2E2] rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 max-md:items-start">
         <span className="w-10 h-10 rounded-2xl bg-[#B91C1C] text-white flex items-center justify-center shrink-0">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -84,7 +84,7 @@ function SyncProgress({ net, pend, syncTotal, lote, enviados }) {
         <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
           <div className="h-full rounded-full bg-[#4A97D3] transition-all duration-500" style={{ width: ancho + "%" }}></div>
         </div>
-        <span className="text-[11px] font-bold text-slate-500 w-44 text-right shrink-0">{etiqueta}</span>
+        <span className="text-[11px] font-bold text-slate-500 w-44 text-right shrink-0 max-md:w-auto max-md:text-left">{etiqueta}</span>
       </div>
     </div>
   );

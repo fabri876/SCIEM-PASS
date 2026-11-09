@@ -20,6 +20,12 @@ public record BatchSyncRequestDTO(
             Long clockOffsetMs,
             String rol,
             Boolean verificacionVisual,
-            String qrToken
+            String qrToken,
+            // Scores de la verificación facial realizada offline. Nulos cuando el
+            // registro se hizo sin facial (sin enrolamiento o fallo del paquete).
+            Double scoreFacial,
+            Double livenessScore,
+            String modelVersion,
+            String deviceId
     ) {}
 }
