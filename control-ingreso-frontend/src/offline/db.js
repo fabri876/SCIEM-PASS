@@ -29,6 +29,14 @@ db.version(2).stores({
   asignacionesOperadores: '[idExamen+idAmbiente+idUsuario], idExamen, idUsuario',
 });
 
+// v5: colas offline de incidencias y expulsiones.
+// Se declara una version nueva (no se toca la v2) para que los dispositivos que
+// ya tienen la base creada reciban las tablas mediante una migracion real.
+db.version(5).stores({
+  incidencias_pendientes: 'clientUuid, [syncStatus+nextRetryAt], idAmbiente, syncStatus',
+  expulsiones_pendientes: 'clientUuid, incidenciaClientUuid, syncStatus',
+});
+
 if (import.meta.env.DEV) {
   window.__sciem_db = db;
 }

@@ -1,7 +1,8 @@
 import { db } from './db.js';
 import { asistenciaRepo } from './asistenciaRepo.js';
+import { incidenciaRepo } from './incidenciaRepo.js';
 import { solicitarPersistencia } from './almacenamiento.js';
-import { sincronizarPendientes, iniciarSync, suscribirSync } from './syncQueueService.js';
+import { sincronizarPendientes, sincronizarIncidenciasPendientes, iniciarSync, suscribirSync } from './syncQueueService.js';
 import {
   iniciarConectividad,
   detenerConectividad,
@@ -34,6 +35,7 @@ let temporizadorIntervalo = null;
 let debounceMarcaTimer = null;
 let temporizadorJitterRecuperacion = null;
 let fnHookCreating = null;
+let fnHookCreatingIncidencias = null;
 let desuscribirConectividad = null;
 let desuscribirSyncEventos = null;
 
@@ -101,6 +103,16 @@ async function dispararSincronizacion(motivo) {
       origen: 'automatico'
     });
 
+    // Cola de incidencias/expulsiones: comparte el mismo ciclo y la misma
+    // politica de pausa (401) y backoff que las asistencias.
+    if (!res?.omitido && !res?.pausadaPorAuth) {
+      try {
+        await sincronizarIncidenciasPendientes({ tamanoLote: tamano });
+      } catch (errIncidencias) {
+        console.warn('[syncScheduler] Error en sincronizacion de incidencias:', errIncidencias);
+      }
+    }
+
     if (!res?.omitido) {
       ultimaSync = Date.now();
       ultimoResultado = res;
@@ -154,6 +166,13 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
     };
   }
 
+  // Incidencias/expulsiones pendientes en el mismo envio manual.
+  try {
+    await sincronizarIncidenciasPendientes({ tamanoLote: loteSize });
+  } catch (errIncidencias) {
+    console.warn('[syncScheduler] Error en sincronizacion manual de incidencias:', errIncidencias);
+  }
+
   ultimaSync = Date.now();
   ultimoResultado = res;
 
@@ -182,12 +201,15 @@ function programarCicloPeriodico() {
     const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
 
     if (visible && !pausadoPorAuth && !(typeof navigator !== 'undefined' && navigator.onLine === false)) {
-      const pendientes = await asistenciaRepo.pendientes(1);
+      const [pendientes, incidenciasPendientes] = await Promise.all([
+        asistenciaRepo.pendientes(1),
+        incidenciaRepo.pendientes(1)
+      ]);
 
       // Comprobar de nuevo tras el await
       if (!activo || generacion !== genAlProgramar) return;
 
-      if (pendientes.length > 0) {
+      if (pendientes.length > 0 || incidenciasPendientes.length > 0) {
         await dispararSincronizacion('intervalo_periodico');
       }
     }
@@ -258,6 +280,8 @@ export async function iniciarSincronizacionAutomatica({
     // 1. Revertir huerfanos
     try {
       await iniciarSync();
+      // Marcas de incidencias que quedaron en 'syncing' por un cierre brusco.
+      await incidenciaRepo.revertirSyncingHuerfanos();
     } catch (err) {
       console.warn('[syncScheduler] Error en iniciarSync:', err);
     }
@@ -306,8 +330,16 @@ export async function iniciarSincronizacionAutomatica({
         dispararSincronizacion('marca_creada').catch(() => {});
       }, configActual.esperaTrasMarcaMs);
     };
+    // Una incidencia encolada dispara el mismo ciclo (sin esperar al intervalo).
+    fnHookCreatingIncidencias = function () {
+      if (debounceMarcaTimer) clearTimeout(debounceMarcaTimer);
+      debounceMarcaTimer = setTimeout(() => {
+        dispararSincronizacion('incidencia_creada').catch(() => {});
+      }, configActual.esperaTrasMarcaMs);
+    };
     try {
       db.asistencias_pendientes.hook('creating', fnHookCreating);
+      db.incidencias_pendientes.hook('creating', fnHookCreatingIncidencias);
     } catch (err) {
       console.warn('[syncScheduler] Error al registrar hook creating:', err);
     }
@@ -357,8 +389,8 @@ export async function iniciarSincronizacionAutomatica({
     // 11. Intento inicial si hay red y pendientes
     const connInicial = obtenerEstadoConexion();
     if (connInicial.estado === 'online' || connInicial.estado === 'degraded') {
-      asistenciaRepo.pendientes(1).then((pendientes) => {
-        if (pendientes.length > 0) {
+      Promise.all([asistenciaRepo.pendientes(1), incidenciaRepo.pendientes(1)]).then(([pendientes, incidenciasPendientes]) => {
+        if (pendientes.length > 0 || incidenciasPendientes.length > 0) {
           dispararSincronizacion('arranque_con_pendientes').catch(() => {});
         }
       }).catch(() => {});
@@ -424,6 +456,15 @@ export function detenerSincronizacionAutomatica() {
     }
   } catch (e) {
     console.warn('[syncScheduler] Error al desuscribir hook creating:', e);
+  }
+
+  try {
+    if (fnHookCreatingIncidencias && typeof db.incidencias_pendientes?.hook === 'function') {
+      db.incidencias_pendientes.hook('creating').unsubscribe(fnHookCreatingIncidencias);
+      fnHookCreatingIncidencias = null;
+    }
+  } catch (e) {
+    console.warn('[syncScheduler] Error al desuscribir hook de incidencias:', e);
   }
 
   try {
