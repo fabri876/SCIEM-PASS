@@ -35,3 +35,6 @@ build/
 ### Configuración local (contraseñas, no se sube al repositorio) ###
 application-local.yaml
 
+### Archivos biométricos generados en tiempo de ejecución (no se suben) ###
+control-ingreso-backend/storage/
+

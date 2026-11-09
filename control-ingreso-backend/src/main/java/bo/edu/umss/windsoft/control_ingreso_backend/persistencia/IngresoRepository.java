@@ -4,6 +4,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -20,6 +21,12 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Integer> {
 
     Optional<Ingreso> findByClientUuid(String clientUuid);
 
+    @Modifying
+    @Query("UPDATE Ingreso i SET i.auditFlag = true WHERE i.idIngreso = :idIngreso")
+    int marcarAuditoria(@Param("idIngreso") Integer idIngreso);
+
+    List<Ingreso> findByAuditFlagTrueOrderBySincronizadoEnDescHoraIngresoDesc();
+
     /** HU10: todos los ingresos de un examen, incluidos los retirados (lista del aula). */
     List<Ingreso> findByIdAsignaturaAndIdExamen(Integer idAsignatura, Integer idExamen);
 
@@ -34,6 +41,10 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Integer> {
     long countByIdAsignaturaAndIdExamenAndIdExpulsionIsNull(Integer idAsignatura, Integer idExamen);
 
     List<Ingreso> findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByIdIngresoDesc(Integer idAsignatura, Integer idExamen, Integer idAmbiente);
+    List<Ingreso> findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIngresoDesc(Integer idAsignatura, Integer idExamen, Integer idAmbiente);
+
+    List<Ingreso> findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteAndIdUsuarioRegistraOrderByHoraIngresoDesc(
+            Integer idAsignatura, Integer idExamen, Integer idAmbiente, Integer idUsuarioRegistra);
 
     List<Ingreso> findByIdUsuarioRegistraOrderByHoraIngresoDesc(Integer idUsuarioRegistra);
 

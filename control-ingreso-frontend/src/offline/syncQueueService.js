@@ -1,5 +1,6 @@
 import { db } from './db.js';
 import { asistenciaRepo } from './asistenciaRepo.js';
+import { incidenciaRepo } from './incidenciaRepo.js';
 import { syncLogRepo } from './syncLogRepo.js';
 import { configRepo } from './configRepo.js';
 import { obtenerDeviceId } from './deviceId.js';
@@ -9,6 +10,7 @@ import { strApiBaseUrl } from '../services/apiConfig.js';
 import { obtenerToken } from '../services/authService.js';
 
 export const URL_BATCH_SYNC = '/api/v1/asistencias/batch-sync';
+export const URL_BATCH_SYNC_INCIDENCIAS = '/api/sync/incidencias';
 
 // Estados devueltos por el backend en batch-sync que NO deben reintentarse
 // (datos invalidos o peticion no autorizada: reintentar no cambiaria el resultado).
@@ -66,7 +68,12 @@ export function construirPayload({ batchId, deviceId, items }) {
       clockOffsetMs: item.clockOffsetMs || 0,
       rol: item.rol,
       verificacionVisual: Boolean(item.verificacionVisual),
-      qrToken: item.qrToken || null
+      qrToken: item.qrToken || null,
+      // Scores del facial aprobado offline (null si el ingreso fue sin facial).
+      scoreFacial: item.scoreFacial ?? null,
+      livenessScore: item.livenessScore ?? null,
+      modelVersion: item.modelVersion || null,
+      deviceId: item.deviceId || null
     }))
   };
 }
@@ -534,4 +541,111 @@ export async function sincronizarPendientes({
       omitido: false
     };
   });
+}
+
+/** Sincroniza incidencias offline; una expulsión vinculada se confirma después de su incidencia. */
+export async function sincronizarIncidenciasPendientes({ tamanoLote = 50 } = {}) {
+  const deviceId = await obtenerDeviceId();
+  let procesados = 0;
+  let duplicados = 0;
+  let errores = 0;
+
+  while (true) {
+    const lote = await incidenciaRepo.pendientes(Math.max(1, tamanoLote));
+    if (lote.length === 0) break;
+
+    for (const item of lote) {
+      await incidenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.SYNCING);
+    }
+
+    const batchId = generarUuid();
+    const payload = {
+      batchId,
+      deviceId,
+      enviadoEn: new Date().toISOString(),
+      items: lote.map((item) => ({
+        clientUuid: item.clientUuid,
+        idAmbiente: item.idAmbiente,
+        tipo: item.tipo,
+        severidad: item.severidad,
+        descripcion: item.descripcion,
+        codSisEstudiante: item.codSisEstudiante || null,
+        retirarEstudiante: Boolean(item.retirarEstudiante),
+        registradoEn: item.registradoEn,
+      })),
+    };
+
+    let respuesta;
+    try {
+      const token = obtenerToken();
+      const response = await fetch(`${strApiBaseUrl}${URL_BATCH_SYNC_INCIDENCIAS}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': batchId,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const error = new Error(`Error ${response.status} al sincronizar incidencias.`);
+        error.status = response.status;
+        throw error;
+      }
+      respuesta = await response.json();
+    } catch (error) {
+      for (const item of lote) {
+        const intentos = (item.intentos || 0) + 1;
+        await incidenciaRepo.marcarEstado(item.clientUuid, ESTADO_SYNC.PENDIENTE, {
+          intentos,
+          nextRetryAt: error.status === 401 ? 0 : Date.now() + calcularBackoffMs(intentos),
+          ultimoError: error.message || 'FALLO_CONEXION',
+        });
+      }
+      if (error.status === 401) notificar({ estado: 'auth', pendientesRestantes: await incidenciaRepo.contarPendientes() });
+      throw error;
+    }
+
+    const resultados = new Map((respuesta?.items || []).map((resultado) => [resultado.clientUuid, resultado]));
+    for (const item of lote) {
+      const resultado = resultados.get(item.clientUuid);
+      const estado = resultado?.estado;
+      if (estado === STATUS_ITEM_SYNC.PROCESADO || estado === STATUS_ITEM_SYNC.DUPLICADO) {
+        const estadoLocal = estado === STATUS_ITEM_SYNC.PROCESADO ? ESTADO_SYNC.SINCRONIZADO : ESTADO_SYNC.DUPLICADO;
+        await incidenciaRepo.marcarEstado(item.clientUuid, estadoLocal, {
+          sincronizadoEn: Date.now(),
+          idIncidencia: resultado.idIncidencia || null,
+        });
+        const expulsiones = await incidenciaRepo.expulsionesPendientesDe(item.clientUuid);
+        for (const expulsion of expulsiones) {
+          await incidenciaRepo.marcarEstadoExpulsion(expulsion.clientUuid, estadoLocal, {
+            sincronizadoEn: Date.now(),
+            idIncidencia: resultado.idIncidencia || null,
+          });
+        }
+        if (estado === STATUS_ITEM_SYNC.PROCESADO) procesados++;
+        else duplicados++;
+      } else {
+        errores++;
+        const intentos = (item.intentos || 0) + 1;
+        const reintentable = estado !== 'ERROR_VALIDACION' && estado !== 'NO_AUTORIZADO';
+        await incidenciaRepo.marcarEstado(item.clientUuid, reintentable ? ESTADO_SYNC.PENDIENTE : ESTADO_SYNC.ERROR, {
+          intentos,
+          nextRetryAt: reintentable ? Date.now() + calcularBackoffMs(intentos) : 0,
+          ultimoError: resultado?.mensaje || estado || 'ITEM_NO_DEVUELTO_POR_SERVIDOR',
+        });
+      }
+    }
+
+    await syncLogRepo.registrarLog({
+      batchId,
+      total: lote.length,
+      exitosos: procesados,
+      duplicados,
+      fallidos: errores,
+      mensaje: '[incidencias] Lote sincronizado',
+    });
+  }
+
+  return { procesados, duplicados, errores, pendientesRestantes: await incidenciaRepo.contarPendientes() };
 }

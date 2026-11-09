@@ -24,6 +24,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AsignaturaRepos
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AulaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteAsignaturaRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteGrupoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HabilitacionRepository;
@@ -82,6 +83,7 @@ class IngresoExcepcionalServiceTest {
     @Mock private DocenteAsignaturaRepository docenteAsignaturaRepository;
     @Mock private AyudanteExamenRepository ayudanteExamenRepository;
     @Mock private EstudianteRepository estudianteRepository;
+    @Mock private EstudianteGrupoRepository estudianteGrupoRepository;
     @Mock private HabilitacionRepository habilitacionRepository;
     @Mock private EvidenciaService evidenciaService;
     @Mock private AuditoriaService auditoriaService;
@@ -96,7 +98,7 @@ class IngresoExcepcionalServiceTest {
         AmbienteExamenService ambientes = new AmbienteExamenService(ambienteRepository, aulaRepository,
                 asignaturaRepository, examenRepository, ingresoRepository, contexto);
         EstudianteExamenService estudiantes = new EstudianteExamenService(estudianteRepository, usuarioRepository,
-                habilitacionRepository);
+                habilitacionRepository, estudianteGrupoRepository);
         service = new IngresoExcepcionalService(ingresoRepository, usuarioRepository, ambientes, estudiantes,
                 contexto, evidenciaService, auditoriaService);
 
@@ -137,6 +139,7 @@ class IngresoExcepcionalServiceTest {
                 .thenReturn(Optional.of(usuario(ID_DOCENTE, "Ana", "Rocha Villarroel", "ana.rocha@umss.edu")));
 
         when(habilitacionRepository.findByEstudianteCodsisestudiante(CODSIS)).thenReturn(List.of());
+        when(estudianteGrupoRepository.existeInscripcionEnAsignatura(CODSIS, ID_ASIGNATURA)).thenReturn(true);
         when(ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(CODSIS, ID_ASIGNATURA, ID_EXAMEN))
                 .thenReturn(Optional.empty());
         when(ingresoRepository.obtenerCapacidadAmbiente(ID_AMBIENTE)).thenReturn(60);
@@ -167,8 +170,19 @@ class IngresoExcepcionalServiceTest {
         assertEquals("Ana Rocha Villarroel", dto.autorizadoPor());
         assertEquals("Aula 601", dto.aula());
         verify(ingresoRepository).bloquearAmbiente(ID_AMBIENTE);
-        verify(auditoriaService).registrar(eq("INGRESO_EXCEPCIONAL"), eq("ana.rocha@umss.edu"),
+        verify(auditoriaService).registrarEnTransaccion(eq("INGRESO_EXCEPCIONAL"), eq("ana.rocha@umss.edu"),
                 eq("c.ramos@est.umss.edu"), contains("NO_FIGURA_EN_LISTA"), eq("10.0.0.1"));
+    }
+
+    @Test
+    @DisplayName("Un fallo de auditoria impide confirmar el ingreso excepcional")
+    void autorizar_falloAuditoriaPropagaError() {
+        doThrow(new IllegalStateException("fallo de auditoria"))
+                .when(auditoriaService).registrarEnTransaccion(eq("INGRESO_EXCEPCIONAL"), anyString(),
+                        anyString(), anyString(), anyString());
+        assertThrows(IllegalStateException.class, () -> service.autorizar(
+                ID_AMBIENTE, CODSIS, "NO_FIGURA_EN_LISTA", OBSERVACION, null, "10.0.0.1"));
+        verify(evidenciaService).eliminarSinFallar(null);
     }
 
     @Test
@@ -280,7 +294,7 @@ class IngresoExcepcionalServiceTest {
     }
 
     @Test
-    @DisplayName("Consulta del operador: puede registrar incidencia pero nunca autorizar")
+    @DisplayName("Consulta del operador: un estudiante que no ha ingresado no se puede reportar")
     void consultar_operador() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
         AyudanteExamenId asignacion = new AyudanteExamenId(70, ID_ASIGNATURA, ID_EXAMEN, ID_AMBIENTE);
@@ -289,9 +303,20 @@ class IngresoExcepcionalServiceTest {
 
         ConsultaEstudianteDto dto = service.consultar(ID_AMBIENTE, String.valueOf(CODSIS), true, "ip");
 
-        assertEquals("NO_EN_LISTA", dto.estado());
+        assertEquals("SIN_INGRESO", dto.estado());
         assertFalse(dto.puedeAutorizarExcepcional());
-        assertTrue(dto.puedeRegistrarIncidencia());
+        assertFalse(dto.puedeRegistrarIncidencia());
+    }
+
+    @Test
+    @DisplayName("Consulta desde incidencias: un estudiante no inscrito en la materia no se puede reportar")
+    void consultar_noInscrito() {
+        when(estudianteGrupoRepository.existeInscripcionEnAsignatura(CODSIS, ID_ASIGNATURA)).thenReturn(false);
+
+        ConsultaEstudianteDto dto = service.consultar(ID_AMBIENTE, String.valueOf(CODSIS), true, "ip");
+
+        assertEquals("NO_INSCRITO", dto.estado());
+        assertFalse(dto.puedeRegistrarIncidencia());
     }
 
     @Test
