@@ -41,9 +41,28 @@ se purgan al descargar una nueva; los intentos pendientes no se borran por esa p
   auditoría del intento. Las pruebas automatizadas cubren además el rechazo de un
   destino incompleto y la revalidación del caso ambiguo por el servidor.
 - Las pruebas automatizadas del reporte incluyeron exportación CSV y vista
+<<<<<<< HEAD
   imprimible con datos ficticios, protección contra fórmulas y escape HTML; queda
   pendiente comprobar visualmente las exportaciones y el acceso de un docente
   responsable en un entorno apropiado.
+=======
+  imprimible con datos ficticios, protección contra fórmulas y escape HTML. El
+  usuario comprobó visualmente el reporte con una cuenta docente, el CSV y la
+  vista imprimible; se corrigieron la fecha, la presentación de valores ausentes
+  y la legibilidad. Los criterios de aceptación requieren mostrar el estado posterior
+  cuando exista, también en el PDF. La migración
+  `PROPUESTA_hu13_vincular_reubicacion_intento.sql` fue aplicada en Supabase y se
+  verificaron en lectura columna, índice y clave foránea; no repetirla. El backend
+  vincula las nuevas reubicaciones con su intento, sin inferir estados históricos.
+  Su prueba integrada y el despliegue coordinado siguen pendientes; los demás estados
+  necesitan fuentes y asociaciones fiables.
+  Queda pendiente validar el recorrido completo
+  de un intento controlado hasta el reporte en un entorno compartido autorizado.
+- Los filtros de asignatura y examen usan un catálogo separado de los resultados,
+  para permitir consultar exámenes sin intentos y conservar opciones al filtrar.
+  El servidor limita el catálogo docente a los exámenes a su cargo. Las pruebas
+  unitarias de autorización pasaron; falta la validación visual con ambos roles.
+>>>>>>> 1bcdb43bd24caf216470ed4768dbb1117a3ea9fe
 - Se comprobó la denegación de acceso sin sesión, de operadores sin asignación y
   de docentes no responsables, y el acceso del operador asignado a su control.
 - Las 30 pruebas seleccionadas de control, sincronización, auditoría y reporte

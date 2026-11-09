@@ -50,6 +50,9 @@ const BOTON_SECUNDARIO = BOTON + " bg-white border border-[#CBD5E1] hover:bg-sla
 function TarjetaControlDocente({ examen, objAsig, dateAhora, onAsignarOperadores, onVerIngresos }) {
   const navigate = useNavigate();
   const nomina = useNominaLocal(examen.idExamen);
+  const [idAmbienteControl, setIdAmbienteControl] = useState("");
+  const ambientes = (examen.ambientes || []).filter((a) => a.idAmbiente != null || a.idambiente != null);
+  const ambienteControl = ambientes.find((a) => String(a.idAmbiente ?? a.idambiente) === idAmbienteControl);
 
   const strEstado = estadoExamen(examen, dateAhora);
   const boolEnCurso = strEstado === "EN_CURSO";
@@ -119,13 +122,34 @@ function TarjetaControlDocente({ examen, objAsig, dateAhora, onAsignarOperadores
       {/* Botones apilados */}
       <div className="flex flex-col gap-2 w-48 max-md:w-full">
         {boolControl && (
+          <>
+          {ambientes.length > 1 && (
+            <label className="text-xs font-bold text-[#475569]">
+              Aula de control
+              <select value={idAmbienteControl} onChange={(e) => setIdAmbienteControl(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[#CBD5E1] bg-white px-2 py-2 text-[#08264A]">
+                <option value="">Selecciona un aula</option>
+                {ambientes.map((a) => <option key={a.idAmbiente ?? a.idambiente} value={a.idAmbiente ?? a.idambiente}>
+                  {a.nombreAmbiente || a.nombreAula || `Aula ${a.idAmbiente ?? a.idambiente}`}
+                </option>)}
+              </select>
+            </label>
+          )}
           <button
             type="button"
-            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "control-ingresos", examen } })}
-            className={BOTON_PRINCIPAL}
+            onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "control-ingresos", examen: ambienteControl ? {
+              ...examen, idambiente: ambienteControl.idAmbiente ?? ambienteControl.idambiente,
+              aulaNombre: ambienteControl.nombreAmbiente || ambienteControl.nombreAula,
+              bloque: ambienteControl.ubicacionAmbiente || ambienteControl.bloque,
+              horaInicio: ambienteControl.horaInicio || examen.horaInicio,
+              horaFin: ambienteControl.horaFin || examen.horaFin,
+            } : examen } })}
+            disabled={ambientes.length > 1 && !ambienteControl}
+            className={BOTON_PRINCIPAL + " disabled:opacity-50 disabled:cursor-not-allowed"}
           >
             Registrar ingreso
           </button>
+          </>
         )}
         {boolFinalizado && (
           <button type="button" onClick={() => onVerIngresos(examen)} className={BOTON_SECUNDARIO}>
