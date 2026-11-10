@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/usuarios")
@@ -52,6 +53,14 @@ public class UsuarioAdminController {
                                                        HttpServletRequest request) {
         UsuarioRespuestaDto respuesta = usuarioService.crear(dto, correoEjecutor(), ClientIpResolver.resolver(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
+    }
+
+    @PostMapping("/primer-ingreso/migrar")
+    public ResponseEntity<Map<String, Object>> migrarClavesIniciales(HttpServletRequest request) {
+        int marcados = usuarioService.marcarCuentasConClaveInicial(correoEjecutor(), ClientIpResolver.resolver(request));
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Se identificaron " + marcados + " cuenta(s) con contraseña inicial.",
+                "marcados", marcados));
     }
 
     @PutMapping("/{id}")
