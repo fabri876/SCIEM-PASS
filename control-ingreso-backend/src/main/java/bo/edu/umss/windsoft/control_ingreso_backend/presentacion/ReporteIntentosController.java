@@ -3,6 +3,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ContextoUsuarioService;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ReporteIntentosService;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ReporteIntentoDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CatalogoReporteExamenDto;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +21,12 @@ public class ReporteIntentosController {
     private final ContextoUsuarioService contexto;
     public ReporteIntentosController(ReporteIntentosService service, ContextoUsuarioService contexto) {
         this.service = service; this.contexto = contexto;
+    }
+
+    @GetMapping("/catalogo")
+    @PreAuthorize("hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public List<CatalogoReporteExamenDto> catalogo() {
+        return service.catalogo(contexto.actual());
     }
 
     @GetMapping

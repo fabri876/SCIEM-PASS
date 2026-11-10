@@ -28,6 +28,18 @@ class ReporteIntentosServiceTest {
         verify(repo).listar(null, null, null, "AMBIENTE_DIFERENTE", null, null);
     }
 
+    @Test void catalogoRespetaRolInclusoSinIntentos() {
+        var docente = new ContextoUsuarioService.UsuarioActual(12, "docente@example.invalid", "DOCENTE");
+        var admin = new ContextoUsuarioService.UsuarioActual(1, "admin@example.invalid", "ADMINISTRADOR");
+        service.catalogo(docente);
+        service.catalogo(admin);
+        verify(repo).catalogo(12);
+        verify(repo).catalogo(null);
+        assertThrows(AccessDeniedException.class, () -> service.catalogo(
+                new ContextoUsuarioService.UsuarioActual(5, "operador@example.invalid", "OPERADOR")));
+        verifyNoMoreInteractions(repo);
+    }
+
     @Test void otrosRolesYDocenteSinIdSonRechazados() {
         assertThrows(AccessDeniedException.class, () -> service.listar(
                 new ContextoUsuarioService.UsuarioActual(1, "x", "OPERADOR"), null, null, null, null, null));

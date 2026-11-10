@@ -53,6 +53,9 @@ public class CambioAmbiente {
     @Column(name = "idusuarioautoriza")
     private Integer idUsuarioAutoriza;
 
+    @Column(name = "idintento_origen")
+    private Integer idIntentoOrigen;
+
     public CambioAmbiente() {
     }
 
@@ -73,4 +76,6 @@ public class CambioAmbiente {
     public void setFechaHoraCambio(LocalDateTime fechaHoraCambio) { this.fechaHoraCambio = fechaHoraCambio; }
     public Integer getIdUsuarioAutoriza() { return idUsuarioAutoriza; }
     public void setIdUsuarioAutoriza(Integer idUsuarioAutoriza) { this.idUsuarioAutoriza = idUsuarioAutoriza; }
+    public Integer getIdIntentoOrigen() { return idIntentoOrigen; }
+    public void setIdIntentoOrigen(Integer idIntentoOrigen) { this.idIntentoOrigen = idIntentoOrigen; }
 }
