@@ -4,6 +4,7 @@ import imgLogoUmss from "../../assets/images/logo-umss.png";
 import FormField from "../common/FormField";
 import usePasswordVisibility from "../../hooks/usePasswordVisibility";
 import { iniciarSesion, obtenerRutaPorRol } from "../../services/authService";
+import { fnGuardarEstadoPrimerIngreso } from "../../utils/primerIngreso";
 
 const objValoresInicialesForm = {
   correo: "",
@@ -42,6 +43,9 @@ export default function LoginForm() {
     setBoolIsSubmitting(true);
     try {
       const data = await iniciarSesion(objFormData);
+      // Primer ingreso: si el backend indica que debe cambiar la contraseña,
+      // se deja la marca para que el panel muestre el aviso obligatorio.
+      fnGuardarEstadoPrimerIngreso(data?.usuario);
       const strRol = data?.usuario?.rol;
       const strRutaDestino = obtenerRutaPorRol(strRol);
       navigate(strRutaDestino, { replace: true });
