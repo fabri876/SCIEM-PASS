@@ -3,6 +3,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.infraestructura;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.JwtAccessDeniedHandler;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.JwtAuthenticationEntryPoint;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.JwtAuthenticationFilter;
+import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.CambioContrasenaObligatorioFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -18,13 +19,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CambioContrasenaObligatorioFilter cambioContrasenaObligatorioFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                           CambioContrasenaObligatorioFilter cambioContrasenaObligatorioFilter,
                            JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
                            JwtAccessDeniedHandler jwtAccessDeniedHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.cambioContrasenaObligatorioFilter = cambioContrasenaObligatorioFilter;
         this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
         this.jwtAccessDeniedHandler = jwtAccessDeniedHandler;
     }
@@ -46,6 +50,7 @@ public class SecurityConfig {
                         // falla como error de CORS sin ni siquiera intentar autenticar.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/registro", "/api/auth/registro-personal").denyAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/cambiar-contrasena").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/publico/examenes/proximos", "/api/publico/examenes/cambios", "/api/publico/examenes/pasados", "/api/publico/examenes/pasados/*/pdf").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
@@ -106,7 +111,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/examenes/**").hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers("/api/usuarios/**").hasAnyRole("ADMINISTRADOR", "DOCENTE")
                         .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(cambioContrasenaObligatorioFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

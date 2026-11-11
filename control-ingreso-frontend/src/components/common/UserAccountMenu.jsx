@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import VentanaEmergente from "./VentanaEmergente";
 import CambiarContrasenaModal from "./CambiarContrasenaModal";
+import AvisoCambioContrasena from "./AvisoCambioContrasena";
+import { fnDebeCambiarContrasena, fnLimpiarPrimerIngreso } from "../../utils/primerIngreso";
 
 /**
  * Menú de cuenta compartido por los 4 paneles (admin, docente, ayudante,
@@ -10,11 +12,16 @@ import CambiarContrasenaModal from "./CambiarContrasenaModal";
  * en vez de tener esos botones sueltos en el header. Incluye el modal de
  * cambiar contraseña, así cada panel solo necesita renderizar este único
  * componente.
+ *
+ * También monta el aviso de primer ingreso: si el login dejó la marca de
+ * "debe cambiar contraseña", se muestra una ventana obligatoria al abrir
+ * el panel hasta que el usuario cambie su contraseña o cierre sesión.
  */
 export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvatar = "bg-primary-navy" }) {
   const [boolMenuAbierto, setBoolMenuAbierto] = useState(false);
   const [boolModalContrasenaAbierto, setBoolModalContrasenaAbierto] = useState(false);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
+  const [boolAvisoPendiente, setBoolAvisoPendiente] = useState(() => fnDebeCambiarContrasena());
   const refMenu = useRef(null);
 
   useEffect(() => {
@@ -27,6 +34,11 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
     document.addEventListener("mousedown", fnClickFuera);
     return () => document.removeEventListener("mousedown", fnClickFuera);
   }, [boolMenuAbierto]);
+
+  const fnContrasenaCambiada = () => {
+    fnLimpiarPrimerIngreso();
+    setBoolAvisoPendiente(false);
+  };
 
   const strNombre = usuario?.nombre || "Usuario";
   const strApellido = usuario?.apellido || "";
@@ -85,9 +97,18 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
       )}
 
       {cuentaAbierta && createPortal(<VentanaEmergente boolAbierto onCerrar={() => setCuentaAbierta(false)}><section role="dialog" aria-label="Mi Cuenta" className="p-6 space-y-4"><h2 className="font-bold text-xl">Mi Cuenta</h2><dl><dt>Nombre</dt><dd>{strNombre} {strApellido}</dd><dt>Correo</dt><dd className="break-all">{usuario?.correo}</dd><dt>Rol</dt><dd>{usuario?.rol === "OPERADOR" ? "AYUDANTE" : usuario?.rol}</dd></dl><p>Para corregir sus datos personales, contacte al administrador.</p><button type="button" onClick={() => { setCuentaAbierta(false); setBoolModalContrasenaAbierto(true); }}>Cambiar contraseña</button><button type="button" onClick={() => setCuentaAbierta(false)} className="ml-4">Cerrar</button></section></VentanaEmergente>, document.body)}
+
+      {/* El aviso se oculta mientras el modal de contraseña está abierto y vuelve si lo cancelan */}
+      <AvisoCambioContrasena
+        boolAbierto={boolAvisoPendiente && !boolModalContrasenaAbierto}
+        onCambiar={() => setBoolModalContrasenaAbierto(true)}
+        onCerrarSesion={onCerrarSesion}
+      />
+
       <CambiarContrasenaModal
         boolAbierto={boolModalContrasenaAbierto}
         onCerrar={() => setBoolModalContrasenaAbierto(false)}
+        onExito={fnContrasenaCambiada}
       />
     </div>
   );

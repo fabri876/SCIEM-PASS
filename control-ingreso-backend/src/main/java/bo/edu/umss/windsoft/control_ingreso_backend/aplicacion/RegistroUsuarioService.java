@@ -129,6 +129,7 @@ public class RegistroUsuarioService {
                 contraseniaEncriptada,
                 true
         );
+        usuario.setDebeCambiarContrasena(ciNormalizado.equals(rawPassword));
         Usuario usuarioGuardado = usuarioRepository.save(usuario);
         Integer idUsuarioGenerado = usuarioGuardado.getIdusuario();
 
