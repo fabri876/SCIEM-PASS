@@ -40,7 +40,8 @@ public class CargaMasivaJdbcRepository {
             int sis = alta.codigoSis() == null ? u.getIdusuario() : alta.codigoSis();
             usuarios.add(new Object[]{u.getIdusuario(), u.getCiusuario(), u.getNombreusuario(),
                     u.getApellidousuario(), u.getTelefonousuario(), u.getCorreousuario(),
-                    u.getContraseniausuario(), u.getEstadousuario(), u.getIntentosFallidos()});
+                    u.getContraseniausuario(), u.getEstadousuario(), u.getIntentosFallidos(),
+                    u.getDebeCambiarContrasena()});
             String sql = switch (alta.rol()) {
                 case "ADMINISTRADOR" -> "INSERT INTO admin (idusuario) VALUES (?)";
                 case "DOCENTE" -> "INSERT INTO docente (idusuario, codsisdocente) VALUES (?, ?)";
@@ -61,7 +62,7 @@ public class CargaMasivaJdbcRepository {
             }
         }
         batch("INSERT INTO usuario (idusuario, ciusuario, nombreusuario, apellidousuario, telefonousuario, "
-                + "correousuario, contraseniausuario, estadousuario, intentos_fallidos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", usuarios);
+                + "correousuario, contraseniausuario, estadousuario, intentos_fallidos, debe_cambiar_contrasena) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", usuarios);
         roles.forEach(this::batch);
         batch("INSERT INTO docenteasignatura (idusuario, codsisdocente, idasignatura) "
                 + "SELECT ?, ?, g.idasignatura FROM grupo g WHERE g.idgrupo=? ON CONFLICT DO NOTHING", docentes);

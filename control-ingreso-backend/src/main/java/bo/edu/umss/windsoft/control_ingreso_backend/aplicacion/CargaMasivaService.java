@@ -351,6 +351,7 @@ public class CargaMasivaService {
                 // Registrar usuario con contraseña inicial = CI
                 String contrasenaHasheada = passwordEncoder.encode(ci);
                 Usuario nuevo = new Usuario(ci, nombre, apellido, fila.telefono, correo, contrasenaHasheada, true);
+                nuevo.setDebeCambiarContrasena(true);
                 altasPendientes.put(ci, new AltaUsuarioLote(nuevo, rolFila, codSis, gruposResueltos));
                 if (TipoUsuarioResolver.DOCENTE.equals(rolFila)) {
                     docentesPorCi.put(ci, Optional.of(nuevo));
