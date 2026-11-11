@@ -1,31 +1,44 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import VentanaEmergente from "./VentanaEmergente";
 import FormField from "./FormField";
+import IndicadorSeguridadContrasena from "./IndicadorSeguridadContrasena";
 import usePasswordVisibility from "../../hooks/usePasswordVisibility";
 import { cambiarContrasena } from "../../services/usuarioService";
+import { fnEvaluarContrasena } from "../../utils/passwordStrength";
 
 const VALORES_INICIALES = { contrasenaActual: "", contrasenaNueva: "", confirmarContrasena: "" };
+
+// Tiempo que se deja visible el mensaje de éxito antes de cerrar el modal solo.
+const INT_MS_CIERRE_AUTOMATICO = 1500;
 
 /**
  * Modal de "Cambiar contraseña", compartido por los 4 paneles (admin,
  * docente, ayudante, estudiante) — pide la contraseña actual + la nueva 2
- * veces, y llama a POST /api/auth/cambiar-contrasena (ya validado en el
- * backend: la actual debe coincidir, la nueva debe tener al menos 8
- * caracteres, ver CambiarContrasenaDto/AuthService.cambiarContrasena).
+ * veces, y llama a POST /api/auth/cambiar-contrasena.
+ * La nueva contraseña debe alcanzar el nivel 8 del medidor de seguridad
+ * (ver utils/passwordStrength.js) para poder guardarse.
+ * "onExito" (opcional) se llama cuando el cambio se guardó correctamente;
+ * lo usa el aviso de primer ingreso para dejar de mostrarse.
+ * Tras el éxito, el modal se cierra solo después de un momento.
  */
-export default function CambiarContrasenaModal({ boolAbierto, onCerrar }) {
+export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito }) {
   const [objFormData, setObjFormData] = useState(VALORES_INICIALES);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strError, setStrError] = useState("");
   const [strExito, setStrExito] = useState("");
+  const refTemporizadorCierre = useRef(null);
 
   const { boolShowPassword, fnToggleShowPassword, strInputType } = usePasswordVisibility();
+
+  const objEvaluacion = fnEvaluarContrasena(objFormData.contrasenaNueva, objFormData.contrasenaActual);
 
   useEffect(() => {
     if (!boolAbierto) return;
     setObjFormData(VALORES_INICIALES);
     setStrError("");
     setStrExito("");
+    // Si el modal se cierra antes (Cancelar) o se desmonta, se cancela el cierre automático
+    return () => clearTimeout(refTemporizadorCierre.current);
   }, [boolAbierto]);
 
   const fnActualizarCampo = (strCampo) => (e) => {
@@ -37,20 +50,22 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar }) {
     setStrError("");
     setStrExito("");
 
-    if (objFormData.contrasenaNueva !== objFormData.confirmarContrasena) {
-      setStrError("La confirmación no coincide con la nueva contraseña.");
+    if (!objEvaluacion.boolValida) {
+      setStrError("Tu nueva contraseña debe llegar al nivel 8 (Segura) para poder guardarla.");
       return;
     }
-    if (objFormData.contrasenaNueva.length < 8) {
-      setStrError("La nueva contraseña debe tener al menos 8 caracteres.");
+    if (objFormData.contrasenaNueva !== objFormData.confirmarContrasena) {
+      setStrError("La confirmación no coincide con la nueva contraseña.");
       return;
     }
 
     setBoolIsSubmitting(true);
     try {
       await cambiarContrasena(objFormData.contrasenaActual, objFormData.contrasenaNueva);
-      setStrExito("Contraseña actualizada exitosamente.");
+      setStrExito("Contraseña actualizada exitosamente. Esta ventana se cerrará sola.");
       setObjFormData(VALORES_INICIALES);
+      if (onExito) onExito();
+      refTemporizadorCierre.current = setTimeout(onCerrar, INT_MS_CIERRE_AUTOMATICO);
     } catch (error) {
       setStrError(error.message);
     } finally {
@@ -63,7 +78,7 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar }) {
       <div className="p-6">
         <h2 className="text-base font-black text-[#1A365D] mb-1">Cambiar contraseña</h2>
         <p className="text-xs text-slate-500 font-medium mb-5">
-          Ingresa tu contraseña actual y luego la nueva (mínimo 8 caracteres).
+          Ingresa tu contraseña actual y luego la nueva. Debe alcanzar el nivel 8 de seguridad.
         </p>
 
         {strError && (
@@ -99,14 +114,17 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar }) {
             }
           />
 
-          <FormField
-            label="Nueva contraseña"
-            type={strInputType}
-            placeholder="Mínimo 8 caracteres"
-            value={objFormData.contrasenaNueva}
-            onChange={fnActualizarCampo("contrasenaNueva")}
-            required
-          />
+          <div>
+            <FormField
+              label="Nueva contraseña"
+              type={strInputType}
+              placeholder="Mayúsculas, números y símbolos"
+              value={objFormData.contrasenaNueva}
+              onChange={fnActualizarCampo("contrasenaNueva")}
+              required
+            />
+            <IndicadorSeguridadContrasena objEvaluacion={objEvaluacion} />
+          </div>
 
           <FormField
             label="Confirmar nueva contraseña"
@@ -126,8 +144,8 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar }) {
             </button>
             <button
               type="submit"
-              disabled={boolIsSubmitting}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#2563EB] hover:bg-blue-700 shadow-xs disabled:opacity-60 transition-all"
+              disabled={boolIsSubmitting || !objEvaluacion.boolValida}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#2563EB] hover:bg-blue-700 shadow-xs disabled:opacity-60 disabled:cursor-not-allowed transition-all"
             >
               {boolIsSubmitting ? "Guardando…" : "Cambiar contraseña"}
             </button>
