@@ -83,6 +83,26 @@ public class UsuarioService {
         return usuarioRespuestaMapper.mapear(buscarOLanzar(id));
     }
 
+    /**
+     * Migración explícita y repetible para cuentas existentes antes de que se
+     * agregara debe_cambiar_contrasena. La comprobación se hace con el encoder,
+     * nunca desde SQL, porque Argon2id usa una sal distinta por cuenta.
+     */
+    @Transactional
+    public int marcarCuentasConClaveInicial(String executorCorreo, String ip) {
+        int marcados = 0;
+        for (Usuario usuario : usuarioRepository.findByDebeCambiarContrasenaFalse()) {
+            if (usuario.getCiusuario() != null && usuario.getContraseniausuario() != null
+                    && passwordEncoder.matches(usuario.getCiusuario(), usuario.getContraseniausuario())) {
+                usuario.setDebeCambiarContrasena(true);
+                marcados++;
+            }
+        }
+        auditoriaService.registrarEnTransaccion("MIGRACION_PRIMER_INGRESO", executorCorreo, executorCorreo,
+                "Se marcaron " + marcados + " cuenta(s) que aún usan el CI como contraseña inicial.", ip);
+        return marcados;
+    }
+
     @Transactional
     public UsuarioRespuestaDto crear(CrearUsuarioDto dto, String executorCorreo, String ip) {
         String rolNormalizado = validarRolCreable(dto.getRol());
@@ -127,6 +147,7 @@ public class UsuarioService {
 
         Usuario usuario = new Usuario(ciNormalizado, dto.getNombre().trim(), dto.getApellido().trim(), dto.getTelefono(),
                 dto.getCorreo().trim(), passwordEncoder.encode(rawPassword), true);
+        usuario.setDebeCambiarContrasena(ciNormalizado.equals(rawPassword));
         usuario = usuarioRepository.save(usuario);
 
         crearFilaTablaHija(rolNormalizado, usuario.getIdusuario(), dto.getCodigoSis());

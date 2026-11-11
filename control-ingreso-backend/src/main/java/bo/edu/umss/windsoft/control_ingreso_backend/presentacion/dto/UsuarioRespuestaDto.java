@@ -13,6 +13,7 @@ public class UsuarioRespuestaDto {
     private boolean estado;
     private String rol;
     private int intentosFallidos;
+    private boolean debeCambiarContrasena;
     private List<String> permisos;
     // Solo aplica a DOCENTE (codsisdocente) y ESTUDIANTE (codsisestudiante).
     private Integer codigoSis;
@@ -24,13 +25,20 @@ public class UsuarioRespuestaDto {
     public UsuarioRespuestaDto(Integer idUsuario, String ci, String nombre, String apellido,
                                Integer telefono, String correo, boolean estado, String rol,
                                int intentosFallidos, List<String> permisos) {
-        this(idUsuario, ci, nombre, apellido, telefono, correo, estado, rol, intentosFallidos, permisos, idUsuario);
+        this(idUsuario, ci, nombre, apellido, telefono, correo, estado, rol, intentosFallidos, permisos, idUsuario, false);
     }
 
     // Constructor de 11 parámetros
     public UsuarioRespuestaDto(Integer idUsuario, String ci, String nombre, String apellido,
                                Integer telefono, String correo, boolean estado, String rol,
                                int intentosFallidos, List<String> permisos, Integer codigoSis) {
+        this(idUsuario, ci, nombre, apellido, telefono, correo, estado, rol, intentosFallidos, permisos, codigoSis, false);
+    }
+
+    public UsuarioRespuestaDto(Integer idUsuario, String ci, String nombre, String apellido,
+                               Integer telefono, String correo, boolean estado, String rol,
+                               int intentosFallidos, List<String> permisos, Integer codigoSis,
+                               boolean debeCambiarContrasena) {
         this.idUsuario = idUsuario;
         this.ci = ci;
         this.nombre = nombre;
@@ -40,6 +48,7 @@ public class UsuarioRespuestaDto {
         this.estado = estado;
         this.rol = rol;
         this.intentosFallidos = intentosFallidos;
+        this.debeCambiarContrasena = debeCambiarContrasena;
         this.permisos = permisos;
         this.codigoSis = codigoSis;
     }
@@ -114,6 +123,14 @@ public class UsuarioRespuestaDto {
 
     public void setIntentosFallidos(int intentosFallidos) {
         this.intentosFallidos = intentosFallidos;
+    }
+
+    public boolean isDebeCambiarContrasena() {
+        return debeCambiarContrasena;
+    }
+
+    public void setDebeCambiarContrasena(boolean debeCambiarContrasena) {
+        this.debeCambiarContrasena = debeCambiarContrasena;
     }
 
     public List<String> getPermisos() {

@@ -26,6 +26,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
 
     List<Usuario> findByEstadousuario(Boolean estadousuario);
 
+    List<Usuario> findByDebeCambiarContrasenaFalse();
+
     // El "rol" no vive en esta tabla (lo da la tabla hija en la que el usuario
     // tiene fila: admin/docente/ayudante/estudiante), así que ese filtro se
     // aplica en Java después de resolver el tipo de cada usuario (ver
