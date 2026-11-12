@@ -7,6 +7,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CuentaBloq
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CuentaInactivaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoDuplicadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ReintentarSincronizacionException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ErrorResponseDto;
 import org.springframework.http.HttpStatus;
@@ -144,6 +145,21 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ConflictoEstadoException.class)
     public ResponseEntity<ErrorResponseDto> handleConflictoEstado(ConflictoEstadoException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
+    }
+
+    /**
+     * Error transitorio de la sincronización offline (HU21). En el flujo en
+     * línea no debería ocurrir (el ingreso del estudiante ya está en el
+     * servidor), pero si ocurre se responde 409 con el motivo en vez de un 500.
+     */
+    @ExceptionHandler(ReintentarSincronizacionException.class)
+    public ResponseEntity<ErrorResponseDto> handleReintentarSincronizacion(ReintentarSincronizacionException ex) {
         ErrorResponseDto errorDto = new ErrorResponseDto(
                 HttpStatus.CONFLICT.value(),
                 "Conflict",

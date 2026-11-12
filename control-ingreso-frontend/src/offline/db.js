@@ -58,6 +58,24 @@ db.version(5).stores({
   expulsiones_pendientes: 'clientUuid, incidenciaClientUuid, syncStatus',
 });
 
+// v6: cola offline de revocaciones de incidencias/expulsiones.
+db.version(6).stores({
+  revocaciones_pendientes: 'clientUuid, [syncStatus+nextRetryAt], idExamen, syncStatus',
+});
+
+// v7: evidencias (fotos) de incidencias registradas offline. Se guarda el blob
+// localmente y se sube cuando la incidencia ya existe en el servidor (HU21).
+db.version(7).stores({
+  evidencias_pendientes: 'clientUuid, incidenciaClientUuid, [syncStatus+nextRetryAt], syncStatus',
+});
+
+// v8: ingresos excepcionales autorizados sin conexión. El respaldo (foto)
+// viaja como blob y se sube al sincronizar (HU21).
+db.version(8).stores({
+  ingresos_excepcionales_pendientes:
+    'clientUuid, [syncStatus+nextRetryAt], idExamen, idAmbiente, syncStatus',
+});
+
 if (import.meta.env.DEV) {
   window.__sciem_db = db;
 }

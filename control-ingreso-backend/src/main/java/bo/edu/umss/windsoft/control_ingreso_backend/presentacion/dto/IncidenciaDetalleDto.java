@@ -24,5 +24,7 @@ public record IncidenciaDetalleDto(
         String descripcion,
         String evidenciaUrl,
         String resolucion,
+        Integer idExpulsion,
+        String estadoExpulsion,
         List<EventoIncidenciaDto> lineaTiempo) {
 }

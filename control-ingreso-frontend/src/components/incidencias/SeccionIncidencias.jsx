@@ -18,11 +18,15 @@ import {
   obtenerDetalleIncidencia,
   marcarEnRevisionIncidencia,
   cerrarIncidencia,
+  revocarExpulsion,
   listarIngresosExcepcionales,
   notificarCambioIncidencias,
 } from "../../services/incidenciaService";
 import ModalIncidencia from "./ModalIncidencia";
 import ModalIngresoExcepcional from "./ModalIngresoExcepcional";
+import ModalRevocar from "./ModalRevocar";
+import { revocacionRepo } from "../../offline/revocacionRepo";
+import { estaOfflineIncidencia } from "../../offline/incidenciaOffline";
 import { formatearHora, formatearFecha } from "./utilidadesIncidencias";
 
 const TODOS = "TODOS";
@@ -52,6 +56,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const [aulasHoy, setAulasHoy] = useState([]);
   const [boolCargandoAulas, setBoolCargandoAulas] = useState(true);
   const [strErrorCarga, setStrErrorCarga] = useState("");
+  const [strAvisoAulas, setStrAvisoAulas] = useState("");
 
   // Filtros
   const [strIdExamen, setStrIdExamen] = useState(TODOS);
@@ -63,7 +68,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const [strBusquedaExcepcionales, setStrBusquedaExcepcionales] = useState("");
 
   // Datos
-  const [totalesIncidencias, setTotalesIncidencias] = useState({ abiertas: 0, enRevision: 0, cerradas: 0 });
+  const [totalesIncidencias, setTotalesIncidencias] = useState({ abiertas: 0, enRevision: 0, cerradas: 0, revocadas: 0 });
   const [incidencias, setIncidencias] = useState([]);
   const [incidenciaSeleccionada, setIncidenciaSeleccionada] = useState(null);
   const [boolCargandoDetalle, setBoolCargandoDetalle] = useState(false);
@@ -80,6 +85,9 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const [strResolucionInput, setStrResolucionInput] = useState("");
   const [boolGuardandoResolucion, setBoolGuardandoResolucion] = useState(false);
   const [strMensajeFeedback, setStrMensajeFeedback] = useState("");
+  const [boolRevocandoExpulsion, setBoolRevocandoExpulsion] = useState(false);
+  const [modalRevocarAbierto, setModalRevocarAbierto] = useState(false);
+  const [strErrorRevocar, setStrErrorRevocar] = useState("");
 
   // Exportación a Excel del filtro activo
   const [boolExportando, setBoolExportando] = useState(false);
@@ -99,8 +107,9 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       const [asignadas, hoy] = await Promise.all([obtenerAulasAsignadas(), obtenerAmbientesDelDia()]);
       setAulasAsignadas(Array.isArray(asignadas) ? asignadas : []);
       setAulasHoy(Array.isArray(hoy) ? hoy : []);
+      setStrAvisoAulas("");
     } catch (err) {
-      setStrErrorCarga(err.message || "No se pudieron cargar tus exámenes asignados.");
+      setStrAvisoAulas(err.message || "No se pudieron cargar tus exámenes asignados. Reintenta con Actualizar.");
     } finally {
       setBoolCargandoAulas(false);
     }
@@ -109,6 +118,18 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   useEffect(() => {
     fnCargarAulas();
   }, [fnCargarAulas]);
+
+  // Cuando la cola offline se sincroniza, la lista se recarga sola: lo que
+  // estaba "Sin sincronizar" pasa a estar en el servidor (HU21).
+  useEffect(() => {
+    const fnActualizar = () => {
+      fnRecargarIncidencias();
+      fnCargarAulas();
+    };
+    window.addEventListener("incidencias:actualizadas", fnActualizar);
+    return () => window.removeEventListener("incidencias:actualizadas", fnActualizar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Materias únicas a partir de las aulas asignadas (más recientes primero)
   const materias = [];
@@ -175,6 +196,9 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   }, []);
 
   // 3a. Incidencias según todos los filtros
+  // Nota: esta pantalla NO tiene modo offline (el modo offline es solo del
+  // control de ingreso). Lo que se registró offline en el examen aparece aquí
+  // en cuanto la cola se sincroniza con el servidor.
   const fnRecargarIncidencias = useCallback(async () => {
     setBoolCargando(true);
     setStrErrorCarga("");
@@ -187,8 +211,13 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
         estado: filtroEstado !== TODOS ? filtroEstado : null,
       });
 
-      setTotalesIncidencias(resIncidencias?.totales || { abiertas: 0, enRevision: 0, cerradas: 0 });
-      const lista = resIncidencias?.incidencias || [];
+      setTotalesIncidencias(resIncidencias?.totales || { abiertas: 0, enRevision: 0, cerradas: 0, revocadas: 0 });
+      const lista = (resIncidencias?.incidencias || []).map((i) => ({
+        ...i,
+        esExpulsion: Boolean(i.idExpulsion) || i.estudianteRetirado === true,
+        esRevocada: i.estado === "REVOCADA" || i.estadoExpulsion === "REVOCADA",
+        local: false,
+      }));
       setIncidencias(lista);
 
       if (lista.length === 0) {
@@ -267,6 +296,57 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       setStrMensajeFeedback(err.message || "No se pudo cerrar la incidencia.");
     } finally {
       setBoolGuardandoResolucion(false);
+    }
+  };
+
+  const fnAbrirRevocar = () => {
+    if (!incidenciaSeleccionada?.idExamen) return;
+    if (rol !== "DOCENTE") return;
+    setStrErrorRevocar("");
+    setModalRevocarAbierto(true);
+  };
+
+  const fnConfirmarRevocacion = async (motivo) => {
+    if (!incidenciaSeleccionada?.idExamen) return;
+    const esExpulsion = Boolean(incidenciaSeleccionada.idExpulsion);
+    // Una incidencia abierta se cierra; una ya cerrada se revoca.
+    const yaEstabaCerrada = incidenciaSeleccionada.estado === "CERRADA";
+    setBoolRevocandoExpulsion(true);
+    setStrMensajeFeedback("");
+    setStrErrorRevocar("");
+    try {
+      if (await estaOfflineIncidencia()) {
+        await revocacionRepo.encolar({
+          idIncidencia: incidenciaSeleccionada.idIncidencia,
+          idExpulsion: incidenciaSeleccionada.idExpulsion,
+          idExamen: incidenciaSeleccionada.idExamen,
+          motivo,
+        });
+        setStrMensajeFeedback("Revocación guardada en el dispositivo; se enviará al recuperar la conexión.");
+        setModalRevocarAbierto(false);
+        return;
+      }
+      if (esExpulsion) {
+        await revocarExpulsion(incidenciaSeleccionada.idExamen, incidenciaSeleccionada.idExpulsion, motivo);
+      }
+      await cerrarIncidencia(incidenciaSeleccionada.idIncidencia, motivo);
+      setStrMensajeFeedback(esExpulsion
+        ? "Expulsión revocada. El estudiante puede volver a ingresar."
+        : yaEstabaCerrada
+          ? "Incidencia revocada."
+          : "Incidencia cerrada.");
+      notificarCambioIncidencias();
+      fnRecargarIncidencias();
+      if (incidenciaSeleccionada?.idIncidencia) fnCargarDetalle(incidenciaSeleccionada.idIncidencia);
+      setModalRevocarAbierto(false);
+    } catch (err) {
+      // El error se muestra dentro del modal: si solo se pintara en el panel
+      // de detalle quedaría tapado por el modal y parecería que no pasa nada.
+      const strDetalle = err.message || "No se pudo revocar.";
+      setStrErrorRevocar(strDetalle);
+      setStrMensajeFeedback(strDetalle);
+    } finally {
+      setBoolRevocandoExpulsion(false);
     }
   };
 
@@ -464,6 +544,11 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           ✕ {strErrorCarga}
         </div>
       )}
+      {strAvisoAulas && (
+        <div className="bg-[#FEF9E7] border border-[#FDE68A] text-[#92400E] p-3 rounded-2xl text-xs font-bold">
+          ⚠ {strAvisoAulas}
+        </div>
+      )}
       {!boolCargandoAulas && !strErrorCarga && aulasAsignadas.length === 0 && (
         <div className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] p-3 rounded-2xl text-xs font-bold">
           No tienes exámenes asignados que ya se hayan tomado. Las incidencias se registran sobre un examen asignado.
@@ -549,6 +634,22 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
               <span>Expulsiones</span>
             </button>
 
+            {/* Revocadas = canceladas: el docente dejó sin efecto la incidencia. */}
+            <button
+              onClick={() => {
+                setFiltroEstado("REVOCADA");
+                setBoolSoloExpulsiones(false);
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
+                filtroEstado === "REVOCADA"
+                  ? "bg-[#475569] text-white"
+                  : "bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1] hover:bg-[#CBD5E1]"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-[#475569] inline-block" />
+              <span>Revocadas {totalesIncidencias.revocadas}</span>
+            </button>
+
             <button
               onClick={fnExportarExcel}
               disabled={boolCargando || boolExportando || incidenciasMostradas.length === 0}
@@ -600,6 +701,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
                           item.estado === "ABIERTA" ? "bg-[#D9E8F7] text-[#124B83]"
                             : item.estado === "EN_REVISION" ? "bg-[#F0F6FC] text-[#003770]"
+                            : item.estado === "REVOCADA" ? "bg-[#E2E8F0] text-[#475569] border border-[#94A3B8]"
                             : "bg-[#F1F5F9] text-[#64748B]"
                         }`}>
                           {item.estadoEtiqueta}
@@ -707,6 +809,8 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                                     ? "bg-[#267BC2] text-white border border-[#267BC2]"
                                     : item.estado === "EN_REVISION"
                                     ? "bg-[#003770] text-white border border-[#003770]"
+                                    : item.estado === "REVOCADA"
+                                    ? "bg-[#E2E8F0] text-[#475569] border border-[#94A3B8]"
                                     : "bg-[#F1F5F9] text-[#64748B] border border-[#CBD5E1]"
                                 }`}
                               >
@@ -746,6 +850,8 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                           ? "bg-[#267BC2] text-white"
                           : incidenciaSeleccionada.estado === "EN_REVISION"
                           ? "bg-[#003770] text-white"
+                          : incidenciaSeleccionada.estado === "REVOCADA"
+                          ? "bg-[#E2E8F0] text-[#475569] border border-[#94A3B8]"
                           : "bg-[#F1F5F9] text-[#64748B]"
                       }`}
                     >
@@ -874,9 +980,9 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                   {/* Sección Resolución */}
                   <div>
                     <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block mb-1">
-                      Resolución {incidenciaSeleccionada.estado !== "CERRADA" && <span className="text-[#B91C1C] font-normal">(obligatoria para cerrar)</span>}
+                      Resolución {incidenciaSeleccionada.estado !== "CERRADA" && incidenciaSeleccionada.estado !== "REVOCADA" && <span className="text-[#B91C1C] font-normal">(obligatoria para cerrar)</span>}
                     </span>
-                    {incidenciaSeleccionada.estado === "CERRADA" ? (
+                    {incidenciaSeleccionada.estado === "CERRADA" || incidenciaSeleccionada.estado === "REVOCADA" ? (
                       <div className="bg-[#F0F6FC] border border-[#B6D3EE] rounded-xl p-3 text-xs font-bold text-[#003770]">
                         ✓ {incidenciaSeleccionada.resolucion || "Incidencia resuelta y archivada."}
                       </div>
@@ -886,6 +992,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                         onChange={(e) => setStrResolucionInput(e.target.value)}
                         placeholder="Obligatoria para cerrar la incidencia..."
                         rows={2}
+                        maxLength={255}
                         className="w-full bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl p-2.5 text-xs font-semibold text-[#08264A] placeholder-[#9AA8BA] focus:outline-none focus:border-[#4A97D3]"
                       />
                     )}
@@ -904,8 +1011,18 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                     </p>
                   )}
 
-                  {/* Botones de Acción de Estado */}
-                  {incidenciaSeleccionada.estado !== "CERRADA" ? (
+                  {rol === "DOCENTE"
+                    && incidenciaSeleccionada.estado !== "REVOCADA"
+                    && incidenciaSeleccionada.estadoExpulsion !== "REVOCADA" && (
+                    <div className="pt-2">
+                      <button type="button" onClick={fnAbrirRevocar} disabled={boolRevocandoExpulsion} className="w-full bg-[#F0F6FC] hover:bg-[#D9E8F7] text-[#B91C1C] border border-[#B6D3EE] py-2.5 px-3 rounded-xl font-bold text-xs transition cursor-pointer disabled:opacity-50">
+                        {boolRevocandoExpulsion ? "Revocando..." : "Revocar"}
+                      </button>
+                    </div>
+                  )}
+
+{/* Botones de Acción de Estado */}
+                  {incidenciaSeleccionada.estado !== "CERRADA" && incidenciaSeleccionada.estado !== "REVOCADA" ? (
                     <div className="flex gap-2 pt-2">
                       {incidenciaSeleccionada.estado === "ABIERTA" && (
                         <button
@@ -925,6 +1042,14 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                       >
                         {boolGuardandoResolucion ? "Guardando..." : "Cerrar incidencia"}
                       </button>
+                    </div>
+                  ) : incidenciaSeleccionada.estado === "REVOCADA" ? (
+                    <div className="text-center py-1 text-[#9AA8BA] text-xs font-bold">
+                      Esta incidencia fue revocada (cancelada) y ya no admite cambios.
+                    </div>
+                  ) : incidenciaSeleccionada.estadoExpulsion === "REVOCADA" ? (
+                    <div className="text-center py-1 text-[#9AA8BA] text-xs font-bold">
+                      La expulsión de esta incidencia fue revocada. El estudiante puede volver a ingresar.
                     </div>
                   ) : (
                     <div className="text-center py-1 text-[#9AA8BA] text-xs font-bold">
@@ -1124,10 +1249,19 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           setBoolModalIncidencia(true);
         }}
       />
+      <ModalRevocar
+        boolAbierto={modalRevocarAbierto}
+        onCerrar={() => {
+          setModalRevocarAbierto(false);
+          setStrErrorRevocar("");
+        }}
+        onConfirmar={fnConfirmarRevocacion}
+        boolGuardando={boolRevocandoExpulsion}
+        error={strErrorRevocar}
+      />
     </div>
   );
 }
-
 
 
 
