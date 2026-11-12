@@ -17,6 +17,10 @@ public class HistorialInmodificableBloqueDto {
     private String selloSha256;
     private String hashBloqueAnterior;
     private String estadoIntegridad;
+    private String secuenciaSello;
+    private Integer usuarioIdSello;
+    private String fechaSello;
+    private String accionSello;
 
     public HistorialInmodificableBloqueDto() {
     }
@@ -116,4 +120,13 @@ public class HistorialInmodificableBloqueDto {
     public void setEstadoIntegridad(String estadoIntegridad) {
         this.estadoIntegridad = estadoIntegridad;
     }
+
+    public String getSecuenciaSello() { return secuenciaSello; }
+    public void setSecuenciaSello(String valor) { secuenciaSello = valor; }
+    public Integer getUsuarioIdSello() { return usuarioIdSello; }
+    public void setUsuarioIdSello(Integer valor) { usuarioIdSello = valor; }
+    public String getFechaSello() { return fechaSello; }
+    public void setFechaSello(String valor) { fechaSello = valor; }
+    public String getAccionSello() { return accionSello; }
+    public void setAccionSello(String valor) { accionSello = valor; }
 }

@@ -69,8 +69,20 @@ public class AuditoriaService {
         guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen);
     }
 
+    /** Para registros que no pueden perder detalles; requiere columna accion de tipo TEXT. */
+    @Transactional
+    public void registrarCompletoEnTransaccion(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
+                                               String detalles, String ipOrigen) {
+        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen, false);
+    }
+
     private void guardarRegistro(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
                                  String detalles, String ipOrigen) {
+        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen, true);
+    }
+
+    private void guardarRegistro(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
+                                 String detalles, String ipOrigen, boolean limitarLongitud) {
         Integer idUsuario = resolverIdUsuario(usuarioAfectado);
         if (idUsuario == null) {
             idUsuario = resolverIdUsuario(usuarioEjecutor);
@@ -84,7 +96,7 @@ public class AuditoriaService {
         // La columna 'accion' en PostgreSQL es varchar(255) (BUG-030 y BUG-038).
         // Si el texto supera los 255 caracteres, PostgreSQL rechaza el insert.
         // Se trunca a 255 para garantizar que el registro de auditoría siempre se guarde.
-        if (accion.length() > 255) {
+        if (limitarLongitud && accion.length() > 255) {
             accion = accion.substring(0, 255);
         }
 

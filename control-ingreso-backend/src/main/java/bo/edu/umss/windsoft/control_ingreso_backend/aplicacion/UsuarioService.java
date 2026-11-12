@@ -277,7 +277,7 @@ public class UsuarioService {
         if (id.equals(ejecutor.getIdusuario())) throw new SolicitudInvalidaException("No puede eliminar su propia cuenta.");
         eliminacionUsuarioRepository.bloquear(id);
         if (eliminacionUsuarioRepository.tieneHistorial(id))
-            throw new SolicitudInvalidaException("Este usuario tiene examenes, ingresos u otros registros vinculados. Desactive la cuenta para conservar el historial.");
+            throw new SolicitudInvalidaException("Este usuario tiene registros o auditorías vinculados. Desactive la cuenta para conservar el historial.");
         try {
             eliminacionUsuarioRepository.eliminar(id, ejecutor.getIdusuario(),
                     "[ELIMINACION_USUARIO] ejecutor=" + executorCorreo + " | afectado=" + usuario.getCorreousuario()

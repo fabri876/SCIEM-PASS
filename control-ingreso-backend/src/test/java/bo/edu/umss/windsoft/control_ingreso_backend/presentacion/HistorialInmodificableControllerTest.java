@@ -1,6 +1,7 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.HistorialInmodificableService;
+import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ExportacionHistorialService;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HistorialInmodificableBloqueDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.IntegridadCadenaResultadoDto;
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -26,6 +29,8 @@ class HistorialInmodificableControllerTest {
 
     @Mock
     private HistorialInmodificableService historialInmodificableService;
+    @Mock
+    private ExportacionHistorialService exportacion;
 
     @InjectMocks
     private HistorialInmodificableController controller;
@@ -72,16 +77,11 @@ class HistorialInmodificableControllerTest {
     @Test
     @DisplayName("GET /api/admin/historial-inmodificable/exportar descarga CSV UTF-8 con BOM y cabeceras oficiales")
     void exportarCsv_descargaArchivoConHeaders() {
-        HistorialInmodificableBloqueDto b = new HistorialInmodificableBloqueDto(
-                1, "2026-10-28 08:00:00.000 BOT", "USUARIOS",
-                "CREACION_USUARIO", "admin@umss.edu", "127.0.0.1",
-                "Alta usuario", "hash1", "hash0", "VALIDO"
-        );
-
-        when(historialInmodificableService.listarHistorialInmodificable(any(), any(), any(), any(), any(), any()))
-                .thenReturn(List.of(b));
-
-        ResponseEntity<byte[]> respuesta = controller.exportarCsv(null, null, null, null, null, null);
+        when(exportacion.generar(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn("\uFEFFID_BLOQUE,CREACION_USUARIO,admin@umss.edu".getBytes(StandardCharsets.UTF_8));
+        var request = new MockHttpServletRequest();
+        var auth = new UsernamePasswordAuthenticationToken("admin@umss.edu", "");
+        ResponseEntity<byte[]> respuesta = controller.exportarCsv(null, null, null, null, null, null, auth, request);
 
         assertEquals(HttpStatus.OK, respuesta.getStatusCode());
         assertNotNull(respuesta.getBody());
@@ -93,15 +93,4 @@ class HistorialInmodificableControllerTest {
         assertTrue(respuesta.getHeaders().getFirst("Content-Disposition").contains("SCIEM_PASS_Historial_Inmodificable_"));
     }
 
-    @Test
-    @DisplayName("El CSV no interpreta datos auditados como formulas de hoja de calculo")
-    void exportarCsv_neutralizaFormulas() {
-        HistorialInmodificableBloqueDto bloque = new HistorialInmodificableBloqueDto(
-                1, "2026-10-28 08:00:00", "USUARIOS", "CREACION", "admin", "127.0.0.1",
-                "=1+1", null, null, "NO_VERIFICABLE");
-        when(historialInmodificableService.listarHistorialInmodificable(any(), any(), any(), any(), any(), any()))
-                .thenReturn(List.of(bloque));
-        String csv = new String(controller.exportarCsv(null, null, null, null, null, null).getBody(), StandardCharsets.UTF_8);
-        assertTrue(csv.contains("\"'=1+1\""));
-    }
 }

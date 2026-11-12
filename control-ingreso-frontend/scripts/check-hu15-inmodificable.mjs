@@ -55,6 +55,7 @@ try {
     listarHistorialInmodificable,
     verificarIntegridadBloque,
     verificarCadenaCompleta,
+    exportarRegistroCompletoCsv,
   } = await server.ssrLoadModule("/src/services/historialInmodificableService.js");
 
   // Prueba de hash SHA-256
@@ -77,9 +78,44 @@ try {
   assert.deepEqual(await listarHistorialInmodificable(), [], "Una lista vacía no debe contener datos ficticios");
   const sinSello = await verificarIntegridadBloque({ idBloque: 1 });
   assert.equal(sinSello.esValido, false, "Un evento sin sello no es verificable");
+  const accionOriginal = "Prueba ficticia · ñ";
+  const anterior = "0".repeat(64);
+  const bloqueReal = { idBloque: 42, secuenciaSello: "7", usuarioIdSello: 3,
+    fechaSello: "2026-11-12 10:20:30.123456", accionSello: accionOriginal,
+    hashBloqueAnterior: anterior, estadoIntegridad: "VALIDO" };
+  const canonico = `HU15-V1|7|${anterior}|42|V3|V2026-11-12 10:20:30.123456|V${Buffer.from(accionOriginal, "utf8").toString("base64")}`;
+  bloqueReal.selloSha256 = await calcularSha256(canonico);
+  // Vector ficticio calculado independientemente por hu15_hash_evento en PostgreSQL.
+  assert.equal(bloqueReal.selloSha256, "7b576ce64c334d8665f848bcf0b3ea687d878eba1c1a4212c8dc007ea75ea5b1");
+  assert.equal((await verificarIntegridadBloque(bloqueReal)).esValido, true);
+  assert.equal((await verificarIntegridadBloque({ ...bloqueReal, accionSello: "alterado" })).esValido, false);
+  assert.equal((await verificarIntegridadBloque({ ...bloqueReal, estadoIntegridad: "ALTERADO" })).esValido, false);
+  const bloqueNulo = { ...bloqueReal, usuarioIdSello: null, fechaSello: null, accionSello: null,
+    selloSha256: "e770d797d7cb58826e9089e19fd99eff7c81f2fafaa6d3fa202db01165096463" };
+  assert.equal((await verificarIntegridadBloque(bloqueNulo)).esValido, true);
   const resCadena = await verificarCadenaCompleta([]);
   assert.equal(resCadena.esValido, false);
   assert.ok(urls.some((url) => url.includes("/historial-inmodificable/verificar")));
+  await listarHistorialInmodificable({ modulo: "USUARIOS", ejecutor: "ficticio", fechaInicio: "2026-11-01", fechaFin: "2026-11-09" });
+  assert.ok(urls.at(-1).includes("fechaInicio=2026-11-01") && urls.at(-1).includes("fechaFin=2026-11-09"));
+  let descargado = false;
+  const originalCrear = URL.createObjectURL;
+  const originalRevocar = URL.revokeObjectURL;
+  URL.createObjectURL = () => "blob:prueba";
+  URL.revokeObjectURL = () => {};
+  globalThis.document = { createElement: () => ({ style: {}, setAttribute() {}, click() { descargado = true; } }),
+    body: { appendChild() {}, removeChild() {} } };
+  try {
+    globalThis.fetch = async (url) => { urls.push(String(url)); return { ok: true, status: 200, blob: async () => new Blob(["csv"]) }; };
+    await exportarRegistroCompletoCsv({ modulo: "USUARIOS", fechaInicio: "2026-11-01" });
+    assert.ok(descargado && urls.at(-1).includes("/exportar?") && urls.at(-1).includes("fechaInicio=2026-11-01"));
+    descargado = false;
+    globalThis.fetch = async () => ({ ok: false, status: 500, json: async () => ({ mensaje: "Error de auditoría" }) });
+    await assert.rejects(exportarRegistroCompletoCsv({}), /Error de auditoría/);
+    assert.equal(descargado, false);
+  } finally {
+    URL.createObjectURL = originalCrear; URL.revokeObjectURL = originalRevocar; delete globalThis.document;
+  }
   console.log("   ✓ Sin registros ficticios; la verificación completa consulta al backend");
 
   console.log("2. Probando renderizado del componente HistorialInmodificable...");
@@ -113,6 +149,7 @@ try {
     html.includes("Módulo del Sistema"),
     "Debe contener el selector de módulo"
   );
+  assert.ok(html.includes("auditoria-fecha-inicio") && html.includes("auditoria-fecha-fin"));
   assert.ok(
     html.includes("Aplicar Filtros Forenses"),
     "Debe contener el botón Aplicar Filtros Forenses"
