@@ -266,7 +266,7 @@ public class ControlIngresoAyudanteService {
                             codsis,
                             ci,
                             nombreCompleto,
-                            "Carrera no asignada",
+                            carreraDelEstudiante(ing.getIdUsuarioEstudiante(), codsis),
                             null);
 
                     String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
@@ -303,7 +303,8 @@ public class ControlIngresoAyudanteService {
                     String nombre = estudiante == null ? "Estudiante registrado"
                             : (estudiante.getNombreusuario() + " " + estudiante.getApellidousuario()).trim();
                     var resumen = new EstudianteResumenDTO(i.getIdUsuarioEstudiante(), i.getCodsisEstudiante(),
-                            estudiante == null ? null : estudiante.getCiusuario(), nombre, null, null);
+                            estudiante == null ? null : estudiante.getCiusuario(), nombre,
+                            carreraDelEstudiante(i.getIdUsuarioEstudiante(), i.getCodsisEstudiante()), null);
                     String registrador = operador == null ? null
                             : (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim();
                     resultado.add(new UltimoIngresoDTO(i.getIdIntento(), i.getHoraIntento(), i.getMetodoVerificacion(), resumen,
@@ -321,6 +322,11 @@ public class ControlIngresoAyudanteService {
                 .toList();
     }
 
+    private String carreraDelEstudiante(Integer idUsuario, Integer codSis) {
+        List<String> carreras = carreraEstudianteRepository.nombres(idUsuario, codSis);
+        return carreras.isEmpty() ? null : String.join(", ", carreras);
+    }
+
     private UltimoIngresoDTO convertirUltimoIngreso(Ingreso ing) {
         Usuario user = usuarioRepository.findById(ing.getIdUsuarioEstudiante()).orElse(null);
         Estudiante est = estudianteRepository.findByCodsisestudiante(ing.getCodsisEstudiante()).orElse(null);
@@ -328,7 +334,7 @@ public class ControlIngresoAyudanteService {
                 est != null ? est.getCodsisestudiante() : ing.getCodsisEstudiante(),
                 user != null ? user.getCiusuario() : "",
                 user != null ? (user.getNombreusuario() + " " + user.getApellidousuario()).trim() : "Estudiante registrado",
-                "Carrera no asignada", null);
+                carreraDelEstudiante(ing.getIdUsuarioEstudiante(), ing.getCodsisEstudiante()), null);
         String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
         return new UltimoIngresoDTO(ing.getIdIngreso(), ing.getHoraIngreso(), metodo, resumen,
                 "Registro propio", ing.getIdAsignatura(), ing.getIdExamen(), ing.getIdAmbiente(),
@@ -488,7 +494,7 @@ public class ControlIngresoAyudanteService {
 
             // HU10: cuenta para el indicador "Duplicados Bloqueados"
             intentoIngresoService.registrar(MotivoIntento.DUPLICADO, dto.idasignatura(), dto.idexamen(),
-                    dto.idambiente(), null, usuario.getIdusuario(), estudiante.getCodsisestudiante(), idOperador);
+                    dto.idambiente(), prev.getIdAmbiente(), usuario.getIdusuario(), estudiante.getCodsisestudiante(), idOperador);
 
             ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
                     "DUPLICADO",
