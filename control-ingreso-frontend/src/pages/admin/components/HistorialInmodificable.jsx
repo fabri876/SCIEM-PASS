@@ -727,7 +727,7 @@ export default function HistorialInmodificable() {
                 </span>
               </div>
               <span className="text-[10px] font-mono text-slate-400">
-                Append-Only Immutable Ledger
+                Verificación interna
               </span>
             </div>
 
@@ -829,7 +829,7 @@ export default function HistorialInmodificable() {
               <div className="py-8 text-center space-y-3">
                 <RefreshCw className="w-8 h-8 animate-spin text-[#003770] mx-auto" />
                 <p className="text-xs font-bold text-slate-700">
-                  Comprobando secuencia criptográfica de todos los eventos...
+                  Comprobando la secuencia de eventos sellados...
                 </p>
                 <p className="text-[11px] text-slate-400">
                   Recalculando hashes canónicos y comparando eslabones SHA-256.
@@ -846,7 +846,7 @@ export default function HistorialInmodificable() {
                       </span>
                     </div>
                     <p className="text-xs leading-relaxed text-emerald-900">
-                      {resVerificacionCadena.mensaje}
+                      No incluye eventos sin sello ni un control externo.
                     </p>
                   </div>
                 ) : (
