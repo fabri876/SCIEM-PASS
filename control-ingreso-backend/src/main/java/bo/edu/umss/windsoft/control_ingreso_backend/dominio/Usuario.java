@@ -52,6 +52,10 @@ public class Usuario {
     @Column(name = "estadousuario")
     private Boolean estadousuario = true;
 
+    /** Indica que la cuenta aún conserva el CI como contraseña inicial. */
+    @Column(name = "debe_cambiar_contrasena", nullable = false)
+    private Boolean debeCambiarContrasena = false;
+
     // Control de intentos fallidos de login (HU16, criterio #10). El "tipo" de
     // usuario (rol) ya NO se guarda en esta tabla: lo determina en qué tabla
     // hija (admin/docente/ayudante/estudiante) tiene fila este usuario — ver
@@ -142,6 +146,14 @@ public class Usuario {
 
     public void setEstadousuario(Boolean estadousuario) {
         this.estadousuario = estadousuario;
+    }
+
+    public Boolean getDebeCambiarContrasena() {
+        return debeCambiarContrasena;
+    }
+
+    public void setDebeCambiarContrasena(Boolean debeCambiarContrasena) {
+        this.debeCambiarContrasena = Boolean.TRUE.equals(debeCambiarContrasena);
     }
 
     public int getIntentosFallidos() {

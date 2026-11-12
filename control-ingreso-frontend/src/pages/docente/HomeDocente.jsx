@@ -213,8 +213,8 @@ export default function HomeDocente() {
 
     const boolMenuControl = strMenuActivo === "control-ingresos" || strMenuActivo === "asignar-operadores";
 
-    const fnCargarMasiva = async (file, materia, tipoCarga, docente, grupo) => {
-        return cargarUsuariosMasivo(file, "ESTUDIANTE", grupo ? Number(grupo) : null);
+    const fnCargarMasiva = async (file, materia, tipoCarga, docente, grupo,carrera) => {
+        return cargarUsuariosMasivo(file, "ESTUDIANTE", grupo ? Number(grupo) : null,false,carrera);
     };
 
     const [mensajeRegistro, setMensajeRegistro] = useState("");

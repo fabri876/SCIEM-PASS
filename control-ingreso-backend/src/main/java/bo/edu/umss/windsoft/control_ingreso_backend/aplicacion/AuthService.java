@@ -2,6 +2,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ayudante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Docente;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.PoliticaContrasena;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CredencialesInvalidasException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CuentaBloqueadaException;
@@ -137,6 +138,7 @@ public class AuthService {
         // administrador la active (PATCH /api/admin/usuarios/{id}/estado).
         Usuario usuario = new Usuario(ciNormalizado, nombre, apellido, telefono, correo,
                 passwordEncoder.encode(contrasena), false);
+        usuario.setDebeCambiarContrasena(ciNormalizado.equals(contrasena));
         usuario = usuarioRepository.save(usuario);
 
         if (rolNormalizado.equals(TipoUsuarioResolver.DOCENTE)) {
@@ -164,7 +166,11 @@ public class AuthService {
             throw new CredencialesInvalidasException("La contraseña actual es incorrecta.");
         }
 
+        PoliticaContrasena.validarCambio(contrasenaActual, nuevaContrasena)
+                .ifPresent(mensaje -> { throw new SolicitudInvalidaException(mensaje); });
+
         usuario.setContraseniausuario(passwordEncoder.encode(nuevaContrasena));
+        usuario.setDebeCambiarContrasena(false);
         usuarioRepository.save(usuario);
 
         auditoriaService.registrar("CAMBIO_CONTRASENA_EXITOSO", correoUsuario, correoUsuario,

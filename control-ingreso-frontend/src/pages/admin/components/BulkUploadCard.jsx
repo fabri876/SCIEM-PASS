@@ -36,6 +36,7 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
     const [mostrarFormato, setMostrarFormato] = useState(false);
     const [vistaPrevia, setVistaPrevia] = useState(null);
     const [grupoLote, setGrupoLote] = useState(null);
+    const [mismaCarrera,setMismaCarrera]=useState(false);
 
     const [tipoCarga, setTipoCarga] = useState("estudiantes"); // "estudiantes" | "docentes"
 
@@ -129,7 +130,7 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
 
         try {
             if (onProcesar) {
-                const res = await onProcesar(file, grupoLote?.idAsignatura || null, tipoCarga, null, esCargaDocentes ? null : grupoLote.idGrupo);
+                const res = await onProcesar(file, grupoLote?.idAsignatura || null, tipoCarga, null, esCargaDocentes ? null : grupoLote.idGrupo,esCargaDocentes || !mismaCarrera ? null : grupoLote.idCarrera);
                 setResultado(res);
                 setFile(null);
                 setVistaPrevia(null);
@@ -148,6 +149,10 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
         <div className="lg:col-span-5 bg-bg-card rounded-2xl p-6 shadow-sm border border-border flex flex-col justify-between relative">
             <div>
                 <p className="text-sm text-secondary mb-2">Máximo 10 MB y 2000 filas por archivo. Divida listas mayores.</p>
+                {!esCargaDocentes && <div className="mb-4 rounded-xl border border-border p-3 text-sm">
+                    <label className="flex gap-2 items-start"><input type="checkbox" checked={mismaCarrera} disabled={isSubmitting} onChange={e=>setMismaCarrera(e.target.checked)} />Todos los estudiantes de este archivo pertenecen a la carrera seleccionada.</label>
+                    <p className="mt-2">Si mezcla carreras, deje la casilla desmarcada. En Excel añada ID_CARRERA por estudiante nuevo o pendiente de completar. Las cuentas existentes conservan su carrera; todos pueden compartir asignatura y grupo. Para PDF use un lote de una sola carrera.</p>
+                </div>}
                 {/* Cabecera Tarjeta */}
                 <div className="flex items-center justify-between gap-3 mb-2">
                     <div className="flex items-center gap-3">

@@ -36,7 +36,7 @@ public class EliminacionUsuarioRepository {
         jdbc.update("DELETE FROM estudiantegrupo WHERE idusuario = ?", id);
         jdbc.update("DELETE FROM ayudantegrupo WHERE idusuario = ?", id);
         jdbc.update("DELETE FROM docenteasignatura WHERE idusuario = ?", id);
-        jdbc.update("DELETE FROM carrera WHERE idusuario = ?", id);
+        jdbc.update("DELETE FROM usuario_carrera_plan WHERE idusuario = ?", id);
         jdbc.update("UPDATE usuario SET idcredencial = NULL WHERE idusuario = ?", id);
         jdbc.update("DELETE FROM credencial WHERE idusuario = ?", id);
         // El texto de auditoría conserva ejecutor y afectado; se retira solo el enlace a la cuenta borrada.

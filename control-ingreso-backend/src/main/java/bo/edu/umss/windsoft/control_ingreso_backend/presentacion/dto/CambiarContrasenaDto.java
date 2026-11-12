@@ -1,7 +1,7 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.validacion.ContrasenaNivelOcho;
 
 public class CambiarContrasenaDto {
 
@@ -11,7 +11,7 @@ public class CambiarContrasenaDto {
     private String contrasenaActual;
 
     @NotBlank(message = "La nueva contraseña es obligatoria")
-    @Size(min = 6, message = "La nueva contraseña debe tener al menos 6 caracteres")
+    @ContrasenaNivelOcho
     private String nuevaContrasena;
 
     public CambiarContrasenaDto() {

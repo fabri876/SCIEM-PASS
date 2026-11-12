@@ -70,7 +70,7 @@ public class UsuarioRespuestaMapper {
         return new UsuarioRespuestaDto(usuario.getIdusuario(), usuario.getCiusuario(), usuario.getNombreusuario(),
                 usuario.getApellidousuario(), usuario.getTelefonousuario(), usuario.getCorreousuario(),
                 Boolean.TRUE.equals(usuario.getEstadousuario()), rol, usuario.getIntentosFallidos(), permisos,
-                codigoSis);
+                codigoSis, Boolean.TRUE.equals(usuario.getDebeCambiarContrasena()));
     }
 
     private UsuarioRespuestaDto construir(Usuario usuario, String rol, List<String> permisos,
@@ -87,7 +87,7 @@ public class UsuarioRespuestaMapper {
         return new UsuarioRespuestaDto(usuario.getIdusuario(), usuario.getCiusuario(), usuario.getNombreusuario(),
                 usuario.getApellidousuario(), usuario.getTelefonousuario(), usuario.getCorreousuario(),
                 Boolean.TRUE.equals(usuario.getEstadousuario()), rol, usuario.getIntentosFallidos(), permisos,
-                codigoSis);
+                codigoSis, Boolean.TRUE.equals(usuario.getDebeCambiarContrasena()));
     }
 
     private Integer resolverCodigoSis(Integer idUsuario, String rol) {

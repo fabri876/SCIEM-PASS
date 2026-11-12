@@ -98,6 +98,12 @@ public class CargaMasivaService {
     @Transactional
     public CargaMasivaRespuestaDto procesarCargaMasiva(MultipartFile archivo, String targetRol,
                                                        String executorCorreo, String ip, Integer idGrupoSeleccionado) {
+        return procesarCargaMasiva(archivo,targetRol,executorCorreo,ip,idGrupoSeleccionado,null);
+    }
+
+    @Transactional
+    public CargaMasivaRespuestaDto procesarCargaMasiva(MultipartFile archivo, String targetRol,
+            String executorCorreo,String ip,Integer idGrupoSeleccionado,Integer idCarrera) {
         validarArchivoBase(archivo);
 
         Usuario ejecutor = usuarioRepository.findByCorreousuario(executorCorreo)
@@ -131,6 +137,7 @@ public class CargaMasivaService {
         Set<String> vinculosDocentes=filas.size()>1 ? new HashSet<>(escrituraLotes.docenteGruposActuales()) : null;
         Set<String> permisosValidados = new HashSet<>();
         Map<String, AltaUsuarioLote> altasPendientes = new LinkedHashMap<>();
+        Map<Usuario,Set<Integer>> carrerasPendientes=new LinkedHashMap<>();
         List<String> cis = filas.stream().filter(f -> f.ci != null).map(f -> CiNormalizador.normalizar(f.ci)).distinct().toList();
         List<String> correos = filas.stream().filter(f -> f.correo != null).map(f -> f.correo.trim().toLowerCase()).distinct().toList();
         List<Integer> codigos = filas.stream().map(f -> f.codigoSis).filter(Objects::nonNull).distinct().toList();
@@ -316,10 +323,30 @@ public class CargaMasivaService {
                 }
             }
 
+            List<Integer> carrerasRegistro=List.of();
+            if(erroresFila.isEmpty()) {
+                try {
+                    List<Integer> seleccionadas=idCarrera==null ? List.of() : List.of(idCarrera);
+                    if(fila.carrera!=null && !fila.carrera.isBlank()) {
+                        try { seleccionadas=List.of(Integer.valueOf(fila.carrera.trim())); }
+                        catch(NumberFormatException ex) { throw new bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ValidacionNegocioException("ID_CARRERA debe ser un número del catálogo."); }
+                    }
+                    if(seleccionadas.isEmpty() && docenteExistente!=null && docenteExistente.getIdusuario()!=null
+                            && TipoUsuarioResolver.ESTUDIANTE.equals(rolFila)) {
+                        // Al inscribir a una cuenta existente, conservar su pertenencia aunque
+                        // la materia se haya buscado desde el plan de otra carrera.
+                        carrerasRegistro=grupoService.carrerasUsuario(docenteExistente.getIdusuario());
+                        if(carrerasRegistro.isEmpty()) throw new bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ValidacionNegocioException("El estudiante existente no tiene carrera confirmada. Indique ID_CARRERA.");
+                    } else carrerasRegistro=grupoService.validarCarrerasRegistro(rolFila,seleccionadas,new ArrayList<>(gruposResueltos));
+                } catch(bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ValidacionNegocioException ex) {
+                    erroresFila.add(ex.getMessage());
+                }
+            }
             if (!erroresFila.isEmpty()) {
                 fallidos++;
                 errores.add(new CargaMasivaErrorFilaDto(fila.numeroFila, ci, correo, erroresFila));
             } else if (docenteExistente != null) {
+                carrerasPendientes.computeIfAbsent(docenteExistente,k->new LinkedHashSet<>()).addAll(carrerasRegistro);
                 int nuevas = 0;
                 if (docenteExistente.getIdusuario() == null) {
                     // Docente nuevo repetido en este archivo: unir grupos antes de escribirlo una sola vez.
@@ -351,6 +378,8 @@ public class CargaMasivaService {
                 // Registrar usuario con contraseña inicial = CI
                 String contrasenaHasheada = passwordEncoder.encode(ci);
                 Usuario nuevo = new Usuario(ci, nombre, apellido, fila.telefono, correo, contrasenaHasheada, true);
+                nuevo.setDebeCambiarContrasena(true);
+                carrerasPendientes.computeIfAbsent(nuevo,k->new LinkedHashSet<>()).addAll(carrerasRegistro);
                 altasPendientes.put(ci, new AltaUsuarioLote(nuevo, rolFila, codSis, gruposResueltos));
                 if (TipoUsuarioResolver.DOCENTE.equals(rolFila)) {
                     docentesPorCi.put(ci, Optional.of(nuevo));
@@ -364,6 +393,9 @@ public class CargaMasivaService {
         }
 
         if (!altasPendientes.isEmpty()) escrituraLotes.guardarNuevos(new ArrayList<>(altasPendientes.values()));
+        Map<Integer,Set<Integer>> relacionesCarrera=new LinkedHashMap<>();
+        carrerasPendientes.forEach((usuario,carreras)->relacionesCarrera.computeIfAbsent(usuario.getIdusuario(),k->new LinkedHashSet<>()).addAll(carreras));
+        escrituraLotes.guardarCarreras(relacionesCarrera);
 
         auditoriaService.registrarEnTransaccion("CARGA_MASIVA_USUARIOS", executorCorreo, executorCorreo,
                 "Carga masiva procesada: " + exitosos + " nuevos, " + existentes + " existentes, " + fallidos + " fallidos de " + filas.size() + " filas.", ip);
@@ -489,6 +521,7 @@ public class CargaMasivaService {
                         .map(valor -> "ID:" + valor.trim()).collect(java.util.stream.Collectors.joining(";"));
             }
             data.nombreGrupo = getValorCeldaString(row, colIndices.getOrDefault("grupo", -1));
+            data.carrera = getValorCeldaString(row,colIndices.getOrDefault("carrera",-1));
 
             resultado.add(data);
         }
@@ -504,7 +537,9 @@ public class CargaMasivaService {
         for (int c = 0; c < headerRow.getLastCellNum(); c++) {
             String val = getValorCeldaRaw(headerRow.getCell(c)).toUpperCase();
             if (val.contains("ASIGNATURA") || val.contains("MATERIA") || val.contains("SIGLA")) columnasAsignatura++;
-            if (val.trim().equals("ID_ASIGNATURA") || val.trim().equals("ID ASIGNATURA")) {
+            if(val.trim().equals("ID_CARRERA")) {
+                map.put("carrera",c);
+            } else if (val.trim().equals("ID_ASIGNATURA") || val.trim().equals("ID ASIGNATURA")) {
                 map.put("idasignatura", c);
                 map.put("asignatura", c);
             } else if (val.contains("SIS") || val.contains("CODSIS")) {
@@ -629,6 +664,7 @@ public class CargaMasivaService {
     }
 
     private static class FilaUsuarioData {
+        String carrera;
         int numeroFila;
         String ci;
         String nombre;

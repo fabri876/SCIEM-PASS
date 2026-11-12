@@ -45,8 +45,8 @@ try {
   valores.set("token", "prueba-render"); valores.set("usuario", JSON.stringify({ idUsuario: 1, nombre: "Admin", rol: "ADMINISTRADOR" }));
   const { crearAvisosExamenes, crearAvisosCambios } = await server.ssrLoadModule("/src/services/notificacionesService.js");
   const cambios = crearAvisosCambios([{id: 1, asignatura: "Cálculo", tipo: "AULA", anterior: "101", actual: "102", fecha: "2026-10-10T14:00:00Z"}, {id: 2, asignatura: "Cálculo", tipo: "HORARIO", anterior: "08:00", actual: "09:00", fecha: "2026-10-10T14:00:00Z"}]);
-  assert.equal(cambios[0].strTitulo, "Cambió de aula");
-  assert.equal(cambios[1].strTitulo, "Cambió de horario");
+  assert.equal(cambios[0].strTitulo, "Cambio de aula");
+  assert.equal(cambios[1].strTitulo, "Cambio de horario");
   assert.ok(cambios[0].strDescripcion.includes("Antes: 101. Ahora: 102."));
   const avisos = crearAvisosExamenes(["2026-10-08", "2026-10-09", "2026-10-10", "2026-10-16", "2026-10-17"].map((strFecha, intId) => ({ intId, strFecha, strNombre: "Materia" })), new Date("2026-10-10T02:00:00Z"));
   assert.equal(avisos.length, 3);

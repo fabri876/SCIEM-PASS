@@ -23,7 +23,7 @@ public class FaceEnrollment {
     @Column(name = "idenrollment")
     private Integer idEnrollment;
 
-    @Column(name = "idusuario", nullable = false)
+    @Column(name = "idusuario", nullable = false, unique = true)
     private Integer idUsuario;
 
     @Column(name = "photo_path", nullable = false, length = 500)

@@ -18,6 +18,12 @@ public class CargaMasivaJdbcRepository {
 
     public CargaMasivaJdbcRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
+    public void guardarCarreras(Map<Integer,Set<Integer>> relaciones) {
+        List<Object[]> filas=new ArrayList<>();
+        relaciones.forEach((usuario,carreras)->carreras.forEach(carrera->filas.add(new Object[]{usuario,carrera})));
+        batch("INSERT INTO usuario_carrera_plan(idusuario,idcarrera,origen) VALUES (?,?,'REGISTRO') ON CONFLICT(idusuario,idcarrera) DO UPDATE SET origen='REGISTRO'",filas);
+    }
+
     public Set<String> docenteGruposActuales() {
         return new HashSet<>(jdbc.query("SELECT d.idusuario,d.idgrupo FROM docentegrupo d JOIN grupo g ON g.idgrupo=d.idgrupo WHERE g.idsemestre=semestre_actual_id()",
                 (r,n)->r.getInt(1)+":"+r.getInt(2)));
@@ -40,7 +46,8 @@ public class CargaMasivaJdbcRepository {
             int sis = alta.codigoSis() == null ? u.getIdusuario() : alta.codigoSis();
             usuarios.add(new Object[]{u.getIdusuario(), u.getCiusuario(), u.getNombreusuario(),
                     u.getApellidousuario(), u.getTelefonousuario(), u.getCorreousuario(),
-                    u.getContraseniausuario(), u.getEstadousuario(), u.getIntentosFallidos()});
+                    u.getContraseniausuario(), u.getEstadousuario(), u.getIntentosFallidos(),
+                    u.getDebeCambiarContrasena()});
             String sql = switch (alta.rol()) {
                 case "ADMINISTRADOR" -> "INSERT INTO admin (idusuario) VALUES (?)";
                 case "DOCENTE" -> "INSERT INTO docente (idusuario, codsisdocente) VALUES (?, ?)";
@@ -61,7 +68,7 @@ public class CargaMasivaJdbcRepository {
             }
         }
         batch("INSERT INTO usuario (idusuario, ciusuario, nombreusuario, apellidousuario, telefonousuario, "
-                + "correousuario, contraseniausuario, estadousuario, intentos_fallidos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", usuarios);
+                + "correousuario, contraseniausuario, estadousuario, intentos_fallidos, debe_cambiar_contrasena) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", usuarios);
         roles.forEach(this::batch);
         batch("INSERT INTO docenteasignatura (idusuario, codsisdocente, idasignatura) "
                 + "SELECT ?, ?, g.idasignatura FROM grupo g WHERE g.idgrupo=? ON CONFLICT DO NOTHING", docentes);

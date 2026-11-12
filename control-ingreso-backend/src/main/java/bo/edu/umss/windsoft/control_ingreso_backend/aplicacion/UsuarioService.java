@@ -83,6 +83,26 @@ public class UsuarioService {
         return usuarioRespuestaMapper.mapear(buscarOLanzar(id));
     }
 
+    /**
+     * Migración explícita y repetible para cuentas existentes antes de que se
+     * agregara debe_cambiar_contrasena. La comprobación se hace con el encoder,
+     * nunca desde SQL, porque Argon2id usa una sal distinta por cuenta.
+     */
+    @Transactional
+    public int marcarCuentasConClaveInicial(String executorCorreo, String ip) {
+        int marcados = 0;
+        for (Usuario usuario : usuarioRepository.findByDebeCambiarContrasenaFalse()) {
+            if (usuario.getCiusuario() != null && usuario.getContraseniausuario() != null
+                    && passwordEncoder.matches(usuario.getCiusuario(), usuario.getContraseniausuario())) {
+                usuario.setDebeCambiarContrasena(true);
+                marcados++;
+            }
+        }
+        auditoriaService.registrarEnTransaccion("MIGRACION_PRIMER_INGRESO", executorCorreo, executorCorreo,
+                "Se marcaron " + marcados + " cuenta(s) que aún usan el CI como contraseña inicial.", ip);
+        return marcados;
+    }
+
     @Transactional
     public UsuarioRespuestaDto crear(CrearUsuarioDto dto, String executorCorreo, String ip) {
         String rolNormalizado = validarRolCreable(dto.getRol());
@@ -105,6 +125,7 @@ public class UsuarioService {
         if ((TipoUsuarioResolver.DOCENTE.equals(rolNormalizado) || TipoUsuarioResolver.ESTUDIANTE.equals(rolNormalizado) || TipoUsuarioResolver.OPERADOR.equals(rolNormalizado)) && grupos.isEmpty())
             throw new SolicitudInvalidaException("Debe asignar al menos una asignatura y grupo al registrar docentes, estudiantes o ayudantes.");
         grupoService.validarAccesoRegistro(new java.util.ArrayList<>(grupos), rolNormalizado);
+        var carrerasRegistro=grupoService.validarCarrerasRegistro(rolNormalizado,dto.getIdCarreras(),new java.util.ArrayList<>(grupos));
 
         var existente = usuarioRepository.findByCiusuario(ciNormalizado);
         if (existente.isPresent() && TipoUsuarioResolver.ESTUDIANTE.equals(rolNormalizado)) {
@@ -114,6 +135,7 @@ public class UsuarioService {
                     && estudiante.isPresent() && java.util.Objects.equals(dto.getCodigoSis(), estudiante.get().getCodsisestudiante())) {
                 grupoService.validarUnGrupoPorAsignatura(new java.util.ArrayList<>(grupos));
                 for (Integer idGrupo : grupos) grupoService.inscribirEstudianteAGrupo(cuenta.getIdusuario(), dto.getCodigoSis(), idGrupo);
+                grupoService.guardarCarreras(cuenta.getIdusuario(),carrerasRegistro);
                 return usuarioRespuestaMapper.mapear(cuenta);
             }
         }
@@ -127,9 +149,11 @@ public class UsuarioService {
 
         Usuario usuario = new Usuario(ciNormalizado, dto.getNombre().trim(), dto.getApellido().trim(), dto.getTelefono(),
                 dto.getCorreo().trim(), passwordEncoder.encode(rawPassword), true);
+        usuario.setDebeCambiarContrasena(ciNormalizado.equals(rawPassword));
         usuario = usuarioRepository.save(usuario);
 
         crearFilaTablaHija(rolNormalizado, usuario.getIdusuario(), dto.getCodigoSis());
+        grupoService.guardarCarreras(usuario.getIdusuario(),carrerasRegistro);
 
         for (Integer idGrupo : grupos) {
             int codSis = dto.getCodigoSis() != null ? dto.getCodigoSis() : usuario.getIdusuario();
@@ -209,6 +233,10 @@ public class UsuarioService {
 
         if (dto.getIdGrupos() != null)
             grupoService.reemplazarGruposUsuario(id, tipoUsuarioResolver.resolver(id), dto.getIdGrupos());
+        if(dto.getIdCarreras()!=null && !dto.getIdCarreras().isEmpty()) {
+            var carreras=grupoService.validarCarrerasRegistro(tipoUsuarioResolver.resolver(id),dto.getIdCarreras(),dto.getIdGrupos()==null ? List.of() : dto.getIdGrupos());
+            grupoService.guardarCarreras(id,carreras);
+        }
         usuario.setNombreusuario(dto.getNombre().trim());
         usuario.setApellidousuario(dto.getApellido().trim());
         usuario.setCorreousuario(dto.getCorreo().trim());
