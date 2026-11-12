@@ -2,6 +2,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AsignaturaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CredencialRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CarreraEstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.VerificarIngresoRequestDTO;
 import org.springframework.stereotype.Service;
@@ -25,17 +26,20 @@ public class OrientacionJornadaOfflineService {
     private final AsignaturaRepository asignaturas;
     private final AsignacionAulaService aulas;
     private final CredencialRepository credenciales;
+    private final CarreraEstudianteRepository carreras;
 
     public record Candidato(Integer idAsignatura, Integer idExamen, Integer idAmbiente,
                             String sis, String ci, String nombre, String asignatura, String aula,
                             String edificio, long apertura, long cierre, String qrHash,
-                            Long qrDesde, Long qrHasta) {}
+                            Long qrDesde, Long qrHasta, String carrera) {}
     public record Jornada(String fecha, List<Candidato> candidatos) {}
 
     public OrientacionJornadaOfflineService(ControlIngresoAyudanteService control, ExamenRepository examenes,
-            AsignaturaRepository asignaturas, AsignacionAulaService aulas, CredencialRepository credenciales) {
+            AsignaturaRepository asignaturas, AsignacionAulaService aulas, CredencialRepository credenciales,
+            CarreraEstudianteRepository carreras) {
         this.control = control; this.examenes = examenes; this.asignaturas = asignaturas;
         this.aulas = aulas; this.credenciales = credenciales;
+        this.carreras = carreras;
     }
 
     @Transactional(readOnly = true)
@@ -61,7 +65,8 @@ public class OrientacionJornadaOfflineService {
                         aula.nombre(), aula.ubicacion(), apertura, cierre,
                         credencial == null ? null : hash(credencial.getToken()),
                         credencial == null ? null : credencial.getValidoDesde().atZone(ZONA).toInstant().toEpochMilli(),
-                        credencial == null ? null : credencial.getValidoHasta().atZone(ZONA).toInstant().toEpochMilli()));
+                        credencial == null ? null : credencial.getValidoHasta().atZone(ZONA).toInstant().toEpochMilli(),
+                        String.join(", ", carreras.nombres(estudiante.idUsuario(), estudiante.codSis()))));
             }
         }
         return new Jornada(hoy.toString(), List.copyOf(candidatos));
