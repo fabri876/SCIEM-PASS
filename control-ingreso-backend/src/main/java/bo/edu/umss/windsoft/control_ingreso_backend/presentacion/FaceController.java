@@ -11,6 +11,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceSyncRes
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceEnrollmentAdminDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceAuditoriaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceIntentoAdminDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerificacionEstudianteRequestDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerificacionEstudianteResponseDto;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -71,6 +73,14 @@ public class FaceController {
     @PreAuthorize("hasAnyRole('ESTUDIANTE','ADMINISTRADOR')")
     public FaceEnrollmentStatusDto estadoEnrolamiento() {
         return enrollmentService.estadoActual();
+    }
+
+    @PostMapping("/verificar-estudiante")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public ResponseEntity<FaceVerificacionEstudianteResponseDto> verificarEstudiante(
+            @Valid @RequestBody FaceVerificacionEstudianteRequestDto solicitud) {
+        return ResponseEntity.ok(enrollmentService.verificarEstudiante(
+                solicitud.embedding(), solicitud.livenessScore(), solicitud.idExamen()));
     }
 
     @PatchMapping("/enrollment/{idEnrollment}/status")

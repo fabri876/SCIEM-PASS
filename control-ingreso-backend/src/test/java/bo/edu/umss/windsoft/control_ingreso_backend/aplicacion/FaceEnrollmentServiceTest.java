@@ -6,6 +6,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepos
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceEnrollmentRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceEnrollmentStatusDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerificacionEstudianteResponseDto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -163,5 +164,74 @@ class FaceEnrollmentServiceTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, error.getStatusCode());
         verify(enrollmentRepository, never()).save(any());
+    }
+
+    @Test
+    void verificarEstudiante_coincidenciaValida_respondeAutorizado() {
+        FaceEnrollment enrollment = new FaceEnrollment();
+        enrollment.setIdUsuario(7);
+        enrollment.setEmbedding("[1.0, 0.0, 0.0]");
+        enrollment.setEstado("activo");
+
+        when(contextoUsuarioService.actual()).thenReturn(new ContextoUsuarioService.UsuarioActual(7, "est@umss.edu", "ESTUDIANTE"));
+        when(enrollmentRepository.findByIdUsuarioAndEstado(7, "activo")).thenReturn(Optional.of(enrollment));
+
+        FaceVerificacionEstudianteResponseDto respuesta = service.verificarEstudiante("[0.99, 0.01, 0.0]", 0.88, 12);
+
+        org.junit.jupiter.api.Assertions.assertTrue(respuesta.autorizado());
+        org.junit.jupiter.api.Assertions.assertTrue(respuesta.score() >= 0.82);
+    }
+
+    @Test
+    void verificarEstudiante_rostroDiferente_respondeNoAutorizado() {
+        FaceEnrollment enrollment = new FaceEnrollment();
+        enrollment.setIdUsuario(7);
+        enrollment.setEmbedding("[1.0, 0.0, 0.0]");
+        enrollment.setEstado("activo");
+
+        when(contextoUsuarioService.actual()).thenReturn(new ContextoUsuarioService.UsuarioActual(7, "est@umss.edu", "ESTUDIANTE"));
+        when(enrollmentRepository.findByIdUsuarioAndEstado(7, "activo")).thenReturn(Optional.of(enrollment));
+
+        FaceVerificacionEstudianteResponseDto respuesta = service.verificarEstudiante("[0.0, 1.0, 0.0]", 0.88, 12);
+
+        org.junit.jupiter.api.Assertions.assertFalse(respuesta.autorizado());
+        org.junit.jupiter.api.Assertions.assertTrue(respuesta.score() < 0.82);
+    }
+
+    @Test
+    void verificarEstudiante_livenessBajo_respondeNoAutorizado() {
+        FaceEnrollment enrollment = new FaceEnrollment();
+        enrollment.setIdUsuario(7);
+        enrollment.setEmbedding("[1.0, 0.0, 0.0]");
+        enrollment.setEstado("activo");
+
+        when(contextoUsuarioService.actual()).thenReturn(new ContextoUsuarioService.UsuarioActual(7, "est@umss.edu", "ESTUDIANTE"));
+        when(enrollmentRepository.findByIdUsuarioAndEstado(7, "activo")).thenReturn(Optional.of(enrollment));
+
+        FaceVerificacionEstudianteResponseDto respuesta = service.verificarEstudiante("[1.0, 0.0, 0.0]", 0.45, 12);
+
+        org.junit.jupiter.api.Assertions.assertFalse(respuesta.autorizado());
+        org.junit.jupiter.api.Assertions.assertEquals(0.45, respuesta.livenessScore());
+    }
+
+    @Test
+    void verificarEstudiante_noEstudiante_respondeForbidden() {
+        when(contextoUsuarioService.actual()).thenReturn(new ContextoUsuarioService.UsuarioActual(2, "doc@umss.edu", "DOCENTE"));
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> service.verificarEstudiante("[1.0]", 0.85, 12));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
+    }
+
+    @Test
+    void verificarEstudiante_sinEnrolamiento_respondeNotFound() {
+        when(contextoUsuarioService.actual()).thenReturn(new ContextoUsuarioService.UsuarioActual(7, "est@umss.edu", "ESTUDIANTE"));
+        when(enrollmentRepository.findByIdUsuarioAndEstado(7, "activo")).thenReturn(Optional.empty());
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> service.verificarEstudiante("[1.0]", 0.85, 12));
+
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
     }
 }
