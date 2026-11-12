@@ -29,6 +29,13 @@ export function enrolarRostro(formData) {
   return solicitar("/api/face/enroll", { method: "POST", body: formData });
 }
 
+export function verificarRostroEstudiante({ embedding, livenessScore, idExamen }) {
+  return solicitar("/api/face/verificar-estudiante", {
+    method: "POST",
+    body: JSON.stringify({ embedding, livenessScore, idExamen }),
+  });
+}
+
 export function obtenerEstadoEnrolamiento() {
   return solicitar("/api/face/enrollment/status");
 }

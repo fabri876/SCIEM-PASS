@@ -7,6 +7,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceEnrollmentR
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceEnrollmentAdminDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceEnrollmentStatusDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerificacionEstudianteResponseDto;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 @Service
 public class FaceEnrollmentService {
     private static final String ACTIVO = "activo";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final FaceEnrollmentRepository enrollmentRepository;
     private final StorageProvider storageProvider;
@@ -169,5 +172,62 @@ public class FaceEnrollmentService {
         if ("image/jpeg".equalsIgnoreCase(contentType)) return "jpg";
         if ("image/png".equalsIgnoreCase(contentType)) return "png";
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La foto debe ser JPEG o PNG.");
+    }
+
+    @Transactional(readOnly = true)
+    public FaceVerificacionEstudianteResponseDto verificarEstudiante(String embeddingJson, Double livenessScore, Integer idExamen) {
+        ContextoUsuarioService.UsuarioActual usuario = contextoUsuarioService.actual();
+        if (!usuario.esEstudiante()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo el estudiante puede verificar su identidad biométrica.");
+        }
+        FaceEnrollment enrollment = enrollmentRepository.findByIdUsuarioAndEstado(usuario.idUsuario(), ACTIVO)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "El estudiante no cuenta con un enrolamiento facial activo."));
+
+        if (embeddingJson == null || embeddingJson.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El vector biométrico en vivo es obligatorio.");
+        }
+
+        if (livenessScore != null && livenessScore < 0.70) {
+            return new FaceVerificacionEstudianteResponseDto(false, 0.0, livenessScore,
+                    "No se pudo confirmar que seas una persona real. Mira de frente a la cámara.");
+        }
+
+        double[] actual;
+        double[] referencia;
+        try {
+            actual = OBJECT_MAPPER.readValue(embeddingJson, double[].class);
+            referencia = OBJECT_MAPPER.readValue(enrollment.getEmbedding(), double[].class);
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Error al procesar los vectores biométricos.");
+        }
+
+        double score = calcularSimilitudCoseno(actual, referencia);
+        double umbral = 0.82;
+        boolean autorizado = score >= umbral;
+        String mensaje = autorizado
+                ? "Identidad confirmada con éxito."
+                : "El rostro no coincide suficientemente con la foto registrada en tu primer ingreso.";
+
+        return new FaceVerificacionEstudianteResponseDto(autorizado, score, livenessScore, mensaje);
+    }
+
+    public static double calcularSimilitudCoseno(double[] a, double[] b) {
+        if (a == null || b == null || a.length == 0 || a.length != b.length) {
+            return 0.0;
+        }
+        double producto = 0.0;
+        double normaA = 0.0;
+        double normaB = 0.0;
+        for (int i = 0; i < a.length; i++) {
+            producto += a[i] * b[i];
+            normaA += a[i] * a[i];
+            normaB += b[i] * b[i];
+        }
+        double denominador = Math.sqrt(normaA) * Math.sqrt(normaB);
+        if (denominador == 0.0) return 0.0;
+        double coseno = producto / denominador;
+        double similitud = (coseno + 1.0) / 2.0;
+        return Math.max(0.0, Math.min(1.0, similitud));
     }
 }
