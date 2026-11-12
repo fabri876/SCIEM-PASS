@@ -45,7 +45,7 @@ public class FaceController {
     }
 
     @PostMapping(value = "/enroll", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ESTUDIANTE','ADMINISTRADOR')")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
     public ResponseEntity<FaceEnrollmentStatusDto> enrolar(@RequestParam MultipartFile file,
                                                             @RequestParam String embedding,
                                                             @RequestParam String modelVersion,
@@ -53,6 +53,18 @@ public class FaceController {
                                                             LocalDateTime consentimientoAt) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(enrollmentService.enrolar(file, embedding, modelVersion, consentimientoAt));
+    }
+
+    @PostMapping(value = "/enrollment/{idUsuario}/override", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public ResponseEntity<FaceEnrollmentStatusDto> reenrolarComoAdministrador(@PathVariable Integer idUsuario,
+                                                                                 @RequestParam MultipartFile file,
+                                                                                 @RequestParam String embedding,
+                                                                                 @RequestParam String modelVersion,
+                                                                                 @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                                                                                 LocalDateTime consentimientoAt) {
+        return ResponseEntity.ok(enrollmentService.reenrolarComoAdministrador(
+                idUsuario, file, embedding, modelVersion, consentimientoAt));
     }
 
     @GetMapping("/enrollment/status")
