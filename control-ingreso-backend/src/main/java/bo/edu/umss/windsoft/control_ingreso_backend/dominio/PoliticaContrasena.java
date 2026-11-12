@@ -22,10 +22,10 @@ public final class PoliticaContrasena {
         if (!contrasena.matches(".*\\d.*")) {
             return Optional.of("La nueva contraseña debe incluir un número.");
         }
-        if (!contrasena.matches(".*[^A-Za-z0-9].*")) {
+        if (!contrasena.matches(".*[^A-Za-z0-9\\s].*")) {
             return Optional.of("La nueva contraseña debe incluir un carácter especial.");
         }
-        if (contrasena.matches(".*(.)\\1\\1.*")) {
+        if (contrasena.toLowerCase(Locale.ROOT).matches(".*(.)\\1\\1.*")) {
             return Optional.of("La nueva contraseña no puede repetir un carácter tres veces.");
         }
         if (contieneSecuencia(contrasena)) {
