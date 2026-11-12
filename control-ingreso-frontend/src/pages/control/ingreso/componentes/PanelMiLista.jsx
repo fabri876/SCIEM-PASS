@@ -86,9 +86,9 @@ async function leerNominaLocal(exId, setPendientes) {
   return list.map((r) => {
     const sis = String(r.codigoSis || "");
     let strEstado = "PENDIENTE";
-    if (!r.habilitado) strEstado = "INHABILITADO";
-    else if (setPendientes.has(sis)) strEstado = "SIN_SINCRONIZAR";
+    if (setPendientes.has(sis)) strEstado = "SIN_SINCRONIZAR";
     else if (r.marcadoLocal === 1) strEstado = "INGRESO";
+    else if (!r.habilitado) strEstado = "INHABILITADO";
     return {
       ...separarNombreLocal(r),
       paterno: r.apellidoPaterno || "",

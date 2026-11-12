@@ -1,8 +1,11 @@
 import { db } from './db.js';
 import { asistenciaRepo } from './asistenciaRepo.js';
 import { incidenciaRepo } from './incidenciaRepo.js';
+import { revocacionRepo } from './revocacionRepo.js';
+import { evidenciaRepo } from './evidenciaRepo.js';
+import { ingresoExcepcionalRepo } from './ingresoExcepcionalRepo.js';
 import { solicitarPersistencia } from './almacenamiento.js';
-import { sincronizarPendientes, sincronizarIncidenciasPendientes, iniciarSync, suscribirSync } from './syncQueueService.js';
+import { sincronizarPendientes, sincronizarIncidenciasPendientes, sincronizarRevocacionesPendientes, sincronizarEvidenciasPendientes, sincronizarIngresosExcepcionalesPendientes, iniciarSync, suscribirSync } from './syncQueueService.js';
 import { sincronizarPendientesFaciales } from './facialSyncService.js';
 import { contarPendientesFaciales } from './facialSqliteDb.js';
 import { sincronizarIntentosExamen } from './syncIntentosExamen.js';
@@ -81,6 +84,19 @@ export function reanudarSync() {
   }
 }
 
+/**
+ * Sincroniza una cola aislada: si falla (red caída, sesión vencida) la cola
+ * queda como estaba y se sigue con las demás.
+ */
+async function sincronizarCola(nombre, fnSincronizar) {
+  try {
+    return await fnSincronizar();
+  } catch (err) {
+    console.warn(`[syncScheduler] Error en sincronización de ${nombre}:`, err);
+    return { procesados: 0, duplicados: 0, errores: 0, fallido: true };
+  }
+}
+
 async function dispararSincronizacion(motivo) {
   if (!activo || pausadoPorAuth || syncEnCurso) {
     return;
@@ -105,7 +121,24 @@ async function dispararSincronizacion(motivo) {
       tamanoLote: tamano,
       origen: 'automatico'
     });
-    const resIncidencias = await sincronizarIncidenciasPendientes({ tamanoLote: tamano });
+    // Cada cola se sincroniza por separado: un fallo en una (por ejemplo, la
+    // sesión vencida) no debe impedir que las otras se vacíen.
+    const resIncidencias = await sincronizarCola(
+      'incidencias',
+      () => sincronizarIncidenciasPendientes({ tamanoLote: tamano })
+    );
+    const resRevocaciones = await sincronizarCola(
+      'revocaciones',
+      () => sincronizarRevocacionesPendientes({ tamanoLote: tamano })
+    );
+    const resEvidencias = await sincronizarCola(
+      'evidencias',
+      () => sincronizarEvidenciasPendientes({ tamanoLote: tamano })
+    );
+    const resExcepcionales = await sincronizarCola(
+      'ingresosExcepcionales',
+      () => sincronizarIngresosExcepcionalesPendientes({ tamanoLote: tamano })
+    );
 
     let resFacial = null;
     if (!res?.omitido && !res?.pausadaPorAuth && !res?.huboFalloDeRed) {
@@ -126,6 +159,8 @@ async function dispararSincronizacion(motivo) {
       ultimoResultado = {
         asistencias: res,
         incidencias: resIncidencias,
+        evidencias: resEvidencias,
+        ingresosExcepcionales: resExcepcionales,
         facial: resFacial,
         intentos: resIntentos
       };
@@ -151,7 +186,7 @@ async function dispararSincronizacion(motivo) {
  * - Si res.omitido es true: devuelve con motivo: 'envio_en_curso' sin actualizar ultimaSync ni ultimoResultado.
  */
 export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
-  const pendientesRestantes = (await asistenciaRepo.contarPendientes()) + (await incidenciaRepo.contarPendientes());
+  const pendientesRestantes = (await asistenciaRepo.contarPendientes()) + (await incidenciaRepo.contarPendientes()) + (await revocacionRepo.contarPendientes()) + (await evidenciaRepo.contarPendientes()) + (await ingresoExcepcionalRepo.contarPendientes());
 
   console.log('[syncScheduler] sincronizarAhora llamado. Pendientes:', pendientesRestantes);
   pausadoPorAuth = false;
@@ -170,7 +205,22 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
     tamanoLote: loteSize,
     origen: 'manual'
   });
-  const resIncidencias = await sincronizarIncidenciasPendientes({ tamanoLote: loteSize });
+  const resIncidencias = await sincronizarCola(
+    'incidencias',
+    () => sincronizarIncidenciasPendientes({ tamanoLote: loteSize })
+  );
+  const resRevocaciones = await sincronizarCola(
+    'revocaciones',
+    () => sincronizarRevocacionesPendientes({ tamanoLote: loteSize })
+  );
+  const resEvidencias = await sincronizarCola(
+    'evidencias',
+    () => sincronizarEvidenciasPendientes({ tamanoLote: loteSize })
+  );
+  const resExcepcionales = await sincronizarCola(
+    'ingresosExcepcionales',
+    () => sincronizarIngresosExcepcionalesPendientes({ tamanoLote: loteSize })
+  );
   let resFacial = null;
   // Si otro envío seguía en curso (omitido), ese mismo ciclo ya incluye la cola
   // facial; lanzarla aquí duplicaría la petición.
@@ -195,6 +245,9 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
   ultimoResultado = {
     asistencias: res,
     incidencias: resIncidencias,
+    revocaciones: resRevocaciones,
+    evidencias: resEvidencias,
+    ingresosExcepcionales: resExcepcionales,
     facial: resFacial,
     intentos: resIntentos
   };
@@ -224,16 +277,19 @@ function programarCicloPeriodico() {
     const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
 
     if (visible && !pausadoPorAuth && !(typeof navigator !== 'undefined' && navigator.onLine === false)) {
-      const [pendientes, incidenciasPendientes, facialesPendientes] = await Promise.all([
+      const [pendientes, incidenciasPendientes, revocacionesPendientes, evidenciasPendientes, excepcionalesPendientes, facialesPendientes] = await Promise.all([
         asistenciaRepo.pendientes(1),
         incidenciaRepo.pendientes(1),
+        revocacionRepo.pendientes(1),
+        evidenciaRepo.pendientes(1),
+        ingresoExcepcionalRepo.pendientes(1),
         contarPendientesFaciales()
       ]);
 
       // Comprobar de nuevo tras el await
       if (!activo || generacion !== genAlProgramar) return;
 
-      if (pendientes.length > 0 || incidenciasPendientes.length > 0 || facialesPendientes > 0) {
+      if (pendientes.length > 0 || incidenciasPendientes.length > 0 || revocacionesPendientes.length > 0 || evidenciasPendientes.length > 0 || excepcionalesPendientes.length > 0 || facialesPendientes > 0) {
         await dispararSincronizacion('intervalo_periodico');
       }
     }
@@ -305,6 +361,9 @@ export async function iniciarSincronizacionAutomatica({
     try {
       await iniciarSync();
       await incidenciaRepo.revertirSyncingHuerfanos();
+      await revocacionRepo.revertirSyncingHuerfanos();
+      await evidenciaRepo.revertirSyncingHuerfanos();
+      await ingresoExcepcionalRepo.revertirSyncingHuerfanos();
     } catch (err) {
       console.warn('[syncScheduler] Error en iniciarSync:', err);
     }
@@ -325,10 +384,18 @@ export async function iniciarSincronizacionAutomatica({
     }
 
     // 3. Purgar marcas antiguas (>72h)
+    // La purga de incidencias/expulsiones/evidencias/ingresos excepcionales la
+    // hace purgeJob.purgarIncidenciasProcesadas (un solo lugar, mismas reglas).
     try {
       await asistenciaRepo.purgarSincronizados(72);
     } catch (err) {
       console.warn('[syncScheduler] Error en purgarSincronizados:', err);
+    }
+    try {
+      const { purgarIncidenciasProcesadas } = await import('./purgeJob.js');
+      await purgarIncidenciasProcesadas();
+    } catch (err) {
+      console.warn('[syncScheduler] Error en purgarIncidenciasProcesadas:', err);
     }
     if (!esValido()) {
       detenerSincronizacionAutomatica();
@@ -411,8 +478,8 @@ export async function iniciarSincronizacionAutomatica({
     // 11. Intento inicial si hay red y pendientes
     const connInicial = obtenerEstadoConexion();
     if (connInicial.estado === 'online' || connInicial.estado === 'degraded') {
-      Promise.all([asistenciaRepo.pendientes(1), incidenciaRepo.pendientes(1), contarPendientesFaciales()]).then(([pendientes, incidenciasPendientes, facialesPendientes]) => {
-        if (pendientes.length > 0 || incidenciasPendientes.length > 0 || facialesPendientes > 0) {
+      Promise.all([asistenciaRepo.pendientes(1), incidenciaRepo.pendientes(1), revocacionRepo.pendientes(1), evidenciaRepo.pendientes(1), ingresoExcepcionalRepo.pendientes(1), contarPendientesFaciales()]).then(([pendientes, incidenciasPendientes, revocacionesPendientes, evidenciasPendientes, excepcionalesPendientes, facialesPendientes]) => {
+        if (pendientes.length > 0 || incidenciasPendientes.length > 0 || revocacionesPendientes.length > 0 || evidenciasPendientes.length > 0 || excepcionalesPendientes.length > 0 || facialesPendientes > 0) {
           dispararSincronizacion('arranque_con_pendientes').catch(() => { });
         }
       }).catch(() => { });

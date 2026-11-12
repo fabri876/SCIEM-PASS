@@ -236,12 +236,6 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
  * @param {Object} objFiltros - { idAsignatura, idExamen, motivo, fecha, busqueda }
  * @returns {Promise<Array>} Lista de registros normalizados
  */
-export async function listarCatalogoReporteIntentos() {
-  const datos = await fetchAutenticado("/api/reportes/intentos-incorrectos/catalogo");
-  if (!Array.isArray(datos)) throw new Error("El servidor devolvió un catálogo inválido.");
-  return datos;
-}
-
 export async function listarReporteIntentosIncorrectos(objFiltros = {}) {
   const objParams = new URLSearchParams();
   if (objFiltros.idAsignatura && objFiltros.idAsignatura !== "TODAS") {

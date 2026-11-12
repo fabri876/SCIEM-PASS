@@ -73,11 +73,22 @@ public class SecurityConfig {
                         // docente se valida en el servicio.
                         .requestMatchers(HttpMethod.POST, "/api/incidencias")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        // Evidencia pendiente de una incidencia creada offline (HU21).
+                        .requestMatchers(HttpMethod.POST, "/api/incidencias/*/evidencia")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
                         .requestMatchers(HttpMethod.GET, "/api/incidencias/catalogos",
                                 "/api/incidencias/ambientes", "/api/incidencias/aulas-asignadas",
                                 "/api/incidencias/estudiante")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
                         .requestMatchers(HttpMethod.POST, "/api/ingresos-excepcionales")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        // Ingreso excepcional registrado offline (HU21).
+                        .requestMatchers(HttpMethod.POST, "/api/sync/ingresos-excepcionales")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        // Sincronización offline de incidencias (HU21). El operador
+                        // puede registrar incidencias online, así que también puede
+                        // subir las que dejó en la cola del dispositivo.
+                        .requestMatchers(HttpMethod.POST, "/api/sync/incidencias")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
                         .requestMatchers("/api/incidencias/**", "/api/ingresos-excepcionales/**",
                                 "/api/monitoreo/**")
@@ -96,6 +107,8 @@ public class SecurityConfig {
                                 "/api/examenes/*/expulsiones/pendientes",
                                 "/api/examenes/*/expulsiones/pendientes/total")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/examenes/*/expulsiones/*/revocar")
+                                .hasRole("DOCENTE")
                         .requestMatchers(HttpMethod.PUT, "/api/examenes/*/expulsiones/*/autorizar",
                                 "/api/examenes/*/expulsiones/*/denegar")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR")

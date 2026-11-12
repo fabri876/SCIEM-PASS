@@ -9,7 +9,8 @@ package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 public enum EstadoExpulsion {
     PENDIENTE("Pendiente de autorización"),
     AUTORIZADA("Autorizada"),
-    DENEGADA("Denegada");
+    DENEGADA("Denegada"),
+    REVOCADA("Revocada");
 
     private final String etiqueta;
 

@@ -8,29 +8,58 @@
 import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken, cerrarSesion } from "./authService";
 
+// Sin timeout un fetch contra un servidor inalcanzable puede quedar colgado
+// varios minutos (por ejemplo, con Wi-Fi conectado pero sin internet).
+const TIMEOUT_LECTURA_MS = 10000;
+const TIMEOUT_ESCRITURA_MS = 30000;
+const TIMEOUT_EXPORTACION_MS = 60000;
+
+/** Error de red/timeout marcado para que la UI pueda caer al modo offline. */
+function errorSinConexion(strMensaje) {
+  const error = new Error(strMensaje);
+  error.offline = true;
+  return error;
+}
+
 /**
- * Cliente HTTP autenticado con manejo de sesión vencida (401)
- * y soporte transparente para multipart/form-data y JSON.
+ * Cliente HTTP autenticado con manejo de sesión vencida (401),
+ * timeout configurable y soporte transparente para multipart/form-data y JSON.
  */
 async function fetchAutenticado(strRuta, objOpciones = {}) {
+  const { timeoutMs, ...opcionesFetch } = objOpciones;
   const strToken = obtenerToken();
-  const esFormData = objOpciones.body instanceof FormData;
+  const esFormData = opcionesFetch.body instanceof FormData;
 
   const headers = {
     ...(esFormData ? {} : { "Content-Type": "application/json" }),
     ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
-    ...(objOpciones.headers || {}),
+    ...(opcionesFetch.headers || {}),
   };
+
+  const esEscritura = String(opcionesFetch.method || "GET").toUpperCase() !== "GET";
+  const tiempoMaximo = timeoutMs ?? (esEscritura ? TIMEOUT_ESCRITURA_MS : TIMEOUT_LECTURA_MS);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), tiempoMaximo);
 
   let response;
   try {
     response = await fetch(`${strApiBaseUrl}${strRuta}`, {
-      ...objOpciones,
+      ...opcionesFetch,
       headers,
+      signal: controller.signal,
     });
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError" || controller.signal.aborted) {
+      throw errorSinConexion(
+        "No se pudo conectar con el servidor a tiempo. Revisa tu conexión e intenta de nuevo; no se guardó nada."
+      );
+    }
     // Sin red o servidor caído: el backend no llegó a guardar nada.
-    throw new Error("No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo; no se guardó nada.");
+    throw errorSinConexion(
+      "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo; no se guardó nada."
+    );
+  } finally {
+    clearTimeout(timer);
   }
 
   if (response.status === 401) {
@@ -77,7 +106,7 @@ export async function obtenerAmbientesDelDia(strFecha) {
   const params = new URLSearchParams();
   if (strFecha) params.set("fecha", strFecha);
   const strQuery = params.toString() ? `?${params.toString()}` : "";
-  return fetchAutenticado(`/api/incidencias/ambientes${strQuery}`);
+  return fetchAutenticado(`/api/incidencias/ambientes${strQuery}`, { timeoutMs: 20000 });
 }
 
 /**
@@ -89,7 +118,7 @@ export async function obtenerAmbientesDelDia(strFecha) {
  *        OPERADOR (aulas asignadas en la HU05)
  */
 export async function obtenerAulasAsignadas() {
-  return fetchAutenticado("/api/incidencias/aulas-asignadas");
+  return fetchAutenticado("/api/incidencias/aulas-asignadas", { timeoutMs: 20000 });
 }
 
 /** Avisa al menú lateral (contador de abiertas) que algo cambió. */
@@ -107,7 +136,11 @@ export async function consultarEstudianteIncidencia(idAmbiente, strBusqueda) {
   if (idAmbiente) params.set("idAmbiente", idAmbiente);
   if (strBusqueda) params.set("q", strBusqueda.trim());
 
-  return fetchAutenticado(`/api/incidencias/estudiante?${params.toString()}`);
+  // La búsqueda se usa desde un formulario: si el servidor no responde,
+  // conviene fallar rápido y caer a la nómina local.
+  return fetchAutenticado(`/api/incidencias/estudiante?${params.toString()}`, {
+    timeoutMs: 8000,
+  });
 }
 
 /**
@@ -158,6 +191,21 @@ export async function registrarIncidencia({
 }
 
 /**
+ * Adjunta la evidencia de una incidencia ya registrada (se usa al sincronizar
+ * una incidencia creada offline cuya foto quedó guardada en el dispositivo).
+ * POST /api/incidencias/{id}/evidencia (multipart)
+ * Roles: ADMINISTRADOR, DOCENTE, OPERADOR
+ */
+export async function subirEvidenciaIncidencia(idIncidencia, archivo, strNombre = "evidencia.jpg") {
+  const formData = new FormData();
+  formData.append("evidencia", archivo, strNombre);
+  return fetchAutenticado(`/api/incidencias/${idIncidencia}/evidencia`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+/**
  * Lista las incidencias filtradas por examen, aula, tipo y estado.
  * GET /api/incidencias?idExamen=&idAmbiente=&tipo=&estado=
  * Roles: ADMINISTRADOR, DOCENTE
@@ -189,13 +237,21 @@ export async function exportarIncidenciasExcel({ idExamen, idAmbiente, tipo, est
   if (soloExpulsiones) params.set("soloExpulsiones", "true");
 
   const strToken = obtenerToken();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_EXPORTACION_MS);
   let response;
   try {
     response = await fetch(`${strApiBaseUrl}/api/incidencias/exportar?${params.toString()}`, {
       headers: { ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}) },
+      signal: controller.signal,
     });
-  } catch {
-    throw new Error("No se pudo conectar con el servidor para exportar.");
+  } catch (error) {
+    if (error?.name === "AbortError" || controller.signal.aborted) {
+      throw errorSinConexion("El servidor no respondió a tiempo para exportar. Revisa tu conexión.");
+    }
+    throw errorSinConexion("No se pudo conectar con el servidor para exportar.");
+  } finally {
+    clearTimeout(timer);
   }
 
   if (response.status === 401) {
@@ -257,6 +313,19 @@ export async function cerrarIncidencia(idIncidencia, strResolucion) {
     body: JSON.stringify({
       resolucion: strResolucion,
     }),
+  });
+}
+
+/**
+ * Revoca una expulsión autorizada (solo Docente).
+ * PUT /api/examenes/{idExamen}/expulsiones/{idExpulsion}/revocar
+ */
+export async function revocarExpulsion(idExamen, idExpulsion, strMotivo) {
+  const params = new URLSearchParams();
+  if (strMotivo) params.set("motivo", strMotivo);
+  const strQuery = params.toString() ? `?${params.toString()}` : "";
+  return fetchAutenticado(`/api/examenes/${idExamen}/expulsiones/${idExpulsion}/revocar${strQuery}`, {
+    method: "PUT",
   });
 }
 

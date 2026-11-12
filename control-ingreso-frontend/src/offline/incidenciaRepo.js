@@ -4,7 +4,7 @@ import { ESTADO_SYNC } from './constantes.js';
 import { generarUuid } from './uuid.js';
 
 export const incidenciaRepo = {
-  async encolar({ idAmbiente, tipo, severidad, descripcion, codSisEstudiante, retirarEstudiante, registradoEn }) {
+  async encolar({ idAmbiente, tipo, severidad, descripcion, codSisEstudiante, retirarEstudiante, registradoEn, creadoPor = null }) {
     const clientUuid = generarUuid();
     await db.incidencias_pendientes.add({
       clientUuid,
@@ -15,6 +15,7 @@ export const incidenciaRepo = {
       codSisEstudiante: codSisEstudiante ? Number(codSisEstudiante) : null,
       retirarEstudiante: Boolean(retirarEstudiante),
       registradoEn: registradoEn || new Date().toISOString(),
+      creadoPor,
       syncStatus: ESTADO_SYNC.PENDIENTE,
       intentos: 0,
       nextRetryAt: 0,
@@ -23,16 +24,45 @@ export const incidenciaRepo = {
     return clientUuid;
   },
 
-  async encolarExpulsion({ incidenciaClientUuid, codSisEstudiante, examenId }) {
+  async encolarExpulsion({
+    incidenciaClientUuid,
+    codSisEstudiante,
+    examenId,
+    idAmbiente = null,
+    motivo = null,
+    registradoEn = null,
+    reportadoPor = null,
+    nombreEstudiante = null,
+  }) {
     const clientUuid = generarUuid();
     const codigoSis = String(codSisEstudiante).trim();
     const idExamen = Number(examenId);
     await db.transaction('rw', [db.expulsiones_pendientes, db.nominas], async () => {
+      // Se guarda el estado previo del estudiante en la nómina: al revocar la
+      // expulsión se restaura exactamente ese estado y no se rehabilita a un
+      // estudiante que estaba inhabilitado por otro motivo.
+      let estadoPrevio = null;
+      if (Number.isInteger(idExamen) && idExamen > 0 && codigoSis) {
+        const registro = await db.nominas.get([idExamen, codigoSis]);
+        if (registro) {
+          estadoPrevio = {
+            habilitado: Boolean(registro.habilitado),
+            motivoBloqueo: registro.motivoBloqueo ?? null,
+          };
+        }
+      }
+
       await db.expulsiones_pendientes.add({
         clientUuid,
         incidenciaClientUuid,
         codSisEstudiante: Number(codSisEstudiante),
         examenId: Number.isInteger(idExamen) && idExamen > 0 ? idExamen : null,
+        idAmbiente: idAmbiente != null ? Number(idAmbiente) : null,
+        motivo,
+        nombreEstudiante,
+        registradoEn: registradoEn || new Date().toISOString(),
+        reportadoPor,
+        estadoPrevioNomina: estadoPrevio,
         syncStatus: ESTADO_SYNC.PENDIENTE,
         intentos: 0,
         nextRetryAt: 0,
@@ -47,6 +77,31 @@ export const incidenciaRepo = {
       }
     });
     return clientUuid;
+  },
+
+  /**
+   * Restaura el estado de habilitación de un estudiante al revocar una
+   * expulsión local. Solo toca la fila del examen afectado y devuelve el estado
+   * previo que tenía (no rehabilita a un estudiante que estaba inhabilitado
+   * por otro motivo).
+   */
+  async restaurarNominaPorExpulsion(expulsion) {
+    if (!expulsion) return false;
+    const idExamen = Number(expulsion.examenId);
+    const codigoSis = String(expulsion.codSisEstudiante ?? '').trim();
+    if (!Number.isInteger(idExamen) || idExamen <= 0 || !codigoSis) return false;
+
+    const previo = expulsion.estadoPrevioNomina;
+    const registro = await db.nominas.get([idExamen, codigoSis]);
+    if (!registro) return false;
+
+    await db.nominas.update([idExamen, codigoSis], {
+      // Si el registro se encoló antes de que existiera el estado previo, se
+      // rehabilita al estudiante (dejarlo bloqueado tras revocar sería peor).
+      habilitado: previo ? Boolean(previo.habilitado) : true,
+      motivoBloqueo: previo ? previo.motivoBloqueo ?? null : null,
+    });
+    return true;
   },
 
   async pendientes(limite = 50) {

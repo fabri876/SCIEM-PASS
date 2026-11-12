@@ -39,6 +39,16 @@ function iniciarRegistroActividadGlobal() {
 // Iniciar monitoreo de actividad al cargar el módulo
 iniciarRegistroActividadGlobal();
 
+// Al volver a tener conexión (tras un periodo offline), reiniciar el contador de
+// inactividad para no cerrar la sesión del operador que estuvo trabajando offline.
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    if (localStorage.getItem("token")) {
+      registrarActividad();
+    }
+  });
+}
+
 export async function registrarUsuario(objDatosRegistro) {
   const response = await fetch(`${strApiBaseUrl}/api/auth/registro`, {
     method: "POST",

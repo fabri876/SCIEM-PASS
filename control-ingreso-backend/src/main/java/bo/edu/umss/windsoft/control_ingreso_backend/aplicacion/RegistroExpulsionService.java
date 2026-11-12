@@ -463,6 +463,62 @@ public class RegistroExpulsionService {
     }
 
     // =========================================================================
+    // REVOCAR (solo Docente): revierte una expulsión autorizada.
+    // =========================================================================
+    @Transactional
+    public RegistroExpulsionResponse revocar(Integer idExamen, Integer idExpulsion, String motivo, String ip) {
+        ContextoUsuarioService.UsuarioActual usuario = contextoUsuarioService.actual();
+        if (!usuario.esDocente()) {
+            throw new AccesoDenegadoException("Solo el docente puede revocar una expulsión.");
+        }
+        verificarAccesoExamen(usuario, idExamen, false, "Revocar expulsión", ip);
+
+        String motivoLimpio = motivo == null ? "" : motivo.trim();
+        if (motivoLimpio.length() < DESCRIPCION_MIN) {
+            throw new SolicitudInvalidaException("El motivo de revocación es obligatorio (mínimo " + DESCRIPCION_MIN + " caracteres).");
+        }
+
+        Expulsion expulsion = expulsionRepository.findById(idExpulsion)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe la expulsión con ID " + idExpulsion + "."));
+
+        Ingreso ingreso = ingresoRepository.findById(expulsion.getIdIngreso())
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No se encontró el ingreso asociado a la expulsión."));
+        if (!idExamen.equals(ingreso.getIdExamen())) {
+            throw new ConflictoEstadoException(
+                    "La expulsión #" + idExpulsion + " no pertenece al examen #" + idExamen + ".");
+        }
+
+        if (expulsion.getEstado() != EstadoExpulsion.AUTORIZADA) {
+            throw new ConflictoEstadoException("Solo se puede revocar una expulsión autorizada (estado actual: "
+                    + expulsion.getEstado() + ").");
+        }
+
+        expulsion.setEstado(EstadoExpulsion.REVOCADA);
+        // No se pisan fechaAutorizacion ni idUsuarioAutoriza: son datos históricos
+        // de quién autorizó la expulsión y cuándo. La revocación queda en la
+        // observación y en la auditoría.
+        String obsActual = expulsion.getObservacion();
+        expulsion.setObservacion(obsActual == null || obsActual.isBlank()
+                ? ("Revocada: " + motivoLimpio)
+                : (obsActual + " | Revocada: " + motivoLimpio));
+        expulsionRepository.save(expulsion);
+
+        // Restaurar el ingreso: el estudiante puede volver a ingresar.
+        ingreso.setIdExpulsion(null);
+        ingresoRepository.saveAndFlush(ingreso);
+
+        auditoriaService.registrarEnTransaccion(
+                "EXPULSION_REVOCADA", usuario.correo(),
+                correoEstudiante(ingreso.getIdUsuarioEstudiante()),
+                "examen #" + idExamen + " · ingreso #" + ingreso.getIdIngreso()
+                + " · expulsión #" + idExpulsion + " revocada · motivo: " + motivoLimpio, ip);
+
+        return armarRespuesta(expulsion);
+    }
+
+    // =========================================================================
     // HISTORIAL DEL USUARIO (Docente, Operador, Administrador)
     // =========================================================================
 
