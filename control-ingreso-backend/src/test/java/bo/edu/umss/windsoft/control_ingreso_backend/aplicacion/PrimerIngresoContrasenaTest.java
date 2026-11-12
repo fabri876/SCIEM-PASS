@@ -54,7 +54,7 @@ class PrimerIngresoContrasenaTest {
         when(passwordEncoder.matches("ClaveVieja!", "hash-ci")).thenReturn(true);
 
         SolicitudInvalidaException error = assertThrows(SolicitudInvalidaException.class,
-                () -> authService.cambiarContrasena("usuario@umss.edu", "ClaveVieja!", "Roca!ClaveVieja#2026", "127.0.0.1"));
+                () -> authService.cambiarContrasena("usuario@umss.edu", "ClaveVieja!", "Roca!ClaveVieja!2026#", "127.0.0.1"));
 
         assertTrue(error.getMessage().contains("contener"));
         assertTrue(usuario.getDebeCambiarContrasena());
@@ -68,5 +68,21 @@ class PrimerIngresoContrasenaTest {
         usuario.setIdusuario(7);
         usuario.setDebeCambiarContrasena(true);
         return usuario;
+    }
+
+    @Test
+    void ningunaClaveInferiorANivelOchoSeGuardaNiQuitaElAviso() {
+        Usuario usuario=usuarioPendiente();
+        when(usuarios.findByCorreousuario("usuario@umss.edu")).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("1234567","hash-ci")).thenReturn(true);
+        for(String clave:java.util.List.of("Roca!7", "ROCAVERDE2026!", "rocaverde2026!",
+                "Roca!VerdeMenta", "Roca Verde2026", "Roca!AaAVerde7", "Roca!AbcVerde7")) {
+            assertThrows(SolicitudInvalidaException.class,
+                ()->authService.cambiarContrasena("usuario@umss.edu","1234567",clave,"127.0.0.1"));
+            assertTrue(usuario.getDebeCambiarContrasena());
+            assertEquals("hash-ci",usuario.getContraseniausuario());
+        }
+        verify(passwordEncoder,never()).encode(anyString());
+        verify(usuarios,never()).save(any());
     }
 }

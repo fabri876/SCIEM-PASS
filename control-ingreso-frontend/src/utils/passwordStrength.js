@@ -13,8 +13,11 @@ function fnTieneRepeticionOSecuencia(strTexto) {
         const b = strMin.charCodeAt(i + 1);
         const c = strMin.charCodeAt(i + 2);
         if (a === b && b === c) return true;
-        if (b === a + 1 && c === b + 1) return true;
-        if (b === a - 1 && c === b - 1) return true;
+        const trio = strMin.slice(i, i + 3);
+        if (/^[a-z]{3}$|^[0-9]{3}$/.test(trio)) {
+            if (b === a + 1 && c === b + 1) return true;
+            if (b === a - 1 && c === b - 1) return true;
+        }
     }
     return false;
 }
@@ -44,7 +47,7 @@ export function fnEvaluarContrasena(strNueva = "", strActual = "") {
             boolCumple:
                 boolHayTexto &&
                 strNueva !== strActual &&
-                !(strActual.length >= 4 && strNueva.includes(strActual)),
+                !(strActual.trim().length > 0 && strNueva.toLowerCase().includes(strActual.toLowerCase())),
         },
     ];
 
