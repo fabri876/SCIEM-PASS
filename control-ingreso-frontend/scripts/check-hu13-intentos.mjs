@@ -147,6 +147,9 @@ try {
   );
   assert.ok(!html.includes("HU-09") && !html.includes("HU-18"));
   assert.ok(html.includes("Fecha / Hora"), "La tabla debe identificar fecha y hora");
+  const hoy = new Date();
+  const fechaMaxima = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+  assert.ok(html.includes(`type="date" max="${fechaMaxima}"`), "El calendario debe bloquear fechas futuras");
 
   console.log("3. Probando exportaciones con datos ficticios...");
   const fila = { estudianteNombre: '=SUM(1,2)', codSis: '123456', ci: '<script>',

@@ -26,6 +26,30 @@ se purgan al descargar una nueva; los intentos pendientes no se borran por esa p
 
 ## Pruebas realizadas
 
+### Correcciones QA del 2026-11-11
+
+- HU9: el historial y los registros propios conservan la carrera consultada del
+  estudiante. La orientación de jornada ahora descarga también la carrera y la
+  tarjeta offline la conserva. Volver a descargar la jornada para actualizar las
+  copias locales anteriores; no se infiere la carrera a partir de la asignatura.
+- HU13: el calendario limita la fecha máxima a hoy y normaliza una entrada futura
+  antes de aplicar filtros. Se conserva la corrección local que ya estaba en `jose`.
+- Los nuevos intentos duplicados guardan el ambiente del ingreso previo. Para
+  duplicados históricos sin ambiente asignado, el reporte consulta únicamente el
+  ingreso coincidente del mismo estudiante y examen, anterior al intento.
+- El destino de examen incorrecto sigue usando la asociación HU9 registrada.
+  Un evento histórico sin destino permanece sin destino: no se reconstruye con la
+  asignación actual, que puede haber cambiado desde el intento.
+- La prueba de permisos de HU13 incluye el filtro de cambio de contraseña que
+  requiere la configuración de seguridad actual.
+- Estas correcciones se verifican con pruebas automatizadas y build local; falta
+  repetir la comprobación visual y el recorrido de datos en el entorno compartido.
+  Pasaron 29 pruebas seleccionadas del backend con Java 21, los scripts
+  `check-hu09-resultado.mjs` y `check-hu13-intentos.mjs`, y el build del frontend
+  con generación de Service Worker usando Node 20.19.0.
+
+### Validación anterior
+
 - En PostgreSQL local aislado se probaron rechazo y orientación por SIS y QR,
   auditoría, solicitudes independientes y repetición de una misma solicitud.
 - Seis solicitudes simultáneas con el mismo UUID dejaron un intento y una auditoría.
