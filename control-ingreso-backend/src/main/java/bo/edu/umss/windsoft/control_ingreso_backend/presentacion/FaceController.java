@@ -11,6 +11,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceSyncRes
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceEnrollmentAdminDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceAuditoriaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceIntentoAdminDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerificacionEstudianteRequestDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerificacionEstudianteResponseDto;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -45,7 +47,7 @@ public class FaceController {
     }
 
     @PostMapping(value = "/enroll", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ESTUDIANTE','ADMINISTRADOR')")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
     public ResponseEntity<FaceEnrollmentStatusDto> enrolar(@RequestParam MultipartFile file,
                                                             @RequestParam String embedding,
                                                             @RequestParam String modelVersion,
@@ -55,10 +57,30 @@ public class FaceController {
                 .body(enrollmentService.enrolar(file, embedding, modelVersion, consentimientoAt));
     }
 
+    @PostMapping(value = "/enrollment/{idUsuario}/override", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public ResponseEntity<FaceEnrollmentStatusDto> reenrolarComoAdministrador(@PathVariable Integer idUsuario,
+                                                                                 @RequestParam MultipartFile file,
+                                                                                 @RequestParam String embedding,
+                                                                                 @RequestParam String modelVersion,
+                                                                                 @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                                                                                 LocalDateTime consentimientoAt) {
+        return ResponseEntity.ok(enrollmentService.reenrolarComoAdministrador(
+                idUsuario, file, embedding, modelVersion, consentimientoAt));
+    }
+
     @GetMapping("/enrollment/status")
     @PreAuthorize("hasAnyRole('ESTUDIANTE','ADMINISTRADOR')")
     public FaceEnrollmentStatusDto estadoEnrolamiento() {
         return enrollmentService.estadoActual();
+    }
+
+    @PostMapping("/verificar-estudiante")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public ResponseEntity<FaceVerificacionEstudianteResponseDto> verificarEstudiante(
+            @Valid @RequestBody FaceVerificacionEstudianteRequestDto solicitud) {
+        return ResponseEntity.ok(enrollmentService.verificarEstudiante(
+                solicitud.embedding(), solicitud.livenessScore(), solicitud.idExamen()));
     }
 
     @PatchMapping("/enrollment/{idEnrollment}/status")

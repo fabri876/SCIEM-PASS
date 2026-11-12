@@ -9,6 +9,7 @@ import {
   X,
   Search,
   Building,
+  WifiOff,
 } from "lucide-react";
 import {
   consultarEstudianteIncidencia,
@@ -18,6 +19,12 @@ import {
 } from "../../services/incidenciaService";
 import { formatearFecha, formatearHora, validarImagen, etiquetaAula } from "./utilidadesIncidencias";
 import { incidenciaRepo } from "../../offline/incidenciaRepo";
+import { evidenciaRepo } from "../../offline/evidenciaRepo";
+import { obtenerUsuarioActual } from "../../services/authService";
+import {
+  buscarEstudianteIncidenciaLocal,
+  estaOfflineIncidencia,
+} from "../../offline/incidenciaOffline";
 
 const CATALOGO_TIPOS = [
   { codigo: "SUPLANTACION", etiqueta: "Suplantación" },
@@ -81,11 +88,13 @@ export default function ModalIncidencia({
   const [estudianteInvolucrado, setEstudianteInvolucrado] = useState(null);
   const [boolBuscandoEstudiante, setBoolBuscandoEstudiante] = useState(false);
   const [strErrorBusquedaEstudiante, setStrErrorBusquedaEstudiante] = useState("");
+  const [strAvisoBusqueda, setStrAvisoBusqueda] = useState("");
 
   const [boolGuardando, setBoolGuardando] = useState(false);
   const [strError, setStrError] = useState("");
   const [strExito, setStrExito] = useState("");
   const [strHoraActual, setStrHoraActual] = useState("");
+  const [boolOffline, setBoolOffline] = useState(false);
   const [retirarEstudiante, setRetirarEstudiante] = useState(false);
   const [boolEsExpulsion, setBoolEsExpulsion] = useState(false);
   const [strOtroDetalle, setStrOtroDetalle] = useState("");
@@ -107,6 +116,7 @@ export default function ModalIncidencia({
     setStrError("");
     setStrExito("");
     setStrErrorBusquedaEstudiante("");
+    setStrAvisoBusqueda("");
     setBoolGuardando(false);
     setRetirarEstudiante(false);
     setBoolEsExpulsion(false);
@@ -114,6 +124,13 @@ export default function ModalIncidencia({
     setBoolCerrandoExpulsion(false);
 
     setAulaSeleccionada(aulaPreseleccionada || aulasDisponibles[0] || null);
+
+    // Sin conexión el formulario trabaja con la nómina descargada y deja el
+    // registro en la cola local (HU21).
+    setBoolOffline(false);
+    estaOfflineIncidencia()
+      .then((offline) => setBoolOffline(offline))
+      .catch(() => { });
 
     if (estudianteInicial) {
       setEstudianteInvolucrado(estudianteInicial);
@@ -189,6 +206,8 @@ export default function ModalIncidencia({
     retirarEstudiante && !estudianteInvolucrado && "el estudiante a retirar",
     retirarEstudiante && estudianteYaRetirado && "no se puede expulsar a un estudiante ya retirado",
     retirarEstudiante && boolAulaFija && !boolExamenActivo && "el examen debe estar en curso para registrar una expulsión",
+    retirarEstudiante && boolAulaFija && aulasDisponiblesFiltradas.length === 0 &&
+      "un examen en curso para registrar la expulsión",
   ].filter(Boolean);
   const puedeRegistrar =
     faltantes.length === 0 && !boolGuardando && !strExito && !estudianteYaRetirado && !strErrorBusquedaEstudiante &&
@@ -209,14 +228,49 @@ export default function ModalIncidencia({
     const query = strBusquedaEstudiante.trim();
     if (!query || !idAmbienteActual) return;
 
+    const idExamen = aulaSeleccionada?.idExamen ?? null;
+    const buscarEnNominaLocal = () =>
+      buscarEstudianteIncidenciaLocal({ idExamen, consulta: query });
+
     setBoolBuscandoEstudiante(true);
     setStrErrorBusquedaEstudiante("");
+    setStrAvisoBusqueda("");
     setEstudianteInvolucrado(null);
     setBoolEsExpulsion(false);
     setRetirarEstudiante(false);
 
     try {
-      const data = await consultarEstudianteIncidencia(idAmbienteActual, query);
+      let data;
+      let origenLocal = false;
+
+      if (await estaOfflineIncidencia()) {
+        // Sin conexión: se consulta directo a la nómina guardada en el equipo.
+        data = await buscarEnNominaLocal();
+        origenLocal = true;
+      } else {
+        try {
+          data = await consultarEstudianteIncidencia(idAmbienteActual, query);
+        } catch (errServidor) {
+          // Servidor inalcanzable (timeout o red caída): respaldo local.
+          if (errServidor?.offline) {
+            data = await buscarEnNominaLocal();
+            origenLocal = true;
+          } else {
+            throw errServidor;
+          }
+        }
+      }
+
+      if (origenLocal && data?.estado !== "SIN_NOMINA") {
+        setStrAvisoBusqueda("Sin conexión: se usó la nómina descargada en este equipo.");
+      }
+      if (data?.estado === "SIN_NOMINA") {
+        setStrErrorBusquedaEstudiante(
+          data.mensaje || "Sin conexión y sin nómina descargada para este examen."
+        );
+        return;
+      }
+
       if (data && data.estado !== "NO_ENCONTRADO" && data.estado !== "NO_INSCRITO" && data.estado !== "SIN_INGRESO") {
         setEstudianteInvolucrado({
           nombreCompleto: data.nombreCompleto,
@@ -236,7 +290,7 @@ export default function ModalIncidencia({
             ? data.mensaje || "El estudiante no está inscrito en la materia de este examen."
             : data?.estado === "SIN_INGRESO"
             ? data.mensaje || "El estudiante no ha ingresado a este examen; no se puede registrar una incidencia para él."
-            : "Estudiante no encontrado"
+            : data?.mensaje || "Estudiante no encontrado"
         );
       }
     } catch (err) {
@@ -301,17 +355,34 @@ export default function ModalIncidencia({
       registradoEn: new Date().toISOString(),
     };
     const guardarOffline = async () => {
-      const clientUuid = await incidenciaRepo.encolar(datosIncidencia);
+      const usuario = obtenerUsuarioActual();
+      const creadoPor = usuario?.idUsuario ?? usuario?.idusuario ?? usuario?.correo ?? null;
+      const clientUuid = await incidenciaRepo.encolar({ ...datosIncidencia, creadoPor });
       if (boolRetirarAhora) {
         await incidenciaRepo.encolarExpulsion({
           incidenciaClientUuid: clientUuid,
           codSisEstudiante: estudianteInvolucrado?.codSis,
           examenId: aulaSeleccionada?.idExamen,
+          idAmbiente: idAmbienteActual,
+          motivo: strDescripcionFinal,
+          registradoEn: datosIncidencia.registradoEn,
+          reportadoPor: creadoPor,
+          nombreEstudiante: estudianteInvolucrado?.nombreCompleto || null,
         });
       }
-      setStrExito(boolRetirarAhora
+      // La foto se guarda como Blob en IndexedDB y se sube al sincronizar (CA11/CA25).
+      let notaFoto = "";
+      if (archivoFoto) {
+        try {
+          await evidenciaRepo.guardar(clientUuid, archivoFoto);
+          notaFoto = " La foto de evidencia quedó guardada y se enviará junto con la incidencia.";
+        } catch {
+          notaFoto = " La foto de evidencia no se pudo guardar en el dispositivo.";
+        }
+      }
+      setStrExito((boolRetirarAhora
         ? "Sin conexión. La expulsión se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal."
-        : "Sin conexión. La incidencia se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal.");
+        : "Sin conexión. La incidencia se guardó en tu dispositivo y se enviará automáticamente al recuperar la señal.") + notaFoto);
       notificarCambioIncidencias();
       setTimeout(() => {
         if (onExito) onExito({ clientUuid, offline: true });
@@ -320,7 +391,7 @@ export default function ModalIncidencia({
     };
 
     try {
-      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      if (await estaOfflineIncidencia()) {
         await guardarOffline();
         return;
       }
@@ -353,7 +424,7 @@ export default function ModalIncidencia({
         onCerrar();
       }, 900);
     } catch (err) {
-      if (err.message?.includes("No se pudo conectar") || (typeof navigator !== "undefined" && navigator.onLine === false)) {
+      if (err?.offline || (await estaOfflineIncidencia())) {
         try {
           await guardarOffline();
         } catch (errorOffline) {
@@ -403,6 +474,16 @@ export default function ModalIncidencia({
         </div>
 
         <form onSubmit={fnRegistrar} className="p-5 space-y-4">
+
+          {boolOffline && (
+            <div className="bg-[#FEF9E7] border border-[#FDE68A] text-[#92400E] rounded-xl px-3 py-2 text-[11px] font-bold flex items-start gap-2">
+              <WifiOff className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Sin conexión: el registro se guardará en este dispositivo y se enviará
+                automáticamente al recuperar la señal.
+              </span>
+            </div>
+          )}
 
           {/* Aula del examen (solo las asignadas) */}
           <div>
@@ -535,6 +616,9 @@ export default function ModalIncidencia({
 
             {strErrorBusquedaEstudiante && (
               <p className="text-[11px] text-[#B91C1C] font-bold mt-1">{strErrorBusquedaEstudiante}</p>
+            )}
+            {strAvisoBusqueda && (
+              <p className="text-[10.5px] text-[#124B83] font-bold mt-1">{strAvisoBusqueda}</p>
             )}
 
             {estudianteInvolucrado && (

@@ -20,18 +20,28 @@ public class SelloAuditoriaRepository {
 
     public boolean disponible() {
         return Boolean.TRUE.equals(jdbc.queryForObject(
-                "select to_regclass('public.hu15_sello_auditoria') is not null " +
-                        "and to_regclass('public.hu15_cabeza_cadena') is not null", Boolean.class));
+                "select (to_regclass('public.sello_auditoria') is not null " +
+                        "and to_regclass('public.cabeza_cadena_auditoria') is not null) or " +
+                        "(to_regclass('public.hu15_sello_auditoria') is not null " +
+                        "and to_regclass('public.hu15_cabeza_cadena') is not null)", Boolean.class));
+    }
+
+    // Compatibilidad durante el despliegue coordinado de la migracion de nombres.
+    private boolean usaNombresNuevos() {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "select to_regclass('public.sello_auditoria') is not null " +
+                        "and to_regclass('public.cabeza_cadena_auditoria') is not null", Boolean.class));
     }
 
     public List<Sello> listar() {
-        return jdbc.query("select secuencia, idauditoria, hash_anterior, hash_actual " +
-                        "from public.hu15_sello_auditoria order by secuencia",
+        String tabla = usaNombresNuevos() ? "public.sello_auditoria" : "public.hu15_sello_auditoria";
+        return jdbc.query("select secuencia, idauditoria, hash_anterior, hash_actual from " + tabla + " order by secuencia",
                 (rs, fila) -> new Sello(rs.getLong(1), rs.getInt(2), rs.getString(3), rs.getString(4)));
     }
 
     public Optional<Cabeza> cabeza() {
-        return jdbc.query("select secuencia, hash_actual from public.hu15_cabeza_cadena where singleton = true",
+        String tabla = usaNombresNuevos() ? "public.cabeza_cadena_auditoria" : "public.hu15_cabeza_cadena";
+        return jdbc.query("select secuencia, hash_actual from " + tabla + " where singleton = true",
                 (rs, fila) -> new Cabeza(rs.getLong(1), rs.getString(2))).stream().findFirst();
     }
 }

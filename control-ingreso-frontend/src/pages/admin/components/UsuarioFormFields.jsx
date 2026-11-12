@@ -192,6 +192,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           correo: objFormData.correo,
           telefono: intTelefono,
           idGrupos: !boolRolCambio && objFormData.rol !== "ADMINISTRADOR" ? gruposAcademicos.map(g => g.idGrupo) : undefined,
+          idCarreras: [...new Set(gruposAcademicos.map(g=>g.idCarrera).filter(Boolean))],
           rolCambio: boolRolCambio
             ? { nuevoRol: objFormData.rol, codigoSis: boolPideCodigoSis ? intCodigoSis : null }
             : null,
@@ -212,6 +213,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           codigoSis: boolPideCodigoSis ? intCodigoSis : null,
           idGrupo: objFormData.idGrupo || null,
           idGrupos: gruposAcademicos.map(g => g.idGrupo),
+          idCarreras: [...new Set(gruposAcademicos.map(g=>g.idCarrera).filter(Boolean))],
         });
       }
     } catch (error) {

@@ -20,6 +20,20 @@ import org.springframework.security.access.AccessDeniedException;
 
 @Service
 public class GrupoService {
+    public List<Integer> carrerasUsuario(Integer usuario) { return grupoRepository.carrerasUsuario(usuario); }
+    public List<Integer> validarCarrerasRegistro(String rol, List<Integer> carreras, List<Integer> grupos) {
+        if ("ADMINISTRADOR".equals(rol)) return List.of();
+        List<Integer> disponibles=grupoRepository.carrerasDeGrupos(grupos);
+        List<Integer> seleccionadas=carreras==null ? List.of() : carreras.stream().distinct().toList();
+        if (seleccionadas.isEmpty() && !"ESTUDIANTE".equals(rol)) seleccionadas=disponibles;
+        if (seleccionadas.isEmpty()) throw new ValidacionNegocioException("Seleccione la carrera de pertenencia del usuario.");
+        if (!disponibles.containsAll(seleccionadas)) throw new ValidacionNegocioException("La carrera seleccionada no corresponde a las asignaturas y grupos del registro.");
+        return seleccionadas;
+    }
+
+    public void guardarCarreras(Integer usuario,List<Integer> carreras) {
+        for(Integer carrera:carreras) grupoRepository.vincularCarrera(usuario,carrera);
+    }
 
     private final GrupoRepository grupoRepository;
     private final AsignaturaRepository asignaturaRepository;

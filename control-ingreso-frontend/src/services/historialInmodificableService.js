@@ -57,7 +57,7 @@ export function obtenerTextoCanonicoBloque(objBloque) {
 /**
  * Cliente HTTP autenticado con manejo de expiración de sesión (401) y errores.
  */
-async function fetchAutenticado(strRuta, objOpciones = {}) {
+async function fetchAutenticado(strRuta, objOpciones = {}, respuestaBinaria = false) {
   const strToken = obtenerToken();
 
   let response;
@@ -94,7 +94,7 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
     return [];
   }
 
-  return response.json();
+  return respuestaBinaria ? response.blob() : response.json();
 }
 
 /**
@@ -226,7 +226,7 @@ export async function generarBloquesSemilla() {
  * @param {Object} objFiltros - { modulo, ejecutor, fecha, fechaInicio, fechaFin, busqueda }
  * @returns {Promise<Array>} Lista de bloques criptográficos ordenados DESC
  */
-export async function listarHistorialInmodificable(objFiltros = {}) {
+function parametrosHistorial(objFiltros = {}) {
   const objParams = new URLSearchParams();
   if (objFiltros.modulo && objFiltros.modulo !== "TODOS") {
     objParams.set("modulo", objFiltros.modulo);
@@ -247,7 +247,11 @@ export async function listarHistorialInmodificable(objFiltros = {}) {
     objParams.set("busqueda", objFiltros.busqueda.trim());
   }
 
-  const strQuery = objParams.toString() ? `?${objParams.toString()}` : "";
+  return objParams.toString() ? `?${objParams.toString()}` : "";
+}
+
+export async function listarHistorialInmodificable(objFiltros = {}) {
+  const strQuery = parametrosHistorial(objFiltros);
 
   const arrRegistrosRaw = await fetchAutenticado(`/api/admin/historial-inmodificable${strQuery}`);
   if (!Array.isArray(arrRegistrosRaw)) {
@@ -327,13 +331,30 @@ export async function verificarIntegridadBloque(objBloque) {
   if (!objBloque.selloSha256 || !objBloque.hashBloqueAnterior) {
     return { esValido: false, motivo: "Este evento no tiene un sello almacenado; su integridad no puede verificarse." };
   }
-  const esValido = objBloque.estadoIntegridad === "VALIDO";
+  if (!/^\d+$/.test(String(objBloque.secuenciaSello || "")) || !Number.isInteger(objBloque.idBloque)
+      || !Object.hasOwn(objBloque, "usuarioIdSello") || !Object.hasOwn(objBloque, "fechaSello")
+      || !Object.hasOwn(objBloque, "accionSello")) {
+    return { esValido: false, motivo: "No se recibieron los datos originales necesarios para verificar el sello." };
+  }
+  const usuario = objBloque.usuarioIdSello == null ? "N" : `V${objBloque.usuarioIdSello}`;
+  const fecha = objBloque.fechaSello == null ? "N" : `V${objBloque.fechaSello}`;
+  let accion = "N";
+  if (objBloque.accionSello != null) {
+    const bytes = new TextEncoder().encode(objBloque.accionSello);
+    let binario = "";
+    for (const byte of bytes) binario += String.fromCharCode(byte);
+    accion = `V${btoa(binario)}`;
+  }
+  const canonico = `HU15-V1|${objBloque.secuenciaSello}|${objBloque.hashBloqueAnterior}|${objBloque.idBloque}|${usuario}|${fecha}|${accion}`;
+  const hashCalculado = await calcularSha256(canonico);
+  const esValido = hashCalculado === objBloque.selloSha256 && objBloque.estadoIntegridad === "VALIDO";
   return {
     esValido,
     hashOriginal: objBloque.selloSha256,
+    hashCalculado,
     motivo: esValido
-      ? "Sello individual consistente según el servidor; no verifica el punto de control externo."
-      : "El servidor no pudo confirmar el sello individual.",
+      ? "Sello individual consistente en el navegador y el servidor; no verifica el punto de control externo."
+      : "El sello recalculado o el resultado del servidor no coincide.",
   };
 }
 
@@ -360,52 +381,8 @@ export async function verificarCadenaCompleta(arrBloques) {
  *
  * @param {Array} arrBloquesFiltrados - Todos los registros que cumplen los filtros actuales
  */
-export function exportarRegistroCompletoCsv(arrBloquesFiltrados) {
-  if (!Array.isArray(arrBloquesFiltrados) || arrBloquesFiltrados.length === 0) {
-    throw new Error("No existen datos para generar el reporte.");
-  }
-
-  // Encabezados normalizados oficiales (Criterio 26)
-  const arrColumnas = [
-    "ID_BLOQUE",
-    "FECHA_HORA_OFICIAL",
-    "MODULO",
-    "OPERACION_EJECUTADA",
-    "USUARIO_EJECUTOR",
-    "IP_ORIGEN",
-    "SELLO_SHA256",
-    "HASH_BLOQUE_ANTERIOR",
-    "DETALLES",
-  ];
-
-  const escapeCsv = (valor) => {
-    if (valor === null || valor === undefined) return '""';
-    let str = String(valor);
-    if (/^[\s]*[=+@\-\t\r]/.test(str)) str = "'" + str;
-    str = str.replace(/"/g, '""');
-    return `"${str}"`;
-  };
-
-  const lineas = [
-    arrColumnas.join(","),
-    ...arrBloquesFiltrados.map((b) =>
-      [
-        escapeCsv(b.idBloque),
-        escapeCsv(b.fechaHoraOficial),
-        escapeCsv(b.modulo),
-        escapeCsv(b.operacionEjecutada),
-        escapeCsv(b.usuarioEjecutor),
-        escapeCsv(b.ipOrigen),
-        escapeCsv(b.selloSha256),
-        escapeCsv(b.hashBloqueAnterior),
-        escapeCsv(b.detalles),
-      ].join(",")
-    ),
-  ];
-
-  // \uFEFF para que Microsoft Excel en Windows abra caracteres acentuados en UTF-8 correctamente
-  const strCsvContenido = "\uFEFF" + lineas.join("\r\n");
-  const blob = new Blob([strCsvContenido], { type: "text/csv;charset=utf-8;" });
+export async function exportarRegistroCompletoCsv(objFiltros = {}) {
+  const blob = await fetchAutenticado(`/api/admin/historial-inmodificable/exportar${parametrosHistorial(objFiltros)}`, {}, true);
 
   const fechaActual = new Date();
   const anio = fechaActual.getFullYear();

@@ -38,4 +38,12 @@ class ExamenArchivadoControllerTest {
             .andExpect(content().contentType("application/pdf"))
             .andExpect(header().string("Content-Disposition","attachment; filename=\"examen-7.pdf\""));
     }
+    @Test void rechaza501CaracteresAntesDeInvocarElServicio() throws Exception {
+        var service=mock(ExamenArchivadoService.class);
+        var mvc=MockMvcBuilders.standaloneSetup(new ExamenArchivadoController(service)).build();
+        mvc.perform(multipart("/api/admin/examenes-pasados").file(new MockMultipartFile("archivoPdf","examen.pdf","application/pdf",new byte[]{1}))
+            .param("strNombre","Examen").param("strPeriodo","2-2026").param("strObservaciones","a".repeat(501)))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
 }

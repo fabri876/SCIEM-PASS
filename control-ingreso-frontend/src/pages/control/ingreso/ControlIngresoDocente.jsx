@@ -18,9 +18,8 @@ import useRangoLocal from "./useRangoLocal";
 import useUltimosLocales from "./useUltimosLocales";
 import ToastSyncConfirmacion from "../components/ToastSyncConfirmacion";
 import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilidadesExamenDocente";
-import ModalIncidencia from "../../../components/incidencias/ModalIncidencia";
 import ModalIngresoExcepcional from "../../../components/incidencias/ModalIngresoExcepcional";
-import { obtenerAulasAsignadas } from "../../../services/incidenciaService";
+import PanelIncidencias from "../../../components/incidencias/PanelIncidencias";
 
 export default function ControlIngresoDocente() {
   const { idExamen } = useParams();
@@ -46,8 +45,7 @@ export default function ControlIngresoDocente() {
   const ctrl = useControlIngreso(idControl, { examenInicial: objExamenInicial });
   const { estadoRed, fnCambiarRed } = useOperador();
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
-  const [mostrarModalIncidencia, setMostrarModalIncidencia] = useState(false);
-  const [aulasIncidencia, setAulasIncidencia] = useState([]);
+  const [boolPanelIncidencias, setBoolPanelIncidencias] = useState(false);
   const [excepcionFacial, setExcepcionFacial] = useState(null);
 
   const fnCerrarLista = useCallback(() => setBoolListaAbierta(false), []);
@@ -164,16 +162,14 @@ export default function ControlIngresoDocente() {
                 >
                   <ListChecks className="w-4 h-4" /> {boolSinRed && objRangoDocente ? "Mi lista" : "Lista oficial del aula"}
                 </button>
-                {boolExamenActivo && (
-                  <button
-                    type="button"
-                    onClick={() => setMostrarModalIncidencia(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl font-bold text-sm hover:bg-rose-700 transition max-md:w-full justify-center"
-                  >
-                    <AlertTriangle className="w-4 h-4" />
-                    Registrar incidencia
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setBoolPanelIncidencias(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#B91C1C] text-white rounded-xl font-bold text-sm hover:bg-[#991B1B] transition max-md:w-full justify-center"
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  Incidencias
+                </button>
               </div>
             }
           />
@@ -232,13 +228,14 @@ export default function ControlIngresoDocente() {
         observacionSugerida={excepcionFacial?.motivo === "FALLO_FACIAL" ? "Se agotaron tres intentos de verificación facial." : "El estudiante no cuenta con enrolamiento facial activo."}
         onExito={(respuesta) => ctrl.fnFinalizarExcepcional(respuesta)}
       />
-      <ModalIncidencia
-        boolAbierto={mostrarModalIncidencia}
-        onCerrar={() => setMostrarModalIncidencia(false)}
-        aulasDisponibles={aulaIncidenciaActual ? [aulaIncidenciaActual] : []}
-        aulaPreseleccionada={aulaIncidenciaActual}
-        boolAulaFija
+      <PanelIncidencias
+        boolAbierto={boolPanelIncidencias}
+        onCerrar={() => setBoolPanelIncidencias(false)}
+        idExamen={Number(idExamenLocal)}
+        idAmbiente={idAmbienteIncidencia ? Number(idAmbienteIncidencia) : null}
+        aulaIncidenciaActual={aulaIncidenciaActual}
         boolExamenActivo={boolExamenActivo}
+        rol={boolAdmin ? "ADMINISTRADOR" : "DOCENTE"}
       />
     </div>
   );

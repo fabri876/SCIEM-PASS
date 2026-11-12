@@ -11,6 +11,14 @@ import java.util.Optional;
 
 @Repository
 public interface GrupoRepository extends JpaRepository<Grupo, Integer> {
+    @Query(value="SELECT idcarrera FROM usuario_carrera_plan WHERE idusuario=:usuario",nativeQuery=true)
+    List<Integer> carrerasUsuario(@Param("usuario") Integer usuario);
+    @Query(value="SELECT DISTINCT c.idcarrera FROM grupo g JOIN asignatura_carrera_nivel c ON c.idasignatura=g.idasignatura AND c.idsemestre=g.idsemestre WHERE g.idgrupo IN (:grupos) AND g.idsemestre=semestre_actual_id()",nativeQuery=true)
+    List<Integer> carrerasDeGrupos(@Param("grupos") List<Integer> grupos);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value="INSERT INTO usuario_carrera_plan(idusuario,idcarrera,origen) VALUES(:usuario,:carrera,'REGISTRO') ON CONFLICT(idusuario,idcarrera) DO UPDATE SET origen='REGISTRO'",nativeQuery=true)
+    void vincularCarrera(@Param("usuario") Integer usuario,@Param("carrera") Integer carrera);
     @Query("SELECT e FROM Grupo e WHERE e.idGrupo IN :ids AND e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL')")
     List<Grupo> findAllById(@Param("ids") Iterable<Integer> ids);
 

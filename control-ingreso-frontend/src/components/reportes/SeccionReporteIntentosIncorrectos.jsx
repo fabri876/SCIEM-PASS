@@ -126,14 +126,27 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
     setFiltroExamen("TODOS");
   };
 
+  // Fecha máxima permitida (hoy) para el filtro de calendario (BUG-00N)
+  const strFechaHoy = (() => {
+    const hoy = new Date();
+    const year = hoy.getFullYear();
+    const month = String(hoy.getMonth() + 1).padStart(2, "0");
+    const day = String(hoy.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  })();
+
   // Manejador del botón Filtrar (Criterios 6, 7, 8, 9, 10, 11)
   const fnAplicarFiltros = (e) => {
     if (e) e.preventDefault();
+    const fechaValidada = (filtroFecha && filtroFecha > strFechaHoy) ? strFechaHoy : filtroFecha;
+    if (filtroFecha && filtroFecha > strFechaHoy) {
+      setFiltroFecha(strFechaHoy);
+    }
     setFiltrosActivos({
       idAsignatura: filtroAsignatura,
       idExamen: filtroExamen,
       motivo: filtroMotivo,
-      fecha: filtroFecha,
+      fecha: fechaValidada,
       busqueda: filtroBusqueda,
     });
   };
@@ -431,8 +444,16 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             </label>
             <input
               type="date"
+              max={strFechaHoy}
               value={filtroFecha}
-              onChange={(e) => setFiltroFecha(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val && val > strFechaHoy) {
+                  setFiltroFecha(strFechaHoy);
+                  return;
+                }
+                setFiltroFecha(val);
+              }}
               className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-primary-blue focus:bg-white transition"
             />
           </div>
@@ -621,11 +642,6 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
                       {item.examenAulaAsignada || fnRenderBadgeEstadoPosterior(null)}
                     </td>
 
-                    {/* Hora */}
-                    {/*      <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                      {item.hora}
-              </td>*/}
-
                     {/* Fecha y hora del intento */}
                     <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">
                       <div>{item.fecha || "No disponible"}</div>
@@ -678,8 +694,8 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
                         type="button"
                         onClick={() => setIntPaginaActual(numPagina)}
                         className={`w-8 h-8 rounded-lg font-bold text-xs transition cursor-pointer ${intPaginaActual === numPagina
-                            ? "bg-[#003770] text-white"
-                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          ? "bg-[#003770] text-white"
+                          : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                           }`}
                       >
                         {numPagina}

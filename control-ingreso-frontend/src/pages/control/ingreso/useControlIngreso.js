@@ -453,7 +453,8 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
               const mapeado = {
                 ...baseResultado("EXAMEN_INCORRECTO_OFFLINE", strMetodo === "QR" ? "" : strValor, textoMetodo(strMetodo, rVal.metodo)),
                 clientUuid, estadoSync: "pendiente",
-                estudiante: { nombres: candidato.nombre, apellidos: "", sis: candidato.sis, ci: candidato.ci },
+                estudiante: { nombres: candidato.nombre, apellidos: "", sis: candidato.sis, ci: candidato.ci,
+                  carrera: candidato.carrera || "Carrera no disponible" },
                 otroExamen: destino ? { asignatura: destino.asignatura, aula: destino.aula, edificio: destino.edificio } : null,
                 mensaje: destino ? null : "Hay varios exámenes posibles. Consulta al docente antes de orientar al estudiante.",
               };

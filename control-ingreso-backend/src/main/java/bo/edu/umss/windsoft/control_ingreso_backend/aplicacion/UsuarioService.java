@@ -125,6 +125,7 @@ public class UsuarioService {
         if ((TipoUsuarioResolver.DOCENTE.equals(rolNormalizado) || TipoUsuarioResolver.ESTUDIANTE.equals(rolNormalizado) || TipoUsuarioResolver.OPERADOR.equals(rolNormalizado)) && grupos.isEmpty())
             throw new SolicitudInvalidaException("Debe asignar al menos una asignatura y grupo al registrar docentes, estudiantes o ayudantes.");
         grupoService.validarAccesoRegistro(new java.util.ArrayList<>(grupos), rolNormalizado);
+        var carrerasRegistro=grupoService.validarCarrerasRegistro(rolNormalizado,dto.getIdCarreras(),new java.util.ArrayList<>(grupos));
 
         var existente = usuarioRepository.findByCiusuario(ciNormalizado);
         if (existente.isPresent() && TipoUsuarioResolver.ESTUDIANTE.equals(rolNormalizado)) {
@@ -134,6 +135,7 @@ public class UsuarioService {
                     && estudiante.isPresent() && java.util.Objects.equals(dto.getCodigoSis(), estudiante.get().getCodsisestudiante())) {
                 grupoService.validarUnGrupoPorAsignatura(new java.util.ArrayList<>(grupos));
                 for (Integer idGrupo : grupos) grupoService.inscribirEstudianteAGrupo(cuenta.getIdusuario(), dto.getCodigoSis(), idGrupo);
+                grupoService.guardarCarreras(cuenta.getIdusuario(),carrerasRegistro);
                 return usuarioRespuestaMapper.mapear(cuenta);
             }
         }
@@ -151,6 +153,7 @@ public class UsuarioService {
         usuario = usuarioRepository.save(usuario);
 
         crearFilaTablaHija(rolNormalizado, usuario.getIdusuario(), dto.getCodigoSis());
+        grupoService.guardarCarreras(usuario.getIdusuario(),carrerasRegistro);
 
         for (Integer idGrupo : grupos) {
             int codSis = dto.getCodigoSis() != null ? dto.getCodigoSis() : usuario.getIdusuario();
@@ -230,6 +233,10 @@ public class UsuarioService {
 
         if (dto.getIdGrupos() != null)
             grupoService.reemplazarGruposUsuario(id, tipoUsuarioResolver.resolver(id), dto.getIdGrupos());
+        if(dto.getIdCarreras()!=null && !dto.getIdCarreras().isEmpty()) {
+            var carreras=grupoService.validarCarrerasRegistro(tipoUsuarioResolver.resolver(id),dto.getIdCarreras(),dto.getIdGrupos()==null ? List.of() : dto.getIdGrupos());
+            grupoService.guardarCarreras(id,carreras);
+        }
         usuario.setNombreusuario(dto.getNombre().trim());
         usuario.setApellidousuario(dto.getApellido().trim());
         usuario.setCorreousuario(dto.getCorreo().trim());
@@ -270,7 +277,7 @@ public class UsuarioService {
         if (id.equals(ejecutor.getIdusuario())) throw new SolicitudInvalidaException("No puede eliminar su propia cuenta.");
         eliminacionUsuarioRepository.bloquear(id);
         if (eliminacionUsuarioRepository.tieneHistorial(id))
-            throw new SolicitudInvalidaException("Este usuario tiene examenes, ingresos u otros registros vinculados. Desactive la cuenta para conservar el historial.");
+            throw new SolicitudInvalidaException("Este usuario tiene registros o auditorías vinculados. Desactive la cuenta para conservar el historial.");
         try {
             eliminacionUsuarioRepository.eliminar(id, ejecutor.getIdusuario(),
                     "[ELIMINACION_USUARIO] ejecutor=" + executorCorreo + " | afectado=" + usuario.getCorreousuario()

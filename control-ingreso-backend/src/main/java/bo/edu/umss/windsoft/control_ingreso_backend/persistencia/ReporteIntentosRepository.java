@@ -42,7 +42,7 @@ public class ReporteIntentosRepository {
                         SELECT i.idintento, i.idasignatura, a.nombreasignatura, i.idexamen,
                                t.nombretipoexamen, e.fechaexamen, u.nombreusuario, u.apellidousuario,
                                i.codsisestudiante, u.ciusuario, i.motivointento, ap.nombreaula AS aula_presentada,
-                               aa.nombreaula AS aula_asignada, ad.nombreasignatura AS asignatura_destino,
+                               COALESCE(aa.nombreaula, ai.nombreaula) AS aula_asignada, ad.nombreasignatura AS asignatura_destino,
                                td.nombretipoexamen AS tipo_examen_destino, ed.fechaexamen AS fecha_examen_destino,
                                aad.nombreaula AS aula_destino, i.fechaintento, i.horaintento,
                                op.nombreusuario AS operador_nombre, op.apellidousuario AS operador_apellido,
@@ -55,6 +55,12 @@ public class ReporteIntentosRepository {
                           LEFT JOIN public.usuario op ON op.idusuario = i.idusuario
                           LEFT JOIN public.ambiente p ON p.idambiente = i.idambiente
                           LEFT JOIN public.aula ap ON ap.idaula = p.idaula
+                          LEFT JOIN public.ingreso previo ON i.motivointento = 'DUPLICADO'
+                               AND previo.est_idusuario = i.est_idusuario AND previo.codsisestudiante = i.codsisestudiante
+                               AND previo.idasignatura = i.idasignatura AND previo.idexamen = i.idexamen
+                               AND previo.horaingreso <= i.horaintento
+                          LEFT JOIN public.ambiente ambi ON ambi.idambiente = previo.idambiente
+                          LEFT JOIN public.aula ai ON ai.idaula = ambi.idaula
                           LEFT JOIN public.ambiente destino ON destino.idambiente = i.idambienteasignado
                            LEFT JOIN public.aula aa ON aa.idaula = destino.idaula
                            LEFT JOIN public.asignatura ad ON ad.idasignatura = i.hu09_asignatura_destino
