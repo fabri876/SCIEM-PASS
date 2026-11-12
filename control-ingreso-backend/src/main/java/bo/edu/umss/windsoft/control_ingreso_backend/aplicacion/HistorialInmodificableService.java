@@ -142,7 +142,15 @@ public class HistorialInmodificableService {
                     sello == null ? null : sello.actual(),
                     sello == null ? null : sello.anterior(),
                     sello == null ? "NO_VERIFICABLE"
-                            : (sello.actual().equals(hashPersistido(sello, aud)) ? "VALIDO" : "ALTERADO"));
+                             : (sello.actual().equals(hashPersistido(sello, aud)) ? "VALIDO" : "ALTERADO"));
+
+            if (sello != null) {
+                bloque.setSecuenciaSello(Long.toString(sello.secuencia()));
+                bloque.setUsuarioIdSello(aud.getIdUsuario());
+                bloque.setFechaSello(aud.getFechaAccion() == null ? null : aud.getFechaAccion().format(
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS", Locale.ROOT)));
+                bloque.setAccionSello(aud.getAccion());
+            }
 
             resultado.add(bloque);
         }

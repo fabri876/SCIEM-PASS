@@ -74,13 +74,17 @@ class HistorialAccesoSecurityTest {
         @Bean JwtAuthenticationFilter filtro(JwtTokenProvider token, UsuarioRepository usuarios) {
             return new JwtAuthenticationFilter(token, usuarios);
         }
+        @Bean CambioContrasenaObligatorioFilter cambioContrasena(UsuarioRepository usuarios) {
+            return new CambioContrasenaObligatorioFilter(usuarios);
+        }
         @Bean JwtAuthenticationEntryPoint entryPoint(ObjectMapper mapper) { return new JwtAuthenticationEntryPoint(mapper); }
         @Bean JwtAccessDeniedHandler denied(ObjectMapper mapper, AuditoriaService auditoria) {
             return new JwtAccessDeniedHandler(mapper, auditoria);
         }
         @Bean HistorialInmodificableService historial() { return mock(HistorialInmodificableService.class); }
         @Bean HistorialInmodificableController controller(HistorialInmodificableService servicio) {
-            return new HistorialInmodificableController(servicio);
+            return new HistorialInmodificableController(servicio,
+                    mock(bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ExportacionHistorialService.class));
         }
     }
 }
