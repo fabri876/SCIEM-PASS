@@ -391,6 +391,7 @@ export async function obtenerMisRegistros(numLimite = 100) {
       apellidos: "",
       ci: r.estudiante?.ci || "",
       sis: r.estudiante?.codsisestudiante || "",
+      carrera: r.estudiante?.carrera || "Carrera no disponible",
     },
   }));
 }

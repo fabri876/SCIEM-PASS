@@ -28,6 +28,7 @@ class ControlIngresoUltimosTest {
     @Mock IntentoNoAutorizadoRepository intentos;
     @Mock UsuarioRepository usuarios;
     @Mock EstudianteRepository estudiantes;
+    @Mock CarreraEstudianteRepository carreras;
     @InjectMocks ControlIngresoAyudanteService servicio;
 
     @BeforeEach void preparar() {
@@ -47,10 +48,12 @@ class ControlIngresoUltimosTest {
         when(ingreso.getHoraIngreso()).thenReturn(LocalDateTime.of(2026, 11, 6, 8, 0));
         var intento = mock(IntentoNoAutorizado.class);
         when(intento.getIdUsuarioEstudiante()).thenReturn(10);
+        when(intento.getCodsisEstudiante()).thenReturn(123);
         when(intento.getIdUsuarioRegistra()).thenReturn(20);
         when(intento.getHoraIntento()).thenReturn(LocalDateTime.of(2026, 11, 6, 8, 5));
         when(intento.getMotivo()).thenReturn(MotivoIntento.EXAMEN_INCORRECTO);
         when(intento.getMetodoVerificacion()).thenReturn("SIS");
+        when(carreras.nombres(10, 123)).thenReturn(List.of("Ingenieria de Sistemas"));
         when(ingresos.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIngresoDesc(1, 2, 3)).thenReturn(List.of(ingreso));
         when(intentos.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIntentoDesc(1, 2, 3)).thenReturn(List.of(intento));
         var resultado = servicio.obtenerUltimosIngresos(1, 2, 3, 5, 20, false);
@@ -58,5 +61,7 @@ class ControlIngresoUltimosTest {
         assertEquals("EXAMEN_INCORRECTO", resultado.get(0).estado());
         assertEquals("SIS", resultado.get(0).metodoIngreso());
         assertEquals("PERMITIDO", resultado.get(1).estado());
+        assertEquals("Ingenieria de Sistemas", resultado.get(0).estudiante().carrera());
+        assertEquals("Ingenieria de Sistemas", resultado.get(1).estudiante().carrera());
     }
 }

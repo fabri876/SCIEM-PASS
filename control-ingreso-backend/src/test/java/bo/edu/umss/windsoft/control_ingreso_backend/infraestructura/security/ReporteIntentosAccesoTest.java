@@ -56,6 +56,7 @@ class ReporteIntentosAccesoTest {
         @Bean UsuarioRepository usuarios() { return mock(UsuarioRepository.class); }
         @Bean AuditoriaService auditoria() { return mock(AuditoriaService.class); }
         @Bean JwtAuthenticationFilter filtro(JwtTokenProvider token, UsuarioRepository usuarios) { return new JwtAuthenticationFilter(token, usuarios); }
+        @Bean CambioContrasenaObligatorioFilter cambioContrasena(UsuarioRepository usuarios) { return new CambioContrasenaObligatorioFilter(usuarios); }
         @Bean JwtAuthenticationEntryPoint entryPoint(ObjectMapper mapper) { return new JwtAuthenticationEntryPoint(mapper); }
         @Bean JwtAccessDeniedHandler denied(ObjectMapper mapper, AuditoriaService auditoria) { return new JwtAccessDeniedHandler(mapper, auditoria); }
         @Bean EndpointPrueba endpoint() { return new EndpointPrueba(); }
