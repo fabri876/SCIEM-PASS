@@ -23,7 +23,6 @@ function construirLote(intentos, ingresos) {
       score: intento.score ?? null,
       livenessScore: intento.livenessScore ?? null,
       resultado: intento.resultado,
-      fotoPath: intento.fotoLocalUri || null,
       deviceId: intento.deviceId,
       modelVersion: intento.modelVersion,
       capturadoEn: aHoraLocalIso(intento.capturadoEn),

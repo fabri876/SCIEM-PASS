@@ -61,7 +61,7 @@ public class FaceSyncService {
                 : intentoRepository.findAllByOrderByCapturadoEnDesc();
         return intentos.stream().map(i -> new FaceIntentoAdminDto(i.getIdIntento(), i.getClientUuid(),
                 i.getIdUsuarioEstudiante(), i.getIdUsuarioOperador(), i.getIdAmbiente(), i.getScore(), i.getLivenessScore(),
-                i.getResultado(), i.getFotoPath(), i.getDeviceId(), i.getCapturadoEn(), i.getSincronizadoEn())).toList();
+                i.getResultado(), i.getDeviceId(), i.getCapturadoEn(), i.getSincronizadoEn())).toList();
     }
 
     @Transactional
@@ -103,7 +103,6 @@ public class FaceSyncService {
         intento.setScore(dto.score());
         intento.setLivenessScore(dto.livenessScore());
         intento.setResultado(resultado);
-        intento.setFotoPath(dto.fotoPath());
         intento.setDeviceId(dto.deviceId().trim());
         intento.setModelVersion(dto.modelVersion().trim());
         intento.setCapturadoEn(dto.capturadoEn() == null ? LocalDateTime.now() : dto.capturadoEn());
