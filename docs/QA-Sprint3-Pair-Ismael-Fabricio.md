@@ -1,7 +1,8 @@
 # Correcciones QA Sprint 3 — Ismael y Fabricio
 
 Fuente: [documentación QA del Sprint 3](https://docs.google.com/document/d/1PgYuPI2Hyhgq1fRibUYGz5XSuKKosjLQ_xpJl8VK0aQ/edit).
-Rama de trabajo: `isma`. No crear PR hasta completar la revisión acordada.
+Rama de trabajo: `isma`. Correcciones integradas en `testing` mediante la
+[PR #201](https://github.com/fabri876/SCIEM-PASS/pull/201).
 
 Los IDs BUG están vacíos o repetidos en la fuente; se identifican los reportes
 por área y test cases. «Implementado» no equivale a aprobación manual de QA.
@@ -43,8 +44,13 @@ de aula/horario existentes conservan su fecha de evento. Se consultan hasta
 100 eventos de los últimos 30 días del semestre actual. La lectura permanece
 por usuario y navegador, como en el diseño anterior.
 
-No se han modificado estados en el Google Docs; el retest manual corresponde
-a QA. No se ha creado PR.
+El 12/11/2026 se actualizaron a **Corregido** los 17 reportes de las secciones
+2.7 y 2.8 del Google Docs (10 de notificaciones y 7 de exámenes pasados).
+Se verificaron los estados contra una nueva lectura del documento y se añadió
+un comentario con el alcance y la evidencia. No se modificaron los reportes
+de otros pares ni los resultados históricos de sus test cases. El estado
+Corregido indica implementación terminada; la aprobación del retest manual
+corresponde a QA.
 
 ## Verificación
 
@@ -57,6 +63,19 @@ a QA. No se ha creado PR.
 - `npm run check:admin`: renderizado SSR del panel y componentes compartidos.
 - `npm run build`: compilación y PWA correctas; avisos existentes de tamaño de bundle.
 
-Pendiente de retest visual completo contra el backend: el último arranque
-detectó que la BD carece de `face_intento.foto_path`, una diferencia del módulo
-facial ajena a estas dos HUs. No se deshabilitó la validación de esquema.
+## Revalidación después de actualizar testing — 12/11/2026
+
+Se actualizó `isma` por fast-forward a `7034ba6` de `origin/testing`, sin
+conflictos ni cambios de Docker. Las correcciones anteriores ya estaban
+integradas; no se duplicó su implementación.
+
+- Se repitieron los 19 tests backend: 0 fallos, 0 errores, 0 omitidos.
+  La integración PostgreSQL utiliza tablas temporales y rollback.
+- `check-hu17-qa`, `npm run check:admin` y `npm run build`: correctos.
+- El backend con perfil `local` arrancó correctamente en el puerto 8080 y
+  conectó con la BD. La actualización del módulo facial recibida desde
+  `testing` eliminó el impedimento anterior de `face_intento.foto_path`.
+  No se relajó la validación de esquema.
+
+Queda a QA repetir el flujo visual completo con sus usuarios y casos de
+prueba. Las pruebas automatizadas y el arranque no sustituyen ese retest.
