@@ -45,6 +45,18 @@ class ExamenArchivadoServiceTest {
         assertThrows(ResponseStatusException.class,()->service.guardar(datos("2-2026",null),archivo));
         verifyNoInteractions(repo);
     }
+    @Test void observacionesSeLimitanA500TambienSinFrontend() throws Exception {
+        when(repo.guardar(any(),any(),anyString())).thenReturn(7L);
+        assertEquals(7,service.guardar(new ExamenArchivadoRequest("Examen","2-2026",null,"a".repeat(500)),pdf()));
+        var error=assertThrows(ResponseStatusException.class,()->service.guardar(new ExamenArchivadoRequest("Examen","2-2026",null,"a".repeat(501)),pdf()));
+        assertTrue(error.getReason().contains("500"));
+    }
+    @Test void diferenciaTipoYTamanioConMensajesEnEspanol() throws Exception {
+        var tipo=assertThrows(ResponseStatusException.class,()->service.guardar(datos("2-2026",null),new MockMultipartFile("archivoPdf","archivo.jpg","image/jpeg",new byte[]{1})));
+        assertEquals("Solo se permiten archivos PDF.",tipo.getReason());
+        var tamano=assertThrows(ResponseStatusException.class,()->service.guardar(datos("2-2026",null),new MockMultipartFile("archivoPdf","archivo.pdf","application/pdf",new byte[10*1024*1024+1])));
+        assertTrue(tamano.getReason().contains("tamaño máximo"));
+    }
     @Test void rechazaPdfVacioYExcesivoSinIntentarGuardarlo() {
         for(byte[] bytes:List.of(new byte[0],new byte[10*1024*1024+1])) {
             var archivo=new MockMultipartFile("archivoPdf","examen.pdf","application/pdf",bytes);
