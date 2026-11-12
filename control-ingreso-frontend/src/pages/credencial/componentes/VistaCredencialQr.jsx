@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Clock, Info, Ban, Download } from "lucide-react";
 import { obtenerQrExamen, ajustarQrPorHorario } from "../../../services/credencialService";
 import { fechaCorta, fechaHora, cuentaRegresiva } from "./formato";
+import ModalVerificacionFacialEstudiante from "../../../pages/estudiante/components/ModalVerificacionFacialEstudiante";
 
 function Dato({ strEtiqueta, children, boolMono = false }) {
   return (
@@ -107,6 +108,35 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
   if (boolDisponible) strColorBanda = "bg-[#003770]";
   else if (boolInhabilitado) strColorBanda = "bg-[#B91C1C]";
   const strNombre = `${usuario?.nombre || ""} ${usuario?.apellido || ""}`.trim();
+
+  const strClaveSession = `qr_facial_verificado_${examen.id}_${usuario?.idUsuario || usuario?.idusuario || "est"}`;
+  const [boolFacialVerificado, setBoolFacialVerificado] = useState(() => {
+    try {
+      return sessionStorage.getItem(strClaveSession) === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  if (!boolCargando && boolDisponible && !boolFacialVerificado) {
+    return (
+      <div className="flex flex-col gap-3 text-[#08264A]">
+        <section aria-label="Verificación facial previa a QR" className="bg-white border border-[#CBD5E1] rounded-2xl p-6 shadow-sm">
+          <ModalVerificacionFacialEstudiante
+            examen={examen}
+            usuario={usuario}
+            onVerificado={() => {
+              try {
+                sessionStorage.setItem(strClaveSession, "true");
+              } catch {}
+              setBoolFacialVerificado(true);
+            }}
+            onCancelar={onVolver}
+          />
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3 text-[#08264A]">

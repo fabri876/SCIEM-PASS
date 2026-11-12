@@ -52,11 +52,12 @@ export async function registrarUsuarioIndividual(objDatosUsuario) {
   });
 }
 
-export async function cargarUsuariosMasivo(file, strRol = "ESTUDIANTE", idGrupo = null, vistaPrevia = false) {
+export async function cargarUsuariosMasivo(file, strRol = "ESTUDIANTE", idGrupo = null, vistaPrevia = false, idCarrera=null) {
   const strToken = obtenerToken();
   const formData = new FormData();
   formData.append("archivo", file);
   if (idGrupo) formData.append("idGrupo", String(idGrupo));
+  if (idCarrera) formData.append("idCarrera",String(idCarrera));
   if (strRol) {
     formData.append("rol", strRol);
   }

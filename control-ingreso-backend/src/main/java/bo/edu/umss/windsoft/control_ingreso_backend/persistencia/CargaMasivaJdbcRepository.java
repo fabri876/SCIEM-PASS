@@ -18,6 +18,12 @@ public class CargaMasivaJdbcRepository {
 
     public CargaMasivaJdbcRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
+    public void guardarCarreras(Map<Integer,Set<Integer>> relaciones) {
+        List<Object[]> filas=new ArrayList<>();
+        relaciones.forEach((usuario,carreras)->carreras.forEach(carrera->filas.add(new Object[]{usuario,carrera})));
+        batch("INSERT INTO usuario_carrera_plan(idusuario,idcarrera,origen) VALUES (?,?,'REGISTRO') ON CONFLICT(idusuario,idcarrera) DO UPDATE SET origen='REGISTRO'",filas);
+    }
+
     public Set<String> docenteGruposActuales() {
         return new HashSet<>(jdbc.query("SELECT d.idusuario,d.idgrupo FROM docentegrupo d JOIN grupo g ON g.idgrupo=d.idgrupo WHERE g.idsemestre=semestre_actual_id()",
                 (r,n)->r.getInt(1)+":"+r.getInt(2)));

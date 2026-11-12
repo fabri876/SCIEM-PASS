@@ -4,6 +4,9 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 public class ActualizarUsuarioDto {
+    private java.util.List<Integer> idCarreras;
+    public java.util.List<Integer> getIdCarreras() { return idCarreras; }
+    public void setIdCarreras(java.util.List<Integer> value) { idCarreras=value; }
 
     @NotBlank(message = "El nombre es obligatorio")
     private String nombre;

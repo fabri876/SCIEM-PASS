@@ -13,11 +13,29 @@ public class CarreraEstudianteRepository {
 
     public List<String> nombres(Integer idUsuario, Integer codSis) {
         return jdbc.queryForList("""
-                SELECT DISTINCT trim(nombrecarrera)
-                  FROM public.carrera
-                 WHERE idusuario = ? AND codsisestudiante = ?
-                   AND nombrecarrera IS NOT NULL AND trim(nombrecarrera) <> ''
-                 ORDER BY trim(nombrecarrera)
+                SELECT DISTINCT trim(p.nombre) AS nombre
+                    FROM usuario_carrera_plan e JOIN carrera_plan p USING(idcarrera)
+                    JOIN estudiante s ON s.idusuario=e.idusuario
+                    WHERE e.idusuario = ? AND s.codsisestudiante = ?
+                ORDER BY nombre
                 """, String.class, idUsuario, codSis);
+    }
+
+    public boolean existeEstudiante(Integer idUsuario) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS(SELECT 1 FROM estudiante WHERE idusuario=?)", Boolean.class, idUsuario));
+    }
+
+    public boolean existeCarrera(Integer idCarrera) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS(SELECT 1 FROM carrera_plan WHERE idcarrera=?)", Boolean.class, idCarrera));
+    }
+
+    public void vincular(Integer idUsuario, Integer idCarrera) {
+        jdbc.update("""
+                INSERT INTO usuario_carrera_plan(idusuario,idcarrera)
+                SELECT idusuario,? FROM estudiante WHERE idusuario=?
+                ON CONFLICT DO NOTHING
+                """, idCarrera, idUsuario);
     }
 }

@@ -8,6 +8,7 @@ import { obtenerAsignaturasPorDocente } from "../../services/examenService";
 export default function SeleccionGrupos({ value = [], onChange, disabled = false, required = false, unGrupoPorAsignatura = false }) {
   const [asignaturas, setAsignaturas] = useState([]);
   const [asignatura, setAsignatura] = useState("");
+  const [clasificacion,setClasificacion]=useState(null);
   const [grupos, setGrupos] = useState([]);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -38,12 +39,13 @@ export default function SeleccionGrupos({ value = [], onChange, disabled = false
     <p className="text-secondary">{unGrupoPorAsignatura ? "Seleccione un solo grupo por asignatura. Para cambiarlo, quite primero el grupo seleccionado. Puede añadir otras asignaturas." : "Seleccione una materia y marque sus grupos. Se añaden al instante; puede repetir con otras materias."}</p>
     {error && <p role="alert" className="text-accent-red">{error}</p>}
     <SelectorAsignatura value={asignatura} permitidas={asignaturas} disabled={disabled||cargandoAsignaturas}
+      onClasificacion={setClasificacion}
       onChange={valor=>{setAsignatura(valor);setGrupos([]);setError("");setCargando(Boolean(valor));}} />
     {cargando ? <p>Cargando grupos…</p> : asignatura && <div className="flex flex-wrap gap-3">
       {grupos.filter(g => g.estadoGrupo).map(g => <label key={g.idGrupo} className={`flex items-center gap-2 rounded-xl border px-3 py-2 cursor-pointer ${value.some(v => v.idGrupo === g.idGrupo) ? "border-primary-blue bg-primary-blue/10 text-primary-navy" : "border-border"}`}>
         <input type="checkbox" className="accent-primary-blue" checked={value.some(v => v.idGrupo === g.idGrupo)}
           disabled={unGrupoPorAsignatura && value.some(v => v.idAsignatura === g.idAsignatura && v.idGrupo !== g.idGrupo)}
-          onChange={e => onChange(e.target.checked ? [...value, g] : value.filter(v => v.idGrupo !== g.idGrupo))} />
+          onChange={e => onChange(e.target.checked ? [...value, {...g,idCarrera:clasificacion?.idCarrera}] : value.filter(v => v.idGrupo !== g.idGrupo))} />
         Grupo {g.nombreGrupo}
       </label>)}
       {!grupos.length && <p className="text-sm">No hay grupos registrados. Un administrador debe crearlos primero.</p>}

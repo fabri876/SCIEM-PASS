@@ -92,7 +92,17 @@ class AuthServiceTest {
         assertEquals("ADMINISTRADOR", response.getUsuario().getRol());
 
         verify(usuarioRepository).save(usuarioActivo);
-        verify(auditoriaService).registrar(eq("LOGIN_EXITOSO"), anyString(), anyString(), anyString(), anyString());
+        verify(auditoriaService).registrarEnTransaccion(eq("LOGIN_EXITOSO"), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void loginNoEmiteTokenSiFallaAuditoria() {
+        when(usuarioRepository.findByCorreousuario("admin@umss.edu")).thenReturn(Optional.of(usuarioActivo));
+        when(passwordEncoder.matches("Password123*", "encodedPassword")).thenReturn(true);
+        doThrow(new IllegalStateException("auditoria no disponible")).when(auditoriaService)
+                .registrarEnTransaccion(eq("LOGIN_EXITOSO"), anyString(), anyString(), anyString(), anyString());
+        assertThrows(IllegalStateException.class, () -> authService.login("admin@umss.edu", "Password123*", "127.0.0.1"));
+        verifyNoInteractions(jwtTokenProvider);
     }
 
     @Test

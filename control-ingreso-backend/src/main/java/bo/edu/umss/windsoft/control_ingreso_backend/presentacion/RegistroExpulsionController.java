@@ -104,4 +104,15 @@ public class RegistroExpulsionController {
                 idExamen, idExpulsion, ClientIpResolver.resolver(request));
         return ResponseEntity.ok(respuesta);
     }
+
+    @PutMapping("/{idExpulsion}/revocar")
+    public ResponseEntity<RegistroExpulsionResponse> revocar(
+            @PathVariable Integer idExamen,
+            @PathVariable Integer idExpulsion,
+            @RequestParam String motivo,
+            HttpServletRequest request) {
+        RegistroExpulsionResponse respuesta = registroExpulsionService.revocar(
+                idExamen, idExpulsion, motivo, ClientIpResolver.resolver(request));
+        return ResponseEntity.ok(respuesta);
+    }
 }

@@ -46,9 +46,6 @@ public class FaceIntento {
     @Column(name = "resultado", nullable = false, length = 20)
     private String resultado;
 
-    @Column(name = "foto_path", length = 500)
-    private String fotoPath;
-
     @Column(name = "device_id", nullable = false, length = 255)
     private String deviceId;
 
@@ -83,8 +80,6 @@ public class FaceIntento {
     public void setLivenessScore(Double livenessScore) { this.livenessScore = livenessScore; }
     public String getResultado() { return resultado; }
     public void setResultado(String resultado) { this.resultado = resultado; }
-    public String getFotoPath() { return fotoPath; }
-    public void setFotoPath(String fotoPath) { this.fotoPath = fotoPath; }
     public String getDeviceId() { return deviceId; }
     public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
     public String getModelVersion() { return modelVersion; }

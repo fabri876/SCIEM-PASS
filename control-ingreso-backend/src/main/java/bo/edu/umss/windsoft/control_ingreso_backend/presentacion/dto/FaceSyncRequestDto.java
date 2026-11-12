@@ -7,7 +7,7 @@ import java.util.List;
 public record FaceSyncRequestDto(List<IntentoDto> intentos, List<IngresoDto> ingresos) {
     public record IntentoDto(
             String clientUuid, Integer idUsuarioEstudiante, Integer idAsignatura, Integer idExamen,
-            Integer idAmbiente, Double score, Double livenessScore, String resultado, String fotoPath,
+            Integer idAmbiente, Double score, Double livenessScore, String resultado,
             String deviceId, String modelVersion, LocalDateTime capturadoEn) {
     }
 

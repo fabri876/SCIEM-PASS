@@ -112,7 +112,7 @@ public class AuthService {
         usuario.reiniciarIntentosFallidos();
         usuarioRepository.save(usuario);
 
-        auditoriaService.registrar("LOGIN_EXITOSO", correo, correo, "Inicio de sesión exitoso.", ip);
+        auditoriaService.registrarEnTransaccion("LOGIN_EXITOSO", correo, correo, "Inicio de sesión exitoso.", ip);
 
         String rol = tipoUsuarioResolver.resolver(usuario.getIdusuario());
         String token = jwtTokenProvider.generarToken(usuario.getCorreousuario(), rol,
@@ -147,7 +147,7 @@ public class AuthService {
             ayudanteRepository.save(new Ayudante(usuario.getIdusuario()));
         }
 
-        auditoriaService.registrar("SOLICITUD_REGISTRO", correo, correo,
+        auditoriaService.registrarEnTransaccion("SOLICITUD_REGISTRO", correo, correo,
                 "Auto-registro como " + rolNormalizado + ", cuenta pendiente de aprobación del administrador.", null);
 
         return new RegistroPendienteRespuestaDto(
@@ -173,7 +173,7 @@ public class AuthService {
         usuario.setDebeCambiarContrasena(false);
         usuarioRepository.save(usuario);
 
-        auditoriaService.registrar("CAMBIO_CONTRASENA_EXITOSO", correoUsuario, correoUsuario,
+        auditoriaService.registrarEnTransaccion("CAMBIO_CONTRASENA_EXITOSO", correoUsuario, correoUsuario,
                 "El usuario cambió su contraseña exitosamente.", ip);
     }
 

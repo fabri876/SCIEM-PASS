@@ -107,6 +107,16 @@ public class IncidenciaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
 
+    @PostMapping(value = "/{id}/evidencia", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<IncidenciaDetalleDto> adjuntarEvidencia(
+            @PathVariable Integer id,
+            @RequestParam MultipartFile evidencia,
+            HttpServletRequest request) {
+        IncidenciaDetalleDto respuesta = incidenciaService.adjuntarEvidencia(id, evidencia,
+                ClientIpResolver.resolver(request));
+        return ResponseEntity.ok(respuesta);
+    }
+
     @GetMapping
     public ResponseEntity<IncidenciaListaDto> listar(@RequestParam(required = false) Integer idExamen,
                                                      @RequestParam(required = false) Integer idAmbiente,

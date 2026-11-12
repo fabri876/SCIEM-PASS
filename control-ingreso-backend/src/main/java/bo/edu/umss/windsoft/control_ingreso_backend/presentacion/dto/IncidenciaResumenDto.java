@@ -19,5 +19,7 @@ public record IncidenciaResumenDto(
         String estadoEtiqueta,
         String reportadoPor,
         String estudiante,
-        boolean estudianteRetirado) {
+        boolean estudianteRetirado,
+        Integer idExpulsion,
+        String estadoExpulsion) {
 }
