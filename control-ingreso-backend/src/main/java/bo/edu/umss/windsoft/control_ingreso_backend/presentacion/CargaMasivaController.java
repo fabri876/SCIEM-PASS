@@ -36,10 +36,11 @@ public class CargaMasivaController {
             @RequestParam("archivo") MultipartFile archivo,
             @RequestParam(value = "rol", required = false) String targetRol,
             @RequestParam(value = "idGrupo", required = false) Integer idGrupo,
+            @RequestParam(value = "idCarrera", required = false) Integer idCarrera,
             HttpServletRequest request) {
         String correoEjecutor = SecurityContextHolder.getContext().getAuthentication().getName();
         CargaMasivaRespuestaDto respuesta = cargaMasivaService.procesarCargaMasiva(
-                archivo, targetRol, correoEjecutor, ClientIpResolver.resolver(request), idGrupo);
+                archivo, targetRol, correoEjecutor, ClientIpResolver.resolver(request), idGrupo,idCarrera);
         return ResponseEntity.ok(respuesta);
     }
 

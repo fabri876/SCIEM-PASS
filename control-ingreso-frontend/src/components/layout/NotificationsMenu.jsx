@@ -93,7 +93,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
       } finally { if (activo) setCargando(false); }
     };
     void cargar();
-    const timer = boolAbierto ? setInterval(cargar, 60000) : null;
+    const timer = setInterval(cargar, 15000);
     return () => { activo = false; if (timer) clearInterval(timer); };
   }, [boolAbierto, revision, sesion, claveLeidas, location.pathname]);
 
@@ -146,7 +146,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
       {!sesion && <p className="p-4 text-sm text-[#64748B]">Inicie sesión para ver sus notificaciones.</p>}
       {sesion && cargando && <p role="status" className="p-4 text-sm text-[#64748B]">Cargando avisos…</p>}
       {sesion && error && <div role="alert" className="p-4 text-sm text-accent-red">{error}<button type="button" onClick={() => setRevision(v => v + 1)} className="block mt-2 font-bold underline">Reintentar</button></div>}
-      {sesion && !cargando && !error && !arrNotificaciones.length && <p className="p-4 text-sm text-[#64748B]">No hay exámenes programados para los próximos siete días.</p>}
+      {sesion && !cargando && !error && !arrNotificaciones.length && <p className="p-4 text-sm text-[#64748B]">No tienes notificaciones</p>}
       <ul className="max-h-[360px] overflow-y-auto">
         {(sesion ? arrNotificaciones : []).map((notif) => {
           const boolNueva = !setLeidas.has(notif.intId);

@@ -14,7 +14,7 @@ try {
     onCerrar: () => {}, onRegistrarIncidencia: () => {},
     objResultado: {
       resultado: "EXAMEN_INCORRECTO", intentoRegistrado: true,
-      estudiante: { nombres: "Persona ficticia", sis: "123456", ci: "654321" },
+      estudiante: { nombres: "Persona ficticia", sis: "123456", ci: "654321", carrera: "Ingenieria de Sistemas" },
       otroExamen: { asignatura: "Materia", nombre: "Parcial", grupo: "A", aula: "Aula 9", edificio: "Edificio A", hora: "09:00 - 11:00" },
     },
   }));
@@ -24,6 +24,7 @@ try {
   const sinConfirmacion = renderToString(React.createElement(Tarjeta, {
     onCerrar: () => {}, objResultado: { resultado: "EXAMEN_INCORRECTO", intentoRegistrado: false },
   }));
+  assert.ok(html.includes("Ingenieria de Sistemas"), "Debe mostrar la carrera registrada");
   assert.ok(!sinConfirmacion.includes("INTENTO REGISTRADO EN AUDITORÍA"));
   const sinNomina = renderToString(React.createElement(Tarjeta, {
     onCerrar: () => {}, objResultado: { resultado: "NO_EN_NOMINA_OFFLINE", valor: "123456" },
