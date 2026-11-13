@@ -192,6 +192,8 @@ const MAPA_ESTADOS = {
   NO_HABILITADO: "NO_HABILITADO",
   DUPLICADO: "YA_REGISTRADO",
   YA_REGISTRADO: "YA_REGISTRADO",
+  // El estudiante ingresó pero fue expulsado del examen.
+  RETIRADO: "RETIRADO",
   OTRA_AULA: "OTRA_AULA",
   AMBIENTE_DIFERENTE: "OTRA_AULA", // HU10: el backend lo devuelve con el aula asignada en primerIngreso
   AULA_INCORRECTA: "OTRA_AULA",
@@ -284,6 +286,10 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
     mensaje: objData.mensaje,
     estudiante: estudianteMapeado,
     horaIngreso: soloHora(objData.horaIngreso),
+    // La hora completa (ISO) que manda el servidor: es la que se guarda en la
+    // nómina local del dispositivo para que el control offline no contradiga
+    // al servidor (soloHora se queda con "HH:mm:ss" y pierde la fecha).
+    horaIngresoIso: objData.horaIngreso || null,
     fechaIngreso: soloFecha(objData.horaIngreso || objData.fechaIngreso),
     registradoPor: strRegistrador,
     ingresoPrevio: objData.primerIngreso
@@ -321,6 +327,9 @@ export async function obtenerContador(idExamen, objExamen = {}) {
       return {
         ingresaron: d.ingresaron || 0,
         pendientes: d.faltantes || 0,
+        // Los expulsados entraron pero ya no están en el aula: se informan
+        // aparte para que "Ausentes" no los incluya.
+        expulsados: d.expulsados || 0,
         inhabilitados: d.inhabilitados || 0,
         habilitados: d.totalHabilitados || 0,
         ...(fila ? { fila, filas } : {}),

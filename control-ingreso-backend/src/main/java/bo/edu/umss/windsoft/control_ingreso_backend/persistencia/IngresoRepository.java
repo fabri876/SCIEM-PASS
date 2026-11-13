@@ -40,6 +40,14 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Integer> {
 
     long countByIdAsignaturaAndIdExamenAndIdExpulsionIsNull(Integer idAsignatura, Integer idExamen);
 
+    /**
+     * Ingresos de un aula que ya no cuentan como presentes porque el
+     * estudiante fue expulsado. Se informa aparte para que "ausente" no los
+     * incluya: el estudiante sí ingresó, se lo retiró.
+     */
+    long countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNotNull(Integer idAsignatura, Integer idExamen,
+            Integer idAmbiente);
+
     List<Ingreso> findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByIdIngresoDesc(Integer idAsignatura, Integer idExamen, Integer idAmbiente);
     List<Ingreso> findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIngresoDesc(Integer idAsignatura, Integer idExamen, Integer idAmbiente);
 

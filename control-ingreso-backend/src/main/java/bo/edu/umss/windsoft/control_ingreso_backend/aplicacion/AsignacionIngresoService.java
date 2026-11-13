@@ -408,9 +408,14 @@ public class AsignacionIngresoService {
                 // 3. Reparto de aulas para conocer qué aula tiene asignada cada estudiante
                 AsignacionAulaService.Reparto reparto = asignacionAulaService.repartir(idAsignatura, idExamen);
 
-                // 4. Ingresos vigentes ya registrados para este examen
+                // 4. Ingresos ya registrados para este examen.
+                //    Se traen TODOS, también los de los estudiantes expulsados:
+                //    antes se filtraban con "idExpulsionIsNull" y el expulsado
+                //    desaparecía de la lista del aula y de la nómina del
+                //    dispositivo, sin dejar rastro de que sí había ingresado.
+                //    Ahora viaja con estado "RETIRADO" y el flag "expulsado".
                 List<Ingreso> ingresos = ingresoRepository
-                                .findByIdAsignaturaAndIdExamenAndIdExpulsionIsNull(idAsignatura, idExamen);
+                                .findByIdAsignaturaAndIdExamen(idAsignatura, idExamen);
                 Map<Integer, Ingreso> ingresoPorCodSis = ingresos.stream()
                                 .collect(Collectors.toMap(Ingreso::getCodsisEstudiante, Function.identity(),
                                                 (i1, i2) -> i1));
@@ -480,7 +485,10 @@ public class AsignacionIngresoService {
                         // Estado de ingreso
                         Ingreso ing = ingresoPorCodSis.get(codSis);
                         if (ing != null) {
-                                dto.setEstado("INGRESO");
+                                // Ingresó y fue expulsado: el ingreso sigue existiendo.
+                                boolean expulsado = ing.estaRetirado();
+                                dto.setEstado(expulsado ? "RETIRADO" : "INGRESO");
+                                dto.setExpulsado(expulsado);
                                 if (ing.getHoraIngreso() != null) {
                                         dto.setHoraIngreso(ing.getHoraIngreso().format(HORA_FORMATTER));
                                         dto.setMarcadoEn(ing.getHoraIngreso().toString());

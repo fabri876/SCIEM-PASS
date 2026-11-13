@@ -493,17 +493,30 @@ public class ControlIngresoAyudanteService {
                     ubicacionAula);
 
             // HU10: cuenta para el indicador "Duplicados Bloqueados"
+            // (el motivo propio "RETIRADO" necesita la migración del CHECK
+            // ck_intento_motivo; hasta que se aplique se audita como duplicado
+            // para no romper el registro).
             intentoIngresoService.registrar(MotivoIntento.DUPLICADO, dto.idasignatura(), dto.idexamen(),
                     dto.idambiente(), prev.getIdAmbiente(), usuario.getIdusuario(), estudiante.getCodsisestudiante(), idOperador);
 
+            // El estudiante ingresó pero fue expulsado del examen: no es un
+            // duplicado, está retirado y no puede volver a ingresar. Se
+            // distingue para que el operador no lo deje pasar creyendo que
+            // simplemente ya había ingresado antes.
+            boolean retirado = prev.estaRetirado();
+
             ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
-                    "DUPLICADO",
-                    "INGRESO DENEGADO - DUPLICADO DETECTADO",
+                    retirado ? "RETIRADO" : "DUPLICADO",
+                    retirado
+                                    ? "INGRESO DENEGADO - EL ESTUDIANTE FUE EXPULSADO DE ESTE EXAMEN"
+                                    : "INGRESO DENEGADO - DUPLICADO DETECTADO",
                     estudianteResumen,
                     null,
                     primerIngreso,
-                    null);
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(resultado);
+                    retirado
+                                    ? "El estudiante fue expulsado de este examen y no puede volver a ingresar."
+                                    : null);
+            return ResponseEntity.status(retirado ? HttpStatus.FORBIDDEN : HttpStatus.CONFLICT).body(resultado);
         }
 
         // 3. Verificación de Habilitación Académica
@@ -864,7 +877,11 @@ public class ControlIngresoAyudanteService {
                 .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(idAsig, idEx);
         int ingresaron = (int) ingresoRepository.countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNull(idAsig,
                 idEx, idAmb);
-        int faltantes = Math.max(0, totalHab - ingresaron);
+        // Los expulsados sí entraron, pero no están "ausentes": se informan
+        // aparte para que las cifras del aula cuadren con la lista oficial.
+        int expulsados = (int) ingresoRepository
+                        .countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNotNull(idAsig, idEx, idAmb);
+        int faltantes = Math.max(0, totalHab - ingresaron - expulsados);
 
         String grupo;
         if (ex != null && ex.getIdGrupo() != null) {
@@ -896,6 +913,7 @@ public class ControlIngresoAyudanteService {
                 estadoMateria,
                 ingresaron,
                 faltantes,
+                expulsados,
                 inhabilitados,
                 totalHab,
                 ae.getApellidoDesde(),
@@ -961,7 +979,11 @@ public class ControlIngresoAyudanteService {
                 .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(idAsig, idEx);
         int ingresaron = (int) ingresoRepository.countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNull(idAsig,
                 idEx, idAmb);
-        int faltantes = Math.max(0, totalHab - ingresaron);
+        // Los expulsados sí entraron, pero no están "ausentes": se informan
+        // aparte para que las cifras del aula cuadren con la lista oficial.
+        int expulsados = (int) ingresoRepository
+                        .countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNotNull(idAsig, idEx, idAmb);
+        int faltantes = Math.max(0, totalHab - ingresaron - expulsados);
 
         String grupo = grupoRepository.findByIdAsignatura(idAsig).stream()
                 .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo)
@@ -984,6 +1006,7 @@ public class ControlIngresoAyudanteService {
                 cantidadOperadores,
                 ingresaron,
                 faltantes,
+                expulsados,
                 inhabilitados,
                 totalHab);
     }
