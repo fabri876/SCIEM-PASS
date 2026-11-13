@@ -2,7 +2,7 @@
 // Sin examen elegido → "Mis exámenes". Con examen elegido → verificación.
 import "./controlIngreso.css";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft, Info, Zap, X } from "lucide-react";
 import { useOperador } from "../operadorContexto";
 import { db } from "../../../offline/db.js";
 import { fotoRepo } from "../../../offline/fotoRepo.js";
@@ -55,6 +55,8 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
   // con o sin internet, para el ayudante, el docente y el administrador
   const [dateAhora, setDateAhora] = useState(() => new Date());
   const [mostrarIncidenciaHU09, setMostrarIncidenciaHU09] = useState(false);
+  const [mostrarModoRapido, setMostrarModoRapido] = useState(false);
+  const [motivoModoRapido, setMotivoModoRapido] = useState("");
   useEffect(() => {
     const t = setInterval(() => setDateAhora(new Date()), 30000);
     return () => clearInterval(t);
@@ -63,6 +65,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
     boolValidando, strError, strUltimoRegistrado, objIdentificacion, fnIdentificar, fnRegistrarConFacial, fnRegistrarSinFacial,
     fnLimpiarIdentificacion, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
+    objModoRapido, fnActivarModoRapido, fnDesactivarModoRapido, fnConfirmarIngresoRapido,
   } = ctrl;
 
   const fnResetearNomina = async () => {
@@ -115,6 +118,17 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     ? `${String(dateApertura.getHours()).padStart(2, "0")}:${String(dateApertura.getMinutes()).padStart(2, "0")}`
     : "";
   const boolOperador = strRol === "operador";
+  const boolPuedeModoRapido = ["operador", "docente", "administrador"].includes(String(strRol).toLowerCase());
+  const fnConfirmarActivacionRapida = () => {
+    const motivo = motivoModoRapido.trim();
+    if (motivo.length < 20 || motivo.length > 500) {
+      fnMostrarToast("El motivo debe tener entre 20 y 500 caracteres.");
+      return;
+    }
+    fnActivarModoRapido(motivo);
+    setMostrarModoRapido(false);
+    setMotivoModoRapido("");
+  };
   // El tramo de apellidos solo aplica al ayudante y solo sin internet (motor offline).
   // El docente puede registrar a cualquiera de su aula.
   const fnValidarRol = boolOperador
@@ -272,6 +286,18 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
           </>
         ) : (
           <>
+            {boolPuedeModoRapido && (
+              <div className={"mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 " + (objModoRapido ? "border-[#1860A3] bg-[#F0F6FC]" : "border-[#CBD5E1] bg-white")}>
+                <div className="flex items-center gap-2 text-sm text-[#08264A]">
+                  <Zap className="h-5 w-5 text-[#003770]" />
+                  <span className="font-bold">{objModoRapido ? "Modo rápido activo · sin validación facial" : "Modo rápido"}</span>
+                </div>
+                <button type="button" onClick={() => objModoRapido ? fnDesactivarModoRapido() : setMostrarModoRapido(true)}
+                  className={objModoRapido ? "rounded-lg bg-[#B91C1C] px-4 py-2 text-xs font-bold text-white" : "rounded-lg bg-[#003770] px-4 py-2 text-xs font-bold text-white"}>
+                  {objModoRapido ? "Desactivar" : "Activar"}
+                </button>
+              </div>
+            )}
             <EstacionVerificacion
               onValidar={fnValidarRol}
               boolValidando={boolValidando}
@@ -284,6 +310,8 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               onSinEnrolamiento={() => fnFallbackFacial("SIN_ENROLAMIENTO_FACIAL")}
               onFalloFacial={() => fnFallbackFacial("FALLO_FACIAL")}
               onCancelarFacial={fnLimpiarIdentificacion}
+              boolModoRapido={Boolean(objModoRapido)}
+              onConfirmarRapido={fnConfirmarIngresoRapido}
             />
             {strError && (
               <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
@@ -303,6 +331,16 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         numRegistrados={objContador?.ingresaron ?? null}
         boolSinRed={estadoRed?.net === "offline" || Boolean(ctrl.boolOffline)}
       />
+            {mostrarModoRapido && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true">
+                <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
+                  <div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-[#08264A]">Activar modo rápido</h3><p className="mt-1 text-sm text-[#64748B]">Se omite solo el facial. Nómina, habilitación, aula y duplicados se seguirán validando.</p></div><button type="button" onClick={() => setMostrarModoRapido(false)}><X className="h-5 w-5" /></button></div>
+                  <label className="mt-4 block text-sm font-bold text-[#334155]">Motivo de activación (20–500 caracteres)</label>
+                  <textarea value={motivoModoRapido} onChange={(e) => setMotivoModoRapido(e.target.value)} maxLength={500} className="mt-1 w-full rounded-lg border border-[#CBD5E1] p-3 text-sm" rows={4} />
+                  <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setMostrarModoRapido(false)} className="rounded-lg border border-[#64748B] px-4 py-2 text-sm font-bold">Cancelar</button><button type="button" onClick={fnConfirmarActivacionRapida} className="rounded-lg bg-[#003770] px-4 py-2 text-sm font-bold text-white hover:bg-[#08264A]">Activar modo rápido</button></div>
+                </div>
+              </div>
+            )}
       {(ctrl.objIntentosPendientes?.pendientes > 0 || ctrl.objIntentosPendientes?.revision > 0) && (
         <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs sm:text-sm text-amber-900 space-y-2">
           {ctrl.objIntentosPendientes.pendientes > 0 && <p className="font-semibold">{ctrl.objIntentosPendientes.pendientes} intento(s) de examen incorrecto pendientes de sincronización.</p>}

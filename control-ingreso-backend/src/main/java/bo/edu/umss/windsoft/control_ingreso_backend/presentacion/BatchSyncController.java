@@ -90,8 +90,9 @@ public class BatchSyncController {
                         ? MetodoIngreso.ESCANEO : MetodoIngreso.MANUAL;
                 var dto = new bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.VerificarIngresoRequestDTO(
                         item.codigoSis(), item.asignaturaId(), item.examenId(), item.ambienteId(), metodo,
-                        false, item.scoreFacial(), item.livenessScore(), item.modelVersion(),
-                        item.deviceId() != null ? item.deviceId() : request.deviceId());
+                        null, false, item.scoreFacial(), item.livenessScore(), item.modelVersion(),
+                        item.deviceId() != null ? item.deviceId() : request.deviceId(),
+                        item.modoRapido(), item.motivoModoRapido());
                 LocalDateTime horaMarcacion = item.marcadoEn() == null ? null
                         : item.marcadoEn().atZoneSameInstant(ZoneId.of("America/La_Paz")).toLocalDateTime();
                 ResponseEntity<ResultadoIngresoDTO> respuesta = service.registrarIngreso(

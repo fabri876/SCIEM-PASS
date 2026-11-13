@@ -165,7 +165,9 @@ export async function registrarIngreso({
   scoreFacial = null,
   livenessScore = null,
   modelVersion = null,
-  deviceId = null
+  deviceId = null,
+  modoRapido = false,
+  motivoModoRapido = null
 }) {
   const inicio = performance.now();
   const exId = Number(examenId);
@@ -187,7 +189,9 @@ export async function registrarIngreso({
       scoreFacial,
       livenessScore,
       modelVersion,
-      deviceId
+      deviceId,
+      modoRapido,
+      motivoModoRapido
     });
 
     const est = await db.nominas.get([exId, String(codigoSis).trim()]);
@@ -300,7 +304,9 @@ export async function validarIngreso({
   scoreFacial = null,
   livenessScore = null,
   modelVersion = null,
-  deviceId = null
+  deviceId = null,
+  modoRapido = false,
+  motivoModoRapido = null
 }) {
   const exId = Number(examenId);
 
@@ -598,7 +604,9 @@ export async function validarIngreso({
     scoreFacial,
     livenessScore,
     modelVersion,
-    deviceId
+      deviceId,
+      modoRapido,
+      motivoModoRapido
   });
 
   return {

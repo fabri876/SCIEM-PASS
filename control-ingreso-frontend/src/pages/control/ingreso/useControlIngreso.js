@@ -202,6 +202,8 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const [strError, setStrError] = useState("");
   const [strUltimoRegistrado, setStrUltimoRegistrado] = useState(null);
   const [numVersion, setNumVersion] = useState(0); // sube cada vez que hay un ingreso nuevo
+  // Solo vive en memoria: nunca persiste entre recarga, logout o cambio de examen.
+  const [objModoRapido, setObjModoRapido] = useState(null);
 
   const refIdExamen = useRef(idExamen);
   const refVerificacionEnCurso = useRef(false);
@@ -462,6 +464,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         marcadoLocal: 1,
         marcadoEn,
         marcadoPor: mapeado.registradoPor || identificacion?.registradoPor || null,
+        marcadoModoRapido: Boolean(mapeado.modoRapido || identificacion?.modoRapido),
       });
     } catch (error) {
       // La marca local es una comodidad: si falla, el refresco de la nómina
@@ -492,6 +495,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
           hora: mapeado.horaIngreso,
           metodo: mapeado.metodo,
           conFacial: mapeado.conFacial,
+          modoRapido: Boolean(mapeado.modoRapido),
           registradoPor: mapeado.registradoPor || identificacion?.registradoPor || null,
           estudiante: mapeado.estudiante,
         },
@@ -658,6 +662,8 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         ambienteId,
         operadorId,
         rol,
+        modoRapido: Boolean(objModoRapido),
+        motivoModoRapido: objModoRapido?.motivo || null,
       };
       // Igual que el flujo online, mostrar inmediatamente la tarjeta de estado
       // mientras el estudiante pasa a la verificación facial. La información
@@ -666,6 +672,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         ...baseResultado("IDENTIFICADO_OFFLINE", strValor, identificacion.metodo),
         estudiante: est,
         modoOffline: true,
+        modoRapido: Boolean(objModoRapido),
         metodoOriginal: strMetodo,
         clave: Date.now(),
       });
@@ -678,7 +685,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     } finally {
       setBoolValidando(false);
     }
-  }, [strRolConfig]);
+  }, [strRolConfig, objModoRapido]);
 
   /* ---------- Fase 1: identificar sin registrar (online) ---------- */
   const fnIdentificar = useCallback(async (strValor, strMetodo, objOpciones = {}) => {
@@ -711,7 +718,8 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         refSolicitudPendiente.current = { identidad, clave: `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` };
       }
       const r = await validarIngreso(id, String(strValor).trim(), strMetodo, ex,
-        { ...objOpciones, soloVerificar: true, solicitud: refSolicitudPendiente.current.clave });
+        { ...objOpciones, soloVerificar: true, solicitud: refSolicitudPendiente.current.clave,
+          ...(objModoRapido ? { modoRapido: true, motivoModoRapido: objModoRapido.motivo } : {}) });
       refSolicitudPendiente.current = null;
       setObjResultado({ ...r, metodoOriginal: strMetodo, clave: Date.now() });
       if (r.resultado === "EXAMEN_INCORRECTO" || r.resultado === "YA_REGISTRADO") fnRefrescar();
@@ -724,6 +732,16 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
           metodo: r.metodo,
           metodoOriginal: strMetodo === "QR" ? "QR" : "MANUAL",
           offline: false,
+          // Conservar el contexto completo es indispensable si la conexión
+          // cae después de identificar y el registro debe continuar offline.
+          examenId: Number(ex?.idexamen ?? id),
+          asignaturaId: ex?.idasignatura ?? ex?.idAsignatura ?? null,
+          ambienteId: ex?.idambiente ?? ex?.idAmbiente ?? null,
+          operadorId: obtenerUsuarioActual()?.idUsuario ?? obtenerUsuarioActual()?.idusuario ?? null,
+          rol: String(strRolConfig || obtenerUsuarioActual()?.rol || "operador").toLowerCase(),
+          metodoMotor: strMetodo === "QR" ? "QR" : undefined,
+          modoRapido: Boolean(objModoRapido),
+          motivoModoRapido: objModoRapido?.motivo || null,
         });
         return r;
       }
@@ -742,7 +760,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       refVerificacionEnCurso.current = false;
       setBoolValidando(false);
     }
-  }, [boolOffline, fnIdentificarOffline, nomina.estado.lista]);
+  }, [boolOffline, fnIdentificarOffline, nomina.estado.lista, objModoRapido]);
 
   /* ---------- Fase 2: registrar con facial ---------- */
   const fnRegistrarEnMotor = useCallback(async (identificacion, scores = null) => {
@@ -767,12 +785,15 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       livenessScore: scores?.livenessScore ?? null,
       modelVersion: scores?.modelVersion ?? null,
       deviceId: scores?.deviceId ?? null,
+      modoRapido: Boolean(identificacion.modoRapido),
+      motivoModoRapido: identificacion.motivoModoRapido,
     });
 
     const mapeado = mapearResultadoOffline(rReg, identificacion.valor, identificacion.metodo);
     const enriquecido = {
       ...mapeado,
       conFacial: scores?.scoreFacial != null,
+      modoRapido: Boolean(identificacion.modoRapido),
       registradoPor: mapeado.registradoPor || identificacion.registradoPor || null,
     };
     await fnAplicarRegistro(enriquecido, identificacion);
@@ -823,6 +844,45 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     }
   }, [fnRegistrarEnMotor]);
 
+  const fnConfirmarIngresoRapido = useCallback(async () => {
+    const ident = refIdentificacion.current;
+    if (!ident?.modoRapido) return null;
+    setBoolValidando(true);
+    setStrError("");
+    try {
+      if (ident.offline) return await fnRegistrarEnMotor(ident, null);
+      const ex = examenPorId(refIdExamen.current);
+      const r = await validarIngreso(refIdExamen.current, ident.valor, ident.metodoOriginal, ex, {
+        modoRapido: true, motivoModoRapido: ident.motivoModoRapido,
+      });
+      // Solo PERMITIDO crea el registro. Un rechazo normal (duplicado,
+      // inhabilitado, etc.) reemplaza la tarjeta y termina esta identificación.
+      if (r.resultado !== "PERMITIDO") {
+        setObjResultado({ ...r, clave: Date.now() });
+        setObjIdentificacion(null);
+        return r;
+      }
+      const enriquecido = { ...r, conFacial: false, modoRapido: true };
+      await fnAplicarRegistro(enriquecido, ident);
+      return enriquecido;
+    } catch (e) {
+      if (e?.esErrorRed || (typeof navigator !== "undefined" && navigator.onLine === false)) {
+        return await fnRegistrarEnMotor(ident, null);
+      }
+      setStrError(e.message || "No se pudo registrar el ingreso rápido.");
+      return null;
+    } finally {
+      setBoolValidando(false);
+    }
+  }, [fnAplicarRegistro, fnRegistrarEnMotor, nomina.estado.lista]);
+
+  const fnActivarModoRapido = useCallback((motivo) => setObjModoRapido({ motivo: String(motivo).trim() }), []);
+  const fnDesactivarModoRapido = useCallback(() => {
+    setObjModoRapido(null);
+    setObjIdentificacion(null);
+    setObjResultado(null);
+  }, []);
+
   /* ---------- Excepcional facial autorizado (operador/docente online) ---------- */
   const fnFinalizarExcepcional = useCallback(async (respuesta) => {
     const ident = refIdentificacion.current;
@@ -846,6 +906,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
 
   const fnLimpiarIdentificacion = useCallback(() => {
     setObjIdentificacion(null);
+    setObjModoRapido(null);
     // "Cambiar" cancela la fase 2: la tarjeta de identificación es temporal y
     // debe desaparecer. Los resultados reales (duplicado, no pertenece a la
     // nómina, inhabilitado, etc.) se conservan hasta una nueva identificación.
@@ -900,10 +961,10 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   };
 
   return {
-    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objIdentificacion,
+    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objIdentificacion, objModoRapido,
     boolValidando, strError, strUltimoRegistrado, numVersion, boolOffline, objNomina, fnDescargarNomina,
     objIntentosPendientes,
-    fnIdentificar, fnRegistrarConFacial, fnRegistrarSinFacial, fnFinalizarExcepcional, fnLimpiarIdentificacion,
+    fnIdentificar, fnRegistrarConFacial, fnRegistrarSinFacial, fnConfirmarIngresoRapido, fnActivarModoRapido, fnDesactivarModoRapido, fnFinalizarExcepcional, fnLimpiarIdentificacion,
     fnCerrarResultado, fnElegirExamen, fnVolverALista, fnRefrescar,
   };
 }

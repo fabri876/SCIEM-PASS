@@ -57,6 +57,7 @@ export function normalizarTablero(objTablero) {
             ingresados: m.ingresados ?? 0,
             pendientes: m.pendientes ?? 0,
             excepcionales: m.excepcionales ?? 0,
+            modoRapido: m.modoRapido ?? 0,
             porcentajeAvance: m.porcentajeAvance ?? 0,
             duplicadosBloqueados: m.duplicadosBloqueados ?? 0,
             aulasFueraDeLimite: m.aulasFueraDeLimite ?? 0,

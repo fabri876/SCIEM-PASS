@@ -105,6 +105,7 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
                 {r.conFacial != null && (
                   <span className="text-[#64748B]"> · {r.conFacial ? "con facial" : "sin facial"}</span>
                 )}
+                {r.modoRapido && <span className="text-[#1860A3]"> · modo rápido</span>}
               </span>
               {boolRegistro && (
                 <span className="min-w-0 truncate text-[13px] text-[#334155] max-md:col-start-2 max-md:text-xs" title={textoRegistro(r.registradoPor) || ""}>
