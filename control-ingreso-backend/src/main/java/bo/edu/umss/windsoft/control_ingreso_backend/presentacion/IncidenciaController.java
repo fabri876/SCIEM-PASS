@@ -67,7 +67,7 @@ public class IncidenciaController {
     public ResponseEntity<List<AmbienteControlDto>> ambientesDelDia(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
             HttpServletRequest request) {
-        return ResponseEntity.ok(ambienteExamenService.listarDelDia(contextoUsuarioService.actual(), fecha, true,
+        return ResponseEntity.ok(ambienteExamenService.listarDelDia(contextoUsuarioService.actual(), fecha, false,
                 ClientIpResolver.resolver(request)));
     }
 
@@ -120,22 +120,24 @@ public class IncidenciaController {
     @GetMapping
     public ResponseEntity<IncidenciaListaDto> listar(@RequestParam(required = false) Integer idExamen,
                                                      @RequestParam(required = false) Integer idAmbiente,
+                                                     @RequestParam(required = false) Integer idAsignatura,
                                                      @RequestParam(required = false) String tipo,
                                                      @RequestParam(required = false) String estado,
                                                      HttpServletRequest request) {
-        return ResponseEntity.ok(incidenciaService.listar(idExamen, idAmbiente, tipo, estado,
+        return ResponseEntity.ok(incidenciaService.listar(idExamen, idAmbiente, idAsignatura, tipo, estado,
                 ClientIpResolver.resolver(request)));
     }
 
     @GetMapping("/exportar")
     public ResponseEntity<byte[]> exportar(@RequestParam(required = false) Integer idExamen,
                                            @RequestParam(required = false) Integer idAmbiente,
+                                           @RequestParam(required = false) Integer idAsignatura,
                                            @RequestParam(required = false) String tipo,
                                            @RequestParam(required = false) String estado,
                                            @RequestParam(defaultValue = "false") boolean soloExpulsiones,
                                            HttpServletRequest request) {
-        byte[] archivo = incidenciaService.exportarExcel(idExamen, idAmbiente, tipo, estado, soloExpulsiones,
-                ClientIpResolver.resolver(request));
+        byte[] archivo = incidenciaService.exportarExcel(idExamen, idAmbiente, idAsignatura, tipo, estado,
+                soloExpulsiones, ClientIpResolver.resolver(request));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"incidencias.xlsx\"")
                 .contentType(MediaType.parseMediaType(

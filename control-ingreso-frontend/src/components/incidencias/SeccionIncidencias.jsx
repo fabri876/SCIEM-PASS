@@ -207,6 +207,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       const resIncidencias = await listarIncidencias({
         idExamen: strIdExamen !== TODOS ? strIdExamen : null,
         idAmbiente: filtroAula !== TODOS ? filtroAula : null,
+        idAsignatura: filtroMateria !== TODOS ? filtroMateria : null,
         tipo: filtroTipo !== TODOS ? filtroTipo : null,
         estado: filtroEstado !== TODOS ? filtroEstado : null,
       });
@@ -231,7 +232,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
     } finally {
       setBoolCargando(false);
     }
-  }, [strIdExamen, filtroAula, filtroTipo, filtroEstado, fnCargarDetalle]);
+  }, [strIdExamen, filtroAula, filtroMateria, filtroTipo, filtroEstado, fnCargarDetalle]);
 
   // 3b. Ingresos excepcionales: solo depende de examen y aula (no de tipo/estado)
   const fnRecargarExcepcionales = useCallback(async () => {
@@ -383,6 +384,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       const blobExcel = await exportarIncidenciasExcel({
         idExamen: strIdExamen !== TODOS ? strIdExamen : null,
         idAmbiente: filtroAula !== TODOS ? filtroAula : null,
+        idAsignatura: filtroMateria !== TODOS ? filtroMateria : null,
         tipo: filtroTipo !== TODOS ? filtroTipo : null,
         estado: filtroEstado !== TODOS ? filtroEstado : null,
         soloExpulsiones: boolSoloExpulsiones,

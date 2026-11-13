@@ -7,6 +7,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignatura;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignaturaId;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.EstadoExpulsion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.EstadoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -199,19 +201,23 @@ class IncidenciaServiceTest {
     }
 
     @Test
-    @DisplayName("El operador puede registrar incidencias en el aula de examen que tiene asignada")
+    @DisplayName("El operador no puede registrar incidencias, ni siquiera en el aula que tiene asignada")
     void registrar_operador() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
         AyudanteExamenId asignacion = new AyudanteExamenId(70, ID_ASIGNATURA, ID_EXAMEN, ID_AMBIENTE);
         when(ayudanteExamenRepository.findById(asignacion))
                 .thenReturn(Optional.of(new AyudanteExamen(asignacion, "ACTIVO")));
 
-        assertNotNull(service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "FALLA_TECNICA", "BAJA",
-                "El lector QR dejó de funcionar.", null, false, null, "ip"));
+        AccesoDenegadoException ex = assertThrows(AccesoDenegadoException.class,
+                () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "FALLA_TECNICA", "BAJA",
+                        "El lector QR dejó de funcionar.", null, false, null, "ip"));
+        assertEquals("Acceso denegado: su rol no tiene permiso para esta acción.", ex.getMessage());
+        verify(auditoriaService).registrar(eq("ACCESO_DENEGADO"), anyString(), anyString(), anyString(), anyString());
+        verify(incidenciaRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    @DisplayName("Operador sin esa aula asignada (o con la asignación inactiva): 403 y auditado")
+    @DisplayName("El operador no puede registrar una incidencia aunque el aula no sea suya: 403 y auditado")
     void registrar_operadorSinAsignacion() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
         AyudanteExamenId asignacion = new AyudanteExamenId(70, ID_ASIGNATURA, ID_EXAMEN, ID_AMBIENTE);
@@ -221,7 +227,7 @@ class IncidenciaServiceTest {
         AccesoDenegadoException ex = assertThrows(AccesoDenegadoException.class,
                 () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "FALLA_TECNICA", "BAJA",
                         "El lector QR dejó de funcionar.", null, false, null, "ip"));
-        assertEquals("No tiene asignada esta aula de examen.", ex.getMessage());
+        assertEquals("Acceso denegado: su rol no tiene permiso para esta acción.", ex.getMessage());
         verify(auditoriaService).registrar(eq("ACCESO_DENEGADO"), anyString(), anyString(), anyString(), anyString());
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
@@ -261,7 +267,7 @@ class IncidenciaServiceTest {
     void listar_operadorDenegado() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
 
-        assertThrows(AccesoDenegadoException.class, () -> service.listar(ID_EXAMEN, null, null, null, "ip"));
+        assertThrows(AccesoDenegadoException.class, () -> service.listar(ID_EXAMEN, null, null, null, null, "ip"));
         verify(auditoriaService).registrar(eq("ACCESO_DENEGADO"), anyString(), anyString(), anyString(), anyString());
     }
 
@@ -293,6 +299,30 @@ class IncidenciaServiceTest {
         verify(ingresoRepository).saveAndFlush(ingreso);
         verify(auditoriaService).registrarEnTransaccion(eq("EXPULSION_REGISTRADA"), anyString(), eq("j.perez@est.umss.edu"),
                 contains("ingreso #1203"), anyString());
+    }
+
+    @Test
+    @DisplayName("La expulsión creada desde una incidencia nace AUTORIZADA (si no, no se puede revocar)")
+    void registrar_expulsionNaceAutorizada() {
+        // El servicio de expulsiones (HU14) solo revoca las que están
+        // AUTORIZADA: si la expulsión naciera en PENDIENTE, el botón "Revocar"
+        // de la pantalla de incidencias fallaría siempre y el estudiante
+        // quedaría bloqueado sin forma de reingresar.
+        Ingreso ingreso = new Ingreso();
+        ReflectionTestUtils.setField(ingreso, "idIngreso", 1203);
+        when(ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(CODSIS, ID_ASIGNATURA, ID_EXAMEN))
+                .thenReturn(Optional.of(ingreso));
+        incidenciaGuardada(EstadoIncidencia.ABIERTA);
+
+        service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION", "ALTA", DESCRIPCION,
+                CODSIS, true, null, "ip");
+
+        ArgumentCaptor<Expulsion> captor = ArgumentCaptor.forClass(Expulsion.class);
+        verify(expulsionRepository).save(captor.capture());
+        Expulsion expulsion = captor.getValue();
+        assertEquals(EstadoExpulsion.AUTORIZADA, expulsion.getEstado());
+        assertEquals(ID_DOCENTE, expulsion.getIdUsuarioAutoriza());
+        assertNotNull(expulsion.getFechaAutorizacion());
     }
 
     @Test
@@ -404,6 +434,12 @@ class IncidenciaServiceTest {
 
         assertEquals("ABIERTA", dto.estado());
         assertEquals(5, ingreso.getIdExpulsion());
+
+        // La expulsión creada offline también nace AUTORIZADA: si no, el
+        // docente no podría revocarla cuando se sincronice.
+        ArgumentCaptor<Expulsion> captor = ArgumentCaptor.forClass(Expulsion.class);
+        verify(expulsionRepository).save(captor.capture());
+        assertEquals(EstadoExpulsion.AUTORIZADA, captor.getValue().getEstado());
     }
 
     @Test
