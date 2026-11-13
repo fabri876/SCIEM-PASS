@@ -220,6 +220,11 @@ export async function descargarNomina({
 
   descargasEnCurso.add(exId);
 
+  // En un refresco (completa=false) la copia anterior de la nómina sigue siendo
+  // válida: la descarga solo AGREGA información. Si el refresco falla, el
+  // equipo no puede quedarse sin nómina (eso lo dejaría sin control offline).
+  let boolTeniaNominaCompleta = false;
+
   // Hora de inicio sincronizada con clock offset de connectivityService
   const horaInicioDescargaIso = new Date(Date.now() + obtenerClockOffsetMs()).toISOString();
   const claveMeta = `nomina:${exId}`;
@@ -242,14 +247,17 @@ export async function descargarNomina({
 
   try {
     const metaExistente = (await db.meta.get(claveMeta)) || { clave: claveMeta, idExamen: exId };
+    boolTeniaNominaCompleta = metaExistente.descargaCompleta === true;
     const cursorPrevio = !completa && metaExistente.nominaCursor ? metaExistente.nominaCursor : null;
 
-    // Al iniciar, descargaCompleta queda en false
+    // Al iniciar, descargaCompleta queda en false (una descarga completa
+    // abortada deja la nómina a medias). En un refresco se conserva el estado
+    // anterior: la copia previa sigue siendo válida.
     await db.meta.put({
       ...metaExistente,
       clave: claveMeta,
       idExamen: exId,
-      descargaCompleta: false
+      descargaCompleta: completa ? false : boolTeniaNominaCompleta
     });
 
     let pagina = PRIMERA_PAGINA;
@@ -513,7 +521,8 @@ export async function descargarNomina({
       if (metaActual) {
         await db.meta.put({
           ...metaActual,
-          descargaCompleta: false
+          // Un refresco fallido no invalida la copia previa de la nómina.
+          descargaCompleta: completa ? false : boolTeniaNominaCompleta
         });
       }
     } catch {
