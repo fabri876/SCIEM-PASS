@@ -642,6 +642,11 @@ export async function sincronizarIncidenciasPendientes({ tamanoLote = 50 } = {})
           } catch {
             // La evidencia queda pendiente para el siguiente ciclo.
           }
+        } else {
+          // El servidor no devolvió el id de la incidencia: la foto no tiene a
+          // dónde subirse. Se marca con error para que quede traza en el
+          // historial del docente, en vez de quedarse "sin enviar" para siempre.
+          await marcarEvidenciasSinDestino(item.clientUuid);
         }
         if (estado === STATUS_ITEM_SYNC.PROCESADO) procesados++;
         else duplicados++;
@@ -726,6 +731,22 @@ async function subirEvidenciasDeIncidencia(incidenciaClientUuid, idIncidencia) {
   }
 
   return { subidas, errores };
+}
+
+/**
+ * El servidor no devolvió el id de la incidencia, así que la evidencia no se
+ * puede subir a ninguna parte. Se marca con error (no reintentable) para que el
+ * docente la vea en el historial y no quede colgada "sin enviar" para siempre.
+ */
+async function marcarEvidenciasSinDestino(incidenciaClientUuid) {
+  const evidencias = await evidenciaRepo.porIncidencia(incidenciaClientUuid);
+  for (const ev of evidencias) {
+    if (ev.syncStatus === ESTADO_SYNC.SINCRONIZADO) continue;
+    await evidenciaRepo.marcarEstado(ev.clientUuid, ESTADO_SYNC.ERROR, {
+      ultimoError:
+        'El servidor no devolvió el id de la incidencia, así que la foto no se pudo subir.',
+    });
+  }
 }
 
 /**

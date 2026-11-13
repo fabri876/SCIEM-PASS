@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Info } from "lucide-react";
 import { useOperador } from "../operadorContexto";
 import { db } from "../../../offline/db.js";
+import { fotoRepo } from "../../../offline/fotoRepo.js";
 import ListaExamenesHoy from "./componentes/ListaExamenesHoy";
 import TarjetaExamen from "./componentes/TarjetaExamen";
 import EstacionVerificacion from "./componentes/EstacionVerificacion";
@@ -76,6 +77,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         await db.nominas.where('examenId').equals(exId).delete();
         await db.asistencias_pendientes.where('examenId').equals(exId).delete();
       });
+      await fotoRepo.limpiarFotosSinNomina();
       fnMostrarToast("Nómina local y marcas pendientes eliminadas. Puedes volver a descargar.");
     } catch (err) {
       fnMostrarToast("Error al resetear: " + (err?.message || ""));
@@ -287,7 +289,9 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
             )}
             <TarjetaResultado objResultado={objResultado} onCerrar={fnCerrarResultado} strRol={strRol}
-              onRegistrarIncidencia={() => setMostrarIncidenciaHU09(true)} />
+              // El operador (ayudante) no registra incidencias: esa acción es
+              // del docente responsable y del administrador.
+              onRegistrarIncidencia={boolOperador ? undefined : () => setMostrarIncidenciaHU09(true)} />
           </>
         )}
       </section>

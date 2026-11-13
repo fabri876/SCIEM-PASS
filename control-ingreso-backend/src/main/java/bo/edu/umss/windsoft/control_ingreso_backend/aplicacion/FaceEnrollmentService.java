@@ -212,6 +212,20 @@ public class FaceEnrollmentService {
         return new FaceVerificacionEstudianteResponseDto(autorizado, score, livenessScore, mensaje);
     }
 
+    @Transactional(readOnly = true)
+    public byte[] obtenerFotoBytes(Integer idUsuario) {
+        FaceEnrollment enrollment = enrollmentRepository
+                .findByIdUsuarioAndEstado(idUsuario, ACTIVO)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "No hay enrolamiento activo para este usuario."));
+        try {
+            return storageProvider.get(enrollment.getPhotoPath());
+        } catch (IOException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo leer la foto biometrica.");
+        }
+    }
+
     public static double calcularSimilitudCoseno(double[] a, double[] b) {
         if (a == null || b == null || a.length == 0 || a.length != b.length) {
             return 0.0;

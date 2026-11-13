@@ -23,6 +23,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [boolAvisoPendiente, setBoolAvisoPendiente] = useState(() => fnDebeCambiarContrasena());
   const refMenu = useRef(null);
+  const refRecargarTrasCambioObligatorio = useRef(false);
 
   useEffect(() => {
     if (!boolMenuAbierto) return;
@@ -36,8 +37,19 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
   }, [boolMenuAbierto]);
 
   const fnContrasenaCambiada = () => {
+    refRecargarTrasCambioObligatorio.current = boolAvisoPendiente;
     fnLimpiarPrimerIngreso();
     setBoolAvisoPendiente(false);
+  };
+
+  const fnCerrarModalContrasena = () => {
+    setBoolModalContrasenaAbierto(false);
+    if (refRecargarTrasCambioObligatorio.current) {
+      // Las consultas iniciales pudieron recibir 403 antes del cambio obligatorio.
+      // Remontar el panel vuelve a consultar foto, exámenes y demás datos del rol.
+      refRecargarTrasCambioObligatorio.current = false;
+      window.location.reload();
+    }
   };
 
   const strNombre = usuario?.nombre || "Usuario";
@@ -107,7 +119,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
 
       <CambiarContrasenaModal
         boolAbierto={boolModalContrasenaAbierto}
-        onCerrar={() => setBoolModalContrasenaAbierto(false)}
+        onCerrar={fnCerrarModalContrasena}
         onExito={fnContrasenaCambiada}
       />
     </div>

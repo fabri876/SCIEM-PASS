@@ -188,7 +188,7 @@ export function FilaNominaSinConexion({ examen, boolSinRed }) {
       : (nomina.estado.lista ? 100 : 0),
   };
   const fnDescargarNomina = () => {
-    nomina.descargar({ incluirFotos: false }).catch(() => { });
+    nomina.descargar({ incluirFotos: true }).catch(() => { });
   };
   return (
     <div className="w-full flex flex-wrap items-baseline gap-x-2 gap-y-2 text-xs">
@@ -208,7 +208,7 @@ function TarjetaExamenHoy({ examen, onElegir, boolSinRed }) {
       : (nomina.estado.lista ? 100 : 0),
   };
   const fnDescargarNomina = () => {
-    nomina.descargar({ incluirFotos: false }).catch(() => { });
+    nomina.descargar({ incluirFotos: true }).catch(() => { });
   };
 
   const c = examen.contador || {};

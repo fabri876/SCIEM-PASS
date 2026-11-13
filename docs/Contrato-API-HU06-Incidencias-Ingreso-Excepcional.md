@@ -12,19 +12,19 @@
 | Acción | ADMINISTRADOR | DOCENTE | OPERADOR | ESTUDIANTE |
 | :--- | :---: | :---: | :---: | :---: |
 | Autorizar ingreso excepcional | ✅ | ✅ exámenes asignados | ❌ | ❌ |
-| Registrar incidencia | ✅ | ✅ exámenes asignados | ✅ aulas asignadas | ❌ |
+| Registrar incidencia | ✅ | ✅ exámenes asignados | ❌ | ❌ |
 | Ver / revisar / cerrar incidencias | ✅ | ✅ exámenes asignados | ❌ | ❌ |
 | Ver ingresos excepcionales | ✅ | ✅ exámenes asignados | ❌ | ❌ |
 
 **Actualización 09/10/2026 (recomendación de la ingeniera):** todo se registra sobre un examen **ya asignado** a quien lo registra.
 - **DOCENTE:** exámenes de los que es responsable (`examen.idusuario`).
-- **OPERADOR:** aulas de examen asignadas y ACTIVAS en `ayudante_examen` (la misma asignación de la HU05).
 - **Incidencias:** se pueden registrar **el día del examen o después**, nunca antes. El ingreso excepcional sigue siendo solo durante el examen.
+
+**Actualización 12/11/2026:** el **operador (ayudante) ya no registra ni gestiona incidencias**. Su alcance es el control del ingreso del aula: marcar ingresos, autorizar el ingreso excepcional en los casos faciales y reportar intentos de examen incorrecto. Registrar una incidencia —y más aún expulsar a un estudiante— es del **docente responsable** y del **administrador**. El operador recibe `403` en todos los endpoints de `/api/incidencias` y en `POST /api/sync/incidencias`.
 
 - Rol sin permiso → `403` con `"Acceso denegado: su rol no tiene permiso para esta acción."`
 - Docente de otra materia → `403` con `"No es docente de esta materia."`
 - Docente de la materia que no es el asignado al examen → `403` con `"No es el docente asignado a este examen."`
-- Operador sin esa aula asignada (o asignación inactiva) → `403` con `"No tiene asignada esta aula de examen."`
 - Incidencia de un examen futuro → `409` con `"El examen es el dd/MM/yyyy; todavía no se pueden registrar incidencias."`
 - Sin token o token vencido → `401`. El frontend muestra **"Tu sesión expiró, vuelve a iniciar sesión"** y no reintenta.
 - Todo acceso negado, ingreso excepcional (aceptado o rechazado), incidencia, retiro y cambio de estado queda en el **Historial de Auditoría**. El frontend no tiene que hacer nada para eso.
@@ -35,21 +35,23 @@
 
 | Método | Endpoint | Roles | Uso |
 | :--- | :--- | :--- | :--- |
-| GET | `/api/incidencias/catalogos` | A, D, O | Tipos, severidades, estados y motivos de excepción |
-| GET | `/api/incidencias/ambientes?fecha=` | A, D, O | Aulas asignadas de un día (por defecto hoy): selector del **ingreso excepcional** |
-| GET | `/api/incidencias/aulas-asignadas` | A, D, O | Aulas asignadas de **todas las fechas hasta hoy** (más recientes primero): selector de **incidencias**. Mismo formato que `/ambientes` |
-| GET | `/api/incidencias/estudiante?idAmbiente=&q=` | A, D, O | Estudiante involucrado en una incidencia |
-| POST | `/api/incidencias` *(multipart)* | A, D, O | Registrar incidencia |
-| GET | `/api/incidencias?idExamen=&idAmbiente=&tipo=&estado=` | A, D | Lista + totales |
+| GET | `/api/incidencias/catalogos` | A, D | Tipos, severidades, estados y motivos de excepción |
+| GET | `/api/incidencias/ambientes?fecha=` | A, D | Aulas asignadas de un día (por defecto hoy): selector del **ingreso excepcional** |
+| GET | `/api/incidencias/aulas-asignadas` | A, D | Aulas asignadas de **todas las fechas hasta hoy** (más recientes primero): selector de **incidencias**. Mismo formato que `/ambientes` |
+| GET | `/api/incidencias/estudiante?idAmbiente=&q=` | A, D | Estudiante involucrado en una incidencia |
+| POST | `/api/incidencias` *(multipart)* | A, D | Registrar incidencia |
+| GET | `/api/incidencias?idExamen=&idAmbiente=&idAsignatura=&tipo=&estado=` | A, D | Lista + totales |
+| GET | `/api/incidencias/exportar?...&idAsignatura=` | A, D | Excel del filtro activo |
 | GET | `/api/incidencias/abiertas/total` | A, D | Número para el menú lateral |
 | GET | `/api/incidencias/{id}` | A, D | Detalle + línea de tiempo |
 | PATCH | `/api/incidencias/{id}/revision` | A, D | ABIERTA → EN_REVISION |
 | PATCH | `/api/incidencias/{id}/cierre` | A, D | → CERRADA (con resolución) |
+| POST | `/api/sync/incidencias` | A, D | Lote idempotente de incidencias registradas sin conexión (HU21) |
 | GET | `/api/ingresos-excepcionales/consulta?idAmbiente=&q=` | A, D | Buscar estudiante y saber qué botones mostrar |
 | POST | `/api/ingresos-excepcionales` *(multipart)* | A, D | Autorizar ingreso excepcional |
 | GET | `/api/ingresos-excepcionales?idExamen=&idAmbiente=` | A, D | Pestaña "Ingresos excepcionales" |
 
-A = ADMINISTRADOR, D = DOCENTE, O = OPERADOR.
+A = ADMINISTRADOR, D = DOCENTE.
 
 ---
 
@@ -141,7 +143,7 @@ Devuelve solo las aulas que el usuario puede operar (el docente, las de sus mate
 
 ### 4.3. Consultar estudiante (botones del resultado)
 `GET /api/ingresos-excepcionales/consulta?idAmbiente=7&q=9988776` (docente/admin)
-`GET /api/incidencias/estudiante?idAmbiente=7&q=1234567` (también operador)
+`GET /api/incidencias/estudiante?idAmbiente=7&q=1234567` (docente/admin)
 
 `q` acepta **Código SIS o CI**. Mismo formato de respuesta:
 
@@ -256,7 +258,7 @@ Usar `aforo` de la respuesta para actualizar "57/60 · quedan 3".
 - `"El estudiante ya fue retirado de este examen."`
 
 ### 4.6. Lista de incidencias
-`GET /api/incidencias?idExamen=3&idAmbiente=&tipo=OBJETO_PROHIBIDO&estado=ABIERTA` (todos opcionales)
+`GET /api/incidencias?idExamen=3&idAmbiente=&idAsignatura=&tipo=OBJETO_PROHIBIDO&estado=ABIERTA` (todos opcionales)
 
 ```json
 {
@@ -282,9 +284,25 @@ Usar `aforo` de la respuesta para actualizar "57/60 · quedan 3".
   ]
 }
 ```
-- `totales` respeta los filtros de examen, aula y tipo, pero **no** el de estado (para mostrar siempre los tres números).
+- `totales` respeta los filtros de examen, aula, materia y tipo, pero **no** el de estado (para mostrar siempre los tres números).
+- `idAsignatura` filtra por materia. El listado en pantalla y el **export a Excel usan el mismo filtro**, así que lo que se descarga es exactamente lo que se ve.
 - Lista vacía → mostrar "No hay incidencias con esos filtros".
 - El docente siempre recibe solo sus materias (no hay filtro "Solo mis materias").
+
+### 4.6b. Sincronización de incidencias sin conexión (HU21)
+`POST /api/sync/incidencias` — el lote viaja en JSON. Cada ítem lleva su `clientUuid`, que es la **clave de solicitud**: si esa clave ya existe en el servidor, no se crea otra incidencia.
+
+Respuesta por ítem:
+
+| `estado` | Significado | Campos extra |
+| :--- | :--- | :--- |
+| `PROCESADO` | La incidencia se acaba de crear | `idIncidencia` |
+| `DUPLICADO` | Ya existía una incidencia con esa clave | `idIncidencia` |
+| `ERROR_VALIDACION` | El dato está mal: reintentar no cambiaría el resultado | `mensaje` |
+| `ERROR` | Fallo transitorio (red, servidor): el dispositivo reintenta | `mensaje` |
+
+- **`DUPLICADO` siempre trae `idIncidencia`.** El dispositivo lo necesita para subir la evidencia (foto) que quedó guardada en su cola local; sin ese id la foto se perdería en silencio.
+- `advertencia` puede venir junto a `PROCESADO`: la incidencia se registró pero no se pudo cerrar (por ejemplo, una expulsión que quedó ABIERTA).
 
 ### 4.7. Contador del menú
 `GET /api/incidencias/abiertas/total` → `{ "total": 3 }`
@@ -371,6 +389,6 @@ import ModalIngresoExcepcional from "../../../../components/incidencias/ModalIng
 ```
 
 - **"Autorizar ingreso excepcional":** mostrarlo solo a DOCENTE y ADMINISTRADOR. El operador nunca lo ve.
-- **"Registrar incidencia":** lo ven los tres roles.
+- **"Registrar incidencia":** solo DOCENTE y ADMINISTRADOR. En el frontend el botón se dibuja solo si hay a quién abrir el formulario de incidencia (`onAbrirIncidenciaConEstudiante`): el operador no lo recibe, así que no le aparece.
 - **"Rechazar y continuar":** es solo del punto de control; limpia el resultado y no llama a la HU06.
 - **El "intento no autorizado" automático** lo guarda la HU05 al mostrar un rechazo (tabla `intentosnoautorizados`).
