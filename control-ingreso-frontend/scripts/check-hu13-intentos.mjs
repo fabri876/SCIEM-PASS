@@ -23,8 +23,8 @@ globalThis.localStorage = {
 
 globalThis.sessionStorage = {
   getItem: () => null,
-  setItem: () => {},
-  removeItem: () => {},
+  setItem: () => { },
+  removeItem: () => { },
 };
 
 // Plugin SSR para Vite
@@ -54,14 +54,7 @@ try {
     DATOS_SEMILLA_INTENTOS,
     calcularEstadisticasIntentos,
     listarReporteIntentosIncorrectos,
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
     listarCatalogoReporteIntentos,
->>>>>>> 1bcdb43bd24caf216470ed4768dbb1117a3ea9fe
-=======
-    listarCatalogoReporteIntentos,
->>>>>>> 8c3f3e4bd12ec78131c5898b8f99c710099c7214
     exportarIntentosExcelCsv,
     generarReporteOficialPdf,
   } = await server.ssrLoadModule("/src/services/reporteIntentosService.js");
@@ -86,16 +79,8 @@ try {
     return { ok: true, status: 200, json: async () => [] };
   };
   assert.deepEqual(await listarReporteIntentosIncorrectos(), []);
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
   assert.deepEqual(await listarCatalogoReporteIntentos(), []);
   assert.ok(urls.at(-1).endsWith('/api/reportes/intentos-incorrectos/catalogo'));
->>>>>>> 1bcdb43bd24caf216470ed4768dbb1117a3ea9fe
-=======
-  assert.deepEqual(await listarCatalogoReporteIntentos(), []);
-  assert.ok(urls.at(-1).endsWith('/api/reportes/intentos-incorrectos/catalogo'));
->>>>>>> 8c3f3e4bd12ec78131c5898b8f99c710099c7214
 
   // Los filtros se envían al servidor, no se aplican sobre datos ficticios.
   const filtradosExamen = await listarReporteIntentosIncorrectos({ motivo: "EXAMEN_INCORRECTO" });
@@ -161,29 +146,26 @@ try {
     "Debe contener la tabla de detalle nominal"
   );
   assert.ok(!html.includes("HU-09") && !html.includes("HU-18"));
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-  assert.ok(html.includes("Fecha / Hora"), "La tabla debe identificar fecha y hora");
->>>>>>> 1bcdb43bd24caf216470ed4768dbb1117a3ea9fe
-=======
   assert.ok(html.includes("Fecha / Hora"), "La tabla debe identificar fecha y hora");
   const hoy = new Date();
   const fechaMaxima = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
   assert.ok(html.includes(`type="date" max="${fechaMaxima}"`), "El calendario debe bloquear fechas futuras");
->>>>>>> 8c3f3e4bd12ec78131c5898b8f99c710099c7214
 
   console.log("3. Probando exportaciones con datos ficticios...");
-  const fila = { estudianteNombre: '=SUM(1,2)', codSis: '123456', ci: '<script>',
-    motivo: 'EXAMEN_INCORRECTO', examenAulaAsignada: 'Aula ficticia', fecha: '2026-11-07', hora: '13:13:41', estadoPosterior: null };
+  const fila = {
+    estudianteNombre: '=SUM(1,2)', codSis: '123456', ci: '<script>',
+    motivo: 'EXAMEN_INCORRECTO', examenAulaAsignada: 'Aula ficticia', fecha: '2026-11-07', hora: '13:13:41', estadoPosterior: null
+  };
   let ultimoBlob;
   const crearUrlOriginal = URL.createObjectURL;
   const revocarUrlOriginal = URL.revokeObjectURL;
   URL.createObjectURL = (blob) => { ultimoBlob = blob; return 'blob:prueba'; };
-  URL.revokeObjectURL = () => {};
-  globalThis.document = { createElement: () => ({ style: {}, setAttribute() {}, click() {} }),
-    body: { appendChild() {}, removeChild() {} } };
-  globalThis.window = { open: () => ({ print() {} }) };
+  URL.revokeObjectURL = () => { };
+  globalThis.document = {
+    createElement: () => ({ style: {}, setAttribute() { }, click() { } }),
+    body: { appendChild() { }, removeChild() { } }
+  };
+  globalThis.window = { open: () => ({ print() { } }) };
   try {
     exportarIntentosExcelCsv([fila]);
     const csv = await ultimoBlob.text();
@@ -213,4 +195,3 @@ try {
 } finally {
   await server.close();
 }
-
