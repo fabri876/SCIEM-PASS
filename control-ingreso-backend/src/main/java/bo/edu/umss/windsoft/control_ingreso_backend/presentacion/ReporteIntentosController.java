@@ -19,8 +19,10 @@ import java.util.List;
 public class ReporteIntentosController {
     private final ReporteIntentosService service;
     private final ContextoUsuarioService contexto;
+
     public ReporteIntentosController(ReporteIntentosService service, ContextoUsuarioService contexto) {
-        this.service = service; this.contexto = contexto;
+        this.service = service;
+        this.contexto = contexto;
     }
 
     @GetMapping("/catalogo")

@@ -47,13 +47,13 @@ export default function TarjetaExamenInicio({ examen }) {
         (boolEnCurso ? "shadow-[inset_4px_0_0_#003770]" : "")
       }
     >
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="w-16 shrink-0 text-center border-r border-[#E2E8F0] pr-3">
+      <div className="flex items-center gap-4 flex-wrap max-md:items-start max-md:gap-2.5">
+        <div className="w-16 shrink-0 text-center border-r border-[#E2E8F0] pr-3 max-md:w-[58px] max-md:pr-2">
           <b className="block text-[17px] font-black text-[#08264A] leading-tight">{examen.horaInicio || "--:--"}</b>
           {examen.horaFin && <span className="text-[11px] font-bold text-slate-500">a {examen.horaFin}</span>}
         </div>
 
-        <div className="flex-1 min-w-[180px]">
+        <div className="flex-1 min-w-[180px] max-md:min-w-0 max-md:basis-[calc(100%-70px)]">
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="m-0 font-black text-sm text-[#08264A] uppercase">{examen.nombreExamen}</h4>
             {boolEnCurso && <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#003770] text-white">● En curso</span>}
@@ -71,7 +71,7 @@ export default function TarjetaExamenInicio({ examen }) {
           <button
             type="button"
             onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/control-ingreso`, { state: { menuOrigen: "inicio", examen } })}
-            className="inline-flex items-center justify-center gap-2 bg-[#003770] hover:bg-[#124B83] text-white font-bold text-xs h-9 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-2 bg-[#003770] hover:bg-[#124B83] text-white font-bold text-xs h-9 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap max-md:w-[calc(100%-70px)] max-md:ml-[70px] max-md:h-10"
           >
             Registrar ingreso <ArrowRight className="w-4 h-4" />
           </button>
@@ -84,11 +84,11 @@ export default function TarjetaExamenInicio({ examen }) {
 
       {/* Barra de ingresos (solo en curso), a lo ancho hasta debajo del botón */}
       {boolEnCurso && numTotal > 0 && (
-        <div className="mt-2.5 ml-20 flex items-center gap-3 max-md:ml-0">
+        <div className="mt-2.5 ml-20 flex items-center gap-3 max-md:ml-0 max-md:gap-2 max-md:flex-wrap">
           <div className="flex-1 h-1.5 rounded-full bg-[#EEF2F7] overflow-hidden">
             <div className="h-full rounded-full bg-[#1860A3] transition-all duration-500" style={{ width: `${numPct}%` }} />
           </div>
-          <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap">{numIng} / {numTotal} ingresaron</span>
+          <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap max-md:ml-auto">{numIng} / {numTotal} ingresaron</span>
         </div>
       )}
     </div>

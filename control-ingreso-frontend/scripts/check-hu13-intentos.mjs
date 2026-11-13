@@ -23,8 +23,8 @@ globalThis.localStorage = {
 
 globalThis.sessionStorage = {
   getItem: () => null,
-  setItem: () => {},
-  removeItem: () => {},
+  setItem: () => { },
+  removeItem: () => { },
 };
 
 // Plugin SSR para Vite
@@ -152,16 +152,20 @@ try {
   assert.ok(html.includes(`type="date" max="${fechaMaxima}"`), "El calendario debe bloquear fechas futuras");
 
   console.log("3. Probando exportaciones con datos ficticios...");
-  const fila = { estudianteNombre: '=SUM(1,2)', codSis: '123456', ci: '<script>',
-    motivo: 'EXAMEN_INCORRECTO', examenAulaAsignada: 'Aula ficticia', fecha: '2026-11-07', hora: '13:13:41', estadoPosterior: null };
+  const fila = {
+    estudianteNombre: '=SUM(1,2)', codSis: '123456', ci: '<script>',
+    motivo: 'EXAMEN_INCORRECTO', examenAulaAsignada: 'Aula ficticia', fecha: '2026-11-07', hora: '13:13:41', estadoPosterior: null
+  };
   let ultimoBlob;
   const crearUrlOriginal = URL.createObjectURL;
   const revocarUrlOriginal = URL.revokeObjectURL;
   URL.createObjectURL = (blob) => { ultimoBlob = blob; return 'blob:prueba'; };
-  URL.revokeObjectURL = () => {};
-  globalThis.document = { createElement: () => ({ style: {}, setAttribute() {}, click() {} }),
-    body: { appendChild() {}, removeChild() {} } };
-  globalThis.window = { open: () => ({ print() {} }) };
+  URL.revokeObjectURL = () => { };
+  globalThis.document = {
+    createElement: () => ({ style: {}, setAttribute() { }, click() { } }),
+    body: { appendChild() { }, removeChild() { } }
+  };
+  globalThis.window = { open: () => ({ print() { } }) };
   try {
     exportarIntentosExcelCsv([fila]);
     const csv = await ultimoBlob.text();
@@ -191,4 +195,3 @@ try {
 } finally {
   await server.close();
 }
-
