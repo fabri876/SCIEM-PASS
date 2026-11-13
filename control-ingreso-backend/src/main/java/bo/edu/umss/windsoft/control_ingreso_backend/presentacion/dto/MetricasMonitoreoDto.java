@@ -11,6 +11,7 @@ public record MetricasMonitoreoDto(
         int pendientes,
         double porcentajeAvance,
         int excepcionales,
+        int modoRapido,
         long duplicadosBloqueados,
         int aulasFueraDeLimite,
         int estudiantesDesubicados) {

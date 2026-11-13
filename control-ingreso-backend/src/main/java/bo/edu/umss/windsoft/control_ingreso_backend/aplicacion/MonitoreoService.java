@@ -14,6 +14,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.IntentoNoAutorizado;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MetodoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoIntento;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
@@ -188,13 +189,15 @@ public class MonitoreoService {
         int habilitados = reparto.habilitados().size();
         int ingresadosHabilitados = (int) reparto.habilitados().keySet().stream().filter(codSisIngresados::contains).count();
         double avance = habilitados == 0 ? 0.0 : redondear(ingresadosHabilitados * 100.0 / habilitados);
-        int excepcionales = (int) ingresos.stream().filter(i -> i.getTipoIngreso() == TipoIngreso.EXCEPCIONAL).count();
+        int modoRapido = (int) ingresos.stream().filter(i -> i.getMotivoExcepcion() == MotivoExcepcion.MODO_RAPIDO).count();
+        int excepcionales = (int) ingresos.stream().filter(i -> i.getTipoIngreso() == TipoIngreso.EXCEPCIONAL
+                && i.getMotivoExcepcion() != MotivoExcepcion.MODO_RAPIDO).count();
         long duplicados = intentoRepository.countByIdAsignaturaAndIdExamenAndMotivo(idAsignatura, idExamen,
                 MotivoIntento.DUPLICADO);
         int fueraDeLimite = (int) aulas.stream().filter(AulaMonitoreoDto::fueraDeLimite).count();
 
         MetricasMonitoreoDto metricas = new MetricasMonitoreoDto(habilitados, ingresos.size(),
-                habilitados - ingresadosHabilitados, avance, excepcionales, duplicados, fueraDeLimite, alertas.size());
+                habilitados - ingresadosHabilitados, avance, excepcionales, modoRapido, duplicados, fueraDeLimite, alertas.size());
 
         return new TableroMonitoreoDto(idExamen, idAsignatura, info.asignatura(), info.fechaExamen(),
                 HoraOficial.ahora(), metricas, aulas, alertas);

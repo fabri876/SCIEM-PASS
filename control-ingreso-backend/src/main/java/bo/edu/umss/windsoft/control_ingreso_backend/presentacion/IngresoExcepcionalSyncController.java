@@ -1,6 +1,7 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.IngresoExcepcionalService;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
@@ -52,6 +53,11 @@ public class IngresoExcepcionalSyncController {
             @RequestParam(required = false) String clientUuid,
             HttpServletRequest request) {
         Map<String, Object> resultado = new LinkedHashMap<>();
+        if (MotivoExcepcion.MODO_RAPIDO.name().equalsIgnoreCase(motivo)) {
+            resultado.put("estado", "ERROR_VALIDACION");
+            resultado.put("mensaje", "MODO_RAPIDO solo se registra desde el control normal.");
+            return ResponseEntity.badRequest().body(resultado);
+        }
         try {
             IngresoExcepcionalService.AutorizacionExcepcional autorizacion =
                     ingresoExcepcionalService.autorizarConDetalle(idAmbiente, codSis, motivo, observacion,

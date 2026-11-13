@@ -4,7 +4,7 @@ import { useRegisterBackHandler } from "../../../../hooks/useAndroidBackButton";
 // 2) Verificar el rostro del estudiante ya identificado y recién ahí registrar.
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { QrCode, Keyboard, ScanLine, ScanFace, Check } from "lucide-react";
+import { QrCode, Keyboard, ScanLine, ScanFace, Check, Zap } from "lucide-react";
 import ControlFacialCamera from "../ControlFacialCamera";
 
 const ID_LECTOR = "ci-lector-qr";
@@ -222,6 +222,8 @@ export default function EstacionVerificacion({
   onSinEnrolamiento,
   onFalloFacial,
   onCancelarFacial,
+  boolModoRapido = false,
+  onConfirmarRapido,
 }) {
   const [strModo, setStrModo] = useState("qr");
   const boolIdentificado = Boolean(objIdentificacion);
@@ -237,7 +239,7 @@ export default function EstacionVerificacion({
           <div>
             <h2 id="ci-t-verificacion" className="m-0 text-lg font-bold text-[#08264A]">Verificación de ingreso</h2>
             <p className="m-0 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-              {boolIdentificado ? "Fase 2 de 2 · Rostro" : "Fase 1 de 2 · Identificar"}
+              {boolIdentificado ? (boolModoRapido ? "Fase 2 de 2 · Confirmar" : "Fase 2 de 2 · Rostro") : "Fase 1 de 2 · Identificar"}
             </p>
           </div>
         </div>
@@ -265,7 +267,19 @@ export default function EstacionVerificacion({
         </>
       ) : (
         <div className="mt-4">
-          <ControlFacialCamera
+          {boolModoRapido ? (
+            <div className="rounded-xl border border-[#1860A3] bg-[#F0F6FC] p-5 text-center">
+              <Zap className="mx-auto h-8 w-8 text-[#003770]" />
+              <h3 className="mt-2 text-base font-bold text-[#08264A]">Modo rápido activo</h3>
+              <p className="mt-1 text-sm text-[#64748B]">Verifica la foto y los datos del estudiante antes de confirmar. No se realizará verificación facial.</p>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                <button type="button" onClick={onCancelarFacial} className="min-h-[46px] rounded-lg border border-[#64748B] bg-white px-5 text-sm font-bold text-[#334155]">Cambiar</button>
+                <button type="button" onClick={() => onConfirmarRapido?.()} disabled={boolValidando} className={CLASE_BOTON}>
+                  <Zap className="h-4 w-4" /> Confirmar ingreso rápido
+                </button>
+              </div>
+            </div>
+          ) : <ControlFacialCamera
             idExamen={idExamen}
             idAsignatura={idAsignatura}
             idAmbiente={idAmbiente}
@@ -275,7 +289,7 @@ export default function EstacionVerificacion({
             onSinEnrolamiento={onSinEnrolamiento}
             onFalloFacial={onFalloFacial}
             onCancelar={onCancelarFacial}
-          />
+          />}
         </div>
       )}
     </div>

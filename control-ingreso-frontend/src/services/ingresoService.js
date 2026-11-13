@@ -231,6 +231,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
         ...(objOpciones.livenessScore != null ? { livenessScore: objOpciones.livenessScore } : {}),
         ...(objOpciones.modelVersion ? { modelVersion: objOpciones.modelVersion } : {}),
         ...(objOpciones.deviceId ? { deviceId: objOpciones.deviceId } : {}),
+        ...(objOpciones.modoRapido ? { modoRapido: true, motivoModoRapido: objOpciones.motivoModoRapido } : {}),
       }),
     });
   } catch (causa) {
@@ -303,6 +304,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
     motivos: objData.motivoInhabilitacion ? [objData.motivoInhabilitacion] : objData.motivos || [],
     otroExamen: objData.otroExamen || null,
     intentoRegistrado: objData.intentoRegistrado === true,
+    modoRapido: objData.modoRapido === true,
     filaCorrecta: objData.filaCorrecta
       ? {
         desde: objData.filaCorrecta.letraDesde || objData.filaCorrecta.desde,
@@ -366,6 +368,7 @@ export async function obtenerUltimosIngresos(idExamen, numLimite = 5, objExamen 
         metodo: strMetodo === "ESCANEO" || strMetodo === "QR" ? "QR" : "Manual",
         // Se deriva de score_facial: no existe un método "facial" separado.
         conFacial: boolConFacial,
+        modoRapido: r.modoRapido === true,
         scoreFacial: r.scoreFacial ?? null,
         registradoPor: nombreRegistrador(r),
         estudiante: {
@@ -393,6 +396,7 @@ export async function obtenerMisRegistros(numLimite = 100) {
     fechaHora: r.horaIngreso || r.hora,
     metodo: String(r.metodoIngreso || r.metodo || "").toUpperCase() === "ESCANEO" ? "QR" : "Manual",
     conFacial: Boolean(r.verificacionFacial ?? (r.scoreFacial != null)),
+    modoRapido: r.modoRapido === true,
     scoreFacial: r.scoreFacial ?? null,
     registradoPor: r.registradoPor || "Registro propio",
     estudiante: {
