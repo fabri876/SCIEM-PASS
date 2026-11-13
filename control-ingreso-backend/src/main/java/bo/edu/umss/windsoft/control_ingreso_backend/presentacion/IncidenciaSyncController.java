@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Endpoint idempotente para sincronizar incidencias almacenadas offline. */
@@ -40,7 +41,7 @@ public class IncidenciaSyncController {
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("hasAnyRole('DOCENTE','ADMINISTRADOR','OPERADOR')")
+    @PreAuthorize("hasAnyRole('DOCENTE','ADMINISTRADOR')")
     public ResponseEntity<Map<String, Object>> sincronizar(
             @RequestBody BatchSyncIncidenciasRequestDto solicitud,
             HttpServletRequest request) {
@@ -58,8 +59,14 @@ public class IncidenciaSyncController {
                     throw new SolicitudInvalidaException("Falta clientUuid.");
                 }
                 UUID.fromString(item.clientUuid());
-                if (incidenciaService.existeClaveSolicitud(item.clientUuid())) {
+                Optional<Integer> idExistente = incidenciaService.idPorClaveSolicitud(item.clientUuid());
+                if (idExistente.isPresent()) {
                     resultado.put("estado", "DUPLICADO");
+                    // El id de la incidencia que YA está en el servidor: el
+                    // dispositivo lo necesita para subir la evidencia que quedó
+                    // guardada en la cola local. Sin este dato la foto se
+                    // perdía en silencio.
+                    resultado.put("idIncidencia", idExistente.get());
                     resultados.add(resultado);
                     continue;
                 }
