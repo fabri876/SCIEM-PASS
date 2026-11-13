@@ -6,6 +6,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Home, CalendarDays } from "lucide-react";
 import Header from "../../components/layout/Header";
+import AvatarConFoto from "../../components/common/AvatarConFoto";
 import { obtenerUsuarioActual } from "../../services/authService";
 import { obtenerMisExamenesEstudiante } from "../../services/credencialService";
 import VistaCredencialQr from "../credencial/componentes/VistaCredencialQr";
@@ -110,9 +111,11 @@ export default function HomeEstudiante() {
           {/* BARRA IZQUIERDA */}
           <aside className="w-[280px] shrink-0 hidden lg:block space-y-6">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-md mb-3">
-                {strIniciales}
-              </div>
+              <AvatarConFoto
+                idUsuario={usuario?.idUsuario}
+                className="w-16 h-16 rounded-2xl overflow-hidden bg-[#1A365D] shadow-md mb-3 flex items-center justify-center shrink-0"
+                fallback={<span className="text-white font-black text-xl">{strIniciales}</span>}
+              />
               <h3 className="font-extrabold text-[#1A365D] text-sm uppercase">{strNombre} {strApellido}</h3>
               <span className="text-[11px] text-[#1A365D] font-bold mb-4">ESTUDIANTE</span>
               <div className="w-full border-t border-slate-100 pt-3 text-left space-y-2 text-xs">

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Info } from "lucide-react";
 import { useOperador } from "../operadorContexto";
 import { db } from "../../../offline/db.js";
+import { fotoRepo } from "../../../offline/fotoRepo.js";
 import ListaExamenesHoy from "./componentes/ListaExamenesHoy";
 import TarjetaExamen from "./componentes/TarjetaExamen";
 import EstacionVerificacion from "./componentes/EstacionVerificacion";
@@ -76,6 +77,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
         await db.nominas.where('examenId').equals(exId).delete();
         await db.asistencias_pendientes.where('examenId').equals(exId).delete();
       });
+      await fotoRepo.limpiarFotosSinNomina();
       fnMostrarToast("Nómina local y marcas pendientes eliminadas. Puedes volver a descargar.");
     } catch (err) {
       fnMostrarToast("Error al resetear: " + (err?.message || ""));

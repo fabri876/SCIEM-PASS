@@ -238,6 +238,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const { actualizar: fnActualizarNomina } = nomina;
   const refPrecache = useRef(new Set());
   const refIntentosPrecache = useRef(new Map());
+  const refFotosPrecache = useRef(new Set());
   const [numReintentoPrecache, setNumReintentoPrecache] = useState(0);
   const MAX_INTENTOS_PRECACHE = 3;
 
@@ -347,10 +348,17 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       refPrecache.current.delete(exId);
       setNumReintentoPrecache((v) => v + 1);
     };
-    nomina.descargar({ incluirFotos: false }).then((res) => {
+    nomina.descargar({ incluirFotos: true }).then((res) => {
       if (res && res.ok === false && !res.omitido) reintentar();
     }).catch(reintentar);
   }, [examenActual?.idexamen, boolOffline, nomina.estado.lista, nomina.descargando, nomina.descargar, numReintentoPrecache]);
+
+  useEffect(() => {
+    if (!examenActual?.idexamen || boolOffline || !nomina.estado.lista || nomina.estado.fotosDescargadasEn || nomina.descargando) return;
+    if (refFotosPrecache.current.has(examenActual.idexamen)) return;
+    refFotosPrecache.current.add(examenActual.idexamen);
+    nomina.descargarFotos().catch(() => {});
+  }, [examenActual?.idexamen, boolOffline, nomina.estado.lista, nomina.estado.fotosDescargadasEn, nomina.descargando, nomina.descargarFotos]);
 
   // Descarga independiente: un fallo aqui nunca convierte la nomina en completa
   // ni impide el control habitual. El resultado es solo una copia informativa.
@@ -651,7 +659,16 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         operadorId,
         rol,
       };
-      setObjResultado(null);
+      // Igual que el flujo online, mostrar inmediatamente la tarjeta de estado
+      // mientras el estudiante pasa a la verificación facial. La información
+      // ya viene de la nómina local, por lo que no requiere internet.
+      setObjResultado({
+        ...baseResultado("IDENTIFICADO_OFFLINE", strValor, identificacion.metodo),
+        estudiante: est,
+        modoOffline: true,
+        metodoOriginal: strMetodo,
+        clave: Date.now(),
+      });
       setObjIdentificacion(identificacion);
       return identificacion;
     } catch (e) {
@@ -829,6 +846,14 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
 
   const fnLimpiarIdentificacion = useCallback(() => {
     setObjIdentificacion(null);
+    // "Cambiar" cancela la fase 2: la tarjeta de identificación es temporal y
+    // debe desaparecer. Los resultados reales (duplicado, no pertenece a la
+    // nómina, inhabilitado, etc.) se conservan hasta una nueva identificación.
+    setObjResultado((actual) => (
+      actual?.resultado === "IDENTIFICADO" || actual?.resultado === "IDENTIFICADO_OFFLINE"
+        ? null
+        : actual
+    ));
     setStrError("");
   }, []);
 
@@ -852,7 +877,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const fnVolverALista = useCallback(() => fnElegirExamen(null), [fnElegirExamen]);
 
   const fnDescargarNomina = useCallback(() => {
-    return nomina.descargar({ incluirFotos: false });
+    return nomina.descargar({ incluirFotos: true });
   }, [nomina.descargar]);
 
   // Si el backend ya devuelve los últimos ingresos, se usan; si no, los de esta sesión
@@ -867,6 +892,11 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     porcentaje: nomina.descargando
       ? (nomina.progreso?.porcentaje ?? 0)
       : (nomina.estado.lista ? 100 : 0),
+    fase: nomina.progreso?.fase ?? null,
+    fotos: nomina.estado.fotosLocales || 0,
+    fotosDisponibles: nomina.estado.fotosDisponibles,
+    fotosDescargadasEn: nomina.estado.fotosDescargadasEn,
+    fotosError: nomina.estado.fotosError,
   };
 
   return {
