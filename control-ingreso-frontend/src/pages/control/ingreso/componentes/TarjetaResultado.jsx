@@ -63,10 +63,16 @@ function configurar(r, strRol) {
       return {
         strTono: "ok", Icono: Check, strTitulo: "INGRESO PERMITIDO", strSub: "GUARDADO EN EL EQUIPO · SE ENVIARÁ AL VOLVER EL INTERNET",
       };
+    case "IDENTIFICADO":
+      return {
+        strTono: "ok", Icono: Check, strTitulo: "ESTUDIANTE IDENTIFICADO",
+        strSub: r.modoRapido ? "MODO RÁPIDO · CONFIRME EL INGRESO" : "PENDIENTE DE VERIFICACIÓN FACIAL",
+        nota: <Nota>{r.modoRapido ? "Revise la foto y los datos; después confirme el ingreso rápido." : "Continúe con la verificación facial para registrar el ingreso."}</Nota>,
+      };
     case "IDENTIFICADO_OFFLINE":
       return {
-        strTono: "bad", Icono: AlertTriangle, strTitulo: "ESTUDIANTE IDENTIFICADO",
-        strSub: "SIN CONEXIÓN · PENDIENTE DE VERIFICACIÓN FACIAL",
+        strTono: "ok", Icono: Check, strTitulo: "ESTUDIANTE IDENTIFICADO",
+        strSub: r.modoRapido ? "SIN CONEXIÓN · MODO RÁPIDO" : "SIN CONEXIÓN · PENDIENTE DE VERIFICACIÓN FACIAL",
         nota: <Nota>Confirma el rostro para registrar el ingreso en este dispositivo.</Nota>,
       };
     case "YA_REGISTRADO":
@@ -268,6 +274,7 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
             <span className="mt-1.5 inline-flex items-center rounded-full bg-[#F0F6FC] border border-[#D9E8F7] px-2.5 py-0.5 text-[11px] font-bold text-[#124B83]">
               {objResultado.metodo}
               {objResultado.conFacial != null && ` · ${objResultado.conFacial ? "con facial" : "sin facial"}`}
+              {objResultado.modoRapido && " · modo rápido"}
             </span>
           )}
           {e && (e.ci || e.sis) && (

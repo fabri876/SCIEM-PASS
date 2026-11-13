@@ -10,6 +10,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MetodoIngreso;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoIntento;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
@@ -68,6 +69,8 @@ public class ControlIngresoAyudanteService {
     private static final Logger log = LoggerFactory.getLogger(ControlIngresoAyudanteService.class);
     private static final ZoneId ZONA_HORARIA = ZoneId.of("America/La_Paz");
     private static final long MINUTOS_ANTES_CONTROL_INGRESO = 15L;
+    private static final int OBSERVACION_MODO_RAPIDO_MIN = 20;
+    private static final int OBSERVACION_MODO_RAPIDO_MAX = 500;
 
     private final AyudanteExamenRepository ayudanteExamenRepository;
     private final AsignaturaRepository asignaturaRepository;
@@ -292,7 +295,8 @@ public class ControlIngresoAyudanteService {
                             ing.getIdExamen(),
                             ing.getIdAmbiente(),
                             ing.getScoreFacial() != null,
-                            ing.getScoreFacial());
+                            ing.getScoreFacial(), "PERMITIDO",
+                            ing.getMotivoExcepcion() == MotivoExcepcion.MODO_RAPIDO);
                 })
                 .toList());
         var intentos = soloPropios
@@ -350,7 +354,8 @@ public class ControlIngresoAyudanteService {
         String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
         return new UltimoIngresoDTO(ing.getIdIngreso(), ing.getHoraIngreso(), metodo, resumen,
                 "Registro propio", ing.getIdAsignatura(), ing.getIdExamen(), ing.getIdAmbiente(),
-                ing.getScoreFacial() != null, ing.getScoreFacial());
+                ing.getScoreFacial() != null, ing.getScoreFacial(), "PERMITIDO",
+                ing.getMotivoExcepcion() == MotivoExcepcion.MODO_RAPIDO);
     }
 
     @Transactional
@@ -363,6 +368,7 @@ public class ControlIngresoAyudanteService {
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
             LocalDateTime horaMarcacion, String clientUuid, String ip) {
         validarAsignacionDeControl(dto, idOperador);
+        validarModoRapido(dto);
 
         // El horario se valida únicamente para registros online. Las marcas
         // con clientUuid provienen del modo offline y deben sincronizarse sin
@@ -596,11 +602,13 @@ public class ControlIngresoAyudanteService {
         if (Boolean.TRUE.equals(dto.soloVerificar())) {
             return ResponseEntity.ok(new ResultadoIngresoDTO(
                     "IDENTIFICADO",
-                    "IDENTIFICADO - Continúe con la verificación facial para registrar el ingreso.",
+                    Boolean.TRUE.equals(dto.modoRapido())
+                            ? "IDENTIFICADO - Revise los datos y confirme el ingreso rápido."
+                            : "IDENTIFICADO - Continúe con la verificación facial para registrar el ingreso.",
                     estudianteResumen,
                     null,
                     null,
-                    null));
+                    null, null, false, Boolean.TRUE.equals(dto.modoRapido())));
         }
 
         // 4.3 Verificación facial: si llegan scores deben ser consistentes.
@@ -617,7 +625,10 @@ public class ControlIngresoAyudanteService {
         nuevoIngreso.setFechaIngreso(LocalDate.now(ZONA_HORARIA));
         nuevoIngreso.setHoraIngreso(horaMarcacion != null ? horaMarcacion : LocalDateTime.now(ZONA_HORARIA));
         nuevoIngreso.setClientUuid(clientUuid);
-        nuevoIngreso.setTipoIngreso(TipoIngreso.NORMAL);
+        boolean modoRapido = Boolean.TRUE.equals(dto.modoRapido());
+        nuevoIngreso.setTipoIngreso(modoRapido ? TipoIngreso.EXCEPCIONAL : TipoIngreso.NORMAL);
+        nuevoIngreso.setMotivoExcepcion(modoRapido ? MotivoExcepcion.MODO_RAPIDO : null);
+        nuevoIngreso.setObservacionIngreso(modoRapido ? dto.motivoModoRapido().trim() : null);
         nuevoIngreso.setMetodoIngreso(dto.metodoIngreso() != null ? dto.metodoIngreso() : MetodoIngreso.MANUAL);
         nuevoIngreso.setScoreFacial(dto.scoreFacial());
         nuevoIngreso.setLivenessScore(dto.livenessScore());
@@ -656,9 +667,26 @@ public class ControlIngresoAyudanteService {
                 estudianteResumen,
                 nuevoIngreso.getHoraIngreso(),
                 null,
-                null);
+                null, null, false, modoRapido);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
+    }
+
+    /** Valida el bypass biométrico sin convertirlo en un bypass académico. */
+    private void validarModoRapido(VerificarIngresoRequestDTO dto) {
+        if (!Boolean.TRUE.equals(dto.modoRapido())) return;
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean autorizado = auth != null && auth.getAuthorities().stream().anyMatch(a ->
+                "ROLE_OPERADOR".equals(a.getAuthority())
+                        || "ROLE_DOCENTE".equals(a.getAuthority())
+                        || "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
+        if (!autorizado) {
+            throw new SolicitudInvalidaException("Solo docente, auxiliar u administrador puede activar modo rápido.");
+        }
+        String motivo = dto.motivoModoRapido() == null ? "" : dto.motivoModoRapido().trim();
+        if (motivo.length() < OBSERVACION_MODO_RAPIDO_MIN || motivo.length() > OBSERVACION_MODO_RAPIDO_MAX) {
+            throw new SolicitudInvalidaException("El motivo del modo rápido debe tener entre 20 y 500 caracteres.");
+        }
     }
 
     /**
@@ -821,7 +849,7 @@ public class ControlIngresoAyudanteService {
                 : "Dirija al estudiante al examen indicado.";
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ResultadoIngresoDTO(
                 "EXAMEN_INCORRECTO", "INGRESO DENEGADO — EXAMEN INCORRECTO. " + detalle,
-                resumen, null, null, null, destino, true));
+                resumen, null, null, null, destino, true, false));
     }
 
     List<OtroExamenDTO> examenesCorrespondientes(Integer codSis, Integer examenActual, LocalDateTime ahora) {

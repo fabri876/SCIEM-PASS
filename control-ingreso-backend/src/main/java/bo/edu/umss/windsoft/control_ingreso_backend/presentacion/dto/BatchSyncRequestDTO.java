@@ -26,6 +26,8 @@ public record BatchSyncRequestDTO(
             Double scoreFacial,
             Double livenessScore,
             String modelVersion,
-            String deviceId
+            String deviceId,
+            Boolean modoRapido,
+            String motivoModoRapido
     ) {}
 }

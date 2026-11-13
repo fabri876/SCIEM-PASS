@@ -25,7 +25,9 @@ export const asistenciaRepo = {
     scoreFacial = null,
     livenessScore = null,
     modelVersion = null,
-    deviceId: deviceIdExplicito = null
+    deviceId: deviceIdExplicito = null,
+    modoRapido = false,
+    motivoModoRapido = null
   }) {
     const exId = Number(examenId);
     const sis = normalizarCodigo(codigoSis);
@@ -75,7 +77,8 @@ export const asistenciaRepo = {
       await db.nominas.update([exId, sis], {
         marcadoLocal: 1,
         marcadoEn: timestampLocal,
-        marcadoPor: operadorId
+        marcadoPor: operadorId,
+        marcadoModoRapido: Boolean(modoRapido)
       });
       console.log('[asistenciaRepo] Nomina actualizada para', sis);
 
@@ -98,6 +101,8 @@ export const asistenciaRepo = {
         scoreFacial: scoreFacial ?? null,
         livenessScore: livenessScore ?? null,
         modelVersion: modelVersion ?? null,
+        modoRapido: Boolean(modoRapido),
+        motivoModoRapido: motivoModoRapido ? String(motivoModoRapido).trim() : null,
         syncStatus: ESTADO_SYNC.PENDIENTE,
         intentos: 0,
         nextRetryAt: 0,
