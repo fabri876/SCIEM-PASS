@@ -16,6 +16,7 @@ import { obtenerClockOffsetMs } from './connectivityService.js';
 
 // Control de concurrencia: un solo proceso de descarga por examen a la vez
 const descargasEnCurso = new Set();
+const descargasFotosEnCurso = new Set();
 
 function esperar(ms, signal) {
   return new Promise((resolve, reject) => {
@@ -178,6 +179,63 @@ export async function fetchPaginaPorDefecto({ url, signal }) {
 
     return await resp.json();
   }
+}
+
+/** Descarga solo las miniaturas de un examen; nunca invalida su nómina local. */
+export async function descargarFotosNomina({ examenId, signal, onProgreso, fetchPagina = fetchPaginaPorDefecto } = {}) {
+  const exId = Number(examenId);
+  if (!Number.isInteger(exId) || exId <= 0) {
+    throw crearErrorConCodigo('El examenId debe ser un número entero positivo.', ERROR_NOMINA.PARAMETROS_INVALIDOS);
+  }
+  if (descargasFotosEnCurso.has(exId)) return { omitido: true };
+  descargasFotosEnCurso.add(exId);
+  const claveMeta = `nomina:${exId}`;
+  let guardadas = 0;
+  let omitidas = 0;
+  let disponibles = true;
+  let errorFotos = null;
+  let completo = false;
+  try {
+    let pagina = PRIMERA_PAGINA;
+    let hayMas = true;
+    while (hayMas) {
+      if (signal?.aborted) throw crearErrorConCodigo('Descarga cancelada', ERROR_NOMINA.CANCELADO);
+      const path = URL_FOTOS.replace(':id', encodeURIComponent(exId));
+      const respuesta = await fetchPagina({ url: `${path}?${new URLSearchParams({ page: String(pagina), size: '200' })}`, signal });
+      const items = respuesta?.items ?? respuesta?.content;
+      if (!Array.isArray(items)) throw crearErrorConCodigo('Formato de fotos inválido', ERROR_NOMINA.FORMATO_INVALIDO);
+      const totalPaginas = Number(respuesta.totalPages) || 1;
+      if (totalPaginas > MAX_PAGINAS) throw crearErrorConCodigo('Paginación de fotos inválida', ERROR_NOMINA.PAGINACION_INVALIDA);
+      try {
+        const resultado = await fotoRepo.guardarFotos(items);
+        guardadas += resultado.guardadas;
+        omitidas += resultado.omitidas;
+      } catch (err) {
+        disponibles = false;
+        errorFotos = err?.name === 'QuotaExceededError' ? 'CUOTA' : (err?.codigo || 'ALMACENAMIENTO');
+        break;
+      }
+      onProgreso?.({ fase: 'fotos', descargados: guardadas, total: respuesta.total ?? guardadas,
+        porcentaje: Math.min(100, Math.round(((pagina - PRIMERA_PAGINA + 1) / totalPaginas) * 100)) });
+      if (pagina >= PRIMERA_PAGINA + totalPaginas - 1 || items.length === 0) {
+        completo = true;
+        hayMas = false;
+      } else pagina++;
+    }
+  } catch (err) {
+    if (err.codigo === ERROR_NOMINA.CANCELADO) throw err;
+    disponibles = false;
+    errorFotos = err.codigo || 'ERROR_FOTOS';
+  } finally {
+    const meta = (await db.meta.get(claveMeta)) || { clave: claveMeta, idExamen: exId };
+    const noDisponible = errorFotos === ERROR_NOMINA.NO_DISPONIBLE;
+    await db.meta.put({ ...meta, fotosDescargadas: await fotoRepo.contarFotosDeNomina(exId),
+      fotosDescargadasEn: completo ? new Date().toISOString() : (meta.fotosDescargadasEn || null),
+      fotosDisponibles: disponibles && completo,
+      fotosError: noDisponible ? null : errorFotos });
+    descargasFotosEnCurso.delete(exId);
+  }
+  return { guardadas, omitidas, fotosDisponibles: disponibles && completo, fotosError: errorFotos, omitido: false };
 }
 
 /**
@@ -400,86 +458,16 @@ export async function descargarNomina({
 
     // --- FASE 2: FOTOS (OPCIONAL) ---
     if (incluirFotos) {
-      let pagFoto = PRIMERA_PAGINA;
-      let hayMasFotos = true;
-
-      while (hayMasFotos) {
-        if (signal?.aborted) {
-          throw crearErrorConCodigo('Descarga cancelada', ERROR_NOMINA.CANCELADO);
-        }
-
-        const pathFotosBase = URL_FOTOS.replace(':id', encodeURIComponent(exId));
-        const paramsFotos = new URLSearchParams({
-          page: String(pagFoto),
-          size: '200'
-        });
-        const urlFotos = `${pathFotosBase}?${paramsFotos.toString()}`;
-
-        let respFotos;
-        try {
-          respFotos = await fetchPagina({ url: urlFotos, signal });
-        } catch (errFotoFetch) {
-          if (errFotoFetch.codigo === ERROR_NOMINA.CANCELADO) throw errFotoFetch;
-
-          fotosDisponibles = false;
-          if (errFotoFetch.status === 404 || errFotoFetch.status === 405 || errFotoFetch.codigo === ERROR_NOMINA.NO_DISPONIBLE) {
-            fotosError = null;
-          } else {
-            fotosError = errFotoFetch.codigo || errFotoFetch.message || 'ERROR_FOTOS';
-          }
-          break;
-        }
-
-        if (respFotos && typeof respFotos === 'object') {
-          const listaFotos = respFotos.items ?? respFotos.content;
-          if (!Array.isArray(listaFotos)) {
-            fotosDisponibles = false;
-            fotosError = ERROR_NOMINA.FORMATO_INVALIDO;
-            break;
-          }
-
-          const totalPagsFotos = Number(respFotos.totalPages) || 1;
-          if (totalPagsFotos > MAX_PAGINAS) {
-            fotosDisponibles = false;
-            fotosError = ERROR_NOMINA.PAGINACION_INVALIDA;
-            break;
-          }
-
-          const resGuardar = await fotoRepo.guardarFotos(listaFotos);
-          fotosGuardadas += resGuardar.guardadas;
-          fotosOmitidas += resGuardar.omitidas;
-
-          if (typeof onProgreso === 'function') {
-            try {
-              onProgreso({
-                fase: 'fotos',
-                descargados: fotosGuardadas,
-                total: respFotos.total ?? respFotos.totalElements ?? fotosGuardadas,
-                porcentaje: Math.min(100, Math.round(((pagFoto - PRIMERA_PAGINA + 1) / totalPagsFotos) * 100))
-              });
-            } catch (errProgreso) {
-              console.warn('[descargarNomina] Error en callback onProgreso fotos (ignorado):', errProgreso);
-            }
-          }
-
-          const ultimaPagFoto = PRIMERA_PAGINA + totalPagsFotos - 1;
-          if (pagFoto >= ultimaPagFoto || listaFotos.length === 0) {
-            hayMasFotos = false;
-          } else {
-            pagFoto++;
-            if (pagFoto - PRIMERA_PAGINA >= MAX_PAGINAS) {
-              break;
-            }
-          }
-        } else {
-          hayMasFotos = false;
-        }
-      }
+      const resultadoFotos = await descargarFotosNomina({ examenId: exId, signal, onProgreso, fetchPagina });
+      fotosGuardadas = resultadoFotos.guardadas || 0;
+      fotosOmitidas = resultadoFotos.omitidas || 0;
+      fotosDisponibles = resultadoFotos.fotosDisponibles ?? false;
+      fotosError = resultadoFotos.fotosError ?? null;
     }
 
     // Finalización exitosa: fotosDescargadas = total de fotos en db.fotos
     const totalLocalFinal = await nominaRepo.contar(exId);
-    const fotosTotalesEnBd = await db.fotos.count();
+    const fotosTotalesEnBd = await fotoRepo.contarFotosDeNomina(exId);
     const cursorFinal = cursorServidor || horaInicioDescargaIso;
 
     const metaActualizado = (await db.meta.get(claveMeta)) || { clave: claveMeta, idExamen: exId };
@@ -491,7 +479,10 @@ export async function descargarNomina({
       descargadaEn: new Date().toISOString(),
       totalEstudiantes: totalLocalFinal,
       descargaCompleta: true,
-      fotosDescargadas: fotosTotalesEnBd
+      fotosDescargadas: fotosTotalesEnBd,
+      fotosDescargadasEn: incluirFotos && fotosDisponibles ? new Date().toISOString() : (metaActualizado.fotosDescargadasEn || null),
+      fotosDisponibles,
+      fotosError
     });
 
     return {
@@ -546,9 +537,7 @@ export async function obtenerEstadoNomina(examenId) {
   const totalLocal = await nominaRepo.contar(exId);
 
   // fotosLocales usa fotosDescargadas de meta, o db.fotos.count() como fallback
-  const fotosLocales = meta?.fotosDescargadas !== undefined
-    ? Number(meta.fotosDescargadas)
-    : await db.fotos.count();
+  const fotosLocales = await fotoRepo.contarFotosDeNomina(exId);
 
   const descargadaEn = meta?.descargadaEn || null;
   const descargaCompleta = Boolean(meta?.descargaCompleta);
@@ -567,6 +556,9 @@ export async function obtenerEstadoNomina(examenId) {
     descargadaEn,
     totalLocal,
     fotosLocales,
+    fotosDescargadasEn: meta?.fotosDescargadasEn || null,
+    fotosDisponibles: meta?.fotosDisponibles ?? null,
+    fotosError: meta?.fotosError || null,
     descargaCompleta,
     desactualizada
   };
@@ -597,7 +589,10 @@ export async function eliminarNominaLocal(examenId) {
     descargadaEn: null,
     totalEstudiantes: 0,
     descargaCompleta: false,
-    fotosDescargadas: 0
+    fotosDescargadas: 0,
+    fotosDescargadasEn: null,
+    fotosDisponibles: null,
+    fotosError: null
   });
 
   return borrados;

@@ -1,5 +1,7 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * Contrato unificado para la lista oficial del examen.
  * Compatible simultáneamente con:
@@ -9,6 +11,10 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
  *    espera { codigoSis, ci, nombre, apellidos, habilitado (boolean), aulaAsignada, qr, qrDesde, qrHasta, qrEstado, marcadoEn, marcadoPor, observacion }
  */
 public class EstudianteListaOficialDTO {
+
+    // Se usa internamente al preparar recursos offline. No forma parte del
+    // contrato público de la nómina ni se serializa al cliente.
+    private Integer idUsuario;
 
     // Identificación
     private Integer codSisEstudiante;
@@ -51,6 +57,10 @@ public class EstudianteListaOficialDTO {
     private String  carrera;
 
     public EstudianteListaOficialDTO() {}
+
+    @JsonIgnore
+    public Integer getIdUsuario() { return idUsuario; }
+    public void setIdUsuario(Integer idUsuario) { this.idUsuario = idUsuario; }
 
     // Getters y Setters
     public Integer getCodSisEstudiante() { return codSisEstudiante; }

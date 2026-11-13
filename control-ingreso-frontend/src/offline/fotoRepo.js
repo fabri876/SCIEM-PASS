@@ -73,6 +73,40 @@ export const fotoRepo = {
     return await db.fotos.count();
   },
 
+  /** Cuenta solo las fotos cuyos SIS pertenecen a la nómina indicada. */
+  async contarFotosDeNomina(examenId) {
+    const exId = Number(examenId);
+    if (!Number.isInteger(exId) || exId <= 0) return 0;
+    const nomina = await db.nominas.where('examenId').equals(exId).toArray();
+    const sis = new Set(nomina.map((item) => String(item.codigoSis || '').trim()));
+    const claves = await db.fotos.toCollection().primaryKeys();
+    return claves.filter((codigo) => sis.has(String(codigo))).length;
+  },
+
+  /** Guarda la versión reducida de una foto obtenida individualmente online. */
+  async guardarMiniatura(codigoSis, blob) {
+    const sis = String(codigoSis || '').trim();
+    if (!sis || !(blob instanceof Blob)) return { guardadas: 0, omitidas: 1 };
+    let miniatura = blob;
+    try {
+      const bitmap = await createImageBitmap(blob);
+      const escala = Math.min(1, 160 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * escala));
+      canvas.height = Math.max(1, Math.round(bitmap.height * escala));
+      const contexto = canvas.getContext('2d');
+      contexto.fillStyle = '#ffffff';
+      contexto.fillRect(0, 0, canvas.width, canvas.height);
+      contexto.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close?.();
+      miniatura = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+      if (!miniatura) miniatura = blob;
+    } catch {
+      // Algunos WebViews no soportan createImageBitmap; conservar la foto recibida.
+    }
+    return this.guardarFotos([{ codigoSis: sis, blob: miniatura, tipo: miniatura.type || 'image/jpeg' }]);
+  },
+
   /**
    * Elimina fotos que ya no pertenezcan a ninguna nómina local activa.
    * Extrae el código SIS de la clave compuesta [examenId, codigoSis].

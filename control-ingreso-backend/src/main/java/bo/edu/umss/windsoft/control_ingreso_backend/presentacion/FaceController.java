@@ -15,6 +15,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerific
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerificacionEstudianteResponseDto;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -100,6 +101,15 @@ public class FaceController {
     @PreAuthorize("hasAnyRole('OPERADOR','DOCENTE','ADMINISTRADOR')")
     public FaceSyncResponseDto sincronizar(@RequestBody FaceSyncRequestDto solicitud) {
         return syncService.sincronizar(solicitud);
+    }
+
+    @GetMapping(value = "/enrollment/{idUsuario}/foto", produces = MediaType.IMAGE_JPEG_VALUE)
+    @PreAuthorize("hasAnyRole('ESTUDIANTE','OPERADOR','DOCENTE','ADMINISTRADOR')")
+    public ResponseEntity<byte[]> obtenerFotoEnrolamiento(@PathVariable Integer idUsuario) {
+        byte[] bytes = enrollmentService.obtenerFotoBytes(idUsuario);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "max-age=3600, private")
+                .body(bytes);
     }
 
     @GetMapping("/enrollments")

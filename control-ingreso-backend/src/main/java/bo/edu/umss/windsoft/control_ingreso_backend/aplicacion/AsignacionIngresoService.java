@@ -460,6 +460,7 @@ public class AsignacionIngresoService {
                         }
 
                         EstudianteListaOficialDTO dto = new EstudianteListaOficialDTO();
+                          dto.setIdUsuario(est.getIdusuario());
                         dto.setCodSisEstudiante(codSis);
                         dto.setCi(ci);
                         dto.setNombres(nombres);
