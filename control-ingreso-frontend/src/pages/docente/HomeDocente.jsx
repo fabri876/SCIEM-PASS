@@ -260,7 +260,7 @@ export default function HomeDocente() {
                             className="fixed inset-0 z-40 bg-slate-950/45 lg:hidden cursor-default"
                         />
                     )}
-                    <aside className={`w-[280px] shrink-0 space-y-6 lg:block lg:static lg:translate-x-0 ${boolMenuLateralMovil ? "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto translate-x-0 bg-[#F8FAFC] p-4 pt-6 shadow-2xl" : "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto -translate-x-full bg-[#F8FAFC] p-4 pt-6 shadow-2xl lg:translate-x-0"}`}>
+                    <aside className={`w-[280px] shrink-0 space-y-6 lg:block lg:static lg:z-auto lg:translate-x-0 ${boolMenuLateralMovil ? "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto translate-x-0 bg-[#F8FAFC] p-4 pt-6 shadow-2xl" : "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto -translate-x-full bg-[#F8FAFC] p-4 pt-6 shadow-2xl lg:translate-x-0"}`}>
                         <div className="flex justify-end lg:hidden mb-1">
                             <button type="button" onClick={() => setBoolMenuLateralMovil(false)} aria-label="Cerrar menú" className="rounded-lg px-3 py-1.5 text-sm font-bold text-[#003770] hover:bg-white">Cerrar ×</button>
                         </div>
