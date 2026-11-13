@@ -5,6 +5,6 @@ import jakarta.validation.constraints.Size;
 
 public record CerrarIncidenciaDto(
         @NotBlank(message = "La resolución es obligatoria para cerrar la incidencia.")
-        @Size(max = 1000, message = "La resolución admite como máximo 1000 caracteres.")
+        @Size(max = 255, message = "La resolución no puede superar los 255 caracteres.")
         String resolucion) {
 }

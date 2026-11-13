@@ -477,7 +477,10 @@ export default function ModalIngresoExcepcional({
                         <span>Autorizar ingreso excepcional</span>
                       </button>
                     )}
-                    {consultaResultado.puedeRegistrarIncidencia && (
+                    {/* El botón solo se muestra si hay a quién abrir el formulario de
+                        incidencia: el operador (ayudante) no registra incidencias
+                        y no recibe ese callback. */}
+                    {onAbrirIncidenciaConEstudiante && consultaResultado.puedeRegistrarIncidencia && (
                       <button
                         onClick={fnDerivarAIncidencia}
                         className="bg-[#F0F6FC] hover:bg-[#D9E8F7] text-[#124B83] border border-[#B6D3EE] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"

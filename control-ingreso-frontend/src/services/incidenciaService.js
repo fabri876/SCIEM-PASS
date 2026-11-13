@@ -206,15 +206,16 @@ export async function subirEvidenciaIncidencia(idIncidencia, archivo, strNombre 
 }
 
 /**
- * Lista las incidencias filtradas por examen, aula, tipo y estado.
- * GET /api/incidencias?idExamen=&idAmbiente=&tipo=&estado=
+ * Lista las incidencias filtradas por examen, aula, materia, tipo y estado.
+ * GET /api/incidencias?idExamen=&idAmbiente=&idAsignatura=&tipo=&estado=
  * Roles: ADMINISTRADOR, DOCENTE
  * Devuelve IncidenciaListaDto: { totales: { abiertas, enRevision, cerradas }, incidencias: [...] }
  */
-export async function listarIncidencias({ idExamen, idAmbiente, tipo, estado } = {}) {
+export async function listarIncidencias({ idExamen, idAmbiente, idAsignatura, tipo, estado } = {}) {
   const params = new URLSearchParams();
   if (idExamen) params.set("idExamen", idExamen);
   if (idAmbiente && idAmbiente !== "TODAS") params.set("idAmbiente", idAmbiente);
+  if (idAsignatura && idAsignatura !== "TODAS") params.set("idAsignatura", idAsignatura);
   if (tipo && tipo !== "TODOS") params.set("tipo", tipo);
   if (estado && estado !== "TODOS") params.set("estado", estado);
 
@@ -224,14 +225,15 @@ export async function listarIncidencias({ idExamen, idAmbiente, tipo, estado } =
 
 /**
  * Descarga las incidencias filtradas como Excel (.xlsx).
- * GET /api/incidencias/exportar?idExamen=&idAmbiente=&tipo=&estado=&soloExpulsiones=
+ * GET /api/incidencias/exportar?idExamen=&idAmbiente=&idAsignatura=&tipo=&estado=&soloExpulsiones=
  * Roles: ADMINISTRADOR, DOCENTE
  * Devuelve el Blob del archivo .xlsx.
  */
-export async function exportarIncidenciasExcel({ idExamen, idAmbiente, tipo, estado, soloExpulsiones } = {}) {
+export async function exportarIncidenciasExcel({ idExamen, idAmbiente, idAsignatura, tipo, estado, soloExpulsiones } = {}) {
   const params = new URLSearchParams();
   if (idExamen) params.set("idExamen", idExamen);
   if (idAmbiente && idAmbiente !== "TODAS") params.set("idAmbiente", idAmbiente);
+  if (idAsignatura && idAsignatura !== "TODAS") params.set("idAsignatura", idAsignatura);
   if (tipo && tipo !== "TODOS") params.set("tipo", tipo);
   if (estado && estado !== "TODOS") params.set("estado", estado);
   if (soloExpulsiones) params.set("soloExpulsiones", "true");
