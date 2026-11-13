@@ -65,6 +65,14 @@ se purgan al descargar una nueva; los intentos pendientes no se borran por esa p
   auditoría del intento. Las pruebas automatizadas cubren además el rechazo de un
   destino incompleto y la revalidación del caso ambiguo por el servidor.
 - Las pruebas automatizadas del reporte incluyeron exportación CSV y vista
+<<<<<<< HEAD
+<<<<<<< HEAD
+  imprimible con datos ficticios, protección contra fórmulas y escape HTML; queda
+  pendiente comprobar visualmente las exportaciones y el acceso de un docente
+  responsable en un entorno apropiado.
+=======
+=======
+>>>>>>> 8c3f3e4bd12ec78131c5898b8f99c710099c7214
   imprimible con datos ficticios, protección contra fórmulas y escape HTML. El
   usuario comprobó visualmente el reporte con una cuenta docente, el CSV y la
   vista imprimible; se corrigieron la fecha, la presentación de valores ausentes
@@ -81,6 +89,10 @@ se purgan al descargar una nueva; los intentos pendientes no se borran por esa p
   para permitir consultar exámenes sin intentos y conservar opciones al filtrar.
   El servidor limita el catálogo docente a los exámenes a su cargo. Las pruebas
   unitarias de autorización pasaron; falta la validación visual con ambos roles.
+<<<<<<< HEAD
+>>>>>>> 1bcdb43bd24caf216470ed4768dbb1117a3ea9fe
+=======
+>>>>>>> 8c3f3e4bd12ec78131c5898b8f99c710099c7214
 - Se comprobó la denegación de acceso sin sesión, de operadores sin asignación y
   de docentes no responsables, y el acceso del operador asignado a su control.
 - Las 30 pruebas seleccionadas de control, sincronización, auditoría y reporte

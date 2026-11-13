@@ -1,5 +1,7 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * Contrato unificado para la lista oficial del examen.
  * Compatible simultáneamente con:
@@ -9,6 +11,10 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
  *    espera { codigoSis, ci, nombre, apellidos, habilitado (boolean), aulaAsignada, qr, qrDesde, qrHasta, qrEstado, marcadoEn, marcadoPor, observacion }
  */
 public class EstudianteListaOficialDTO {
+
+    // Se usa internamente al preparar recursos offline. No forma parte del
+    // contrato público de la nómina ni se serializa al cliente.
+    private Integer idUsuario;
 
     // Identificación
     private Integer codSisEstudiante;
@@ -23,8 +29,13 @@ public class EstudianteListaOficialDTO {
     private String  nombre;              // Nombre completo
     private String  nombreEstudiante;
 
-    // Estado para interfaz web ("HABILITADO" | "INHABILITADO" | "INGRESO" | "PENDIENTE")
+    // Estado para interfaz web ("HABILITADO" | "INHABILITADO" | "INGRESO" | "PENDIENTE" | "RETIRADO")
     private String  estado;
+
+    // true si el estudiante ingresó al examen pero fue expulsado (el ingreso
+    // sigue existiendo, con idExpulsion informado). El estado "RETIRADO" es
+    // su equivalente en texto para las pantallas web.
+    private Boolean expulsado;
 
     // Estado booleano para sync offline
     private Boolean habilitado;
@@ -51,6 +62,10 @@ public class EstudianteListaOficialDTO {
     private String  carrera;
 
     public EstudianteListaOficialDTO() {}
+
+    @JsonIgnore
+    public Integer getIdUsuario() { return idUsuario; }
+    public void setIdUsuario(Integer idUsuario) { this.idUsuario = idUsuario; }
 
     // Getters y Setters
     public Integer getCodSisEstudiante() { return codSisEstudiante; }
@@ -103,6 +118,9 @@ public class EstudianteListaOficialDTO {
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
+
+    public Boolean getExpulsado() { return expulsado; }
+    public void setExpulsado(Boolean expulsado) { this.expulsado = expulsado; }
 
     public Boolean getHabilitado() { return habilitado; }
     public void setHabilitado(Boolean habilitado) {

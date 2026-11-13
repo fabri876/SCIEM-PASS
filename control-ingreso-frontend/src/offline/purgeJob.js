@@ -1,5 +1,6 @@
 import { db } from "./db.js";
 import { ESTADO_SYNC } from "./constantes.js";
+import { fotoRepo } from "./fotoRepo.js";
 
 /**
  * PURGA DE REGISTROS ANTIGUOS (>72h) — F1-06
@@ -218,39 +219,9 @@ export async function purgarLogsSincronizacion() {
  * Las fotos ocupan mucho espacio; se conservan solo mientras la marca está pendiente.
  */
 export async function purgarFotosHuerfanas() {
-  const corte = calcularCorte();
-  let eliminados = 0;
-
-  await db.transaction("rw", [db.fotos, db.nominas], async () => {
-    // Buscar códigos SIS de estudiantes ya sincronizados (marcadoLocal=1 y marcadoEn < corte)
-    // Usar filter porque no hay índice compuesto para [marcadoLocal, marcadoEn]
-    const sisSincronizados = await db.nominas
-      .filter(
-        (item) =>
-          item.marcadoLocal === 1 &&
-          item.marcadoEn &&
-          new Date(item.marcadoEn).getTime() < corte,
-      )
-      .toArray();
-
-    // Extraer solo los códigos SIS (el segundo elemento de la PK compuesta)
-    const codigosSIS = [...new Set(sisSincronizados.map((pk) => pk[1]))];
-
-    if (codigosSIS.length > 0) {
-      // Eliminar fotos de esos códigos
-      const fotosAEliminar = await db.fotos
-        .where("codigoSis")
-        .anyOf(codigosSIS)
-        .primaryKeys();
-
-      if (fotosAEliminar.length > 0) {
-        await db.fotos.bulkDelete(fotosAEliminar);
-        eliminados = fotosAEliminar.length;
-      }
-    }
-  });
-
-  return eliminados;
+  // Las miniaturas son parte de la nómina offline, no evidencia temporal de una
+  // asistencia. Se eliminan únicamente al desaparecer de todas las nóminas.
+  return fotoRepo.limpiarFotosSinNomina();
 }
 
 /**

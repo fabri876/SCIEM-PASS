@@ -113,6 +113,8 @@ function mapearResultadoOffline(r, strValor, strMetodo) {
         ...baseResultado("REGISTRADO_OFFLINE", strValor, metodo),
         estudiante: e,
         horaIngreso: horaDeIso(r.marcadoEn),
+        // La marca completa del dispositivo: es la que se guarda en la nómina local.
+        horaIngresoIso: r.marcadoEn || null,
         fechaIngreso: fechaDeIso(r.marcadoEn),
         registradoPor: r.marcadoPor || null,
         modoOffline: true,
@@ -133,6 +135,13 @@ function mapearResultadoOffline(r, strValor, strMetodo) {
     case "NO_HABILITADO":
       return {
         ...baseResultado("NO_HABILITADO", strValor, metodo),
+        estudiante: e,
+        mensaje: r.motivo,
+        motivos: r.motivo ? [r.motivo] : [],
+      };
+    case "RETIRADO":
+      return {
+        ...baseResultado("RETIRADO", strValor, metodo),
         estudiante: e,
         mensaje: r.motivo,
         motivos: r.motivo ? [r.motivo] : [],
@@ -162,6 +171,18 @@ function mapearResultadoOffline(r, strValor, strMetodo) {
 }
 
 // objConfig.boolSoloMios = la tabla muestra solo los ingresos que registró el usuario (operador)
+// Si cambia alguna cifra del examen, la nómina local quedó vieja.
+function cambioEnContador(previo, actual) {
+  if (!previo || !actual) return false;
+  return (
+    previo.ingresaron !== actual.ingresaron ||
+    previo.expulsados !== actual.expulsados ||
+    previo.inhabilitados !== actual.inhabilitados ||
+    previo.habilitados !== actual.habilitados ||
+    previo.pendientes !== actual.pendientes
+  );
+}
+
 export default function useControlIngreso(idExamenInicial = null, objConfig = {}) {
   const boolSoloMios = Boolean(objConfig.boolSoloMios);
   const objExamenInicial = objConfig.examenInicial || null;
@@ -181,6 +202,8 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const [strError, setStrError] = useState("");
   const [strUltimoRegistrado, setStrUltimoRegistrado] = useState(null);
   const [numVersion, setNumVersion] = useState(0); // sube cada vez que hay un ingreso nuevo
+  // Solo vive en memoria: nunca persiste entre recarga, logout o cambio de examen.
+  const [objModoRapido, setObjModoRapido] = useState(null);
 
   const refIdExamen = useRef(idExamen);
   const refVerificacionEnCurso = useRef(false);
@@ -212,8 +235,12 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const conn = useConectividad();
   const boolOffline = conn.estado === "offline";
   const nomina = useNominaLocal(examenActual?.idexamen ?? null);
+  // Se usa la función suelta (y no "nomina.actualizar") para no depender del
+  // objeto completo: si no, el efecto se re-ejecuta en cada render.
+  const { actualizar: fnActualizarNomina } = nomina;
   const refPrecache = useRef(new Set());
   const refIntentosPrecache = useRef(new Map());
+  const refFotosPrecache = useRef(new Set());
   const [numReintentoPrecache, setNumReintentoPrecache] = useState(0);
   const MAX_INTENTOS_PRECACHE = 3;
 
@@ -247,6 +274,34 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     }
   }, [objExamenInicial?.id]);
 
+  // Sincronización inversa: la nómina local se pone al día con el servidor.
+  //
+  // Hay tres momentos en los que el dispositivo puede quedarse con una copia
+  // vieja de la nómina y contradecir al servidor:
+  //   1. El backend cambió (por ejemplo, ahora informa quién fue expulsado).
+  //      -> se resuelve con el refresco periódico.
+  //   2. Entró o fue expulsado un estudiante (en este equipo o en otro).
+  //      -> el polling de 2 s ya pide el contador; si cambia, se refresca.
+  //   3. El equipo estuvo sin señal.
+  //      -> se resuelve al recuperar la conexión.
+  const refContadorPrevio = useRef(null);
+  const refUltimoRefrescoNomina = useRef(0);
+  const MIN_SEGUNDOS_ENTRE_REFRESCOS = 30;
+  const SEGUNDOS_REFRESCO_PERIODICO = 180;
+
+  // Devuelve true si se llegó a lanzar el refresco (false si el throttle lo
+  // frenó, para que el llamador pueda reintentar en el siguiente ciclo).
+  const fnRefrescarNomina = useCallback(() => {
+    const ahora = Date.now();
+    if (ahora - refUltimoRefrescoNomina.current < MIN_SEGUNDOS_ENTRE_REFRESCOS) return false;
+    refUltimoRefrescoNomina.current = ahora;
+    fnActualizarNomina({ incluirFotos: false }).catch(() => {
+      // Si falla, se reintenta en el siguiente ciclo (la copia local sigue
+      // en pie: un refresco fallido no la invalida).
+    });
+    return true;
+  }, [fnActualizarNomina]);
+
   // Contador + últimos ingresos del examen elegido
   const fnRefrescar = useCallback(async () => {
     const id = refIdExamen.current;
@@ -260,10 +315,21 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       if (refIdExamen.current !== id) return;
       setObjContador(contador);
       setListUltimosServidor(ultimos);
+
+      // Si las cifras del examen cambiaron, la nómina local quedó vieja:
+      // se actualiza para que el control offline no contradiga al servidor.
+      const previo = refContadorPrevio.current;
+      if (previo && !boolOffline && cambioEnContador(previo, contador)) {
+        // Si el throttle frenó el refresco, el contador NO se actualiza: el
+        // siguiente ciclo vuelve a detectar el cambio y reintenta.
+        if (fnRefrescarNomina()) refContadorPrevio.current = contador;
+      } else {
+        refContadorPrevio.current = contador;
+      }
     } catch {
       // Errores de la consulta periódica: se reintenta en el siguiente ciclo
     }
-  }, [boolSoloMios]);
+  }, [boolSoloMios, boolOffline, fnRefrescarNomina]);
 
   // Siempre se cargan una vez (la vista de control necesita los datos del examen elegido)
   useEffect(() => { fnCargarExamenes(); }, [fnCargarExamenes]);
@@ -284,10 +350,17 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       refPrecache.current.delete(exId);
       setNumReintentoPrecache((v) => v + 1);
     };
-    nomina.descargar({ incluirFotos: false }).then((res) => {
+    nomina.descargar({ incluirFotos: true }).then((res) => {
       if (res && res.ok === false && !res.omitido) reintentar();
     }).catch(reintentar);
   }, [examenActual?.idexamen, boolOffline, nomina.estado.lista, nomina.descargando, nomina.descargar, numReintentoPrecache]);
+
+  useEffect(() => {
+    if (!examenActual?.idexamen || boolOffline || !nomina.estado.lista || nomina.estado.fotosDescargadasEn || nomina.descargando) return;
+    if (refFotosPrecache.current.has(examenActual.idexamen)) return;
+    refFotosPrecache.current.add(examenActual.idexamen);
+    nomina.descargarFotos().catch(() => {});
+  }, [examenActual?.idexamen, boolOffline, nomina.estado.lista, nomina.estado.fotosDescargadasEn, nomina.descargando, nomina.descargarFotos]);
 
   // Descarga independiente: un fallo aqui nunca convierte la nomina en completa
   // ni impide el control habitual. El resultado es solo una copia informativa.
@@ -318,8 +391,90 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     return () => clearInterval(t);
   }, [idExamen, fnCargarExamenes, fnRefrescar]);
 
+  // Refresco periódico de la nómina mientras hay conexión. Cubre el caso en
+  // que el backend cambió (por ejemplo, ahora informa quién fue expulsado) y
+  // el equipo nunca estuvo sin señal: sin esto la copia local se quedaría
+  // vieja y el control offline contradiría al servidor.
+  useEffect(() => {
+    if (boolOffline || !examenActual?.idexamen) return undefined;
+    const t = setInterval(() => {
+      fnRefrescarNomina();
+    }, SEGUNDOS_REFRESCO_PERIODICO * 1000);
+    return () => clearInterval(t);
+  }, [boolOffline, examenActual?.idexamen, fnRefrescarNomina]);
+
+  // Al entrar al control de ingreso con la nómina ya descargada, se refresca
+  // una vez: la copia puede ser de antes del último despliegue del backend.
+  useEffect(() => {
+    if (!examenActual?.idexamen || boolOffline || !nomina.estado.lista) return;
+    fnRefrescarNomina();
+  }, [examenActual?.idexamen, boolOffline, nomina.estado.lista, fnRefrescarNomina]);
+
+  /**
+   * Al recuperar la conexión, la nómina local se refresca.
+   *
+   * Mientras el equipo estuvo sin señal pudo pasar de todo: un ingreso hecho
+   * online (en este equipo o en otro), una expulsión aplicada por el docente,
+   * una habilitación cambiada. La precarga inicial solo baja la nómina una
+   * vez, así que sin este refresco el dispositivo queda con una copia vieja y
+   * el control offline puede contradecir al servidor.
+   *
+   * Se usa "actualizar" (no "descargar"): no purga las filas que el servidor
+   * ya no manda y no vuelve a bajar las fotos. El backend todavía ignora el
+   * "updatedSince", así que esto baja la lista completa una sola vez, al
+   * recuperar la señal.
+   */
+  const refEstabaOffline = useRef(boolOffline);
+  useEffect(() => {
+    const antes = refEstabaOffline.current;
+    refEstabaOffline.current = boolOffline;
+    // Solo en la transición offline -> online.
+    if (!antes || boolOffline) return;
+    if (!examenActual?.idexamen) return;
+    fnActualizarNomina({ incluirFotos: false }).catch(() => {
+      // Si el refresco falla, se reintenta en el próximo ciclo de conexión.
+    });
+  }, [boolOffline, examenActual?.idexamen, fnActualizarNomina]);
+
+  /**
+   * Marca en la nómina local que el estudiante ya ingresó.
+   *
+   * El registro ONLINE lo guarda el servidor, pero la nómina del dispositivo
+   * seguía como si el estudiante no hubiera entrado. Al pasar a modo offline
+   * el motor de validación pregunta por "marcadoLocal" y lo dejaba pasar una
+   * segunda vez. Con esta marca, el dispositivo y el servidor dicen lo mismo.
+   *
+   * El camino offline ya marca la nómina (asistenciaRepo.registrarMarca), así
+   * que aquí es idempotente y no cambia nada.
+   */
+  const fnMarcarIngresoEnNominaLocal = useCallback(async (mapeado, identificacion) => {
+    const esRegistro = mapeado?.resultado === "PERMITIDO" || mapeado?.resultado === "REGISTRADO_OFFLINE";
+    if (!esRegistro) return;
+
+    const exId = Number(refIdExamen.current);
+    if (!Number.isInteger(exId) || exId <= 0) return;
+
+    const sis = String(identificacion?.codigoSis || mapeado.estudiante?.sis || "").trim();
+    if (!sis) return;
+
+    // La hora del servidor es la autoridad; si no viene, la del equipo.
+    const marcadoEn = mapeado.horaIngresoIso || new Date().toISOString();
+    try {
+      await db.nominas.update([exId, sis], {
+        marcadoLocal: 1,
+        marcadoEn,
+        marcadoPor: mapeado.registradoPor || identificacion?.registradoPor || null,
+        marcadoModoRapido: Boolean(mapeado.modoRapido || identificacion?.modoRapido),
+      });
+    } catch (error) {
+      // La marca local es una comodidad: si falla, el refresco de la nómina
+      // (al recuperar la conexión) la vuelve a poner.
+      console.warn("[controlIngreso] No se pudo marcar el ingreso en la nómina local:", error);
+    }
+  }, []);
+
   /* ---------- Actualización común tras un registro exitoso ---------- */
-  const fnAplicarRegistro = useCallback((mapeado, identificacion) => {
+  const fnAplicarRegistro = useCallback(async (mapeado, identificacion) => {
     setObjResultado({ ...mapeado, clave: Date.now() });
     setObjIdentificacion(null);
     setStrUltimoRegistrado(mapeado.estudiante?.ci ?? null);
@@ -340,14 +495,18 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
           hora: mapeado.horaIngreso,
           metodo: mapeado.metodo,
           conFacial: mapeado.conFacial,
+          modoRapido: Boolean(mapeado.modoRapido),
           registradoPor: mapeado.registradoPor || identificacion?.registradoPor || null,
           estudiante: mapeado.estudiante,
         },
         ...(prev[id] || []),
       ].slice(0, LIMITE_ULTIMOS),
     }));
+    // La nómina local se actualiza con el ingreso: sin esto, al pasar a
+    // offline el dispositivo no reconocía el ingreso hecho online.
+    await fnMarcarIngresoEnNominaLocal(mapeado, identificacion);
     fnRefrescar();
-  }, [fnRefrescar]);
+  }, [fnRefrescar, fnMarcarIngresoEnNominaLocal]);
 
   /* ---------- Fase 1: identificar sin registrar (offline) ---------- */
   const fnIdentificarOffline = useCallback(async (strValor, strMetodo, objOpciones, ex) => {
@@ -503,8 +662,20 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         ambienteId,
         operadorId,
         rol,
+        modoRapido: Boolean(objModoRapido),
+        motivoModoRapido: objModoRapido?.motivo || null,
       };
-      setObjResultado(null);
+      // Igual que el flujo online, mostrar inmediatamente la tarjeta de estado
+      // mientras el estudiante pasa a la verificación facial. La información
+      // ya viene de la nómina local, por lo que no requiere internet.
+      setObjResultado({
+        ...baseResultado("IDENTIFICADO_OFFLINE", strValor, identificacion.metodo),
+        estudiante: est,
+        modoOffline: true,
+        modoRapido: Boolean(objModoRapido),
+        metodoOriginal: strMetodo,
+        clave: Date.now(),
+      });
       setObjIdentificacion(identificacion);
       return identificacion;
     } catch (e) {
@@ -514,7 +685,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     } finally {
       setBoolValidando(false);
     }
-  }, [strRolConfig]);
+  }, [strRolConfig, objModoRapido]);
 
   /* ---------- Fase 1: identificar sin registrar (online) ---------- */
   const fnIdentificar = useCallback(async (strValor, strMetodo, objOpciones = {}) => {
@@ -547,7 +718,8 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
         refSolicitudPendiente.current = { identidad, clave: `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` };
       }
       const r = await validarIngreso(id, String(strValor).trim(), strMetodo, ex,
-        { ...objOpciones, soloVerificar: true, solicitud: refSolicitudPendiente.current.clave });
+        { ...objOpciones, soloVerificar: true, solicitud: refSolicitudPendiente.current.clave,
+          ...(objModoRapido ? { modoRapido: true, motivoModoRapido: objModoRapido.motivo } : {}) });
       refSolicitudPendiente.current = null;
       setObjResultado({ ...r, metodoOriginal: strMetodo, clave: Date.now() });
       if (r.resultado === "EXAMEN_INCORRECTO" || r.resultado === "YA_REGISTRADO") fnRefrescar();
@@ -560,6 +732,16 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
           metodo: r.metodo,
           metodoOriginal: strMetodo === "QR" ? "QR" : "MANUAL",
           offline: false,
+          // Conservar el contexto completo es indispensable si la conexión
+          // cae después de identificar y el registro debe continuar offline.
+          examenId: Number(ex?.idexamen ?? id),
+          asignaturaId: ex?.idasignatura ?? ex?.idAsignatura ?? null,
+          ambienteId: ex?.idambiente ?? ex?.idAmbiente ?? null,
+          operadorId: obtenerUsuarioActual()?.idUsuario ?? obtenerUsuarioActual()?.idusuario ?? null,
+          rol: String(strRolConfig || obtenerUsuarioActual()?.rol || "operador").toLowerCase(),
+          metodoMotor: strMetodo === "QR" ? "QR" : undefined,
+          modoRapido: Boolean(objModoRapido),
+          motivoModoRapido: objModoRapido?.motivo || null,
         });
         return r;
       }
@@ -578,7 +760,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       refVerificacionEnCurso.current = false;
       setBoolValidando(false);
     }
-  }, [boolOffline, fnIdentificarOffline, nomina.estado.lista]);
+  }, [boolOffline, fnIdentificarOffline, nomina.estado.lista, objModoRapido]);
 
   /* ---------- Fase 2: registrar con facial ---------- */
   const fnRegistrarEnMotor = useCallback(async (identificacion, scores = null) => {
@@ -603,15 +785,18 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       livenessScore: scores?.livenessScore ?? null,
       modelVersion: scores?.modelVersion ?? null,
       deviceId: scores?.deviceId ?? null,
+      modoRapido: Boolean(identificacion.modoRapido),
+      motivoModoRapido: identificacion.motivoModoRapido,
     });
 
     const mapeado = mapearResultadoOffline(rReg, identificacion.valor, identificacion.metodo);
     const enriquecido = {
       ...mapeado,
       conFacial: scores?.scoreFacial != null,
+      modoRapido: Boolean(identificacion.modoRapido),
       registradoPor: mapeado.registradoPor || identificacion.registradoPor || null,
     };
-    fnAplicarRegistro(enriquecido, identificacion);
+    await fnAplicarRegistro(enriquecido, identificacion);
     return enriquecido;
   }, [fnAplicarRegistro]);
 
@@ -627,7 +812,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       const ex = examenPorId(refIdExamen.current);
       const r = await validarIngreso(refIdExamen.current, ident.valor, ident.metodoOriginal, ex, scores);
       const enriquecido = { ...r, conFacial: true };
-      fnAplicarRegistro(enriquecido, ident);
+      await fnAplicarRegistro(enriquecido, ident);
       return enriquecido;
     } catch (e) {
       // Sin red o servidor caído: se registra en el motor local con los scores.
@@ -659,8 +844,47 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     }
   }, [fnRegistrarEnMotor]);
 
+  const fnConfirmarIngresoRapido = useCallback(async () => {
+    const ident = refIdentificacion.current;
+    if (!ident?.modoRapido) return null;
+    setBoolValidando(true);
+    setStrError("");
+    try {
+      if (ident.offline) return await fnRegistrarEnMotor(ident, null);
+      const ex = examenPorId(refIdExamen.current);
+      const r = await validarIngreso(refIdExamen.current, ident.valor, ident.metodoOriginal, ex, {
+        modoRapido: true, motivoModoRapido: ident.motivoModoRapido,
+      });
+      // Solo PERMITIDO crea el registro. Un rechazo normal (duplicado,
+      // inhabilitado, etc.) reemplaza la tarjeta y termina esta identificación.
+      if (r.resultado !== "PERMITIDO") {
+        setObjResultado({ ...r, clave: Date.now() });
+        setObjIdentificacion(null);
+        return r;
+      }
+      const enriquecido = { ...r, conFacial: false, modoRapido: true };
+      await fnAplicarRegistro(enriquecido, ident);
+      return enriquecido;
+    } catch (e) {
+      if (e?.esErrorRed || (typeof navigator !== "undefined" && navigator.onLine === false)) {
+        return await fnRegistrarEnMotor(ident, null);
+      }
+      setStrError(e.message || "No se pudo registrar el ingreso rápido.");
+      return null;
+    } finally {
+      setBoolValidando(false);
+    }
+  }, [fnAplicarRegistro, fnRegistrarEnMotor, nomina.estado.lista]);
+
+  const fnActivarModoRapido = useCallback((motivo) => setObjModoRapido({ motivo: String(motivo).trim() }), []);
+  const fnDesactivarModoRapido = useCallback(() => {
+    setObjModoRapido(null);
+    setObjIdentificacion(null);
+    setObjResultado(null);
+  }, []);
+
   /* ---------- Excepcional facial autorizado (operador/docente online) ---------- */
-  const fnFinalizarExcepcional = useCallback((respuesta) => {
+  const fnFinalizarExcepcional = useCallback(async (respuesta) => {
     const ident = refIdentificacion.current;
     const hora = respuesta?.horaIngreso
       ? horaDeIso(respuesta.horaIngreso)
@@ -669,17 +893,28 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
       ...baseResultado("PERMITIDO", ident?.valor ?? "", "Manual"),
       estudiante: ident?.estudiante ?? null,
       horaIngreso: hora,
+      // La hora completa del servidor: se usa para marcar la nómina local.
+      horaIngresoIso: respuesta?.horaIngreso || null,
       fechaIngreso: fechaDeIso(respuesta?.horaIngreso) || fechaDeIso(new Date().toISOString()),
       registradoPor: respuesta?.autorizadoPor || null,
       conFacial: false,
       excepcional: true,
     };
-    fnAplicarRegistro(mapeado, ident);
+    await fnAplicarRegistro(mapeado, ident);
     return mapeado;
   }, [fnAplicarRegistro]);
 
   const fnLimpiarIdentificacion = useCallback(() => {
     setObjIdentificacion(null);
+    setObjModoRapido(null);
+    // "Cambiar" cancela la fase 2: la tarjeta de identificación es temporal y
+    // debe desaparecer. Los resultados reales (duplicado, no pertenece a la
+    // nómina, inhabilitado, etc.) se conservan hasta una nueva identificación.
+    setObjResultado((actual) => (
+      actual?.resultado === "IDENTIFICADO" || actual?.resultado === "IDENTIFICADO_OFFLINE"
+        ? null
+        : actual
+    ));
     setStrError("");
   }, []);
 
@@ -703,7 +938,7 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
   const fnVolverALista = useCallback(() => fnElegirExamen(null), [fnElegirExamen]);
 
   const fnDescargarNomina = useCallback(() => {
-    return nomina.descargar({ incluirFotos: false });
+    return nomina.descargar({ incluirFotos: true });
   }, [nomina.descargar]);
 
   // Si el backend ya devuelve los últimos ingresos, se usan; si no, los de esta sesión
@@ -718,13 +953,18 @@ export default function useControlIngreso(idExamenInicial = null, objConfig = {}
     porcentaje: nomina.descargando
       ? (nomina.progreso?.porcentaje ?? 0)
       : (nomina.estado.lista ? 100 : 0),
+    fase: nomina.progreso?.fase ?? null,
+    fotos: nomina.estado.fotosLocales || 0,
+    fotosDisponibles: nomina.estado.fotosDisponibles,
+    fotosDescargadasEn: nomina.estado.fotosDescargadasEn,
+    fotosError: nomina.estado.fotosError,
   };
 
   return {
-    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objIdentificacion,
+    listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objIdentificacion, objModoRapido,
     boolValidando, strError, strUltimoRegistrado, numVersion, boolOffline, objNomina, fnDescargarNomina,
     objIntentosPendientes,
-    fnIdentificar, fnRegistrarConFacial, fnRegistrarSinFacial, fnFinalizarExcepcional, fnLimpiarIdentificacion,
+    fnIdentificar, fnRegistrarConFacial, fnRegistrarSinFacial, fnConfirmarIngresoRapido, fnActivarModoRapido, fnDesactivarModoRapido, fnFinalizarExcepcional, fnLimpiarIdentificacion,
     fnCerrarResultado, fnElegirExamen, fnVolverALista, fnRefrescar,
   };
 }

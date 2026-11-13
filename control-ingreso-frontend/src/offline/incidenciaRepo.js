@@ -73,6 +73,9 @@ export const incidenciaRepo = {
         await db.nominas.update([idExamen, codigoSis], {
           habilitado: false,
           motivoBloqueo: 'EXPULSADO',
+          // El estudiante queda marcado como expulsado en la nómina local:
+          // el control de ingreso debe avisar que ya ingresó y fue retirado.
+          expulsado: true,
         });
       }
     });
@@ -84,6 +87,10 @@ export const incidenciaRepo = {
    * expulsión local. Solo toca la fila del examen afectado y devuelve el estado
    * previo que tenía (no rehabilita a un estudiante que estaba inhabilitado
    * por otro motivo).
+   *
+   * También quita la marca de "expulsado": si se revoca la expulsión, el
+   * estudiante vuelve a estar presente y el control de ingreso no debe
+   * seguir avisando que fue retirado.
    */
   async restaurarNominaPorExpulsion(expulsion) {
     if (!expulsion) return false;
@@ -100,7 +107,14 @@ export const incidenciaRepo = {
       // rehabilita al estudiante (dejarlo bloqueado tras revocar sería peor).
       habilitado: previo ? Boolean(previo.habilitado) : true,
       motivoBloqueo: previo ? previo.motivoBloqueo ?? null : null,
+      // La expulsión ya no está en vigor: el estudiante puede reingresar.
+      expulsado: false,
     });
+
+    // La fila de la cola local deja de contar como expulsión vigente: si no,
+    // el control offline seguiría avisando que fue expulsado.
+    await db.expulsiones_pendientes.update(expulsion.clientUuid, { revocada: true });
+
     return true;
   },
 

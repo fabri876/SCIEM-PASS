@@ -5,6 +5,7 @@ import { ERROR_NOMINA } from './constantes.js';
 import {
   obtenerEstadoNomina,
   descargarNomina,
+  descargarFotosNomina,
   eliminarNominaLocal
 } from './nominaLoader.js';
 import { descargarAsignacionesOperadores } from './asignacionLoader.js';
@@ -16,6 +17,9 @@ export function useNominaLocal(examenId) {
     descargadaEn: null,
     totalLocal: 0,
     fotosLocales: 0,
+    fotosDescargadasEn: null,
+    fotosDisponibles: null,
+    fotosError: null,
     descargaCompleta: false,
     desactualizada: false
   });
@@ -35,6 +39,9 @@ export function useNominaLocal(examenId) {
         descargadaEn: null,
         totalLocal: 0,
         fotosLocales: 0,
+        fotosDescargadasEn: null,
+        fotosDisponibles: null,
+        fotosError: null,
         descargaCompleta: false,
         desactualizada: false
       });
@@ -125,6 +132,25 @@ export function useNominaLocal(examenId) {
 
   const descargar = useCallback((opts) => ejecutarDescarga(true, opts), [ejecutarDescarga]);
   const actualizar = useCallback((opts) => ejecutarDescarga(false, opts), [ejecutarDescarga]);
+  const descargarFotos = useCallback(async () => {
+    const exId = Number(examenId);
+    if (!Number.isInteger(exId) || exId <= 0) return { ok: false };
+    cancelar();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setDescargando(true);
+    setError(null);
+    try {
+      const res = await descargarFotosNomina({ examenId: exId, signal: controller.signal, onProgreso: setProgreso });
+      return { ok: true, ...res };
+    } catch (err) {
+      if (err.codigo !== ERROR_NOMINA.CANCELADO) setError(err);
+      return { ok: false, error: err };
+    } finally {
+      if (abortControllerRef.current === controller) abortControllerRef.current = null;
+      setDescargando(false);
+    }
+  }, [examenId, cancelar]);
 
   const eliminar = useCallback(async () => {
     cancelar();
@@ -152,6 +178,7 @@ export function useNominaLocal(examenId) {
     progreso,
     error,
     descargar,
+    descargarFotos,
     actualizar,
     eliminar,
     cancelar

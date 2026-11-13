@@ -10,6 +10,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MetodoIngreso;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoIntento;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
@@ -26,6 +27,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.GrupoRepository
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HabilitacionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CredencialRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CarreraEstudianteRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceEnrollmentRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IntentoNoAutorizadoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.TipoExamenRepository;
@@ -67,6 +69,8 @@ public class ControlIngresoAyudanteService {
     private static final Logger log = LoggerFactory.getLogger(ControlIngresoAyudanteService.class);
     private static final ZoneId ZONA_HORARIA = ZoneId.of("America/La_Paz");
     private static final long MINUTOS_ANTES_CONTROL_INGRESO = 15L;
+    private static final int OBSERVACION_MODO_RAPIDO_MIN = 20;
+    private static final int OBSERVACION_MODO_RAPIDO_MAX = 500;
 
     private final AyudanteExamenRepository ayudanteExamenRepository;
     private final AsignaturaRepository asignaturaRepository;
@@ -88,6 +92,7 @@ public class ControlIngresoAyudanteService {
     private final IntentoNoAutorizadoRepository intentosRepository;
     private final AuditoriaService auditoriaService;
     private final IntentoExamenIncorrectoService intentoExamenIncorrectoService;
+    private final FaceEnrollmentRepository faceEnrollmentRepository;
 
     // Prefijo de seguridad para identificar escaneos QR del sistema
     private static final String PREFIJO_QR = "SCIEMPASS:1:";
@@ -109,12 +114,14 @@ public class ControlIngresoAyudanteService {
             IntentoIngresoService intentoIngresoService,
             IntentoNoAutorizadoRepository intentosRepository,
             AuditoriaService auditoriaService,
-            IntentoExamenIncorrectoService intentoExamenIncorrectoService) {
+            IntentoExamenIncorrectoService intentoExamenIncorrectoService,
+            FaceEnrollmentRepository faceEnrollmentRepository) {
         this.asignacionAulaService = asignacionAulaService;
         this.intentoIngresoService = intentoIngresoService;
         this.intentosRepository = intentosRepository;
         this.auditoriaService = auditoriaService;
         this.intentoExamenIncorrectoService = intentoExamenIncorrectoService;
+        this.faceEnrollmentRepository = faceEnrollmentRepository;
         this.ayudanteExamenRepository = ayudanteExamenRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.examenRepository = examenRepository;
@@ -267,7 +274,7 @@ public class ControlIngresoAyudanteService {
                             ci,
                             nombreCompleto,
                             carreraDelEstudiante(ing.getIdUsuarioEstudiante(), codsis),
-                            null);
+                            resolverFotoUrl(ing.getIdUsuarioEstudiante()));
 
                     String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
 
@@ -288,7 +295,8 @@ public class ControlIngresoAyudanteService {
                             ing.getIdExamen(),
                             ing.getIdAmbiente(),
                             ing.getScoreFacial() != null,
-                            ing.getScoreFacial());
+                            ing.getScoreFacial(), "PERMITIDO",
+                            ing.getMotivoExcepcion() == MotivoExcepcion.MODO_RAPIDO);
                 })
                 .toList());
         var intentos = soloPropios
@@ -304,7 +312,7 @@ public class ControlIngresoAyudanteService {
                             : (estudiante.getNombreusuario() + " " + estudiante.getApellidousuario()).trim();
                     var resumen = new EstudianteResumenDTO(i.getIdUsuarioEstudiante(), i.getCodsisEstudiante(),
                             estudiante == null ? null : estudiante.getCiusuario(), nombre,
-                            carreraDelEstudiante(i.getIdUsuarioEstudiante(), i.getCodsisEstudiante()), null);
+                            carreraDelEstudiante(i.getIdUsuarioEstudiante(), i.getCodsisEstudiante()), resolverFotoUrl(i.getIdUsuarioEstudiante()));
                     String registrador = operador == null ? null
                             : (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim();
                     resultado.add(new UltimoIngresoDTO(i.getIdIntento(), i.getHoraIntento(), i.getMetodoVerificacion(), resumen,
@@ -322,6 +330,14 @@ public class ControlIngresoAyudanteService {
                 .toList();
     }
 
+    private String resolverFotoUrl(Integer idUsuario) {
+        if (idUsuario == null) return null;
+        return faceEnrollmentRepository
+                .findByIdUsuarioAndEstado(idUsuario, "activo")
+                .map(e -> "/api/face/enrollment/" + idUsuario + "/foto")
+                .orElse(null);
+    }
+
     private String carreraDelEstudiante(Integer idUsuario, Integer codSis) {
         List<String> carreras = carreraEstudianteRepository.nombres(idUsuario, codSis);
         return carreras.isEmpty() ? null : String.join(", ", carreras);
@@ -334,11 +350,12 @@ public class ControlIngresoAyudanteService {
                 est != null ? est.getCodsisestudiante() : ing.getCodsisEstudiante(),
                 user != null ? user.getCiusuario() : "",
                 user != null ? (user.getNombreusuario() + " " + user.getApellidousuario()).trim() : "Estudiante registrado",
-                carreraDelEstudiante(ing.getIdUsuarioEstudiante(), ing.getCodsisEstudiante()), null);
+                carreraDelEstudiante(ing.getIdUsuarioEstudiante(), ing.getCodsisEstudiante()), resolverFotoUrl(ing.getIdUsuarioEstudiante()));
         String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
         return new UltimoIngresoDTO(ing.getIdIngreso(), ing.getHoraIngreso(), metodo, resumen,
                 "Registro propio", ing.getIdAsignatura(), ing.getIdExamen(), ing.getIdAmbiente(),
-                ing.getScoreFacial() != null, ing.getScoreFacial());
+                ing.getScoreFacial() != null, ing.getScoreFacial(), "PERMITIDO",
+                ing.getMotivoExcepcion() == MotivoExcepcion.MODO_RAPIDO);
     }
 
     @Transactional
@@ -351,6 +368,7 @@ public class ControlIngresoAyudanteService {
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
             LocalDateTime horaMarcacion, String clientUuid, String ip) {
         validarAsignacionDeControl(dto, idOperador);
+        validarModoRapido(dto);
 
         // El horario se valida únicamente para registros online. Las marcas
         // con clientUuid provienen del modo offline y deben sincronizarse sin
@@ -460,7 +478,7 @@ public class ControlIngresoAyudanteService {
                 usuario.getCiusuario(),
                 usuario.getNombreusuario() + " " + usuario.getApellidousuario(),
                 carreras.isEmpty() ? null : String.join(", ", carreras),
-                null);
+                resolverFotoUrl(usuario.getIdusuario()));
 
         // En línea todos los operadores asignados al aula pueden registrar
         // cualquier estudiante habilitado. La subdivisión por apellidos se
@@ -493,17 +511,30 @@ public class ControlIngresoAyudanteService {
                     ubicacionAula);
 
             // HU10: cuenta para el indicador "Duplicados Bloqueados"
+            // (el motivo propio "RETIRADO" necesita la migración del CHECK
+            // ck_intento_motivo; hasta que se aplique se audita como duplicado
+            // para no romper el registro).
             intentoIngresoService.registrar(MotivoIntento.DUPLICADO, dto.idasignatura(), dto.idexamen(),
                     dto.idambiente(), prev.getIdAmbiente(), usuario.getIdusuario(), estudiante.getCodsisestudiante(), idOperador);
 
+            // El estudiante ingresó pero fue expulsado del examen: no es un
+            // duplicado, está retirado y no puede volver a ingresar. Se
+            // distingue para que el operador no lo deje pasar creyendo que
+            // simplemente ya había ingresado antes.
+            boolean retirado = prev.estaRetirado();
+
             ResultadoIngresoDTO resultado = new ResultadoIngresoDTO(
-                    "DUPLICADO",
-                    "INGRESO DENEGADO - DUPLICADO DETECTADO",
+                    retirado ? "RETIRADO" : "DUPLICADO",
+                    retirado
+                                    ? "INGRESO DENEGADO - EL ESTUDIANTE FUE EXPULSADO DE ESTE EXAMEN"
+                                    : "INGRESO DENEGADO - DUPLICADO DETECTADO",
                     estudianteResumen,
                     null,
                     primerIngreso,
-                    null);
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(resultado);
+                    retirado
+                                    ? "El estudiante fue expulsado de este examen y no puede volver a ingresar."
+                                    : null);
+            return ResponseEntity.status(retirado ? HttpStatus.FORBIDDEN : HttpStatus.CONFLICT).body(resultado);
         }
 
         // 3. Verificación de Habilitación Académica
@@ -571,11 +602,13 @@ public class ControlIngresoAyudanteService {
         if (Boolean.TRUE.equals(dto.soloVerificar())) {
             return ResponseEntity.ok(new ResultadoIngresoDTO(
                     "IDENTIFICADO",
-                    "IDENTIFICADO - Continúe con la verificación facial para registrar el ingreso.",
+                    Boolean.TRUE.equals(dto.modoRapido())
+                            ? "IDENTIFICADO - Revise los datos y confirme el ingreso rápido."
+                            : "IDENTIFICADO - Continúe con la verificación facial para registrar el ingreso.",
                     estudianteResumen,
                     null,
                     null,
-                    null));
+                    null, null, false, Boolean.TRUE.equals(dto.modoRapido())));
         }
 
         // 4.3 Verificación facial: si llegan scores deben ser consistentes.
@@ -592,7 +625,10 @@ public class ControlIngresoAyudanteService {
         nuevoIngreso.setFechaIngreso(LocalDate.now(ZONA_HORARIA));
         nuevoIngreso.setHoraIngreso(horaMarcacion != null ? horaMarcacion : LocalDateTime.now(ZONA_HORARIA));
         nuevoIngreso.setClientUuid(clientUuid);
-        nuevoIngreso.setTipoIngreso(TipoIngreso.NORMAL);
+        boolean modoRapido = Boolean.TRUE.equals(dto.modoRapido());
+        nuevoIngreso.setTipoIngreso(modoRapido ? TipoIngreso.EXCEPCIONAL : TipoIngreso.NORMAL);
+        nuevoIngreso.setMotivoExcepcion(modoRapido ? MotivoExcepcion.MODO_RAPIDO : null);
+        nuevoIngreso.setObservacionIngreso(modoRapido ? dto.motivoModoRapido().trim() : null);
         nuevoIngreso.setMetodoIngreso(dto.metodoIngreso() != null ? dto.metodoIngreso() : MetodoIngreso.MANUAL);
         nuevoIngreso.setScoreFacial(dto.scoreFacial());
         nuevoIngreso.setLivenessScore(dto.livenessScore());
@@ -631,9 +667,26 @@ public class ControlIngresoAyudanteService {
                 estudianteResumen,
                 nuevoIngreso.getHoraIngreso(),
                 null,
-                null);
+                null, null, false, modoRapido);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
+    }
+
+    /** Valida el bypass biométrico sin convertirlo en un bypass académico. */
+    private void validarModoRapido(VerificarIngresoRequestDTO dto) {
+        if (!Boolean.TRUE.equals(dto.modoRapido())) return;
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean autorizado = auth != null && auth.getAuthorities().stream().anyMatch(a ->
+                "ROLE_OPERADOR".equals(a.getAuthority())
+                        || "ROLE_DOCENTE".equals(a.getAuthority())
+                        || "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
+        if (!autorizado) {
+            throw new SolicitudInvalidaException("Solo docente, auxiliar u administrador puede activar modo rápido.");
+        }
+        String motivo = dto.motivoModoRapido() == null ? "" : dto.motivoModoRapido().trim();
+        if (motivo.length() < OBSERVACION_MODO_RAPIDO_MIN || motivo.length() > OBSERVACION_MODO_RAPIDO_MAX) {
+            throw new SolicitudInvalidaException("El motivo del modo rápido debe tener entre 20 y 500 caracteres.");
+        }
     }
 
     /**
@@ -796,7 +849,7 @@ public class ControlIngresoAyudanteService {
                 : "Dirija al estudiante al examen indicado.";
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ResultadoIngresoDTO(
                 "EXAMEN_INCORRECTO", "INGRESO DENEGADO — EXAMEN INCORRECTO. " + detalle,
-                resumen, null, null, null, destino, true));
+                resumen, null, null, null, destino, true, false));
     }
 
     List<OtroExamenDTO> examenesCorrespondientes(Integer codSis, Integer examenActual, LocalDateTime ahora) {
@@ -864,7 +917,11 @@ public class ControlIngresoAyudanteService {
                 .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(idAsig, idEx);
         int ingresaron = (int) ingresoRepository.countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNull(idAsig,
                 idEx, idAmb);
-        int faltantes = Math.max(0, totalHab - ingresaron);
+        // Los expulsados sí entraron, pero no están "ausentes": se informan
+        // aparte para que las cifras del aula cuadren con la lista oficial.
+        int expulsados = (int) ingresoRepository
+                        .countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNotNull(idAsig, idEx, idAmb);
+        int faltantes = Math.max(0, totalHab - ingresaron - expulsados);
 
         String grupo;
         if (ex != null && ex.getIdGrupo() != null) {
@@ -896,6 +953,7 @@ public class ControlIngresoAyudanteService {
                 estadoMateria,
                 ingresaron,
                 faltantes,
+                expulsados,
                 inhabilitados,
                 totalHab,
                 ae.getApellidoDesde(),
@@ -961,7 +1019,11 @@ public class ControlIngresoAyudanteService {
                 .countByIdAsignaturaAndIdExamenAndEstadohabilitacionFalse(idAsig, idEx);
         int ingresaron = (int) ingresoRepository.countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNull(idAsig,
                 idEx, idAmb);
-        int faltantes = Math.max(0, totalHab - ingresaron);
+        // Los expulsados sí entraron, pero no están "ausentes": se informan
+        // aparte para que las cifras del aula cuadren con la lista oficial.
+        int expulsados = (int) ingresoRepository
+                        .countByIdAsignaturaAndIdExamenAndIdAmbienteAndIdExpulsionIsNotNull(idAsig, idEx, idAmb);
+        int faltantes = Math.max(0, totalHab - ingresaron - expulsados);
 
         String grupo = grupoRepository.findByIdAsignatura(idAsig).stream()
                 .map(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Grupo::getNombreGrupo)
@@ -984,6 +1046,7 @@ public class ControlIngresoAyudanteService {
                 cantidadOperadores,
                 ingresaron,
                 faltantes,
+                expulsados,
                 inhabilitados,
                 totalHab);
     }

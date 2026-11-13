@@ -192,6 +192,8 @@ const MAPA_ESTADOS = {
   NO_HABILITADO: "NO_HABILITADO",
   DUPLICADO: "YA_REGISTRADO",
   YA_REGISTRADO: "YA_REGISTRADO",
+  // El estudiante ingresó pero fue expulsado del examen.
+  RETIRADO: "RETIRADO",
   OTRA_AULA: "OTRA_AULA",
   AMBIENTE_DIFERENTE: "OTRA_AULA", // HU10: el backend lo devuelve con el aula asignada en primerIngreso
   AULA_INCORRECTA: "OTRA_AULA",
@@ -229,6 +231,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
         ...(objOpciones.livenessScore != null ? { livenessScore: objOpciones.livenessScore } : {}),
         ...(objOpciones.modelVersion ? { modelVersion: objOpciones.modelVersion } : {}),
         ...(objOpciones.deviceId ? { deviceId: objOpciones.deviceId } : {}),
+        ...(objOpciones.modoRapido ? { modoRapido: true, motivoModoRapido: objOpciones.motivoModoRapido } : {}),
       }),
     });
   } catch (causa) {
@@ -284,6 +287,10 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
     mensaje: objData.mensaje,
     estudiante: estudianteMapeado,
     horaIngreso: soloHora(objData.horaIngreso),
+    // La hora completa (ISO) que manda el servidor: es la que se guarda en la
+    // nómina local del dispositivo para que el control offline no contradiga
+    // al servidor (soloHora se queda con "HH:mm:ss" y pierde la fecha).
+    horaIngresoIso: objData.horaIngreso || null,
     fechaIngreso: soloFecha(objData.horaIngreso || objData.fechaIngreso),
     registradoPor: strRegistrador,
     ingresoPrevio: objData.primerIngreso
@@ -297,6 +304,7 @@ export async function validarIngreso(idExamen, strValor, strMetodo, objExamen = 
     motivos: objData.motivoInhabilitacion ? [objData.motivoInhabilitacion] : objData.motivos || [],
     otroExamen: objData.otroExamen || null,
     intentoRegistrado: objData.intentoRegistrado === true,
+    modoRapido: objData.modoRapido === true,
     filaCorrecta: objData.filaCorrecta
       ? {
         desde: objData.filaCorrecta.letraDesde || objData.filaCorrecta.desde,
@@ -321,6 +329,9 @@ export async function obtenerContador(idExamen, objExamen = {}) {
       return {
         ingresaron: d.ingresaron || 0,
         pendientes: d.faltantes || 0,
+        // Los expulsados entraron pero ya no están en el aula: se informan
+        // aparte para que "Ausentes" no los incluya.
+        expulsados: d.expulsados || 0,
         inhabilitados: d.inhabilitados || 0,
         habilitados: d.totalHabilitados || 0,
         ...(fila ? { fila, filas } : {}),
@@ -357,6 +368,7 @@ export async function obtenerUltimosIngresos(idExamen, numLimite = 5, objExamen 
         metodo: strMetodo === "ESCANEO" || strMetodo === "QR" ? "QR" : "Manual",
         // Se deriva de score_facial: no existe un método "facial" separado.
         conFacial: boolConFacial,
+        modoRapido: r.modoRapido === true,
         scoreFacial: r.scoreFacial ?? null,
         registradoPor: nombreRegistrador(r),
         estudiante: {
@@ -384,6 +396,7 @@ export async function obtenerMisRegistros(numLimite = 100) {
     fechaHora: r.horaIngreso || r.hora,
     metodo: String(r.metodoIngreso || r.metodo || "").toUpperCase() === "ESCANEO" ? "QR" : "Manual",
     conFacial: Boolean(r.verificacionFacial ?? (r.scoreFacial != null)),
+    modoRapido: r.modoRapido === true,
     scoreFacial: r.scoreFacial ?? null,
     registradoPor: r.registradoPor || "Registro propio",
     estudiante: {

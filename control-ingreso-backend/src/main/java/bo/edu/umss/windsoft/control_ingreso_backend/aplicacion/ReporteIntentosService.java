@@ -14,7 +14,10 @@ import java.util.Locale;
 @Service
 public class ReporteIntentosService {
     private final ReporteIntentosRepository repository;
-    public ReporteIntentosService(ReporteIntentosRepository repository) { this.repository = repository; }
+
+    public ReporteIntentosService(ReporteIntentosRepository repository) {
+        this.repository = repository;
+    }
 
     @Transactional(readOnly = true)
     public List<CatalogoReporteExamenDto> catalogo(ContextoUsuarioService.UsuarioActual usuario) {
@@ -31,11 +34,13 @@ public class ReporteIntentosService {
 
     @Transactional(readOnly = true)
     public List<ReporteIntentoDto> listar(ContextoUsuarioService.UsuarioActual usuario, Integer asignatura,
-                                         Integer examen, String motivo, LocalDate fecha, String busqueda) {
+            Integer examen, String motivo, LocalDate fecha, String busqueda) {
         verificarUsuario(usuario);
         String motivoNormalizado = motivo == null || motivo.isBlank() ? null : motivo.trim().toUpperCase(Locale.ROOT);
-        if ("DUPLICADO_BLOQUEADO".equals(motivoNormalizado)) motivoNormalizado = "DUPLICADO";
-        if ("AULA_DIFERENTE".equals(motivoNormalizado)) motivoNormalizado = "AMBIENTE_DIFERENTE";
+        if ("DUPLICADO_BLOQUEADO".equals(motivoNormalizado))
+            motivoNormalizado = "DUPLICADO";
+        if ("AULA_DIFERENTE".equals(motivoNormalizado))
+            motivoNormalizado = "AMBIENTE_DIFERENTE";
         return repository.listar(usuario.esAdmin() ? null : usuario.idUsuario(), asignatura, examen,
                 motivoNormalizado, fecha, busqueda);
     }

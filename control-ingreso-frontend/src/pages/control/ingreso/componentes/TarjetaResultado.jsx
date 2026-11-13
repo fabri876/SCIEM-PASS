@@ -2,6 +2,7 @@
 // Muestra solo los datos del estudiante: la hora, el método y quién registró ya están en el historial en vivo.
 import { useEffect, useRef } from "react";
 import { Check, X, Ban, MapPin, Lock, IdCard, RotateCcw, UserX, SearchX, AlertTriangle } from "lucide-react";
+import AvatarConFoto from "../../../../components/common/AvatarConFoto";
 
 const nombreCompleto = (e) => (e ? `${e.nombres || ""} ${e.apellidos || ""}`.trim() : "");
 
@@ -62,8 +63,35 @@ function configurar(r, strRol) {
       return {
         strTono: "ok", Icono: Check, strTitulo: "INGRESO PERMITIDO", strSub: "GUARDADO EN EL EQUIPO · SE ENVIARÁ AL VOLVER EL INTERNET",
       };
+    case "IDENTIFICADO":
+      return {
+        strTono: "ok", Icono: Check, strTitulo: "ESTUDIANTE IDENTIFICADO",
+        strSub: r.modoRapido ? "MODO RÁPIDO · CONFIRME EL INGRESO" : "PENDIENTE DE VERIFICACIÓN FACIAL",
+        nota: <Nota>{r.modoRapido ? "Revise la foto y los datos; después confirme el ingreso rápido." : "Continúe con la verificación facial para registrar el ingreso."}</Nota>,
+      };
+    case "IDENTIFICADO_OFFLINE":
+      return {
+        strTono: "ok", Icono: Check, strTitulo: "ESTUDIANTE IDENTIFICADO",
+        strSub: r.modoRapido ? "SIN CONEXIÓN · MODO RÁPIDO" : "SIN CONEXIÓN · PENDIENTE DE VERIFICACIÓN FACIAL",
+        nota: <Nota>Confirma el rostro para registrar el ingreso en este dispositivo.</Nota>,
+      };
     case "YA_REGISTRADO":
       return { strTono: "gris", Icono: RotateCcw, strTitulo: "YA REGISTRADO", strSub: "YA MARCÓ SU INGRESO A ESTE EXAMEN" };
+    case "RETIRADO":
+      return {
+        strTono: "bad", Icono: Ban, strTitulo: "ESTUDIANTE EXPULSADO", strSub: "NO PUEDE VOLVER A INGRESAR A ESTE EXAMEN",
+        nota: (
+          <>
+            <Nota>
+              <b className="font-bold">Motivo:</b>{" "}
+              {r.motivos?.length > 1 ? (
+                <ul className="mt-1 pl-[18px] list-disc">{r.motivos.map((m) => <li key={m}>{m}</li>)}</ul>
+              ) : (r.motivos?.[0] || "El estudiante ingresó y fue retirado del examen.")}
+            </Nota>
+            <Nota strTipo="gris" Icono={Lock}>Debe consultarse con el docente responsable.</Nota>
+          </>
+        ),
+      };
     case "NO_HABILITADO":
       return {
         strTono: "bad", Icono: Ban, strTitulo: "ESTUDIANTE INHABILITADO", strSub: "NO CUMPLE LOS REQUISITOS",
@@ -168,18 +196,19 @@ function configurar(r, strRol) {
 const COLOR_BANDA = { ok: "bg-[#003770]", gris: "bg-[#475569]", bad: "bg-[#B91C1C]" };
 
 // Espacio de la foto: muestra la foto si el backend la envía; si no, las iniciales
-function Foto({ strUrl, strNombre }) {
+function Foto({ idUsuario, codigoSis, strNombre }) {
   return (
-    <div className="w-24 h-[116px] max-md:w-20 max-md:h-24 rounded-xl border border-[#CBD5E1] bg-gradient-to-b from-[#E2E8F0] to-[#CBD5E1] flex flex-col items-center justify-center shrink-0 overflow-hidden">
-      {strUrl ? (
-        <img src={strUrl} alt={`Foto de ${strNombre}`} className="w-full h-full object-cover" />
-      ) : (
+    <AvatarConFoto
+      idUsuario={idUsuario}
+      codigoSis={codigoSis}
+      className="w-24 h-[116px] max-md:w-20 max-md:h-24 rounded-xl border border-[#CBD5E1] bg-gradient-to-b from-[#E2E8F0] to-[#CBD5E1] flex flex-col items-center justify-center shrink-0 overflow-hidden"
+      fallback={
         <>
           <span className="text-[28px] max-md:text-2xl font-extrabold text-[#475569] leading-none">{iniciales(strNombre)}</span>
           <span className="mt-1.5 text-[10px] font-bold tracking-[.4px] text-[#64748B]">FOTO</span>
         </>
-      )}
-    </div>
+      }
+    />
   );
 }
 
@@ -238,13 +267,14 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
 
       {/* Foto + datos del estudiante */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 px-4 sm:px-5 py-4 sm:py-[18px]">
-        <Foto strUrl={e?.fotoUrl} strNombre={strNombre} />
+        <Foto idUsuario={e?.idusuario} codigoSis={e?.sis} strNombre={strNombre} />
         <div className="min-w-0">
           <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{strNombre}</div>
           {objResultado.metodo && (
             <span className="mt-1.5 inline-flex items-center rounded-full bg-[#F0F6FC] border border-[#D9E8F7] px-2.5 py-0.5 text-[11px] font-bold text-[#124B83]">
               {objResultado.metodo}
               {objResultado.conFacial != null && ` · ${objResultado.conFacial ? "con facial" : "sin facial"}`}
+              {objResultado.modoRapido && " · modo rápido"}
             </span>
           )}
           {e && (e.ci || e.sis) && (

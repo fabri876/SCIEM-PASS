@@ -77,7 +77,9 @@ export function construirPayload({ batchId, deviceId, items }) {
       scoreFacial: item.scoreFacial ?? null,
       livenessScore: item.livenessScore ?? null,
       modelVersion: item.modelVersion || null,
-      deviceId: item.deviceId || null
+      deviceId: item.deviceId || null,
+      modoRapido: Boolean(item.modoRapido),
+      motivoModoRapido: item.motivoModoRapido || null
     }))
   };
 }

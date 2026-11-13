@@ -50,7 +50,8 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
 
   const numIng = objContador?.ingresaron ?? 0;
   const numHab = objContador?.habilitados ?? 0;
-  const numPend = objContador?.pendientes ?? Math.max(0, numHab - numIng);
+  const numExp = objContador?.expulsados ?? 0;
+  const numPend = objContador?.pendientes ?? Math.max(0, numHab - numIng - numExp);
   const numInh = objContador?.inhabilitados ?? 0;
   const strGrupo = textoGrupoExamen(examen.grupo);
   const strHorario = examen.horaInicio && examen.horaFin ? `${examen.horaInicio} – ${examen.horaFin}` : examen.horaInicio || "";
@@ -73,9 +74,11 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
 
         <div className="flex flex-col items-end gap-3 max-md:w-full max-md:items-stretch">
           {children && <div className="flex flex-wrap justify-end gap-2 max-md:justify-start">{children}</div>}
-          <div className="grid grid-cols-3 gap-2.5 max-md:gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-md:gap-2">
             <Contador numValor={numIng} strEtiqueta="Ingresaron" />
             <Contador numValor={numPend} strEtiqueta="Ausentes" />
+            {/* Entró pero se lo retiró del examen: no cuenta como ausente. */}
+            {numExp > 0 && <Contador numValor={numExp} strEtiqueta="Expulsados" />}
             <Contador numValor={numInh} strEtiqueta="Inhabilitados" boolRojo />
           </div>
           <span className="inline-flex items-center gap-2 text-[13px] text-white/75">

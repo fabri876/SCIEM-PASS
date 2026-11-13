@@ -53,13 +53,27 @@ function mismoCodigoSis(a, b) {
  * Una expulsión registrada en este equipo (aunque ya se haya sincronizado)
  * sigue bloqueando al estudiante localmente. La nómina del servidor no
  * informa si el ingreso fue retirado, así que esta tabla es la fuente local.
+ *
+ * @param {object} [opciones]
+ * @param {boolean} [opciones.soloNoSincronizadas] si es true, solo cuenta las
+ *        expulsiones que todavía NO llegaron al servidor. Se usa en el control
+ *        de ingreso: una vez sincronizadas, el servidor es la autoridad (y así
+ *        este equipo se entera de una revocación hecha en otro).
  */
-async function tieneExpulsionLocal(examenId, codigoSis) {
+async function tieneExpulsionLocal(examenId, codigoSis, opciones = {}) {
   if (!examenId) return false;
   const registros = await db.expulsiones_pendientes.toArray();
   return registros.some((expulsion) => {
     if (Number(expulsion.examenId) !== Number(examenId)) return false;
     if (!mismoCodigoSis(expulsion.codSisEstudiante, codigoSis)) return false;
+    // Una expulsión revocada ya no está en vigor.
+    if (expulsion.revocada === true) return false;
+    if (opciones.soloNoSincronizadas === true) {
+      return (
+        expulsion.syncStatus === ESTADO_SYNC.PENDIENTE ||
+        expulsion.syncStatus === ESTADO_SYNC.SYNCING
+      );
+    }
     return (
       expulsion.syncStatus === ESTADO_SYNC.PENDIENTE ||
       expulsion.syncStatus === ESTADO_SYNC.SYNCING ||
@@ -67,6 +81,17 @@ async function tieneExpulsionLocal(examenId, codigoSis) {
       expulsion.syncStatus === ESTADO_SYNC.DUPLICADO
     );
   });
+}
+
+/**
+ * El estudiante fue expulsado del examen: ingresó y se lo retiró.
+ *
+ * La nómina local trae el estado que bajó del servidor (la autoridad) y la
+ * cola de expulsiones de este equipo cubre la que aún no se ha sincronizado.
+ */
+export async function estaExpulsadoLocal(examenId, codigoSis, expulsadoEnNomina = false) {
+  if (expulsadoEnNomina) return true;
+  return await tieneExpulsionLocal(examenId, codigoSis, { soloNoSincronizadas: true });
 }
 
 /**
@@ -129,7 +154,11 @@ export async function buscarEstudianteIncidenciaLocal({ idExamen, consulta }) {
     local: true,
   };
 
+  // Tres fuentes de la expulsión: el campo "expulsado" que baja del servidor con
+  // la nómina, la marca local "EXPULSADO" (cuando la expulsión se hizo en este
+  // equipo) y la cola local de expulsiones (por si aún no se sincronizó).
   const retirado =
+    registro.expulsado === true ||
     registro.motivoBloqueo === MOTIVO_EXPULSADO ||
     (await tieneExpulsionLocal(exId, registro.codigoSis));
 
@@ -235,6 +264,7 @@ export async function buscarEstudianteExcepcionalLocal({ idExamen, consulta }) {
   };
 
   const retirado =
+    registro.expulsado === true ||
     registro.motivoBloqueo === MOTIVO_EXPULSADO ||
     (await tieneExpulsionLocal(exId, registro.codigoSis));
 

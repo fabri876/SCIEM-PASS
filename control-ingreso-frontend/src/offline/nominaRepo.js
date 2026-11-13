@@ -232,6 +232,12 @@ export const nominaRepo = {
           ? 'Estado de habilitación no verificado'
           : (remoto.motivoBloqueo || remoto.observacion || remoto.observacionHabilitacion || remoto.nombreMotivo || null);
 
+        // El estado de expulsión lo manda el servidor (la nómina se refresca al
+        // recuperar la conexión). Si la expulsión se hizo en este equipo y
+        // todavía no se sincronizó, el motor offline lo cubre con la cola
+        // local de expulsiones.
+        const expulsado = Boolean(remoto.expulsado);
+
         return {
           examenId: exId,
           codigoSis: sis,
@@ -247,6 +253,7 @@ export const nominaRepo = {
           carrera: remoto.carrera || '',
           habilitado,
           motivoBloqueo: motivoBloqueoFinal,
+          expulsado,
           marcadoLocal,
           marcadoEn,
           marcadoPor

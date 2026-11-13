@@ -126,6 +126,26 @@ public class ContextoUsuarioService {
         throw new AccesoDenegadoException(mensaje);
     }
 
+    /** Verifica acceso a un examen cuando la operación no está ligada a un aula concreta. */
+    public void verificarAccesoExamen(UsuarioActual usuario, Integer idExamen, boolean permiteOperador,
+                                      String accion, String ip) {
+        verificarRol(usuario, permiteOperador, accion, ip);
+        if (usuario.esAdmin()) return;
+
+        boolean permitido = usuario.esDocente()
+                ? esResponsableDelExamen(usuario.idUsuario(), idExamen)
+                : ayudanteExamenRepository.findByIdIdayudanteAndEstadoAsignacion(
+                        usuario.idUsuario(), ASIGNACION_ACTIVA).stream()
+                        .anyMatch(a -> idExamen.equals(a.getId().getIdexamen()));
+        if (permitido) return;
+
+        String mensaje = usuario.esOperador()
+                ? "No tiene una asignación activa para este examen."
+                : "No es el docente asignado a este examen.";
+        registrarAccesoDenegado(usuario, accion + " · examen " + idExamen + " · " + mensaje, ip);
+        throw new AccesoDenegadoException(mensaje);
+    }
+
     /** Solo el rol, sin mirar el examen: ADMINISTRADOR, DOCENTE y (si se permite) OPERADOR. */
     public void verificarRol(UsuarioActual usuario, boolean permiteOperador, String accion, String ip) {
         if (usuario.esAdmin() || usuario.esDocente() || (usuario.esOperador() && permiteOperador)) {

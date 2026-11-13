@@ -33,14 +33,17 @@ export function PestanasAyudante() {
   );
 }
 
-export default function BarraLateralAyudante() {
+export default function BarraLateralAyudante({ boolMovilAbierto = false, onCerrarMovil }) {
   const usuario = obtenerUsuarioActual();
   const strNombre = usuario?.nombre || "Ayudante";
   const strApellido = usuario?.apellido || "";
   const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`.toUpperCase();
 
   return (
-    <aside className="w-[280px] shrink-0 hidden lg:block space-y-6">
+    <aside className={`w-[280px] shrink-0 space-y-6 lg:block lg:static lg:z-auto lg:translate-x-0 ${boolMovilAbierto ? "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto translate-x-0 bg-[#F8FAFC] p-4 pt-6 shadow-2xl" : "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto -translate-x-full bg-[#F8FAFC] p-4 pt-6 shadow-2xl lg:translate-x-0"}`}>
+      <div className="flex justify-end lg:hidden mb-1">
+        <button type="button" onClick={onCerrarMovil} className="rounded-lg px-3 py-1.5 text-sm font-bold text-[#003770] hover:bg-white">Cerrar ×</button>
+      </div>
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center text-center">
         <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-md mb-3">
           {strIniciales}

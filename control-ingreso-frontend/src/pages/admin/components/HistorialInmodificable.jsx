@@ -517,11 +517,10 @@ export default function HistorialInmodificable() {
                     <tr
                       key={bloque.idBloque}
                       onClick={() => setBloqueSeleccionado(bloque)}
-                      className={`text-xs cursor-pointer transition-colors ${
-                        esSeleccionado
+                      className={`text-xs cursor-pointer transition-colors ${esSeleccionado
                           ? "bg-blue-50/70 border-l-4 border-primary-blue font-medium"
                           : "hover:bg-slate-50/80 text-slate-700"
-                      }`}
+                        }`}
                     >
                       {/* ID Bloque */}
                       <td className="py-3.5 px-4 font-mono font-bold text-[#003770]">
@@ -602,11 +601,10 @@ export default function HistorialInmodificable() {
                       <button
                         type="button"
                         onClick={() => setIntPaginaActual(numPagina)}
-                        className={`w-8 h-8 rounded-lg font-bold text-xs transition cursor-pointer ${
-                          intPaginaActual === numPagina
+                        className={`w-8 h-8 rounded-lg font-bold text-xs transition cursor-pointer ${intPaginaActual === numPagina
                             ? "bg-[#003770] text-white"
                             : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}
+                          }`}
                       >
                         {numPagina}
                       </button>

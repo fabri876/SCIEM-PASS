@@ -40,6 +40,7 @@ export default function TarjetasMetricas({ metricas, intAulas, intAlertasAulaCru
                 </div>
             </Kpi>
             <Kpi Icono={UserPlus} titulo="Excepcionales" valor={m.excepcionales} tono={m.excepcionales > 0 ? "ambar" : "navy"} detalle="Incluidos en ingresados" />
+            <Kpi Icono={UserPlus} titulo="Modo rápido" valor={m.modoRapido ?? 0} tono={(m.modoRapido ?? 0) > 0 ? "ambar" : "navy"} detalle="Sin validación facial" />
             <Kpi Icono={Clock} titulo="Pendientes" valor={m.pendientes} tono="ambar" detalle="Habilitados que aún no ingresan" />
             <Kpi
                 Icono={Ban}
