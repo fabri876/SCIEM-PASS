@@ -289,7 +289,9 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
             )}
             <TarjetaResultado objResultado={objResultado} onCerrar={fnCerrarResultado} strRol={strRol}
-              onRegistrarIncidencia={() => setMostrarIncidenciaHU09(true)} />
+              // El operador (ayudante) no registra incidencias: esa acción es
+              // del docente responsable y del administrador.
+              onRegistrarIncidencia={boolOperador ? undefined : () => setMostrarIncidenciaHU09(true)} />
           </>
         )}
       </section>

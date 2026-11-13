@@ -20,6 +20,7 @@ public record JornadaActivaDTO(
         int cantidadAyudantesDelegados,
         int ingresaron,
         int faltantes,
+        int expulsados,
         int inhabilitados,
         int totalHabilitados
 ) {

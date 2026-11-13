@@ -71,6 +71,21 @@ function configurar(r, strRol) {
       };
     case "YA_REGISTRADO":
       return { strTono: "gris", Icono: RotateCcw, strTitulo: "YA REGISTRADO", strSub: "YA MARCÓ SU INGRESO A ESTE EXAMEN" };
+    case "RETIRADO":
+      return {
+        strTono: "bad", Icono: Ban, strTitulo: "ESTUDIANTE EXPULSADO", strSub: "NO PUEDE VOLVER A INGRESAR A ESTE EXAMEN",
+        nota: (
+          <>
+            <Nota>
+              <b className="font-bold">Motivo:</b>{" "}
+              {r.motivos?.length > 1 ? (
+                <ul className="mt-1 pl-[18px] list-disc">{r.motivos.map((m) => <li key={m}>{m}</li>)}</ul>
+              ) : (r.motivos?.[0] || "El estudiante ingresó y fue retirado del examen.")}
+            </Nota>
+            <Nota strTipo="gris" Icono={Lock}>Debe consultarse con el docente responsable.</Nota>
+          </>
+        ),
+      };
     case "NO_HABILITADO":
       return {
         strTono: "bad", Icono: Ban, strTitulo: "ESTUDIANTE INHABILITADO", strSub: "NO CUMPLE LOS REQUISITOS",

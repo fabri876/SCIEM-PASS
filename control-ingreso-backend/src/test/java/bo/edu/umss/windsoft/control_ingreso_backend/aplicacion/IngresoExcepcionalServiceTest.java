@@ -294,13 +294,21 @@ class IngresoExcepcionalServiceTest {
     }
 
     @Test
-    @DisplayName("Consulta del operador: un estudiante que no ha ingresado no se puede reportar")
+    @DisplayName("El operador no puede consultar estudiantes para reportar una incidencia")
     void consultar_operador() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
         AyudanteExamenId asignacion = new AyudanteExamenId(70, ID_ASIGNATURA, ID_EXAMEN, ID_AMBIENTE);
         when(ayudanteExamenRepository.findById(any()))
                 .thenReturn(Optional.of(new AyudanteExamen(asignacion, "ACTIVO")));
 
+        AccesoDenegadoException ex = assertThrows(AccesoDenegadoException.class,
+                () -> service.consultar(ID_AMBIENTE, String.valueOf(CODSIS), true, "ip"));
+        assertEquals("Acceso denegado: su rol no tiene permiso para esta acción.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Consulta desde incidencias: un estudiante que no ha ingresado no se puede reportar")
+    void consultar_sinIngreso() {
         ConsultaEstudianteDto dto = service.consultar(ID_AMBIENTE, String.valueOf(CODSIS), true, "ip");
 
         assertEquals("SIN_INGRESO", dto.estado());

@@ -112,9 +112,17 @@ public class IncidenciaService {
                 Arrays.stream(MotivoExcepcion.values()).map(m -> new OpcionCatalogoDto(m.name(), m.getEtiqueta())).toList());
     }
 
+    /**
+     * Id de la incidencia ya registrada con esa clave de solicitud.
+     *
+     * Lo usa la sincronización offline para responder "DUPLICADO" con el id:
+     * sin él, el dispositivo no puede subir la evidencia que quedó guardada en
+     * su cola local y la foto se pierde en silencio.
+     */
     @Transactional(readOnly = true)
-    public boolean existeClaveSolicitud(String claveSolicitudTexto) {
-        return incidenciaRepository.existsByClaveSolicitud(leerClave(claveSolicitudTexto));
+    public Optional<Integer> idPorClaveSolicitud(String claveSolicitudTexto) {
+        return incidenciaRepository.findByClaveSolicitud(leerClave(claveSolicitudTexto))
+                .map(Incidencia::getIdIncidencia);
     }
 
     // -------------------------------------------------------------------------
@@ -159,7 +167,9 @@ public class IncidenciaService {
         }
 
         Ambiente ambiente = ambienteExamenService.obtener(idAmbiente);
-        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, true,
+        // Las incidencias son del docente responsable y del administrador:
+        // el operador (ayudante) no registra incidencias.
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Registrar incidencia", ip);
         // Se puede registrar el día del examen o después, pero no antes.
         AmbienteInfo infoAmbiente = ambienteExamenService.describir(ambiente);
@@ -296,6 +306,16 @@ public class IncidenciaService {
                 expulsion.setFechaExpulsion(fechaEvento.toLocalDate());
                 expulsion.setHoraExpulsion(fechaEvento);
                 expulsion.setIdIncidencia(idIncidencia);
+                // La expulsión nace AUTORIZADA, no PENDIENTE: el formulario de
+                // incidencia ya retira al estudiante de inmediato y queda
+                // auditado, así que no hay nada pendiente de decidir. Si se
+                // dejaba en PENDIENTE (el default de la entidad) el botón
+                // "Revocar" fallaba siempre, porque el servicio de expulsiones
+                // solo revoca las que están AUTORIZADA, y el estudiante quedaba
+                // bloqueado sin forma de reingresar.
+                expulsion.setEstado(EstadoExpulsion.AUTORIZADA);
+                expulsion.setFechaAutorizacion(fechaEvento);
+                expulsion.setIdUsuarioAutoriza(usuario.idUsuario());
                 expulsion = expulsionRepository.save(expulsion);
 
                 ingresoARetirar.setIdExpulsion(expulsion.getIdExpulsion());
@@ -317,8 +337,11 @@ public class IncidenciaService {
             auditoriaService.registrarEnTransaccion("INCIDENCIA_REGISTRADA", usuario.correo(), afectado,
                     incidencia.getCodigo() + " · " + tipo.name() + " · " + severidad.name() + " · " + contexto, ip);
             if (expulsion != null) {
+                // "autorizada al momento": la expulsión nace AUTORIZADA, así que
+                // el detalle de auditoría lo deja explícito.
                 auditoriaService.registrarEnTransaccion("EXPULSION_REGISTRADA", usuario.correo(), afectado,
-                        incidencia.getCodigo() + " · ingreso #" + ingresoARetirar.getIdIngreso() + " retirado · " + contexto, ip);
+                        incidencia.getCodigo() + " · ingreso #" + ingresoARetirar.getIdIngreso()
+                                + " retirado · expulsión autorizada al momento · " + contexto, ip);
             }
         } catch (RuntimeException e) {
             evidenciaService.eliminarSinFallar(evidencia);
@@ -333,8 +356,8 @@ public class IncidenciaService {
     // -------------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public IncidenciaListaDto listar(Integer idExamen, Integer idAmbiente, String tipoTexto, String estadoTexto,
-                                     String ip) {
+    public IncidenciaListaDto listar(Integer idExamen, Integer idAmbiente, Integer idAsignatura,
+                                     String tipoTexto, String estadoTexto, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         TipoIncidencia tipo = tipoTexto == null || tipoTexto.isBlank()
                 ? null : leerEnum(TipoIncidencia.class, tipoTexto, "El tipo de incidencia");
@@ -343,6 +366,13 @@ public class IncidenciaService {
 
         List<Ambiente> ambientes = ambienteExamenService.ambientesVisibles(usuario, idExamen, idAmbiente, false,
                 "Listar incidencias", ip);
+        // Filtro por materia: el listado en pantalla y el export a Excel usan
+        // exactamente el mismo filtro.
+        if (idAsignatura != null) {
+            ambientes = ambientes.stream()
+                    .filter(a -> idAsignatura.equals(a.getIdAsignatura()))
+                    .toList();
+        }
         if (ambientes.isEmpty()) {
             return new IncidenciaListaDto(new TotalesIncidenciasDto(0, 0, 0, 0), List.of());
         }
@@ -415,9 +445,10 @@ public class IncidenciaService {
      * `soloExpulsiones` se aplica sobre el mismo listado visible.
      */
     @Transactional(readOnly = true)
-    public byte[] exportarExcel(Integer idExamen, Integer idAmbiente, String tipoTexto, String estadoTexto,
-                                boolean soloExpulsiones, String ip) {
-        List<IncidenciaResumenDto> filas = listar(idExamen, idAmbiente, tipoTexto, estadoTexto, ip).incidencias();
+    public byte[] exportarExcel(Integer idExamen, Integer idAmbiente, Integer idAsignatura, String tipoTexto,
+                                String estadoTexto, boolean soloExpulsiones, String ip) {
+        List<IncidenciaResumenDto> filas = listar(idExamen, idAmbiente, idAsignatura, tipoTexto, estadoTexto, ip)
+                .incidencias();
         if (soloExpulsiones) {
             filas = filas.stream().filter(IncidenciaResumenDto::estudianteRetirado).toList();
         }

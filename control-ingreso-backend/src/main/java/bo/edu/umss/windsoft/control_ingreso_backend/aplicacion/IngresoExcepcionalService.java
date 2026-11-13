@@ -83,15 +83,21 @@ public class IngresoExcepcionalService {
     // -------------------------------------------------------------------------
 
     /**
-     * @param permiteOperador true cuando lo consulta el formulario de incidencias
-     *                        (el operador puede registrar incidencias, pero nunca
-     *                        autorizar ingresos excepcionales).
+     * Consulta a un estudiante para un formulario.
+     *
+     * @param flujoIncidencia true cuando la consulta viene del formulario de
+     *                        incidencias: el estado que se devuelve es el del
+     *                        punto de control (NO_INSCRITO, SIN_INGRESO...).
+     *                        false cuando viene del formulario de ingreso
+     *                        excepcional (HABILITADO, INHABILITADO...).
      */
     @Transactional(readOnly = true)
-    public ConsultaEstudianteDto consultar(Integer idAmbiente, String codSisOCi, boolean permiteOperador, String ip) {
+    public ConsultaEstudianteDto consultar(Integer idAmbiente, String codSisOCi, boolean flujoIncidencia, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         Ambiente ambiente = ambienteExamenService.obtener(idAmbiente);
-        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, permiteOperador,
+        // El operador (ayudante) no gestiona incidencias: solo autoriza
+        // ingresos excepcionales, y ese flujo se valida en otro lado.
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Consultar estudiante", ip);
 
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
@@ -99,7 +105,7 @@ public class IngresoExcepcionalService {
         AforoDto aforo = ambienteExamenService.aforo(idAmbiente);
         // Consulta desde el formulario de ingreso excepcional (no desde incidencias):
         // si no se puede autorizar, el intento queda en auditoría (criterios de QA).
-        boolean flujoExcepcional = !permiteOperador;
+        boolean flujoExcepcional = !flujoIncidencia;
         String bloqueoAula = estadoAula.cerrado()
                 ? estadoAula.motivo()
                 : aforo.capacidad() != null && aforo.ocupados() >= aforo.capacidad()
@@ -119,7 +125,7 @@ public class IngresoExcepcionalService {
         // En el flujo de incidencias solo se puede reportar a estudiantes de la materia del examen.
         // Esta validación debe ir antes de verificar el ingreso previo, para que un estudiante
         // que no pertenece a la materia no pueda ser reportado aunque tenga algún registro.
-        if (permiteOperador && !estudianteExamenService.estaInscritoEnAsignatura(codSis, ambiente.getIdAsignatura())) {
+        if (flujoIncidencia && !estudianteExamenService.estaInscritoEnAsignatura(codSis, ambiente.getIdAsignatura())) {
             return new ConsultaEstudianteDto("NO_INSCRITO",
                     "El estudiante no está inscrito en la materia de este examen.",
                     codSis, est.usuario().getCiusuario(), est.nombreCompleto(), null, null,
@@ -146,7 +152,7 @@ public class IngresoExcepcionalService {
 
         // En el flujo de incidencias, un estudiante que no ha ingresado al examen no puede
         // estar involucrado en una incidencia (no podría haber causado un incidente sin haber ingresado).
-        if (permiteOperador) {
+        if (flujoIncidencia) {
             return new ConsultaEstudianteDto("SIN_INGRESO",
                     "El estudiante no ha ingresado a este examen; no se puede registrar una incidencia para él.",
                     codSis, est.usuario().getCiusuario(), est.nombreCompleto(), null, null,

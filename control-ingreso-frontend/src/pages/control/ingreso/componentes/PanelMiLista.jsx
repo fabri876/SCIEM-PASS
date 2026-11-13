@@ -20,12 +20,15 @@ const ESTADOS = {
   SIN_SINCRONIZAR: { strTexto: "Registrado · sin sincronizar", strClase: "bg-[#FEF3C7] text-[#92400E]" },
   PENDIENTE: { strTexto: "Sin registrar", strClase: "bg-[#F1F5F9] text-[#475569]" },
   INHABILITADO: { strTexto: "Inhabilitado", strClase: "bg-[#FEE2E2] text-[#B91C1C]" },
+  // Ingresó y fue expulsado del examen: no está en el aula, pero sí entró.
+  RETIRADO: { strTexto: "Expulsado", strClase: "bg-[#E2E8F0] text-[#475569]" },
 };
 
 const FILTROS = [
   { strId: "TODOS", strTexto: "Todos" },
   { strId: "PENDIENTE", strTexto: "Sin registrar" },
   { strId: "INGRESO", strTexto: "Ingreso registrado" },
+  { strId: "RETIRADO", strTexto: "Expulsados" },
   { strId: "INHABILITADO", strTexto: "Inhabilitados" },
 ];
 
@@ -65,6 +68,7 @@ function estadoServidor(strEstado) {
   const str = String(strEstado || "").toUpperCase();
   if (str === "INGRESO") return "INGRESO";
   if (str === "INHABILITADO") return "INHABILITADO";
+  if (str === "RETIRADO") return "RETIRADO";
   return "PENDIENTE";
 }
 
@@ -81,12 +85,32 @@ async function leerPendientesLocales(exId) {
   return set;
 }
 
-async function leerNominaLocal(exId, setPendientes) {
+/**
+ * Estudiantes con una expulsión local vigente (registrada en este equipo y
+ * no revocada). Cubre la ventana en la que la expulsión todavía no llegó al
+ * servidor: la nómina local ya no trae la marca porque el refresco la pisó
+ * con la del servidor.
+ */
+async function leerExpulsionesLocales(exId) {
+  const set = new Set();
+  try {
+    const list = await db.expulsiones_pendientes.where("examenId").equals(exId).toArray();
+    list
+      .filter((e) => e.revocada !== true)
+      .forEach((e) => set.add(String(e.codSisEstudiante ?? e.codigoSis ?? "")));
+  } catch {
+    // sin cola local: el estado viene solo de la nómina
+  }
+  return set;
+}
+
+async function leerNominaLocal(exId, setPendientes, setExpulsados) {
   const list = await db.nominas.where("examenId").equals(exId).toArray();
   return list.map((r) => {
     const sis = String(r.codigoSis || "");
     let strEstado = "PENDIENTE";
-    if (setPendientes.has(sis)) strEstado = "SIN_SINCRONIZAR";
+    if (r.expulsado === true || setExpulsados.has(sis)) strEstado = "RETIRADO";
+    else if (setPendientes.has(sis)) strEstado = "SIN_SINCRONIZAR";
     else if (r.marcadoLocal === 1) strEstado = "INGRESO";
     else if (!r.habilitado) strEstado = "INHABILITADO";
     return {
@@ -129,6 +153,7 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
 
     (async () => {
       const setPendientes = await leerPendientesLocales(exId);
+      const setExpulsados = await leerExpulsionesLocales(exId);
 
       // Rango del ayudante (solo sin internet): primero el de la asignación, si no, el guardado en el equipo
       let rango = objFila?.desde && objFila?.hasta ? { desde: objFila.desde, hasta: objFila.hasta } : null;
@@ -173,7 +198,7 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
 
       if (!list) {
         try {
-          list = await leerNominaLocal(exId, setPendientes);
+          list = await leerNominaLocal(exId, setPendientes, setExpulsados);
           strFuente = list.length ? "local" : "sinNomina";
         } catch {
           list = [];
@@ -217,6 +242,7 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
     PENDIENTE: listBuscadas.filter((f) => f.estado === "PENDIENTE").length,
     INGRESO: listBuscadas.filter(fnEsIngreso).length,
     INHABILITADO: listBuscadas.filter((f) => f.estado === "INHABILITADO").length,
+    RETIRADO: listBuscadas.filter((f) => f.estado === "RETIRADO").length,
   };
   const listVisibles = strFiltro === "TODOS"
     ? listBuscadas

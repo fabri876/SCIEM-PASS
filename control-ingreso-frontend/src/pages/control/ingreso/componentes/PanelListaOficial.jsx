@@ -17,12 +17,15 @@ const ESTADOS = {
   INGRESO: { strTexto: "Ingresó", strClase: "bg-[#D9E8F7] text-[#124B83]" },
   PENDIENTE: { strTexto: "Ausente", strClase: "bg-[#F1F5F9] text-[#475569]" },
   INHABILITADO: { strTexto: "Inhabilitado", strClase: "bg-[#FEE2E2] text-[#B91C1C]" },
+  // Ingresó y fue expulsado del examen: no está en el aula, pero sí entró.
+  RETIRADO: { strTexto: "Expulsado", strClase: "bg-[#E2E8F0] text-[#475569]" },
 };
 
 const FILTROS = [
   { strId: "TODOS", strTexto: "Todos" },
   { strId: "PENDIENTE", strTexto: "Ausentes" },
   { strId: "INGRESO", strTexto: "Ingresaron" },
+  { strId: "RETIRADO", strTexto: "Expulsados" },
   { strId: "INHABILITADO", strTexto: "Inhabilitados" },
 ];
 
@@ -30,6 +33,7 @@ function estadoDe(f) {
   const str = String(f.estado || "").toUpperCase();
   if (str === "INGRESO") return "INGRESO";
   if (str === "INHABILITADO") return "INHABILITADO";
+  if (str === "RETIRADO") return "RETIRADO";
   return "PENDIENTE";
 }
 
@@ -146,6 +150,7 @@ export default function PanelListaOficial({ boolAbierto, onCerrar, idExamen, num
     PENDIENTE: listBuscadas.filter((f) => estadoDe(f) === "PENDIENTE").length,
     INGRESO: listBuscadas.filter((f) => estadoDe(f) === "INGRESO").length,
     INHABILITADO: listBuscadas.filter((f) => estadoDe(f) === "INHABILITADO").length,
+    RETIRADO: listBuscadas.filter((f) => estadoDe(f) === "RETIRADO").length,
   };
   const listVisibles = strFiltro === "TODOS" ? listBuscadas : listBuscadas.filter((f) => estadoDe(f) === strFiltro);
   const numSegundos = dateActualizado ? Math.max(0, Math.round((dateAhora - dateActualizado) / 1000)) : 0;

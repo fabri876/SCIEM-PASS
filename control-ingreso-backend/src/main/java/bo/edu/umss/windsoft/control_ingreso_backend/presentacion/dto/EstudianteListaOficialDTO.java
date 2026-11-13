@@ -29,8 +29,13 @@ public class EstudianteListaOficialDTO {
     private String  nombre;              // Nombre completo
     private String  nombreEstudiante;
 
-    // Estado para interfaz web ("HABILITADO" | "INHABILITADO" | "INGRESO" | "PENDIENTE")
+    // Estado para interfaz web ("HABILITADO" | "INHABILITADO" | "INGRESO" | "PENDIENTE" | "RETIRADO")
     private String  estado;
+
+    // true si el estudiante ingresó al examen pero fue expulsado (el ingreso
+    // sigue existiendo, con idExpulsion informado). El estado "RETIRADO" es
+    // su equivalente en texto para las pantallas web.
+    private Boolean expulsado;
 
     // Estado booleano para sync offline
     private Boolean habilitado;
@@ -113,6 +118,9 @@ public class EstudianteListaOficialDTO {
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
+
+    public Boolean getExpulsado() { return expulsado; }
+    public void setExpulsado(Boolean expulsado) { this.expulsado = expulsado; }
 
     public Boolean getHabilitado() { return habilitado; }
     public void setHabilitado(Boolean habilitado) {

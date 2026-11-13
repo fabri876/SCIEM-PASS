@@ -1,6 +1,7 @@
 import { db } from './db.js';
 import { nominaRepo } from './nominaRepo.js';
 import { asistenciaRepo } from './asistenciaRepo.js';
+import { estaExpulsadoLocal } from './incidenciaOffline.js';
 import { normalizarCi, extraerQr } from './normalize.js';
 import { RESULTADO_VALIDACION, ERROR_ASISTENCIA } from './constantes.js';
 
@@ -509,7 +510,27 @@ export async function validarIngreso({
     };
   }
 
-  // 2. YA_MARCADO
+  // 2. RETIRADO: el estudiante ingresó pero fue expulsado del examen.
+  //    Se comprueba antes que el duplicado para que el mensaje sea el
+  //    correcto: está retirado, no simplemente "ya ingresó".
+  //    La nómina trae el estado que bajó del servidor y la cola local cubre
+  //    la expulsión que todavía no se ha sincronizado.
+  if (await estaExpulsadoLocal(exId, estudiante.codigoSis, estudiante.expulsado)) {
+    return {
+      ...respuestaBase,
+      resultado: RESULTADO_VALIDACION.RETIRADO,
+      estudiante: estudiantePayload,
+      motivo: 'El estudiante fue expulsado de este examen y no puede volver a ingresar.',
+      metodo: metodoUsado,
+      coincidenciaParcial,
+      fueraDeRango,
+      aulaAsignada: estudiante.aulaAsignada,
+      normaParticular: estudiante.normaParticular,
+      tiempoMs: calcularTiempo()
+    };
+  }
+
+  // 3. YA_MARCADO
   if (estudiante.marcadoLocal === 1) {
     return {
       ...respuestaBase,
@@ -526,7 +547,7 @@ export async function validarIngreso({
     };
   }
 
-  // 3. OTRA_AULA
+  // 4. OTRA_AULA
   if (
     aulaControl &&
     estudiante.aulaAsignada &&
@@ -546,7 +567,7 @@ export async function validarIngreso({
     };
   }
 
-  // 4. registrar = false: sólo valida y devuelve sin persistir
+  // 5. registrar = false: sólo valida y devuelve sin persistir
   if (!registrar) {
     return {
       ...respuestaBase,
@@ -562,7 +583,7 @@ export async function validarIngreso({
     };
   }
 
-  // 5. Registro formal preservando coincidenciaParcial y fueraDeRango
+  // 6. Registro formal preservando coincidenciaParcial y fueraDeRango
   const resRegistro = await registrarIngreso({
     examenId: exId,
     asignaturaId,
