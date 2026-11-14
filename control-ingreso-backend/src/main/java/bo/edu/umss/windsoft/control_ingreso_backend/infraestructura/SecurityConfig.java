@@ -67,18 +67,27 @@ public class SecurityConfig {
                                 "/api/habilitacion/**",
                                 "/habilitacion/**"
                         ).authenticated()
-                        // HU06: el operador puede registrar incidencias (y ver lo que
-                        // necesita su formulario), pero no autorizar ingresos
-                        // excepcionales ni gestionar incidencias. La materia del
-                        // docente se valida en el servicio.
+                        // HU06: las incidencias son del DOCENTE (de la materia) y del
+                        // ADMINISTRADOR. El operador (ayudante) no registra ni
+                        // gestiona incidencias: solo controla el ingreso del aula.
+                        // La materia del docente se valida en el servicio.
                         .requestMatchers(HttpMethod.POST, "/api/incidencias")
-                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR")
+                        // Evidencia pendiente de una incidencia creada offline (HU21).
+                        .requestMatchers(HttpMethod.POST, "/api/incidencias/*/evidencia")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers(HttpMethod.GET, "/api/incidencias/catalogos",
                                 "/api/incidencias/ambientes", "/api/incidencias/aulas-asignadas",
                                 "/api/incidencias/estudiante")
-                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers(HttpMethod.POST, "/api/ingresos-excepcionales")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        // Ingreso excepcional registrado offline (HU21).
+                        .requestMatchers(HttpMethod.POST, "/api/sync/ingresos-excepcionales")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        // Sincronización offline de incidencias (HU21).
+                        .requestMatchers(HttpMethod.POST, "/api/sync/incidencias")
+                                .hasAnyRole("DOCENTE", "ADMINISTRADOR")
                         .requestMatchers("/api/incidencias/**", "/api/ingresos-excepcionales/**",
                                 "/api/monitoreo/**")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR")
@@ -96,6 +105,8 @@ public class SecurityConfig {
                                 "/api/examenes/*/expulsiones/pendientes",
                                 "/api/examenes/*/expulsiones/pendientes/total")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR", "OPERADOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/examenes/*/expulsiones/*/revocar")
+                                .hasRole("DOCENTE")
                         .requestMatchers(HttpMethod.PUT, "/api/examenes/*/expulsiones/*/autorizar",
                                 "/api/examenes/*/expulsiones/*/denegar")
                                 .hasAnyRole("DOCENTE", "ADMINISTRADOR")

@@ -36,6 +36,9 @@ public class Auditoria {
     @Column(name = "fechaaccion")
     private LocalDateTime fechaAccion;
 
+    @Column(name = "motivo", columnDefinition = "TEXT")
+    private String motivo;
+
     public Auditoria() {
         this.fechaAccion = LocalDateTime.now();
     }
@@ -43,6 +46,13 @@ public class Auditoria {
     public Auditoria(Integer idUsuario, String accion) {
         this.idUsuario = idUsuario;
         this.accion = accion;
+        this.fechaAccion = LocalDateTime.now();
+    }
+
+    public Auditoria(Integer idUsuario, String accion, String motivo) {
+        this.idUsuario = idUsuario;
+        this.accion = accion;
+        this.motivo = motivo;
         this.fechaAccion = LocalDateTime.now();
     }
 
@@ -72,6 +82,14 @@ public class Auditoria {
 
     public LocalDateTime getFechaAccion() {
         return fechaAccion;
+    }
+
+    public String getMotivo() {
+        return motivo;
+    }
+
+    public void setMotivo(String motivo) {
+        this.motivo = motivo;
     }
 
     public void setFechaAccion(LocalDateTime fechaAccion) {

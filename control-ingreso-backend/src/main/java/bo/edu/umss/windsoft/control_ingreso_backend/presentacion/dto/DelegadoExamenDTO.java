@@ -22,6 +22,7 @@ public record DelegadoExamenDTO(
         String estadoMateria,
         int ingresaron,
         int faltantes,
+        int expulsados,
         int inhabilitados,
         int totalHabilitados,
         String letraDesde,

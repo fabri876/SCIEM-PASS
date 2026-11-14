@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import VentanaEmergente from "./VentanaEmergente";
 import FormField from "./FormField";
 import IndicadorSeguridadContrasena from "./IndicadorSeguridadContrasena";
@@ -8,9 +8,6 @@ import { fnEvaluarContrasena } from "../../utils/passwordStrength";
 
 const VALORES_INICIALES = { contrasenaActual: "", contrasenaNueva: "", confirmarContrasena: "" };
 
-// Tiempo que se deja visible el mensaje de éxito antes de cerrar el modal solo.
-const INT_MS_CIERRE_AUTOMATICO = 1500;
-
 /**
  * Modal de "Cambiar contraseña", compartido por los 4 paneles (admin,
  * docente, ayudante, estudiante) — pide la contraseña actual + la nueva 2
@@ -19,16 +16,19 @@ const INT_MS_CIERRE_AUTOMATICO = 1500;
  * (ver utils/passwordStrength.js) para poder guardarse.
  * "onExito" (opcional) se llama cuando el cambio se guardó correctamente;
  * lo usa el aviso de primer ingreso para dejar de mostrarse.
- * Tras el éxito, el modal se cierra solo después de un momento.
+ * Tras el éxito, se cierra y deja continuar el flujo del panel.
+ * BUG-043-EXP: cada campo tiene su propio estado de visibilidad y su propio
+ * ojo, y se oculta el ojo nativo del navegador (Edge) para que no se duplique.
  */
 export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito }) {
   const [objFormData, setObjFormData] = useState(VALORES_INICIALES);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strError, setStrError] = useState("");
-  const [strExito, setStrExito] = useState("");
-  const refTemporizadorCierre = useRef(null);
 
-  const { boolShowPassword, fnToggleShowPassword, strInputType } = usePasswordVisibility();
+  // Un estado de visibilidad independiente por campo
+  const objVisActual = usePasswordVisibility();
+  const objVisNueva = usePasswordVisibility();
+  const objVisConfirmar = usePasswordVisibility();
 
   const objEvaluacion = fnEvaluarContrasena(objFormData.contrasenaNueva, objFormData.contrasenaActual);
 
@@ -36,19 +36,32 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito 
     if (!boolAbierto) return;
     setObjFormData(VALORES_INICIALES);
     setStrError("");
-    setStrExito("");
-    // Si el modal se cierra antes (Cancelar) o se desmonta, se cancela el cierre automático
-    return () => clearTimeout(refTemporizadorCierre.current);
   }, [boolAbierto]);
 
   const fnActualizarCampo = (strCampo) => (e) => {
     setObjFormData((prev) => ({ ...prev, [strCampo]: e.target.value }));
   };
 
+  // Botón de ojo de un campo: solo muestra/oculta la contraseña de ese campo
+  const fnBotonOjo = (objVisibilidad, strNombreCampo) => (
+    <button
+      type="button"
+      aria-label={
+        objVisibilidad.boolShowPassword ? `Ocultar ${strNombreCampo}` : `Mostrar ${strNombreCampo}`
+      }
+      onClick={objVisibilidad.fnToggleShowPassword}
+      className="w-[22px] h-[22px] text-primary-navy"
+    >
+      <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.7]">
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+        <circle cx="12" cy="12" r="2.5" />
+      </svg>
+    </button>
+  );
+
   const fnManejarEnvio = async (e) => {
     e.preventDefault();
     setStrError("");
-    setStrExito("");
 
     if (!objEvaluacion.boolValida) {
       setStrError("Tu nueva contraseña debe llegar al nivel 8 (Segura) para poder guardarla.");
@@ -62,10 +75,9 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito 
     setBoolIsSubmitting(true);
     try {
       await cambiarContrasena(objFormData.contrasenaActual, objFormData.contrasenaNueva);
-      setStrExito("Contraseña actualizada exitosamente. Esta ventana se cerrará sola.");
       setObjFormData(VALORES_INICIALES);
       if (onExito) onExito();
-      refTemporizadorCierre.current = setTimeout(onCerrar, INT_MS_CIERRE_AUTOMATICO);
+      onCerrar();
     } catch (error) {
       setStrError(error.message);
     } finally {
@@ -86,52 +98,38 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito 
             {strError}
           </p>
         )}
-        {strExito && (
-          <p className="mb-4 text-xs font-semibold text-emerald-600" role="status">
-            {strExito}
-          </p>
-        )}
 
-        <form onSubmit={fnManejarEnvio} className="space-y-4">
+        {/* [&_input::-ms-reveal]:hidden oculta el ojo nativo de Edge en los inputs de este formulario */}
+        <form onSubmit={fnManejarEnvio} className="space-y-4 [&_input::-ms-reveal]:hidden">
           <FormField
             label="Contraseña actual"
-            type={strInputType}
+            type={objVisActual.strInputType}
             value={objFormData.contrasenaActual}
             onChange={fnActualizarCampo("contrasenaActual")}
             required
-            endAdornment={
-              <button
-                type="button"
-                aria-label={boolShowPassword ? "Ocultar contraseñas" : "Mostrar contraseñas"}
-                onClick={fnToggleShowPassword}
-                className="w-[22px] h-[22px] text-primary-navy"
-              >
-                <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.7]">
-                  <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
-                  <circle cx="12" cy="12" r="2.5" />
-                </svg>
-              </button>
-            }
+            endAdornment={fnBotonOjo(objVisActual, "contraseña actual")}
           />
 
           <div>
             <FormField
               label="Nueva contraseña"
-              type={strInputType}
+              type={objVisNueva.strInputType}
               placeholder="Mayúsculas, números y símbolos"
               value={objFormData.contrasenaNueva}
               onChange={fnActualizarCampo("contrasenaNueva")}
               required
+              endAdornment={fnBotonOjo(objVisNueva, "nueva contraseña")}
             />
             <IndicadorSeguridadContrasena objEvaluacion={objEvaluacion} />
           </div>
 
           <FormField
             label="Confirmar nueva contraseña"
-            type={strInputType}
+            type={objVisConfirmar.strInputType}
             value={objFormData.confirmarContrasena}
             onChange={fnActualizarCampo("confirmarContrasena")}
             required
+            endAdornment={fnBotonOjo(objVisConfirmar, "confirmación de contraseña")}
           />
 
           <div className="flex justify-end gap-3 pt-2">

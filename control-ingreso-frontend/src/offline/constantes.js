@@ -21,6 +21,8 @@ export const RESULTADO_VALIDACION = {
   NO_EN_NOMINA: "NO_EN_NOMINA",
   NO_HABILITADO: "NO_HABILITADO",
   YA_MARCADO: "YA_MARCADO",
+  // El estudiante ingresó pero fue expulsado del examen: no puede reingresar.
+  RETIRADO: "RETIRADO",
   SIN_NOMINA_LOCAL: "SIN_NOMINA_LOCAL",
   QR_INVALIDO: "QR_INVALIDO",
   OTRA_AULA: "OTRA_AULA",

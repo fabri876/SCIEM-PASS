@@ -53,6 +53,7 @@ export default function useUltimosLocales(idExamen, boolActivo, numVersion, numP
             // El facial no es un método: se deriva de score_facial y se muestra
             // como sufijo ("QR · con facial" / "C.I. · sin facial").
             conFacial: a.scoreFacial != null,
+            modoRapido: Boolean(a.modoRapido),
             registradoPor: strMiNombre, // columna "Registró" del docente
             sinSincronizar: a.syncStatus === ESTADO_SYNC.PENDIENTE || a.syncStatus === ESTADO_SYNC.SYNCING || a.syncStatus === ESTADO_SYNC.ERROR,
             estudiante: { ...separarNombre(r), sis: a.codigoSis || "", ci: r?.ci || "" },

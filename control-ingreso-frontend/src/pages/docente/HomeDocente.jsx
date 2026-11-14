@@ -42,9 +42,13 @@ export default function HomeDocente() {
         ? objUbicacion.state.menu
         : "inicio";
     const [strMenuActivo, setStrMenuActivo] = useState(strMenuInicial);
+    const [boolMenuLateralMovil, setBoolMenuLateralMovil] = useState(false);
     const [totalIncidenciasAbiertas, setTotalIncidenciasAbiertas] = useState(0);
     // Sección desde la que se abrió "Registrar examen" (para que Cancelar vuelva ahí)
     const [strMenuAntesRegistro, setStrMenuAntesRegistro] = useState("mis-examenes");
+    useEffect(() => {
+        setBoolMenuLateralMovil(false);
+    }, [strMenuActivo]);
     // Examen que se resalta al entrar a "Mis Exámenes" desde "Ver detalle"
     const [idExamenResaltado, setIdExamenResaltado] = useState(null);
     // Se incrementa al registrar un examen para volver a cargar la lista
@@ -213,8 +217,8 @@ export default function HomeDocente() {
 
     const boolMenuControl = strMenuActivo === "control-ingresos" || strMenuActivo === "asignar-operadores";
 
-    const fnCargarMasiva = async (file, materia, tipoCarga, docente, grupo) => {
-        return cargarUsuariosMasivo(file, "ESTUDIANTE", grupo ? Number(grupo) : null);
+    const fnCargarMasiva = async (file, materia, tipoCarga, docente, grupo,carrera) => {
+        return cargarUsuariosMasivo(file, "ESTUDIANTE", grupo ? Number(grupo) : null,false,carrera);
     };
 
     const [mensajeRegistro, setMensajeRegistro] = useState("");
@@ -238,8 +242,28 @@ export default function HomeDocente() {
             <div className="flex-1 w-full">
                 <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-6 gap-6">
 
+                    <button
+                        type="button"
+                        onClick={() => setBoolMenuLateralMovil(true)}
+                        aria-expanded={boolMenuLateralMovil}
+                        className="fixed top-[78px] left-4 z-30 inline-flex items-center gap-2 rounded-xl bg-[#003770] px-3.5 py-2 text-xs font-extrabold text-white shadow-md lg:hidden"
+                    >
+                        <span aria-hidden="true">☰</span> Menú
+                    </button>
+
                     {/* SIDEBAR IZQUIERDA */}
-                    <aside className="w-[280px] shrink-0 hidden lg:block space-y-6">
+                    {boolMenuLateralMovil && (
+                        <button
+                            type="button"
+                            aria-label="Cerrar menú lateral"
+                            onClick={() => setBoolMenuLateralMovil(false)}
+                            className="fixed inset-0 z-40 bg-slate-950/45 lg:hidden cursor-default"
+                        />
+                    )}
+                    <aside className={`w-[280px] shrink-0 space-y-6 lg:block lg:static lg:z-auto lg:translate-x-0 ${boolMenuLateralMovil ? "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto translate-x-0 bg-[#F8FAFC] p-4 pt-6 shadow-2xl" : "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto -translate-x-full bg-[#F8FAFC] p-4 pt-6 shadow-2xl lg:translate-x-0"}`}>
+                        <div className="flex justify-end lg:hidden mb-1">
+                            <button type="button" onClick={() => setBoolMenuLateralMovil(false)} aria-label="Cerrar menú" className="rounded-lg px-3 py-1.5 text-sm font-bold text-[#003770] hover:bg-white">Cerrar ×</button>
+                        </div>
                         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center text-center">
                             <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-md mb-3">
                                 {strIniciales}

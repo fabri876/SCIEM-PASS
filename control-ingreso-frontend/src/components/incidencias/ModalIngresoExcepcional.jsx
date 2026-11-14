@@ -17,6 +17,8 @@ import {
   autorizarIngresoExcepcional
 } from "../../services/ingresoExcepcionalService";
 import { notificarCambioIncidencias } from "../../services/incidenciaService";
+import { buscarEstudianteExcepcionalLocal, estaOfflineIncidencia } from "../../offline/incidenciaOffline";
+import { ingresoExcepcionalRepo } from "../../offline/ingresoExcepcionalRepo";
 import { formatearHora, validarImagen, etiquetaAula, textoAforo } from "./utilidadesIncidencias";
 
 const MOTIVOS_EXCEPCION = [
@@ -79,6 +81,8 @@ export default function ModalIngresoExcepcional({
   const [strBusqueda, setStrBusqueda] = useState("");
   const [boolBuscando, setBoolBuscando] = useState(false);
   const [strErrorBusqueda, setStrErrorBusqueda] = useState("");
+  const [strAvisoBusqueda, setStrAvisoBusqueda] = useState("");
+  const [boolOffline, setBoolOffline] = useState(false);
   const [consultaResultado, setConsultaResultado] = useState(null);
 
   const [aulaSeleccionada, setAulaSeleccionada] = useState(null);
@@ -103,12 +107,20 @@ export default function ModalIngresoExcepcional({
       estado: "HABILITADO",
     } : null);
     setStrErrorBusqueda("");
+    setStrAvisoBusqueda("");
     setStrErrorGuardado("");
     setStrExitoMensaje("");
     setStrObservacion(observacionSugerida || "");
     setArchivoRespaldo(null);
     setMotivoSeleccionado(motivoPreseleccionado || null);
     setBoolGuardando(false);
+
+    // Sin conexión el formulario trabaja con la nómina descargada y deja el
+    // registro en la cola local (HU21).
+    setBoolOffline(false);
+    estaOfflineIncidencia()
+      .then((offline) => setBoolOffline(offline))
+      .catch(() => { });
 
     const aulaBloqueada = idAmbienteBloqueado != null
       ? aulasDisponibles.find((item) => Number(item.idAmbiente) === Number(idAmbienteBloqueado))
@@ -118,6 +130,19 @@ export default function ModalIngresoExcepcional({
     setAforoActual(aula?.aforo || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boolAbierto]);
+
+  // Cerrar con ESC, igual que la "X" de la cabecera.
+  useEffect(() => {
+    if (!boolAbierto) return undefined;
+    const fnTecla = (e) => {
+      if (e.key === "Escape" && !boolGuardando) {
+        e.preventDefault();
+        if (onCerrar) onCerrar();
+      }
+    };
+    window.addEventListener("keydown", fnTecla);
+    return () => window.removeEventListener("keydown", fnTecla);
+  }, [boolAbierto, boolGuardando, onCerrar]);
 
   if (!boolAbierto) return null;
 
@@ -141,12 +166,37 @@ export default function ModalIngresoExcepcional({
     }
     if (!idAmbienteActual) return;
 
+    const idExamenActual = aulaSeleccionada?.idExamen ?? null;
+    const buscarEnNominaLocal = () =>
+      buscarEstudianteExcepcionalLocal({ idExamen: idExamenActual, consulta: query });
+
     setBoolBuscando(true);
     setStrErrorBusqueda("");
+    setStrAvisoBusqueda("");
     setConsultaResultado(null);
 
     try {
-      const data = await consultarEstudianteExcepcional(idAmbienteActual, query);
+      let data;
+      if (await estaOfflineIncidencia()) {
+        data = await buscarEnNominaLocal();
+        setBoolOffline(true);
+        if (data?.estado !== "SIN_NOMINA") {
+          setStrAvisoBusqueda("Sin conexión: se usó la nómina descargada en este equipo.");
+        }
+      } else {
+        try {
+          data = await consultarEstudianteExcepcional(idAmbienteActual, query);
+        } catch (err) {
+          // Servidor inalcanzable a mitad de la búsqueda: respaldo local.
+          if (err?.offline || /conectar|conexi[oó]n|Failed to fetch|timeout/i.test(err?.message || "")) {
+            data = await buscarEnNominaLocal();
+            setBoolOffline(true);
+            setStrAvisoBusqueda("Sin conexión: se usó la nómina descargada en este equipo.");
+          } else {
+            throw err;
+          }
+        }
+      }
       setConsultaResultado(data);
       if (data?.aforo) setAforoActual(data.aforo);
     } catch (err) {
@@ -183,6 +233,38 @@ export default function ModalIngresoExcepcional({
     setStrErrorGuardado("");
   };
 
+  const guardarOffline = async () => {
+    const usuario = obtenerUsuarioActual();
+    const autorizadoPor = usuario?.idUsuario ?? usuario?.idusuario ?? usuario?.correo ?? null;
+    try {
+      await ingresoExcepcionalRepo.encolar({
+        idExamen: aulaSeleccionada?.idExamen ?? null,
+        idAmbiente: idAmbienteActual,
+        codSis: consultaResultado.codSis,
+        motivo: motivoSeleccionado,
+        observacion: strObservacion.trim(),
+        respaldo: archivoRespaldo,
+        registradoEn: new Date().toISOString(),
+        autorizadoPor,
+        nombreEstudiante: consultaResultado.nombreCompleto,
+        aula: aulaSeleccionada?.aula || null,
+        asignatura: aulaSeleccionada?.asignatura || null,
+      });
+    } catch {
+      setStrErrorGuardado("No se pudo guardar el ingreso excepcional en el dispositivo.");
+      setBoolGuardando(false);
+      return;
+    }
+    setStrExitoMensaje(
+      "Sin conexión. El ingreso excepcional quedó guardado en el dispositivo y se enviará automáticamente al recuperar la señal."
+    );
+    notificarCambioIncidencias();
+    setTimeout(() => {
+      if (onExito) onExito({ offline: true, codSis: consultaResultado.codSis, motivo: motivoSeleccionado });
+      onCerrar();
+    }, 1400);
+  };
+
   const fnConfirmarIngreso = async () => {
     if (!motivoSeleccionado) {
       setStrErrorGuardado("El motivo es obligatorio.");
@@ -198,6 +280,11 @@ export default function ModalIngresoExcepcional({
     setStrErrorGuardado("");
 
     try {
+      if (await estaOfflineIncidencia()) {
+        await guardarOffline();
+        return;
+      }
+
       const respuesta = await autorizarIngresoExcepcional({
         idAmbiente: idAmbienteActual,
         codSis: consultaResultado.codSis,
@@ -216,6 +303,10 @@ export default function ModalIngresoExcepcional({
         onCerrar();
       }, 1200);
     } catch (err) {
+      if (err?.offline || /conectar|conexi[oó]n|Failed to fetch|timeout/i.test(err?.message || "")) {
+        await guardarOffline();
+        return;
+      }
       setStrErrorGuardado(err.message || "No se pudo autorizar el ingreso.");
       setBoolGuardando(false);
     }
@@ -251,6 +342,15 @@ export default function ModalIngresoExcepcional({
             </div>
 
             <div className="p-5 space-y-4">
+              {boolOffline && (
+                <div className="bg-[#FEF9E7] border border-[#FDE68A] text-[#92400E] rounded-xl p-3 text-xs font-bold flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    Sin conexión: se usa la nómina descargada en este equipo. El ingreso se guardará
+                    en el dispositivo y se enviará automáticamente al recuperar la señal.
+                  </span>
+                </div>
+              )}
               {aulasDisponibles.length === 0 ? (
                 <p className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] rounded-xl p-3 text-xs font-bold">
                   El ingreso excepcional solo se autoriza el día del examen: hoy no tienes exámenes asignados.
@@ -309,6 +409,9 @@ export default function ModalIngresoExcepcional({
                       </button>
                     </div>
                     {strErrorBusqueda && <p className="text-[11px] text-[#B91C1C] font-bold">{strErrorBusqueda}</p>}
+                    {strAvisoBusqueda && (
+                      <p className="text-[10.5px] text-[#124B83] font-bold">{strAvisoBusqueda}</p>
+                    )}
                   </form>
                 </>
               )}
@@ -374,7 +477,10 @@ export default function ModalIngresoExcepcional({
                         <span>Autorizar ingreso excepcional</span>
                       </button>
                     )}
-                    {consultaResultado.puedeRegistrarIncidencia && (
+                    {/* El botón solo se muestra si hay a quién abrir el formulario de
+                        incidencia: el operador (ayudante) no registra incidencias
+                        y no recibe ese callback. */}
+                    {onAbrirIncidenciaConEstudiante && consultaResultado.puedeRegistrarIncidencia && usuarioSesion.rol === "DOCENTE" && (
                       <button
                         onClick={fnDerivarAIncidencia}
                         className="bg-[#F0F6FC] hover:bg-[#D9E8F7] text-[#124B83] border border-[#B6D3EE] py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
@@ -517,7 +623,9 @@ export default function ModalIngresoExcepcional({
             <div className="bg-[#F1F5F9] p-3 rounded-xl border border-[#CBD5E1]">
               <div className="flex justify-between items-center text-xs font-bold text-[#475569] mb-1 gap-2">
                 <span>Aforo {aulaSeleccionada?.aula}</span>
-                <span className={porcentajeOcupacion >= 90 ? "text-[#B91C1C]" : "text-[#124B83]"}>{textoAforo(aforoActual)}</span>
+                <span className={porcentajeOcupacion >= 90 ? "text-[#B91C1C]" : "text-[#124B83]"}>
+                  {aforoActual ? textoAforo(aforoActual) : (boolOffline ? "Sin conexión" : "Sin dato")}
+                </span>
               </div>
               {capacidad != null && (
                 <div className="w-full bg-[#CBD5E1] h-2 rounded-full overflow-hidden">
@@ -532,7 +640,11 @@ export default function ModalIngresoExcepcional({
 
             <div className="bg-[#F0F6FC] border border-[#B6D3EE] rounded-xl p-2.5 flex items-start gap-2 text-[11px] text-[#124B83] font-bold">
               <ShieldCheck className="w-4 h-4 text-[#4A97D3] shrink-0 mt-0.5" />
-              <span>Quedará en el historial de auditoría con tu usuario, la fecha y hora oficiales y tu IP.</span>
+              <span>
+                {boolOffline
+                  ? "Quedará en la cola del dispositivo con tu usuario y la hora en que se autorizó; se auditará al sincronizar."
+                  : "Quedará en el historial de auditoría con tu usuario, la fecha y hora oficiales y tu IP."}
+              </span>
             </div>
 
             {strErrorGuardado && (

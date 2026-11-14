@@ -1,6 +1,8 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.IngresoExcepcionalService;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpResolver;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ConsultaEstudianteDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.IngresoExcepcionalDto;
@@ -47,6 +49,9 @@ public class IngresoExcepcionalController {
                                                            @RequestParam String observacion,
                                                            @RequestParam(required = false) MultipartFile respaldo,
                                                            HttpServletRequest request) {
+        if (MotivoExcepcion.MODO_RAPIDO.name().equalsIgnoreCase(motivo)) {
+            throw new SolicitudInvalidaException("MODO_RAPIDO solo se registra desde el control normal.");
+        }
         IngresoExcepcionalDto respuesta = ingresoExcepcionalService.autorizar(idAmbiente, codSis, motivo, observacion,
                 respaldo, ClientIpResolver.resolver(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);

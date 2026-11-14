@@ -7,8 +7,13 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CuentaBloq
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.CuentaInactivaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoDuplicadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ReintentarSincronizacionException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ErrorResponseDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -24,6 +29,8 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     // --- Excepciones del flujo de auto-registro genérico (RegistroUsuarioService) ---
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
@@ -152,6 +159,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
     }
 
+    /**
+     * Error transitorio de la sincronización offline (HU21). En el flujo en
+     * línea no debería ocurrir (el ingreso del estudiante ya está en el
+     * servidor), pero si ocurre se responde 409 con el motivo en vez de un 500.
+     */
+    @ExceptionHandler(ReintentarSincronizacionException.class)
+    public ResponseEntity<ErrorResponseDto> handleReintentarSincronizacion(ReintentarSincronizacionException ex) {
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
+    }
+
     // Sin esto, un archivo de más de 10 MB (límite global de multipart) caía
     // en el handler genérico como "error inesperado del servidor".
     @ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -213,8 +235,30 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(errorDto);
     }
 
+    /**
+     * Conflicto transitorio de concurrencia (deadlock, lock timeout, fallo de serialización).
+     *
+     * BUG-001: estos fallos NO son un error de negocio: la operación se puede reintentar tal
+     * cual. Se responden con 503 para que el cliente (y la cola offline del dispositivo) sepa
+     * que debe reintentar, en lugar de un 500 que se lee como "operación inválida" y hace que
+     * el registro se descarte.
+     */
+    @ExceptionHandler({ConcurrencyFailureException.class, QueryTimeoutException.class})
+    public ResponseEntity<ErrorResponseDto> handleConcurrencia(Exception ex) {
+        logger.error("Fallo transitorio de concurrencia: {}", ex.getMessage(), ex);
+        ErrorResponseDto errorDto = new ErrorResponseDto(
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                "Service Unavailable",
+                "La operacion choco con otra en curso. Se puede reintentar sin perdida de informacion."
+        );
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorDto);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleGeneral(Exception ex) {
+        // BUG-001: antes no se logueaba nada y el 500 era invisible: sin el log no se podia
+        // saber que el fallo venia de un conflicto de concurrencia con la cadena de auditoria.
+        logger.error("Error no controlado: {}", ex.getMessage(), ex);
         ErrorResponseDto errorDto = new ErrorResponseDto(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",

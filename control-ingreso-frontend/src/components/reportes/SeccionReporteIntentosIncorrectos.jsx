@@ -126,14 +126,27 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
     setFiltroExamen("TODOS");
   };
 
+  // Fecha máxima permitida (hoy) para el filtro de calendario (BUG-00N)
+  const strFechaHoy = (() => {
+    const hoy = new Date();
+    const year = hoy.getFullYear();
+    const month = String(hoy.getMonth() + 1).padStart(2, "0");
+    const day = String(hoy.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  })();
+
   // Manejador del botón Filtrar (Criterios 6, 7, 8, 9, 10, 11)
   const fnAplicarFiltros = (e) => {
     if (e) e.preventDefault();
+    const fechaValidada = (filtroFecha && filtroFecha > strFechaHoy) ? strFechaHoy : filtroFecha;
+    if (filtroFecha && filtroFecha > strFechaHoy) {
+      setFiltroFecha(strFechaHoy);
+    }
     setFiltrosActivos({
       idAsignatura: filtroAsignatura,
       idExamen: filtroExamen,
       motivo: filtroMotivo,
-      fecha: filtroFecha,
+      fecha: fechaValidada,
       busqueda: filtroBusqueda,
     });
   };
@@ -353,14 +366,14 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             filtrosActivos.motivo !== "TODOS" ||
             filtrosActivos.fecha ||
             filtrosActivos.busqueda) && (
-            <button
-              type="button"
-              onClick={fnLimpiarFiltros}
-              className="text-[11px] font-bold text-rose-600 hover:text-rose-800 transition cursor-pointer"
-            >
-              Limpiar filtros
-            </button>
-          )}
+              <button
+                type="button"
+                onClick={fnLimpiarFiltros}
+                className="text-[11px] font-bold text-rose-600 hover:text-rose-800 transition cursor-pointer"
+              >
+                Limpiar filtros
+              </button>
+            )}
         </div>
 
         <form onSubmit={fnAplicarFiltros} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
@@ -431,8 +444,16 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
             </label>
             <input
               type="date"
+              max={strFechaHoy}
               value={filtroFecha}
-              onChange={(e) => setFiltroFecha(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val && val > strFechaHoy) {
+                  setFiltroFecha(strFechaHoy);
+                  return;
+                }
+                setFiltroFecha(val);
+              }}
               className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-primary-blue focus:bg-white transition"
             />
           </div>
@@ -580,9 +601,9 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
                 <tr>
                   <td colSpan="7" className="py-12 text-center text-xs text-slate-500 font-medium">
                     {filtrosActivos.idAsignatura !== "TODAS" ||
-                    filtrosActivos.idExamen !== "TODOS" ||
-                    filtrosActivos.motivo !== "TODOS" ||
-                    filtrosActivos.fecha || filtrosActivos.busqueda ? (
+                      filtrosActivos.idExamen !== "TODOS" ||
+                      filtrosActivos.motivo !== "TODOS" ||
+                      filtrosActivos.fecha || filtrosActivos.busqueda ? (
                       <div className="space-y-1">
                         <p className="font-bold text-slate-600">No se encontraron registros de intentos incorrectos con los filtros aplicados.</p>
                         <p className="text-slate-400">Modifica los filtros de búsqueda para consultar otros eventos.</p>
@@ -672,11 +693,10 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
                       <button
                         type="button"
                         onClick={() => setIntPaginaActual(numPagina)}
-                        className={`w-8 h-8 rounded-lg font-bold text-xs transition cursor-pointer ${
-                          intPaginaActual === numPagina
-                            ? "bg-[#003770] text-white"
-                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}
+                        className={`w-8 h-8 rounded-lg font-bold text-xs transition cursor-pointer ${intPaginaActual === numPagina
+                          ? "bg-[#003770] text-white"
+                          : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          }`}
                       >
                         {numPagina}
                       </button>

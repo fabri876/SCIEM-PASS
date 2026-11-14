@@ -46,6 +46,7 @@ class ControlIngresoExamenIncorrectoTest {
     @Mock IntentoIngresoService intentos;
     @Mock AuditoriaService auditoria;
     @Mock IntentoExamenIncorrectoService incorrectos;
+    @Mock FaceEnrollmentRepository faceEnrollmentRepository;
     @InjectMocks ControlIngresoAyudanteService servicio;
     private final UUID solicitud = UUID.randomUUID();
 
@@ -76,6 +77,24 @@ class ControlIngresoExamenIncorrectoTest {
         assertNull(respuesta.getBody().otroExamen());
         verify(incorrectos).registrar(argThat(d -> d.solicitud().equals(solicitud) && d.metodo().equals("SIS")),
                 any(), eq("est@example.invalid"), eq("ip"));
+        verify(ingresos, never()).saveAndFlush(any());
+    }
+
+    @Test void duplicadoConservaAulaDelIngresoPrevioParaReporte() {
+        var estudiante = new Estudiante(10, 123456);
+        var usuario = new Usuario("1234567", "Ana", "Prueba", null, "est@example.invalid", "hash", true);
+        usuario.setIdusuario(10);
+        when(estudiantes.findByCodsisestudiante(123456)).thenReturn(Optional.of(estudiante));
+        when(usuarios.findById(10)).thenReturn(Optional.of(usuario));
+        var previo = new Ingreso();
+        previo.setIdAmbiente(9);
+        previo.setHoraIngreso(LocalDateTime.now());
+        when(ingresos.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(123456, 1, 2))
+                .thenReturn(Optional.of(previo));
+        var respuesta = servicio.registrarIngreso(
+                new VerificarIngresoRequestDTO("123456", 1, 2, 3, MetodoIngreso.MANUAL, solicitud), 20, "ip");
+        assertEquals("DUPLICADO", respuesta.getBody().estado());
+        verify(intentos).registrar(MotivoIntento.DUPLICADO, 1, 2, 3, 9, 10, 123456, 20);
         verify(ingresos, never()).saveAndFlush(any());
     }
 

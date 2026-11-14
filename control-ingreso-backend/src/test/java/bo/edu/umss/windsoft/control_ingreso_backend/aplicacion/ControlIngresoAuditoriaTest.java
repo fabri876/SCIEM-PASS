@@ -47,6 +47,7 @@ class ControlIngresoAuditoriaTest {
     @Mock IntentoIngresoService intentoIngresoService;
     @Mock AuditoriaService auditoriaService;
     @Mock IntentoExamenIncorrectoService intentoExamenIncorrectoService;
+    @Mock FaceEnrollmentRepository faceEnrollmentRepository;
     @InjectMocks ControlIngresoAyudanteService service;
 
     @BeforeEach

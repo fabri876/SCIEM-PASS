@@ -15,6 +15,7 @@ export default defineConfig({
         enabled: false,
       },
       workbox: {
+        cacheId: 'sciem-pass-modo-rapido-v1',
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,gif,woff2}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB para cubrir imágenes grandes de ~1.9 MB
         cleanupOutdatedCaches: true,

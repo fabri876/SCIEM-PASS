@@ -69,8 +69,20 @@ public class AuditoriaService {
         guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen);
     }
 
+    /** Para registros que no pueden perder detalles; requiere columna accion de tipo TEXT. */
+    @Transactional
+    public void registrarCompletoEnTransaccion(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
+                                               String detalles, String ipOrigen) {
+        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen, false);
+    }
+
     private void guardarRegistro(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
                                  String detalles, String ipOrigen) {
+        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen, true);
+    }
+
+    private void guardarRegistro(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
+                                 String detalles, String ipOrigen, boolean limitarLongitud) {
         Integer idUsuario = resolverIdUsuario(usuarioAfectado);
         if (idUsuario == null) {
             idUsuario = resolverIdUsuario(usuarioEjecutor);
@@ -84,7 +96,7 @@ public class AuditoriaService {
         // La columna 'accion' en PostgreSQL es varchar(255) (BUG-030 y BUG-038).
         // Si el texto supera los 255 caracteres, PostgreSQL rechaza el insert.
         // Se trunca a 255 para garantizar que el registro de auditoría siempre se guarde.
-        if (accion.length() > 255) {
+        if (limitarLongitud && accion.length() > 255) {
             accion = accion.substring(0, 255);
         }
 
@@ -92,6 +104,36 @@ public class AuditoriaService {
         Auditoria auditoria = new Auditoria(idUsuario, accion);
         auditoriaRepository.save(auditoria);
     }
+    @Transactional
+    public void registrarExpulsionEnTransaccion(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
+                                                 String detalles, String motivo, String ipOrigen) {
+        guardarRegistroConMotivo(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, motivo, ipOrigen, false);
+    }
+
+    private void guardarRegistroConMotivo(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
+                                           String detalles, String motivo, String ipOrigen, boolean limitarLongitud) {
+        Integer idUsuario = resolverIdUsuario(usuarioAfectado);
+        if (idUsuario == null) {
+            idUsuario = resolverIdUsuario(usuarioEjecutor);
+        }
+
+        String accion = "[" + tipoOperacion + "] ejecutor=" + valorOr(usuarioEjecutor)
+                + " | afectado=" + valorOr(usuarioAfectado)
+                + " | ip=" + valorOr(ipOrigen)
+                + " | " + valorOr(detalles);
+
+        // La columna 'accion' en PostgreSQL es varchar(255) (BUG-030 y BUG-038).
+        // Si el texto supera los 255 caracteres, PostgreSQL rechaza el insert.
+        // Se trunca a 255 para garantizar que el registro de auditoría siempre se guarde.
+        if (limitarLongitud && accion.length() > 255) {
+            accion = accion.substring(0, 255);
+        }
+
+        // El id lo genera PostgreSQL (columna IDENTITY, ver Auditoria.java).
+        Auditoria auditoria = new Auditoria(idUsuario, accion, motivo);
+        auditoriaRepository.save(auditoria);
+    }
+
 
     public List<Auditoria> listar() {
         return auditoriaRepository.findAllByOrderByIdAuditoriaDesc();

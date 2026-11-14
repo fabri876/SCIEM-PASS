@@ -20,7 +20,7 @@ function textoAula(strAula) {
 
 function Chip({ children }) {
   return (
-    <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/15 text-[13px] font-semibold text-white whitespace-nowrap">
+    <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/15 text-[12px] font-semibold text-white whitespace-nowrap max-md:text-[11px]">
       {children}
     </span>
   );
@@ -30,8 +30,8 @@ function Chip({ children }) {
 function Contador({ numValor, strEtiqueta, boolRojo = false }) {
   return (
     <div className={"min-w-[104px] max-md:min-w-0 rounded-xl px-4 py-3 max-md:px-3 " + (boolRojo ? "bg-[#B91C1C]" : "bg-white/10")}>
-      <b className="block text-[26px] max-md:text-[22px] leading-none font-bold text-white">{numValor}</b>
-      <span className={"block mt-1.5 text-[13px] max-md:text-xs " + (boolRojo ? "text-white" : "text-white/80")}>{strEtiqueta}</span>
+      <b className="block text-[22px] max-md:text-[18px] leading-none font-bold text-white">{numValor}</b>
+      <span className={"block mt-1.5 text-[12px] max-md:text-xs " + (boolRojo ? "text-white" : "text-white/80")}>{strEtiqueta}</span>
     </div>
   );
 }
@@ -50,15 +50,16 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
 
   const numIng = objContador?.ingresaron ?? 0;
   const numHab = objContador?.habilitados ?? 0;
-  const numPend = objContador?.pendientes ?? Math.max(0, numHab - numIng);
+  const numExp = objContador?.expulsados ?? 0;
+  const numPend = objContador?.pendientes ?? Math.max(0, numHab - numIng - numExp);
   const numInh = objContador?.inhabilitados ?? 0;
   const strGrupo = textoGrupoExamen(examen.grupo);
   const strHorario = examen.horaInicio && examen.horaFin ? `${examen.horaInicio} – ${examen.horaFin}` : examen.horaInicio || "";
 
   return (
     <section aria-label="Examen en control" className="bg-[#003770] rounded-2xl px-7 py-6 max-md:px-4 max-md:py-5 text-white">
-      <div className="flex flex-wrap items-start justify-between gap-5">
-        <div className="min-w-0 flex-1 basis-[320px]">
+      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-5 items-start">
+        <div className="min-w-0 w-full flex-shrink-0">
           <span className="block text-xs font-bold uppercase tracking-[.8px] text-white/75">
             Control de ingreso · {examen.tipo}{strGrupo ? ` · ${strGrupo}` : ""}
           </span>
@@ -71,11 +72,13 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-3 max-md:w-full max-md:items-stretch">
+        <div className="flex flex-col gap-3 min-w-0">
           {children && <div className="flex flex-wrap justify-end gap-2 max-md:justify-start">{children}</div>}
-          <div className="grid grid-cols-3 gap-2.5 max-md:gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-md:gap-2 max-md:w-full">
             <Contador numValor={numIng} strEtiqueta="Ingresaron" />
             <Contador numValor={numPend} strEtiqueta="Ausentes" />
+            {/* Entró pero se lo retiró del examen: no cuenta como ausente. */}
+            {numExp > 0 && <Contador numValor={numExp} strEtiqueta="Expulsados" />}
             <Contador numValor={numInh} strEtiqueta="Inhabilitados" boolRojo />
           </div>
           <span className="inline-flex items-center gap-2 text-[13px] text-white/75">

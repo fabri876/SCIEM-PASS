@@ -15,27 +15,30 @@ public record UltimoIngresoDTO(
         boolean verificacionFacial,
         /** Similitud facial 0..1; null cuando el ingreso fue sin facial. */
         Double scoreFacial,
-        String estado
+        String estado,
+        boolean modoRapido,
+        /** Id de la expulsión asociada, si el estudiante fue expulsado de este examen. */
+        Integer idExpulsion
 ) {
     public UltimoIngresoDTO(Integer idIngreso, LocalDateTime horaIngreso, String metodoIngreso,
                             EstudianteResumenDTO estudiante, String registradoPor, Integer idAsignatura,
                             Integer idExamen, Integer idAmbiente, boolean verificacionFacial,
                             Double scoreFacial) {
         this(idIngreso, horaIngreso, metodoIngreso, estudiante, registradoPor, idAsignatura, idExamen,
-                idAmbiente, verificacionFacial, scoreFacial, "PERMITIDO");
+                idAmbiente, verificacionFacial, scoreFacial, "PERMITIDO", false, null);
     }
 
     public UltimoIngresoDTO(Integer idIngreso, LocalDateTime horaIngreso, String metodoIngreso,
                             EstudianteResumenDTO estudiante, String registradoPor, Integer idAsignatura,
                             Integer idExamen, Integer idAmbiente, String estado) {
         this(idIngreso, horaIngreso, metodoIngreso, estudiante, registradoPor, idAsignatura, idExamen,
-                idAmbiente, false, null, estado);
+                idAmbiente, false, null, estado, false, null);
     }
 
     public UltimoIngresoDTO(Integer idIngreso, LocalDateTime horaIngreso, String metodoIngreso,
                             EstudianteResumenDTO estudiante, String registradoPor, Integer idAsignatura,
                             Integer idExamen, Integer idAmbiente) {
         this(idIngreso, horaIngreso, metodoIngreso, estudiante, registradoPor, idAsignatura, idExamen,
-                idAmbiente, false, null, "PERMITIDO");
+                idAmbiente, false, null, "PERMITIDO", false, null);
     }
 }

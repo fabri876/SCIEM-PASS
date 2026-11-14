@@ -5,6 +5,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ContextoUsuarioSe
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.EstudianteExamenService.EstudianteEncontrado;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.EvidenciaService.EvidenciaSubida;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ambiente;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.EstadoExpulsion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.EstadoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Expulsion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HoraOficial;
@@ -14,8 +15,11 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.SeveridadIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ClaveSolicitudDuplicadaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ReintentarSincronizacionException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExpulsionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IncidenciaRepository;
@@ -43,7 +47,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -68,6 +74,8 @@ public class IncidenciaService {
 
     private static final int DESCRIPCION_MIN = 15;
     private static final int DESCRIPCION_MAX = 500;
+    /** Límite de la columna "incidencia.resolucion" (varchar 255) en PostgreSQL. */
+    private static final int RESOLUCION_MAX = 255;
     private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter FORMATO_HORA = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -106,9 +114,17 @@ public class IncidenciaService {
                 Arrays.stream(MotivoExcepcion.values()).map(m -> new OpcionCatalogoDto(m.name(), m.getEtiqueta())).toList());
     }
 
+    /**
+     * Id de la incidencia ya registrada con esa clave de solicitud.
+     *
+     * Lo usa la sincronización offline para responder "DUPLICADO" con el id:
+     * sin él, el dispositivo no puede subir la evidencia que quedó guardada en
+     * su cola local y la foto se pierde en silencio.
+     */
     @Transactional(readOnly = true)
-    public boolean existeClaveSolicitud(String claveSolicitudTexto) {
-        return incidenciaRepository.existsByClaveSolicitud(leerClave(claveSolicitudTexto));
+    public Optional<Integer> idPorClaveSolicitud(String claveSolicitudTexto) {
+        return incidenciaRepository.findByClaveSolicitud(leerClave(claveSolicitudTexto))
+                .map(Incidencia::getIdIncidencia);
     }
 
     // -------------------------------------------------------------------------
@@ -119,8 +135,29 @@ public class IncidenciaService {
     public IncidenciaDetalleDto registrar(String claveSolicitudTexto, Integer idAmbiente, String tipoTexto,
                                           String severidadTexto, String descripcion, Integer codSisEstudiante,
                                           boolean retirarEstudiante, MultipartFile evidenciaArchivo, String ip) {
+        return registrar(claveSolicitudTexto, idAmbiente, tipoTexto, severidadTexto, descripcion, codSisEstudiante,
+                retirarEstudiante, evidenciaArchivo, null, ip);
+    }
+
+    /**
+     * Variante usada por la sincronización offline: conserva la fecha y hora
+     * reales del evento registrado en el dispositivo (HU21, CA15/CA30) y deja
+     * la auditoría con la hora en que el servidor recibió el registro.
+     */
+    @Transactional
+    public IncidenciaDetalleDto registrar(String claveSolicitudTexto, Integer idAmbiente, String tipoTexto,
+                                          String severidadTexto, String descripcion, Integer codSisEstudiante,
+                                          boolean retirarEstudiante, MultipartFile evidenciaArchivo,
+                                          OffsetDateTime registradoEn, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         UUID claveSolicitud = leerClave(claveSolicitudTexto);
+
+        // Hora real del evento: si el registro llegó desde la cola offline se
+        // conserva la del dispositivo; en el flujo en línea se usa la hora oficial.
+        boolean desdeSincronizacion = registradoEn != null;
+        LocalDateTime fechaEvento = desdeSincronizacion
+                ? registradoEn.atZoneSameInstant(HoraOficial.ZONA).toLocalDateTime()
+                : HoraOficial.ahora();
 
         // Doble clic / reintento: la misma clave devuelve la incidencia ya creada.
         Optional<Incidencia> yaRegistrada = incidenciaRepository.findByClaveSolicitud(claveSolicitud);
@@ -132,10 +169,22 @@ public class IncidenciaService {
         }
 
         Ambiente ambiente = ambienteExamenService.obtener(idAmbiente);
-        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, true,
+        // Las incidencias son del docente responsable y del administrador:
+        // el operador (ayudante) no registra incidencias.
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Registrar incidencia", ip);
         // Se puede registrar el día del examen o después, pero no antes.
-        ambienteExamenService.verificarExamenYaIniciado(ambienteExamenService.describir(ambiente));
+        AmbienteInfo infoAmbiente = ambienteExamenService.describir(ambiente);
+        ambienteExamenService.verificarExamenYaIniciado(infoAmbiente);
+        if (desdeSincronizacion) {
+            // El registro se hizo sin conexión: se valida la marca del
+            // dispositivo (que no puede ser anterior al examen ni futura).
+            // Una incidencia también se puede registrar después del examen, así
+            // que aquí no se exige que el evento sea del día del examen (eso sí
+            // se exige en la expulsión, más abajo, que solo se puede hacer
+            // mientras el examen está en curso).
+            ambienteExamenService.verificarFechaEventoOffline(infoAmbiente, fechaEvento);
+        }
 
         TipoIncidencia tipo = leerEnum(TipoIncidencia.class, tipoTexto, "El tipo de incidencia");
         SeveridadIncidencia severidad = leerEnum(SeveridadIncidencia.class, severidadTexto, "La severidad");
@@ -152,14 +201,38 @@ public class IncidenciaService {
             estudiante = estudianteExamenService.buscarPorCodSis(codSisEstudiante)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Estudiante no encontrado."));
 
+            // BUG-001: bloquea el ingreso del estudiante antes de leerlo. Sin el lock, dos
+            // expulsiones simultáneas del mismo estudiante pasaban las dos la comprobación
+            // "no está retirado" y las dos creaban una expulsión. Con el lock, la segunda
+            // espera y luego ve la expulsión de la primera (409) en vez de duplicarla.
+            ingresoRepository.bloquearIngresoPorEstudiante(codSisEstudiante,
+                    ambiente.getIdAsignatura(), ambiente.getIdExamen());
+
+            // El estudiante debe estar inscrito en la asignatura del examen para que
+            // la incidencia sea válida: un estudiante con ingreso previo pero no inscrito
+            // en la materia no puede registrar incidencias en ese examen (BUG-020-EXP).
+            if (!estudianteExamenService.estaInscritoEnAsignatura(codSisEstudiante,
+                    ambiente.getIdAsignatura())) {
+                throw new SolicitudInvalidaException(
+                        "El estudiante no está inscrito en la asignatura de este examen; no se puede registrar una incidencia para él.");
+            }
+
             ingresoEstudiante = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
                     codSisEstudiante, ambiente.getIdAsignatura(), ambiente.getIdExamen());
 
             // Un estudiante que no ha ingresado al examen no puede estar involucrado en
             // una incidencia: no podría haber causado un incidente sin haber ingresado.
             if (ingresoEstudiante.isEmpty()) {
-                throw new SolicitudInvalidaException(
-                        "El estudiante no ha ingresado a este examen; no se puede registrar una incidencia para él.");
+                String mensaje = "El estudiante no ha ingresado a este examen; no se puede registrar una incidencia para él.";
+                if (desdeSincronizacion) {
+                    // En la cola offline el ingreso del estudiante puede que aún no se
+                    // haya sincronizado: se reintenta en el siguiente ciclo en vez de
+                    // descartar la incidencia para siempre.
+                    throw new ReintentarSincronizacionException(
+                            "El ingreso del estudiante todavía no está en el servidor (puede que su marcación se sincronice después). "
+                                    + mensaje);
+                }
+                throw new SolicitudInvalidaException(mensaje);
             }
 
             // Un estudiante expulsado del examen no puede volver a figurar en otra incidencia,
@@ -172,6 +245,10 @@ public class IncidenciaService {
 
         Ingreso ingresoARetirar = null;
         if (retirarEstudiante) {
+            if (usuario.esAdmin()) {
+                throw new AccesoDenegadoException(
+                        "El administrador solo puede consultar reportes; no puede registrar expulsiones.");
+            }
             if (estudiante == null) {
                 throw new SolicitudInvalidaException("Para retirar a un estudiante debe indicar quién es.");
             }
@@ -183,21 +260,33 @@ public class IncidenciaService {
             }
 
             // Validar que el examen esté en curso para poder registrar una expulsión.
+            // En la sincronización offline el examen puede haber terminado ya:
+            // lo que manda es la hora real del evento, no la del servidor.
             AmbienteInfo infoExpulsion = ambienteExamenService.describir(ambiente);
-            LocalDate hoy = HoraOficial.hoy();
-            LocalTime ahora = HoraOficial.ahora().toLocalTime();
+            LocalDate fechaBase = desdeSincronizacion ? fechaEvento.toLocalDate() : HoraOficial.hoy();
+            LocalTime horaBase = desdeSincronizacion ? fechaEvento.toLocalTime() : HoraOficial.ahora().toLocalTime();
             LocalDate fechaExamen = infoExpulsion.fechaExamen();
             LocalTime horaInicio = ambiente.getHoraInicio();
             LocalTime horaFin = ambiente.getHoraFin();
 
             if (fechaExamen != null && horaInicio != null && horaFin != null) {
-                boolean aunNoEmpieza = fechaExamen.isAfter(hoy)
-                        || (fechaExamen.equals(hoy) && ahora.isBefore(horaInicio));
-                boolean yaTermino = fechaExamen.isBefore(hoy)
-                        || (fechaExamen.equals(hoy) && ahora.isAfter(horaFin));
+                // Se comparan fecha y hora completas (no solo la hora del día):
+                // un examen que termina a las 23:50 no puede "terminar" a las
+                // 00:05 por el tolerance de reloj.
+                LocalDateTime momentoEvento = LocalDateTime.of(fechaBase, horaBase);
+                LocalDateTime inicioExamen = LocalDateTime.of(fechaExamen, horaInicio);
+                LocalDateTime finExamen = LocalDateTime.of(fechaExamen, horaFin);
+                // En la sincronización offline se tolera un desfase de reloj.
+                LocalDateTime finTolerado = desdeSincronizacion
+                        ? finExamen.plusMinutes(AmbienteExamenService.TOLERANCIA_RELOJ_MINUTOS)
+                        : finExamen;
+                boolean aunNoEmpieza = momentoEvento.isBefore(inicioExamen);
+                boolean yaTermino = momentoEvento.isAfter(finTolerado);
                 if (aunNoEmpieza || yaTermino) {
-                    throw new ConflictoEstadoException(
-                            "No se puede registrar una expulsión: el examen no está en curso.");
+                    throw new ConflictoEstadoException(desdeSincronizacion
+                            ? "El registro offline de la expulsión no corresponde al horario de este examen ("
+                            + fechaExamen + " " + horaInicio + "-" + horaFin + ")."
+                            : "No se puede registrar una expulsión: el examen no está en curso.");
                 }
             }
         }
@@ -218,7 +307,7 @@ public class IncidenciaService {
             incidencia.setDescripcion(descripcionLimpia);
             incidencia.setEvidenciaUrl(evidencia == null ? null : evidencia.url());
             incidencia.setEstado(EstadoIncidencia.ABIERTA);
-            incidencia.setFechaHora(HoraOficial.ahora());
+            incidencia.setFechaHora(fechaEvento);
             incidencia = incidenciaRepository.saveAndFlush(incidencia);
 
             if (ingresoARetirar != null) {
@@ -236,9 +325,19 @@ public class IncidenciaService {
                 expulsion.setIdIngreso(ingresoARetirar.getIdIngreso());
                 expulsion.setIdUsuario(usuario.idUsuario());
                 expulsion.setMotivoExpulsion(tipo.getEtiqueta() + ": " + descripcionLimpia);
-                expulsion.setFechaExpulsion(HoraOficial.hoy());
-                expulsion.setHoraExpulsion(HoraOficial.ahora());
+                expulsion.setFechaExpulsion(fechaEvento.toLocalDate());
+                expulsion.setHoraExpulsion(fechaEvento);
                 expulsion.setIdIncidencia(idIncidencia);
+                // La expulsión nace AUTORIZADA, no PENDIENTE: el formulario de
+                // incidencia ya retira al estudiante de inmediato y queda
+                // auditado, así que no hay nada pendiente de decidir. Si se
+                // dejaba en PENDIENTE (el default de la entidad) el botón
+                // "Revocar" fallaba siempre, porque el servicio de expulsiones
+                // solo revoca las que están AUTORIZADA, y el estudiante quedaba
+                // bloqueado sin forma de reingresar.
+                expulsion.setEstado(EstadoExpulsion.AUTORIZADA);
+                expulsion.setFechaAutorizacion(fechaEvento);
+                expulsion.setIdUsuarioAutoriza(usuario.idUsuario());
                 expulsion = expulsionRepository.save(expulsion);
 
                 ingresoARetirar.setIdExpulsion(expulsion.getIdExpulsion());
@@ -247,6 +346,12 @@ public class IncidenciaService {
         } catch (DataIntegrityViolationException e) {
             // La misma clave llegó dos veces al mismo tiempo (UNIQUE de la BD).
             evidenciaService.eliminarSinFallar(evidencia);
+            if (esClaveSolicitudDuplicada(e)) {
+                // No es un rechazo: la incidencia ya está guardada. Se relanza como error
+                // reintentable para que el siguiente intento la encuentre y la devuelva
+                // (idempotencia real: los dos registros terminados en 201 y sin duplicar).
+                throw new ClaveSolicitudDuplicadaException("Esta incidencia ya fue registrada.", e);
+            }
             throw new ConflictoEstadoException("Esta incidencia ya fue registrada.");
         } catch (RuntimeException e) {
             evidenciaService.eliminarSinFallar(evidencia);
@@ -260,8 +365,16 @@ public class IncidenciaService {
             auditoriaService.registrarEnTransaccion("INCIDENCIA_REGISTRADA", usuario.correo(), afectado,
                     incidencia.getCodigo() + " · " + tipo.name() + " · " + severidad.name() + " · " + contexto, ip);
             if (expulsion != null) {
-                auditoriaService.registrarEnTransaccion("EXPULSION_REGISTRADA", usuario.correo(), afectado,
-                        incidencia.getCodigo() + " · ingreso #" + ingresoARetirar.getIdIngreso() + " retirado · " + contexto, ip);
+                // "autorizada al momento": la expulsión nace AUTORIZADA, así que
+                // el detalle de auditoría lo deja explícito. El motivo se incluye
+                // en el texto de la acción para que quede visible en la interfaz
+                // (BUG-021: antes solo se guardaba en la columna aparte "motivo"
+                // y no se mostraba en la lista de auditoría).
+                auditoriaService.registrarExpulsionEnTransaccion("EXPULSION_REGISTRADA", usuario.correo(), afectado,
+                        incidencia.getCodigo() + " · ingreso #" + ingresoARetirar.getIdIngreso()
+                                + " retirado · motivo: " + expulsion.getMotivoExpulsion()
+                                + " · expulsión autorizada al momento · " + contexto,
+                        expulsion.getMotivoExpulsion(), ip);
             }
         } catch (RuntimeException e) {
             evidenciaService.eliminarSinFallar(evidencia);
@@ -276,8 +389,8 @@ public class IncidenciaService {
     // -------------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public IncidenciaListaDto listar(Integer idExamen, Integer idAmbiente, String tipoTexto, String estadoTexto,
-                                     String ip) {
+    public IncidenciaListaDto listar(Integer idExamen, Integer idAmbiente, Integer idAsignatura,
+                                     String tipoTexto, String estadoTexto, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         TipoIncidencia tipo = tipoTexto == null || tipoTexto.isBlank()
                 ? null : leerEnum(TipoIncidencia.class, tipoTexto, "El tipo de incidencia");
@@ -286,8 +399,15 @@ public class IncidenciaService {
 
         List<Ambiente> ambientes = ambienteExamenService.ambientesVisibles(usuario, idExamen, idAmbiente, false,
                 "Listar incidencias", ip);
+        // Filtro por materia: el listado en pantalla y el export a Excel usan
+        // exactamente el mismo filtro.
+        if (idAsignatura != null) {
+            ambientes = ambientes.stream()
+                    .filter(a -> idAsignatura.equals(a.getIdAsignatura()))
+                    .toList();
+        }
         if (ambientes.isEmpty()) {
-            return new IncidenciaListaDto(new TotalesIncidenciasDto(0, 0, 0), List.of());
+            return new IncidenciaListaDto(new TotalesIncidenciasDto(0, 0, 0, 0), List.of());
         }
         Map<Integer, AmbienteInfo> infos = ambienteExamenService.describir(ambientes);
 
@@ -298,7 +418,8 @@ public class IncidenciaService {
         TotalesIncidenciasDto totales = new TotalesIncidenciasDto(
                 delFiltro.stream().filter(i -> i.getEstado() == EstadoIncidencia.ABIERTA).count(),
                 delFiltro.stream().filter(i -> i.getEstado() == EstadoIncidencia.EN_REVISION).count(),
-                delFiltro.stream().filter(i -> i.getEstado() == EstadoIncidencia.CERRADA).count());
+                delFiltro.stream().filter(i -> i.getEstado() == EstadoIncidencia.CERRADA).count(),
+                delFiltro.stream().filter(i -> i.getEstado() == EstadoIncidencia.REVOCADA).count());
 
         List<Incidencia> visibles = delFiltro.stream()
                 .filter(i -> estado == null || i.getEstado() == estado)
@@ -306,16 +427,22 @@ public class IncidenciaService {
 
         // IDs de incidencias que tienen una expulsión asociada (para la columna de filtro).
         Set<Integer> idsConExpulsion = new HashSet<>();
+        Map<Integer, Expulsion> expulsionPorIncidencia = new java.util.HashMap<>();
         if (!visibles.isEmpty()) {
             Set<Integer> idsVisibles = visibles.stream()
                     .map(Incidencia::getIdIncidencia)
                     .collect(Collectors.toSet());
             List<Expulsion> expulsiones = expulsionRepository.findByIdIncidenciaIn(
                     new ArrayList<>(idsVisibles));
-            Set<Integer> idsConExp = expulsiones.stream()
-                    .map(Expulsion::getIdIncidencia)
-                    .collect(Collectors.toSet());
-            idsConExpulsion.addAll(idsConExp);
+            for (Expulsion ex : expulsiones) {
+                idsConExpulsion.add(ex.getIdIncidencia());
+                // normally hay una sola expulsión por incidencia; si hubiera más,
+                // se conserva la más antigua para que el resultado sea estable.
+                Expulsion previa = expulsionPorIncidencia.get(ex.getIdIncidencia());
+                if (previa == null || ex.getIdExpulsion() < previa.getIdExpulsion()) {
+                    expulsionPorIncidencia.put(ex.getIdIncidencia(), ex);
+                }
+            }
         }
 
         Set<Integer> idsUsuarios = new HashSet<>();
@@ -336,7 +463,11 @@ public class IncidenciaService {
                     i.getEstado().name(), i.getEstado().getEtiqueta(),
                     nombre(usuarios.get(i.getIdUsuarioReporta())),
                     nombre(usuarios.get(i.getIdUsuarioEstudiante())),
-                    idsConExpulsion.contains(i.getIdIncidencia()));
+                    idsConExpulsion.contains(i.getIdIncidencia()),
+                    expulsionPorIncidencia.get(i.getIdIncidencia()) == null ? null
+                            : expulsionPorIncidencia.get(i.getIdIncidencia()).getIdExpulsion(),
+                    expulsionPorIncidencia.get(i.getIdIncidencia()) == null ? null
+                            : expulsionPorIncidencia.get(i.getIdIncidencia()).getEstado().name());
         }).toList();
 
         return new IncidenciaListaDto(totales, filas);
@@ -347,9 +478,10 @@ public class IncidenciaService {
      * `soloExpulsiones` se aplica sobre el mismo listado visible.
      */
     @Transactional(readOnly = true)
-    public byte[] exportarExcel(Integer idExamen, Integer idAmbiente, String tipoTexto, String estadoTexto,
-                                boolean soloExpulsiones, String ip) {
-        List<IncidenciaResumenDto> filas = listar(idExamen, idAmbiente, tipoTexto, estadoTexto, ip).incidencias();
+    public byte[] exportarExcel(Integer idExamen, Integer idAmbiente, Integer idAsignatura, String tipoTexto,
+                                String estadoTexto, boolean soloExpulsiones, String ip) {
+        List<IncidenciaResumenDto> filas = listar(idExamen, idAmbiente, idAsignatura, tipoTexto, estadoTexto, ip)
+                .incidencias();
         if (soloExpulsiones) {
             filas = filas.stream().filter(IncidenciaResumenDto::estudianteRetirado).toList();
         }
@@ -419,6 +551,40 @@ public class IncidenciaService {
         return armarDetalle(incidencia, ambiente);
     }
 
+    /**
+     * Adjunta (o reemplaza) la evidencia de una incidencia ya registrada.
+     * Se usa cuando la incidencia se creó offline y la foto quedó en la cola
+     * local: al sincronizar, la imagen se sube con este endpoint (HU21, CA25).
+     */
+    @Transactional
+    public IncidenciaDetalleDto adjuntarEvidencia(Integer idIncidencia, MultipartFile archivo, String ip) {
+        UsuarioActual usuario = contextoUsuarioService.actual();
+        Incidencia incidencia = obtener(idIncidencia);
+        Ambiente ambiente = ambienteExamenService.obtener(incidencia.getIdAmbiente());
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
+                "Adjuntar evidencia a " + incidencia.getCodigo(), ip);
+
+        evidenciaService.validar(archivo);
+        if (incidencia.getEvidenciaUrl() != null && !incidencia.getEvidenciaUrl().isBlank()) {
+            throw new ConflictoEstadoException("La incidencia " + incidencia.getCodigo() + " ya tiene una evidencia adjunta.");
+        }
+        EvidenciaSubida evidencia = evidenciaService.subir(archivo, "control-ingreso/incidencias");
+        if (evidencia == null) {
+            throw new SolicitudInvalidaException("No se recibió ningún archivo de evidencia.");
+        }
+        try {
+            incidencia.setEvidenciaUrl(evidencia.url());
+            incidencia = incidenciaRepository.saveAndFlush(incidencia);
+        } catch (RuntimeException e) {
+            evidenciaService.eliminarSinFallar(evidencia);
+            throw e;
+        }
+
+        auditoriaService.registrarEnTransaccion("INCIDENCIA_EVIDENCIA", usuario.correo(), correoAfectado(incidencia, usuario),
+                incidencia.getCodigo() + " · evidencia adjunta desde sincronización offline", ip);
+        return armarDetalle(incidencia, ambiente);
+    }
+
     /** Para el número junto a "Incidencias" en el menú lateral. */
     @Transactional(readOnly = true)
     public long contarAbiertas(String ip) {
@@ -446,7 +612,8 @@ public class IncidenciaService {
         contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Marcar en revisión " + incidencia.getCodigo(), ip);
 
-        if (incidencia.getEstado() == EstadoIncidencia.CERRADA) {
+        if (incidencia.getEstado() == EstadoIncidencia.CERRADA
+                || incidencia.getEstado() == EstadoIncidencia.REVOCADA) {
             throw new ConflictoEstadoException("La incidencia está cerrada y ya no se puede modificar.");
         }
         if (incidencia.getEstado() != EstadoIncidencia.ABIERTA) {
@@ -463,6 +630,14 @@ public class IncidenciaService {
         return armarDetalle(incidencia, ambiente);
     }
 
+    /**
+     * Cierra la incidencia con su resolución obligatoria.
+     *
+     * Si la incidencia ya estaba cerrada, la llamada es una revocación (HU21):
+     * la incidencia no se reabre, pasa a REVOCADA (revocar es cancelar: deja
+     * de estar en vigor) y la resolución anterior queda en la auditoría (una
+     * incidencia no se edita ni se borra; cada cambio queda en auditoría).
+     */
     @Transactional
     public IncidenciaDetalleDto cerrar(Integer idIncidencia, String resolucion, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
@@ -471,29 +646,88 @@ public class IncidenciaService {
         contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Cerrar " + incidencia.getCodigo(), ip);
 
-        if (incidencia.getEstado() == EstadoIncidencia.CERRADA) {
-            throw new ConflictoEstadoException("La incidencia ya está cerrada y no se puede modificar.");
-        }
         String resolucionLimpia = resolucion == null ? "" : resolucion.trim();
         if (resolucionLimpia.isEmpty()) {
             throw new SolicitudInvalidaException("La resolución es obligatoria para cerrar la incidencia.");
         }
+        if (resolucionLimpia.length() > RESOLUCION_MAX) {
+            throw new SolicitudInvalidaException(
+                    "La resolución no puede superar los " + RESOLUCION_MAX + " caracteres.");
+        }
 
+        boolean esRevocacion = incidencia.getEstado() == EstadoIncidencia.CERRADA;
+        if (incidencia.getEstado() == EstadoIncidencia.REVOCADA) {
+            throw new ConflictoEstadoException("La incidencia ya fue revocada y no se puede modificar.");
+        }
         EstadoIncidencia anterior = incidencia.getEstado();
-        incidencia.setEstado(EstadoIncidencia.CERRADA);
+        String resolucionAnterior = incidencia.getResolucion();
+
+        incidencia.setEstado(esRevocacion ? EstadoIncidencia.REVOCADA : EstadoIncidencia.CERRADA);
         incidencia.setResolucion(resolucionLimpia);
         incidencia.setFechaResolucion(HoraOficial.ahora());
         incidencia.setIdUsuarioResuelve(usuario.idUsuario());
-        incidencia = incidenciaRepository.save(incidencia);
+        try {
+            incidencia = incidenciaRepository.saveAndFlush(incidencia);
+        } catch (DataIntegrityViolationException e) {
+            // El CHECK "ck_incidencia_estado" de PostgreSQL todavía no admite
+            // el valor REVOCADA: falta aplicar la migración pendiente.
+            if (esRevocacion) {
+                throw new ConflictoEstadoException(
+                        "La base de datos todavía no admite el estado REVOCADA. Hay que aplicar la migración "
+                        + "docs/migraciones/2026-11-12_hu21_estado_incidencia_revocada.sql antes de revocar.");
+            }
+            throw e;
+        }
 
-        auditoriaService.registrarEnTransaccion("INCIDENCIA_CERRADA", usuario.correo(), correoAfectado(incidencia, usuario),
-                incidencia.getCodigo() + " · " + anterior.name() + " → CERRADA · resolución: " + resolucionLimpia, ip);
+        String accionAuditoria = esRevocacion ? "INCIDENCIA_REVOCADA" : "INCIDENCIA_CERRADA";
+        String detalle = incidencia.getCodigo() + " · " + anterior.name() + " → " + incidencia.getEstado().name()
+                + (esRevocacion ? " · resolución anterior: \"" + valor(resolucionAnterior) + "\" · " : " · ")
+                + "resolución: " + resolucionLimpia;
+
+        // Al revocar una incidencia que tuvo expulsión asociada, se debe limpiar
+        // el idExpulsion del ingreso para que el estudiante deje de aparecer
+        // como "ya fue expulsado" (RETIRADO) y se puedan registrar nuevas
+        // incidencias para él (BUG-055 / TC-293).
+        if (esRevocacion) {
+            Optional<Expulsion> expulsionAsociada = expulsionRepository.findFirstByIdIncidencia(incidencia.getIdIncidencia());
+            expulsionAsociada.ifPresent(e -> {
+                if (e.getIdIngreso() != null) {
+                    Ingreso ingresoExpulsado = ingresoRepository.findById(e.getIdIngreso()).orElse(null);
+                    if (ingresoExpulsado != null) {
+                        ingresoExpulsado.setIdExpulsion(null);
+                        ingresoRepository.saveAndFlush(ingresoExpulsado);
+                    }
+                }
+            });
+        }
+
+        auditoriaService.registrarEnTransaccion(accionAuditoria, usuario.correo(), correoAfectado(incidencia, usuario),
+                detalle, ip);
         return armarDetalle(incidencia, ambiente);
     }
 
     // -------------------------------------------------------------------------
     // Auxiliares
     // -------------------------------------------------------------------------
+
+    /**
+     * true si la violación de integridad viene del UNIQUE de 'incidencia.clavesolicitud'.
+     *
+     * BUG-001: si la clave ya se usó, la incidencia existe y no hay nada que reprobar; solo
+     * hay que devolverla. Si la violación es de otro UNIQUE, es un dato inválido de verdad y
+     * se rechaza con 409 como antes.
+     */
+    private boolean esClaveSolicitudDuplicada(DataIntegrityViolationException e) {
+        for (Throwable t = e; t != null; t = (t.getCause() == t ? null : t.getCause())) {
+            if (t instanceof org.hibernate.exception.ConstraintViolationException violacion) {
+                String nombre = violacion.getConstraintName();
+                if (nombre != null && nombre.toLowerCase().contains("clavesolicitud")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     private Incidencia obtener(Integer idIncidencia) {
         return incidenciaRepository.findById(idIncidencia)
@@ -503,6 +737,8 @@ public class IncidenciaService {
     private IncidenciaDetalleDto armarDetalle(Incidencia i, Ambiente ambiente) {
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
         Optional<Expulsion> expulsion = expulsionRepository.findFirstByIdIncidencia(i.getIdIncidencia());
+        // El estado de la expulsión va aparte del de la incidencia: puede estar
+        // CERRADA y su expulsión REVOCADA (el frontend lo muestra como distintivo).
 
         Set<Integer> ids = new HashSet<>();
         ids.add(i.getIdUsuarioReporta());
@@ -523,7 +759,8 @@ public class IncidenciaService {
                     nombre(usuarios.get(i.getIdUsuarioRevisa())), null));
         }
         if (i.getFechaResolucion() != null) {
-            lineaTiempo.add(new EventoIncidenciaDto(i.getFechaResolucion(), "Cerrada",
+            lineaTiempo.add(new EventoIncidenciaDto(i.getFechaResolucion(),
+                    i.getEstado() == EstadoIncidencia.REVOCADA ? "Revocada" : "Cerrada",
                     nombre(usuarios.get(i.getIdUsuarioResuelve())), i.getResolucion()));
         }
         lineaTiempo.sort(Comparator.comparing(EventoIncidenciaDto::fechaHora,
@@ -536,7 +773,10 @@ public class IncidenciaService {
                 i.getEstado().name(), i.getEstado().getEtiqueta(),
                 nombre(usuarios.get(i.getIdUsuarioReporta())),
                 i.getCodsisEstudiante(), nombre(usuarios.get(i.getIdUsuarioEstudiante())),
-                expulsion.isPresent(), i.getDescripcion(), i.getEvidenciaUrl(), i.getResolucion(), lineaTiempo);
+                expulsion.isPresent(), i.getDescripcion(), i.getEvidenciaUrl(), i.getResolucion(),
+                expulsion.map(Expulsion::getIdExpulsion).orElse(null),
+                expulsion.map(e -> e.getEstado().name()).orElse(null),
+                lineaTiempo);
     }
 
     private String correoAfectado(Incidencia incidencia, UsuarioActual usuario) {

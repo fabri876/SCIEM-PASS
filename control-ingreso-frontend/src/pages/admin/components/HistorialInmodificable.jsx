@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -33,17 +33,30 @@ export default function HistorialInmodificable() {
   const [strError, setStrError] = useState("");
   const [boolExportando, setBoolExportando] = useState(false);
   const [strMensajeFeedback, setStrMensajeFeedback] = useState("");
+  const ultimaConsulta = useRef(0);
 
   // Filtros de entrada (formulario)
   const [filtroModulo, setFiltroModulo] = useState("TODOS");
   const [filtroEjecutor, setFiltroEjecutor] = useState("");
   const [filtroFecha, setFiltroFecha] = useState("");
+  const [filtroFechaInicio, setFiltroFechaInicio] = useState("");
+  const [filtroFechaFin, setFiltroFechaFin] = useState("");
+  const [errorFechas, setErrorFechas] = useState("");
+  const fechaHoy = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/La_Paz", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date()).reduce((partes, parte) => {
+    if (parte.type !== "literal") partes[parte.type] = parte.value;
+    return partes;
+  }, {});
+  const fechaMaxima = `${fechaHoy.year}-${fechaHoy.month}-${fechaHoy.day}`;
 
   // Filtros aplicados efectivamente (al presionar "Aplicar Filtros Forenses")
   const [filtrosActivos, setFiltrosActivos] = useState({
     modulo: "TODOS",
     ejecutor: "",
     fecha: "",
+    fechaInicio: "",
+    fechaFin: "",
   });
 
   // Paginación
@@ -62,12 +75,16 @@ export default function HistorialInmodificable() {
 
   // Carga inicial y recarga
   const fnCargarHistorial = useCallback(async (filtrosParaCargar) => {
+    const consulta = ++ultimaConsulta.current;
     setBoolCargando(true);
     setStrError("");
     setStrMensajeFeedback("");
+    setArrBloques([]);
+    setBloqueSeleccionado(null);
 
     try {
       const data = await listarHistorialInmodificable(filtrosParaCargar);
+      if (consulta !== ultimaConsulta.current) return;
       const lista = Array.isArray(data) ? data : [];
       setArrBloques(lista);
 
@@ -79,11 +96,12 @@ export default function HistorialInmodificable() {
       }
       setIntPaginaActual(1);
     } catch (err) {
+      if (consulta !== ultimaConsulta.current) return;
       setArrBloques([]);
       setBloqueSeleccionado(null);
       setStrError(err.message || "Error al recuperar el historial inmodificable.");
     } finally {
-      setBoolCargando(false);
+      if (consulta === ultimaConsulta.current) setBoolCargando(false);
     }
   }, []);
 
@@ -127,10 +145,21 @@ export default function HistorialInmodificable() {
   // Manejo de aplicación de filtros (Criterio 22)
   const fnAplicarFiltros = (e) => {
     if (e) e.preventDefault();
+    if (filtroFechaInicio && filtroFechaFin && filtroFechaInicio > filtroFechaFin) {
+      setErrorFechas("La fecha inicial no puede ser posterior a la fecha final.");
+      return;
+    }
+    if ([filtroFecha, filtroFechaInicio, filtroFechaFin].some((fecha) => fecha && fecha > fechaMaxima)) {
+      setErrorFechas("No se permiten fechas posteriores a hoy.");
+      return;
+    }
+    setErrorFechas("");
     setFiltrosActivos({
       modulo: filtroModulo,
       ejecutor: filtroEjecutor,
       fecha: filtroFecha,
+      fechaInicio: filtroFechaInicio,
+      fechaFin: filtroFechaFin,
     });
   };
 
@@ -138,10 +167,15 @@ export default function HistorialInmodificable() {
     setFiltroModulo("TODOS");
     setFiltroEjecutor("");
     setFiltroFecha("");
+    setFiltroFechaInicio("");
+    setFiltroFechaFin("");
+    setErrorFechas("");
     setFiltrosActivos({
       modulo: "TODOS",
       ejecutor: "",
       fecha: "",
+      fechaInicio: "",
+      fechaFin: "",
     });
   };
 
@@ -164,7 +198,7 @@ export default function HistorialInmodificable() {
     setBoolExportando(true);
     setStrMensajeFeedback("");
     try {
-      exportarRegistroCompletoCsv(arrBloques);
+      await exportarRegistroCompletoCsv(filtrosActivos);
       setStrMensajeFeedback("Archivo CSV exportado exitosamente con todos los registros filtrados.");
       setTimeout(() => setStrMensajeFeedback(""), 4000);
     } catch {
@@ -258,7 +292,7 @@ export default function HistorialInmodificable() {
           <button
             type="button"
             onClick={fnExportarCsv}
-            disabled={boolExportando || arrBloques.length === 0}
+            disabled={boolExportando || boolCargando || arrBloques.length === 0}
             className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#003770] text-white text-xs font-bold hover:bg-[#021B3B] transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <Download className="w-4 h-4" />
@@ -313,7 +347,7 @@ export default function HistorialInmodificable() {
               Filtros de Búsqueda y Generación
             </span>
           </div>
-          {(filtrosActivos.modulo !== "TODOS" || filtrosActivos.ejecutor || filtrosActivos.fecha) && (
+          {(filtrosActivos.modulo !== "TODOS" || filtrosActivos.ejecutor || filtrosActivos.fecha || filtrosActivos.fechaInicio || filtrosActivos.fechaFin) && (
             <button
               type="button"
               onClick={fnLimpiarFiltros}
@@ -373,12 +407,27 @@ export default function HistorialInmodificable() {
             <div className="relative">
               <input
                 type="date"
+                max={fechaMaxima}
                 value={filtroFecha}
                 onChange={(e) => setFiltroFecha(e.target.value)}
                 className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-primary-blue focus:bg-white transition"
               />
             </div>
           </div>
+
+          <div className="col-span-1 sm:col-span-1 lg:col-span-2 space-y-1">
+            <label htmlFor="auditoria-fecha-inicio" className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Desde</label>
+            <input id="auditoria-fecha-inicio" type="date" max={fechaMaxima} value={filtroFechaInicio}
+              onChange={(e) => setFiltroFechaInicio(e.target.value)}
+              className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700" />
+          </div>
+          <div className="col-span-1 sm:col-span-1 lg:col-span-2 space-y-1">
+            <label htmlFor="auditoria-fecha-fin" className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Hasta</label>
+            <input id="auditoria-fecha-fin" type="date" max={fechaMaxima} value={filtroFechaFin}
+              onChange={(e) => setFiltroFechaFin(e.target.value)}
+              className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700" />
+          </div>
+          {errorFechas && <p role="alert" className="col-span-full text-xs text-rose-700">{errorFechas}</p>}
 
           {/* Botón Aplicar */}
           <div className="col-span-1 sm:col-span-1 lg:col-span-2">
@@ -408,7 +457,11 @@ export default function HistorialInmodificable() {
             </p>
           </div>
           <div className="text-[11px] font-bold text-slate-500">
-            {arrBloques.length > 0 ? (
+            {boolCargando ? (
+              <span>Consultando eventos...</span>
+            ) : strError && arrBloques.length === 0 ? (
+              <span>Historial no disponible</span>
+            ) : arrBloques.length > 0 ? (
               <span>
                 Mostrando {intInicioRango} a {intFinRango} de {arrBloques.length.toLocaleString()} eventos auditables
               </span>
@@ -442,10 +495,12 @@ export default function HistorialInmodificable() {
                     </div>
                   </td>
                 </tr>
+              ) : strError && arrBloques.length === 0 ? (
+                <tr><td colSpan="7" className="py-12 text-center text-xs text-slate-500">No se pudo recuperar el historial.</td></tr>
               ) : arrBloques.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="py-12 text-center text-xs text-slate-500 font-medium">
-                    {filtrosActivos.modulo !== "TODOS" || filtrosActivos.ejecutor || filtrosActivos.fecha ? (
+                    {filtrosActivos.modulo !== "TODOS" || filtrosActivos.ejecutor || filtrosActivos.fecha || filtrosActivos.fechaInicio || filtrosActivos.fechaFin ? (
                       <div className="space-y-1">
                         <p className="font-bold text-slate-600">No se encontraron resultados.</p>
                         <p className="text-slate-400">Ningún evento coincide con los filtros aplicados.</p>
@@ -462,11 +517,10 @@ export default function HistorialInmodificable() {
                     <tr
                       key={bloque.idBloque}
                       onClick={() => setBloqueSeleccionado(bloque)}
-                      className={`text-xs cursor-pointer transition-colors ${
-                        esSeleccionado
+                      className={`text-xs cursor-pointer transition-colors ${esSeleccionado
                           ? "bg-blue-50/70 border-l-4 border-primary-blue font-medium"
                           : "hover:bg-slate-50/80 text-slate-700"
-                      }`}
+                        }`}
                     >
                       {/* ID Bloque */}
                       <td className="py-3.5 px-4 font-mono font-bold text-[#003770]">
@@ -547,11 +601,10 @@ export default function HistorialInmodificable() {
                       <button
                         type="button"
                         onClick={() => setIntPaginaActual(numPagina)}
-                        className={`w-8 h-8 rounded-lg font-bold text-xs transition cursor-pointer ${
-                          intPaginaActual === numPagina
+                        className={`w-8 h-8 rounded-lg font-bold text-xs transition cursor-pointer ${intPaginaActual === numPagina
                             ? "bg-[#003770] text-white"
                             : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}
+                          }`}
                       >
                         {numPagina}
                       </button>

@@ -28,7 +28,7 @@ export function usePendientesCount(examenId = null) {
       // pueden filtrar por examen; se suman únicamente al total global.
       if (examenId !== null && examenId !== undefined) return asistencias;
 
-      const [incidencias, expulsiones] = await Promise.all([
+      const [incidencias, expulsiones, revocaciones, evidencias, excepcionales] = await Promise.all([
         db.incidencias_pendientes
           .where('syncStatus')
           .anyOf(ESTADO_SYNC.PENDIENTE, ESTADO_SYNC.SYNCING)
@@ -36,10 +36,22 @@ export function usePendientesCount(examenId = null) {
         db.expulsiones_pendientes
           .where('syncStatus')
           .anyOf(ESTADO_SYNC.PENDIENTE, ESTADO_SYNC.SYNCING)
+          .count(),
+        db.revocaciones_pendientes
+          .where('syncStatus')
+          .anyOf(ESTADO_SYNC.PENDIENTE, ESTADO_SYNC.SYNCING)
+          .count(),
+        db.evidencias_pendientes
+          .where('syncStatus')
+          .anyOf(ESTADO_SYNC.PENDIENTE, ESTADO_SYNC.SYNCING)
+          .count(),
+        db.ingresos_excepcionales_pendientes
+          .where('syncStatus')
+          .anyOf(ESTADO_SYNC.PENDIENTE, ESTADO_SYNC.SYNCING)
           .count()
       ]);
 
-      return asistencias + incidencias + expulsiones;
+      return asistencias + incidencias + expulsiones + revocaciones + evidencias + excepcionales;
     });
 
     const sub = observable.subscribe({

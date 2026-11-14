@@ -7,6 +7,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AyudanteExamenId;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignatura;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignaturaId;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.EstadoExpulsion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.EstadoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
@@ -18,6 +19,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.SeveridadIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ClaveSolicitudDuplicadaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
@@ -39,16 +41,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -94,6 +100,7 @@ class IncidenciaServiceTest {
 
     private IncidenciaService service;
     private Examen examen;
+    private Ambiente ambiente;
 
     @BeforeEach
     void setUp() {
@@ -112,6 +119,7 @@ class IncidenciaServiceTest {
         ambiente.setIdExamen(ID_EXAMEN);
         ambiente.setIdAula(10);
         ambiente.setHoraFin(LocalTime.MAX);
+        this.ambiente = ambiente;
         when(ambienteRepository.findById(ID_AMBIENTE)).thenReturn(Optional.of(ambiente));
 
         Aula aula = new Aula();
@@ -195,19 +203,44 @@ class IncidenciaServiceTest {
     }
 
     @Test
-    @DisplayName("El operador puede registrar incidencias en el aula de examen que tiene asignada")
+    @DisplayName("BUG-001: si el UNIQUE de la clave choca al insertar, se relanza como reintentable")
+    void registrar_mismaClaveChocaPorUnico() {
+        // Dos peticiones con la misma clave llegan a la vez: las dos pasan la comprobación
+        // previa y el UNIQUE de 'clavesolicitud' rechaza a la segunda. No es un rechazo:
+        // la incidencia ya está guardada, así que se relanza como error reintentable y el
+        // siguiente intento la encuentra y la devuelve (los dos registros terminan en 201).
+        when(incidenciaRepository.saveAndFlush(any(Incidencia.class))).thenThrow(
+                new DataIntegrityViolationException("violacion",
+                        new org.hibernate.exception.ConstraintViolationException("duplicate key",
+                                new java.sql.SQLException(
+                                        "duplicate key value violates unique constraint \"incidencia_clavesolicitud_key\"",
+                                        "23505"),
+                                "INSERT INTO incidencia ...",
+                                "incidencia_clavesolicitud_key")));
+
+        assertThrows(ClaveSolicitudDuplicadaException.class,
+                () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OTRO", "BAJA",
+                        DESCRIPCION, null, false, null, "ip"));
+    }
+
+    @Test
+    @DisplayName("El operador no puede registrar incidencias, ni siquiera en el aula que tiene asignada")
     void registrar_operador() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
         AyudanteExamenId asignacion = new AyudanteExamenId(70, ID_ASIGNATURA, ID_EXAMEN, ID_AMBIENTE);
         when(ayudanteExamenRepository.findById(asignacion))
                 .thenReturn(Optional.of(new AyudanteExamen(asignacion, "ACTIVO")));
 
-        assertNotNull(service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "FALLA_TECNICA", "BAJA",
-                "El lector QR dejó de funcionar.", null, false, null, "ip"));
+        AccesoDenegadoException ex = assertThrows(AccesoDenegadoException.class,
+                () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "FALLA_TECNICA", "BAJA",
+                        "El lector QR dejó de funcionar.", null, false, null, "ip"));
+        assertEquals("Acceso denegado: su rol no tiene permiso para esta acción.", ex.getMessage());
+        verify(auditoriaService).registrar(eq("ACCESO_DENEGADO"), anyString(), anyString(), anyString(), anyString());
+        verify(incidenciaRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    @DisplayName("Operador sin esa aula asignada (o con la asignación inactiva): 403 y auditado")
+    @DisplayName("El operador no puede registrar una incidencia aunque el aula no sea suya: 403 y auditado")
     void registrar_operadorSinAsignacion() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
         AyudanteExamenId asignacion = new AyudanteExamenId(70, ID_ASIGNATURA, ID_EXAMEN, ID_AMBIENTE);
@@ -217,7 +250,7 @@ class IncidenciaServiceTest {
         AccesoDenegadoException ex = assertThrows(AccesoDenegadoException.class,
                 () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "FALLA_TECNICA", "BAJA",
                         "El lector QR dejó de funcionar.", null, false, null, "ip"));
-        assertEquals("No tiene asignada esta aula de examen.", ex.getMessage());
+        assertEquals("Acceso denegado: su rol no tiene permiso para esta acción.", ex.getMessage());
         verify(auditoriaService).registrar(eq("ACCESO_DENEGADO"), anyString(), anyString(), anyString(), anyString());
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
@@ -257,7 +290,7 @@ class IncidenciaServiceTest {
     void listar_operadorDenegado() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
 
-        assertThrows(AccesoDenegadoException.class, () -> service.listar(ID_EXAMEN, null, null, null, "ip"));
+        assertThrows(AccesoDenegadoException.class, () -> service.listar(ID_EXAMEN, null, null, null, null, "ip"));
         verify(auditoriaService).registrar(eq("ACCESO_DENEGADO"), anyString(), anyString(), anyString(), anyString());
     }
 
@@ -279,14 +312,40 @@ class IncidenciaServiceTest {
         ReflectionTestUtils.setField(ingreso, "idIngreso", 1203);
         when(ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(CODSIS, ID_ASIGNATURA, ID_EXAMEN))
                 .thenReturn(Optional.of(ingreso));
+        // La expulsión solo se crea si la incidencia recién guardada sigue ABIERTA.
+        incidenciaGuardada(EstadoIncidencia.ABIERTA);
 
         service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION", "ALTA", DESCRIPCION,
                 CODSIS, true, null, "ip");
 
         assertEquals(5, ingreso.getIdExpulsion());
         verify(ingresoRepository).saveAndFlush(ingreso);
-        verify(auditoriaService).registrarEnTransaccion(eq("EXPULSION_REGISTRADA"), anyString(), eq("j.perez@est.umss.edu"),
-                contains("ingreso #1203"), anyString());
+        verify(auditoriaService).registrarExpulsionEnTransaccion(eq("EXPULSION_REGISTRADA"), anyString(), eq("j.perez@est.umss.edu"),
+                contains("ingreso #1203"), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("La expulsión creada desde una incidencia nace AUTORIZADA (si no, no se puede revocar)")
+    void registrar_expulsionNaceAutorizada() {
+        // El servicio de expulsiones (HU14) solo revoca las que están
+        // AUTORIZADA: si la expulsión naciera en PENDIENTE, el botón "Revocar"
+        // de la pantalla de incidencias fallaría siempre y el estudiante
+        // quedaría bloqueado sin forma de reingresar.
+        Ingreso ingreso = new Ingreso();
+        ReflectionTestUtils.setField(ingreso, "idIngreso", 1203);
+        when(ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(CODSIS, ID_ASIGNATURA, ID_EXAMEN))
+                .thenReturn(Optional.of(ingreso));
+        incidenciaGuardada(EstadoIncidencia.ABIERTA);
+
+        service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION", "ALTA", DESCRIPCION,
+                CODSIS, true, null, "ip");
+
+        ArgumentCaptor<Expulsion> captor = ArgumentCaptor.forClass(Expulsion.class);
+        verify(expulsionRepository).save(captor.capture());
+        Expulsion expulsion = captor.getValue();
+        assertEquals(EstadoExpulsion.AUTORIZADA, expulsion.getEstado());
+        assertEquals(ID_DOCENTE, expulsion.getIdUsuarioAutoriza());
+        assertNotNull(expulsion.getFechaAutorizacion());
     }
 
     @Test
@@ -341,12 +400,118 @@ class IncidenciaServiceTest {
     }
 
     @Test
-    @DisplayName("Una incidencia cerrada ya no cambia de estado")
-    void cerrada_esInmutable() {
-        incidenciaGuardada(EstadoIncidencia.CERRADA);
+    @DisplayName("Una incidencia cerrada se revoca (se cancela): queda REVOCADA y no se reabre")
+    void cerrada_seRevocaSinReabrir() {
+        Incidencia cerrada = incidenciaGuardada(EstadoIncidencia.CERRADA);
+        cerrada.setResolucion("Se confirmo la expulsion del estudiante.");
 
-        assertThrows(ConflictoEstadoException.class, () -> service.cerrar(14, "otra resolución", "ip"));
+        IncidenciaDetalleDto dto = service.cerrar(14, "Se revoca la expulsión por error de identificación.", "ip");
+
+        assertEquals("REVOCADA", dto.estado());
+        assertEquals("Se revoca la expulsión por error de identificación.", cerrada.getResolucion());
+        verify(auditoriaService).registrarEnTransaccion(eq("INCIDENCIA_REVOCADA"), anyString(), anyString(),
+                contains("CERRADA → REVOCADA"), anyString());
+        // La resolución anterior no se pierde: queda en la auditoría.
+        verify(auditoriaService).registrarEnTransaccion(eq("INCIDENCIA_REVOCADA"), anyString(), anyString(),
+                contains("resolución anterior"), anyString());
+        // Una incidencia revocada no se puede volver a tocar.
         assertThrows(ConflictoEstadoException.class, () -> service.marcarEnRevision(14, "ip"));
+    }
+
+    @Test
+    @DisplayName("Una incidencia revocada ya no se puede volver a modificar")
+    void revocada_noSeVuelveAModificar() {
+        incidenciaGuardada(EstadoIncidencia.REVOCADA);
+
+        assertThrows(ConflictoEstadoException.class,
+                () -> service.cerrar(14, "Otro intento de revocación.", "ip"));
+    }
+
+    @Test
+    @DisplayName("Una resolución de más de 255 caracteres se rechaza (límite de la columna)")
+    void cerrar_resolucionDemasiadoLarga() {
+        incidenciaGuardada(EstadoIncidencia.EN_REVISION);
+
+        String larga = "a".repeat(300);
+        assertThrows(SolicitudInvalidaException.class, () -> service.cerrar(14, larga, "ip"));
+    }
+
+    @Test
+    @DisplayName("Sincronización offline: una expulsión hecha durante el examen se acepta aunque ya haya terminado")
+    void registrar_expulsionOfflineFueraDelHorarioActual() {
+        // El examen es de hoy y ya terminó; el registro se hizo durante el
+        // examen (en el dispositivo) y se sincroniza después, fuera del horario.
+        LocalDateTime ahora = HoraOficial.ahora();
+        ambiente.setHoraInicio(LocalTime.of(0, 0));
+        ambiente.setHoraFin(LocalTime.of(23, 59));
+        Ingreso ingreso = new Ingreso();
+        ReflectionTestUtils.setField(ingreso, "idIngreso", 1203);
+        when(ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(CODSIS, ID_ASIGNATURA, ID_EXAMEN))
+                .thenReturn(Optional.of(ingreso));
+        incidenciaGuardada(EstadoIncidencia.ABIERTA);
+
+        OffsetDateTime momentoEvento = ahora.atZone(HoraOficial.ZONA).toOffsetDateTime();
+
+        IncidenciaDetalleDto dto = service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION",
+                "ALTA", DESCRIPCION, CODSIS, true, null, momentoEvento, "ip");
+
+        assertEquals("ABIERTA", dto.estado());
+        assertEquals(5, ingreso.getIdExpulsion());
+
+        // La expulsión creada offline también nace AUTORIZADA: si no, el
+        // docente no podría revocarla cuando se sincronice.
+        ArgumentCaptor<Expulsion> captor = ArgumentCaptor.forClass(Expulsion.class);
+        verify(expulsionRepository).save(captor.capture());
+        assertEquals(EstadoExpulsion.AUTORIZADA, captor.getValue().getEstado());
+    }
+
+    @Test
+    @DisplayName("Sincronización offline: un registro anterior al examen se rechaza")
+    void registrar_offlineDeOtroDia() {
+        ambiente.setHoraInicio(LocalTime.of(0, 0));
+        ambiente.setHoraFin(LocalTime.of(23, 59));
+
+        OffsetDateTime momentoEvento = LocalDateTime.of(HoraOficial.hoy().minusDays(1), LocalTime.of(9, 0))
+                .atZone(HoraOficial.ZONA).toOffsetDateTime();
+
+        ConflictoEstadoException ex = assertThrows(ConflictoEstadoException.class,
+                () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OTRO", "BAJA",
+                        DESCRIPCION, null, false, null, momentoEvento, "ip"));
+        assertTrue(ex.getMessage().contains("anterior a la fecha de este examen"));
+        verify(incidenciaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("Sincronización offline: una marca futura (reloj del dispositivo desajustado) se rechaza")
+    void registrar_offlineEnElFuturo() {
+        ambiente.setHoraInicio(LocalTime.of(0, 0));
+        ambiente.setHoraFin(LocalTime.of(23, 59));
+
+        OffsetDateTime momentoEvento = HoraOficial.ahora().plusHours(3).atZone(HoraOficial.ZONA).toOffsetDateTime();
+
+        ConflictoEstadoException ex = assertThrows(ConflictoEstadoException.class,
+                () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OTRO", "BAJA",
+                        DESCRIPCION, null, false, null, momentoEvento, "ip"));
+        assertTrue(ex.getMessage().contains("fecha futura"));
+        verify(incidenciaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("En línea, una expulsión de un examen que ya se tomó se sigue rechazando")
+    void registrar_expulsionOnlineFueraDelHorario() {
+        // El examen fue ayer: en línea no se puede expulsar a nadie.
+        examen.setFechaExamen(HoraOficial.hoy().minusDays(1));
+        ambiente.setHoraInicio(LocalTime.of(0, 0));
+        ambiente.setHoraFin(LocalTime.of(23, 59));
+        Ingreso ingreso = new Ingreso();
+        ReflectionTestUtils.setField(ingreso, "idIngreso", 1203);
+        when(ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(CODSIS, ID_ASIGNATURA, ID_EXAMEN))
+                .thenReturn(Optional.of(ingreso));
+
+        ConflictoEstadoException ex = assertThrows(ConflictoEstadoException.class,
+                () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION", "ALTA",
+                        DESCRIPCION, CODSIS, true, null, "ip"));
+        assertEquals("No se puede registrar una expulsión: el examen no está en curso.", ex.getMessage());
     }
 
     @Test

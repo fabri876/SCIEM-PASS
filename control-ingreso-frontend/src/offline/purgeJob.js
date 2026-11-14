@@ -1,5 +1,6 @@
 import { db } from "./db.js";
 import { ESTADO_SYNC } from "./constantes.js";
+import { fotoRepo } from "./fotoRepo.js";
 
 /**
  * PURGA DE REGISTROS ANTIGUOS (>72h) — F1-06
@@ -89,6 +90,106 @@ export async function purgarAsistenciasProcesadas() {
 }
 
 /**
+ * Purga incidencias, expulsiones, revocaciones, evidencias e ingresos
+ * excepcionales ya confirmados por el servidor (sincronizado, duplicado) que
+ * tengan más de 72h.
+ *
+ * NO se purgan los registros en ERROR: el servidor los rechazó y son la única
+ * traza que le queda al docente de lo que no se pudo registrar. Se conservan
+ * hasta que el docente los revise (o hasta que se descarte el dispositivo).
+ */
+export async function purgarIncidenciasProcesadas() {
+  const corte = calcularCorte();
+  const estadosPurgables = [
+    ESTADO_SYNC.SINCRONIZADO,
+    ESTADO_SYNC.DUPLICADO,
+  ];
+
+  let eliminados = 0;
+
+  await db.transaction("rw", [db.incidencias_pendientes, db.expulsiones_pendientes, db.revocaciones_pendientes, db.evidencias_pendientes, db.ingresos_excepcionales_pendientes], async () => {
+    const idsInc = await db.incidencias_pendientes
+      .filter(
+        (item) =>
+          estadosPurgables.includes(item.syncStatus) &&
+          item.sincronizadoEn &&
+          new Date(item.sincronizadoEn).getTime() < corte,
+      )
+      .toArray()
+      .then((rows) => rows.map((r) => r.clientUuid));
+
+    if (idsInc.length > 0) {
+      await db.incidencias_pendientes.bulkDelete(idsInc);
+      eliminados += idsInc.length;
+    }
+
+    const idsExp = await db.expulsiones_pendientes
+      .filter(
+        (item) =>
+          estadosPurgables.includes(item.syncStatus) &&
+          item.sincronizadoEn &&
+          new Date(item.sincronizadoEn).getTime() < corte,
+      )
+      .toArray()
+      .then((rows) => rows.map((r) => r.clientUuid));
+
+    if (idsExp.length > 0) {
+      await db.expulsiones_pendientes.bulkDelete(idsExp);
+      eliminados += idsExp.length;
+    }
+
+    const idsRev = await db.revocaciones_pendientes
+      .filter(
+        (item) =>
+          estadosPurgables.includes(item.syncStatus) &&
+          item.sincronizadoEn &&
+          new Date(item.sincronizadoEn).getTime() < corte,
+      )
+      .toArray()
+      .then((rows) => rows.map((r) => r.clientUuid));
+
+    if (idsRev.length > 0) {
+      await db.revocaciones_pendientes.bulkDelete(idsRev);
+      eliminados += idsRev.length;
+    }
+
+    // Evidencias ya sincronizadas: liberan cuota (blobs grandes).
+    const idsEvid = await db.evidencias_pendientes
+      .filter(
+        (item) =>
+          estadosPurgables.includes(item.syncStatus) &&
+          item.sincronizadoEn &&
+          new Date(item.sincronizadoEn).getTime() < corte,
+      )
+      .toArray()
+      .then((rows) => rows.map((r) => r.clientUuid));
+
+    if (idsEvid.length > 0) {
+      await db.evidencias_pendientes.bulkDelete(idsEvid);
+      eliminados += idsEvid.length;
+    }
+
+    // Ingresos excepcionales offline ya confirmados (incluyen el respaldo).
+    const idsExc = await db.ingresos_excepcionales_pendientes
+      .filter(
+        (item) =>
+          estadosPurgables.includes(item.syncStatus) &&
+          item.sincronizadoEn &&
+          new Date(item.sincronizadoEn).getTime() < corte,
+      )
+      .toArray()
+      .then((rows) => rows.map((r) => r.clientUuid));
+
+    if (idsExc.length > 0) {
+      await db.ingresos_excepcionales_pendientes.bulkDelete(idsExc);
+      eliminados += idsExc.length;
+    }
+  });
+
+  return eliminados;
+}
+
+/**
  * Purga logs de sincronización antiguos (>72h).
  * Los logs se usan solo para auditoría/debug, no son críticos.
  */
@@ -118,39 +219,9 @@ export async function purgarLogsSincronizacion() {
  * Las fotos ocupan mucho espacio; se conservan solo mientras la marca está pendiente.
  */
 export async function purgarFotosHuerfanas() {
-  const corte = calcularCorte();
-  let eliminados = 0;
-
-  await db.transaction("rw", [db.fotos, db.nominas], async () => {
-    // Buscar códigos SIS de estudiantes ya sincronizados (marcadoLocal=1 y marcadoEn < corte)
-    // Usar filter porque no hay índice compuesto para [marcadoLocal, marcadoEn]
-    const sisSincronizados = await db.nominas
-      .filter(
-        (item) =>
-          item.marcadoLocal === 1 &&
-          item.marcadoEn &&
-          new Date(item.marcadoEn).getTime() < corte,
-      )
-      .toArray();
-
-    // Extraer solo los códigos SIS (el segundo elemento de la PK compuesta)
-    const codigosSIS = [...new Set(sisSincronizados.map((pk) => pk[1]))];
-
-    if (codigosSIS.length > 0) {
-      // Eliminar fotos de esos códigos
-      const fotosAEliminar = await db.fotos
-        .where("codigoSis")
-        .anyOf(codigosSIS)
-        .primaryKeys();
-
-      if (fotosAEliminar.length > 0) {
-        await db.fotos.bulkDelete(fotosAEliminar);
-        eliminados = fotosAEliminar.length;
-      }
-    }
-  });
-
-  return eliminados;
+  // Las miniaturas son parte de la nómina offline, no evidencia temporal de una
+  // asistencia. Se eliminan únicamente al desaparecer de todas las nóminas.
+  return fotoRepo.limpiarFotosSinNomina();
 }
 
 /**
@@ -212,6 +283,7 @@ export async function ejecutarPurgaCompleta(opciones = {}) {
   const inicio = Date.now();
   const resultados = {
     asistenciasProcesadas: 0,
+    incidenciasProcesadas: 0,
     logsSincronizacion: 0,
     fotos: 0,
     nominas: 0,
@@ -222,6 +294,9 @@ export async function ejecutarPurgaCompleta(opciones = {}) {
   try {
     // 1. Asistencias procesadas (lo más importante)
     resultados.asistenciasProcesadas = await purgarAsistenciasProcesadas();
+
+    // 1b. Incidencias y expulsiones procesadas
+    resultados.incidenciasProcesadas = await purgarIncidenciasProcesadas();
 
     // 2. Logs de sincronización
     if (incluirLogs) {

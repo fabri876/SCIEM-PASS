@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -45,6 +46,13 @@ public class AmbienteExamenService {
 
     private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter FORMATO_HORA = DateTimeFormatter.ofPattern("HH:mm");
+
+    /**
+     * Desfase de reloj tolerado entre el dispositivo y el servidor (HU21).
+     * Los registros creados sin conexión se validan contra la marca de tiempo
+     * del dispositivo, así que se admite un margen de 15 minutos.
+     */
+    public static final int TOLERANCIA_RELOJ_MINUTOS = 15;
 
     private final AmbienteRepository ambienteRepository;
     private final AulaRepository aulaRepository;
@@ -214,6 +222,57 @@ public class AmbienteExamenService {
         if (info.fechaExamen() != null && info.fechaExamen().isAfter(HoraOficial.hoy())) {
             throw new ConflictoEstadoException("El examen es el " + info.fechaExamen().format(FORMATO_FECHA)
                     + "; todavía no se pueden registrar incidencias.");
+        }
+    }
+
+    /**
+     * Valida la hora del evento tomada en el dispositivo (HU21).
+     *
+     * Un registro creado sin conexión se sincroniza días después, así que no se
+     * puede comparar con la hora del servidor: se compara con la fecha y el
+     * horario del examen. Se tolera un desfase de reloj de hasta
+     * {@link #TOLERANCIA_RELOJ_MINUTOS} minutos.
+     *
+     * Es la validación estricta: el evento tiene que ser DEL DÍA del examen y
+     * anterior a su cierre. La usan los registros que solo pueden hacerse
+     * mientras el examen está en curso (ingreso excepcional).
+     */
+    public void verificarHoraEventoOffline(AmbienteInfo info, LocalDateTime horaEvento) {
+        if (horaEvento == null) {
+            return;
+        }
+        LocalDate fechaExamen = info.fechaExamen();
+        if (fechaExamen != null && !fechaExamen.equals(horaEvento.toLocalDate())) {
+            throw new ConflictoEstadoException(
+                    "El registro offline no corresponde a la fecha de este examen (" + fechaExamen + ").");
+        }
+        LocalTime horaFin = info.ambiente().getHoraFin();
+        if (horaFin != null && horaEvento.toLocalTime().isAfter(horaFin.plusMinutes(TOLERANCIA_RELOJ_MINUTOS))) {
+            throw new ConflictoEstadoException(
+                    "El registro offline es posterior al cierre del examen (fin: " + horaFin + ").");
+        }
+    }
+
+    /**
+     * Validación laxa de la hora del dispositivo (HU21) para los registros que
+     * también se pueden hacer DESPUÉS del examen (una incidencia, por ejemplo:
+     * el mismo criterio que en línea, "el examen ya se tomó").
+     *
+     * Solo descarta las marcas imposibles: una fecha anterior al examen o una
+     * fecha futura (reloj del dispositivo desajustado).
+     */
+    public void verificarFechaEventoOffline(AmbienteInfo info, LocalDateTime horaEvento) {
+        if (horaEvento == null) {
+            return;
+        }
+        LocalDate fechaExamen = info.fechaExamen();
+        if (fechaExamen != null && horaEvento.toLocalDate().isBefore(fechaExamen)) {
+            throw new ConflictoEstadoException(
+                    "El registro offline es anterior a la fecha de este examen (" + fechaExamen + ").");
+        }
+        if (horaEvento.isAfter(HoraOficial.ahora().plusMinutes(TOLERANCIA_RELOJ_MINUTOS))) {
+            throw new ConflictoEstadoException(
+                    "El registro offline tiene una fecha futura: revisa la hora y la fecha del dispositivo.");
         }
     }
 

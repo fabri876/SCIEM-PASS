@@ -28,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
@@ -81,15 +83,21 @@ public class IngresoExcepcionalService {
     // -------------------------------------------------------------------------
 
     /**
-     * @param permiteOperador true cuando lo consulta el formulario de incidencias
-     *                        (el operador puede registrar incidencias, pero nunca
-     *                        autorizar ingresos excepcionales).
+     * Consulta a un estudiante para un formulario.
+     *
+     * @param flujoIncidencia true cuando la consulta viene del formulario de
+     *                        incidencias: el estado que se devuelve es el del
+     *                        punto de control (NO_INSCRITO, SIN_INGRESO...).
+     *                        false cuando viene del formulario de ingreso
+     *                        excepcional (HABILITADO, INHABILITADO...).
      */
     @Transactional(readOnly = true)
-    public ConsultaEstudianteDto consultar(Integer idAmbiente, String codSisOCi, boolean permiteOperador, String ip) {
+    public ConsultaEstudianteDto consultar(Integer idAmbiente, String codSisOCi, boolean flujoIncidencia, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         Ambiente ambiente = ambienteExamenService.obtener(idAmbiente);
-        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, permiteOperador,
+        // El operador (ayudante) no gestiona incidencias: solo autoriza
+        // ingresos excepcionales, y ese flujo se valida en otro lado.
+        contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Consultar estudiante", ip);
 
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
@@ -97,7 +105,7 @@ public class IngresoExcepcionalService {
         AforoDto aforo = ambienteExamenService.aforo(idAmbiente);
         // Consulta desde el formulario de ingreso excepcional (no desde incidencias):
         // si no se puede autorizar, el intento queda en auditoría (criterios de QA).
-        boolean flujoExcepcional = !permiteOperador;
+        boolean flujoExcepcional = !flujoIncidencia;
         String bloqueoAula = estadoAula.cerrado()
                 ? estadoAula.motivo()
                 : aforo.capacidad() != null && aforo.ocupados() >= aforo.capacidad()
@@ -117,7 +125,7 @@ public class IngresoExcepcionalService {
         // En el flujo de incidencias solo se puede reportar a estudiantes de la materia del examen.
         // Esta validación debe ir antes de verificar el ingreso previo, para que un estudiante
         // que no pertenece a la materia no pueda ser reportado aunque tenga algún registro.
-        if (permiteOperador && !estudianteExamenService.estaInscritoEnAsignatura(codSis, ambiente.getIdAsignatura())) {
+        if (flujoIncidencia && !estudianteExamenService.estaInscritoEnAsignatura(codSis, ambiente.getIdAsignatura())) {
             return new ConsultaEstudianteDto("NO_INSCRITO",
                     "El estudiante no está inscrito en la materia de este examen.",
                     codSis, est.usuario().getCiusuario(), est.nombreCompleto(), null, null,
@@ -144,7 +152,7 @@ public class IngresoExcepcionalService {
 
         // En el flujo de incidencias, un estudiante que no ha ingresado al examen no puede
         // estar involucrado en una incidencia (no podría haber causado un incidente sin haber ingresado).
-        if (permiteOperador) {
+        if (flujoIncidencia) {
             return new ConsultaEstudianteDto("SIN_INGRESO",
                     "El estudiante no ha ingresado a este examen; no se puede registrar una incidencia para él.",
                     codSis, est.usuario().getCiusuario(), est.nombreCompleto(), null, null,
@@ -178,14 +186,50 @@ public class IngresoExcepcionalService {
     // AUTORIZAR
     // -------------------------------------------------------------------------
 
+    /** Resultado de una autorización; {@code yaExistia} es true en reintentos offline. */
+    public record AutorizacionExcepcional(IngresoExcepcionalDto ingreso, boolean yaExistia) {
+    }
+
     @Transactional
     public IngresoExcepcionalDto autorizar(Integer idAmbiente, Integer codSis, String motivoTexto, String observacion,
                                            MultipartFile respaldo, String ip) {
+        return autorizarConDetalle(idAmbiente, codSis, motivoTexto, observacion, respaldo, null, null, ip).ingreso();
+    }
+
+    /**
+     * Variante usada por la sincronización offline (HU21). Cuando
+     * {@code registradoEn} viene informado se conserva la hora real del evento
+     * y no se exige que el ingreso siga abierto: el registro se hizo mientras
+     * el examen estaba en curso y se está enviando después. Un reintento del
+     * mismo registro (mismo {@code clientUuid}) devuelve
+     * {@code yaExistia = true} en lugar de duplicar.
+     */
+    @Transactional
+    public AutorizacionExcepcional autorizarConDetalle(Integer idAmbiente, Integer codSis, String motivoTexto,
+                                                        String observacion, MultipartFile respaldo,
+                                                        OffsetDateTime registradoEn, String clientUuid, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         Ambiente ambiente = ambienteExamenService.obtener(idAmbiente);
         contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, true,
                 "Autorizar ingreso excepcional", ip);
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
+        boolean desdeSincronizacion = registradoEn != null;
+        LocalDateTime horaEvento = desdeSincronizacion
+                ? registradoEn.atZoneSameInstant(HoraOficial.ZONA).toLocalDateTime()
+                : HoraOficial.ahora();
+
+        // Idempotencia por clave de solicitud (HU21): si este registro offline ya
+        // llegó al servidor, se devuelve el ingreso ya creado en vez de duplicarlo.
+        if (clientUuid != null && !clientUuid.isBlank()) {
+            Optional<Ingreso> yaSincronizado = ingresoRepository.findByClientUuid(clientUuid);
+            if (yaSincronizado.isPresent()) {
+                Ingreso existente = yaSincronizado.get();
+                EstudianteEncontrado estExistente = estudianteExamenService.buscarPorCodSis(codSis).orElse(null);
+                String nombre = estExistente == null ? null : estExistente.nombreCompleto();
+                return new AutorizacionExcepcional(
+                        aDto(existente, info, nombre, ambienteExamenService.aforo(idAmbiente)), true);
+            }
+        }
 
         MotivoExcepcion motivo = leerMotivo(motivoTexto);
         // El operador autoriza únicamente desde el flujo facial del control de
@@ -213,42 +257,63 @@ public class IngresoExcepcionalService {
                 codSis, ambiente.getIdAsignatura(), ambiente.getIdExamen());
         if (previo.isPresent()) {
             Ingreso existente = previo.get();
-            if (esRepeticion(existente, usuario, idAmbiente)) {
-                return aDto(existente, info, est.nombreCompleto(), ambienteExamenService.aforo(idAmbiente));
-            }
             String aulaPrevia = nombreAula(existente.getIdAmbiente());
             String mensaje = existente.estaRetirado()
                     ? "El estudiante fue retirado de este examen y no puede volver a ingresar."
                     : mensajeDuplicado(existente, aulaPrevia);
+            if (desdeSincronizacion) {
+                // Reintento de un lote offline: el ingreso excepcional ya llegó al
+                // servidor (la idempotencia por clientUuid ya se comprobó arriba).
+                if (existente.getTipoIngreso() == TipoIngreso.EXCEPCIONAL && !existente.estaRetirado()) {
+                    return new AutorizacionExcepcional(
+                            aDto(existente, info, est.nombreCompleto(), ambienteExamenService.aforo(idAmbiente)), true);
+                }
+                // El estudiante entró por el control normal: el registro offline no
+                // aplica. Se rechaza (no se reintenta) para que el docente lo sepa.
+                throw rechazar(usuario, correoEstudiante, contexto + " · " + mensaje, ip,
+                        new ConflictoEstadoException(mensaje));
+            }
+            if (esRepeticion(existente, usuario, idAmbiente)) {
+                return new AutorizacionExcepcional(
+                        aDto(existente, info, est.nombreCompleto(), ambienteExamenService.aforo(idAmbiente)), true);
+            }
             throw rechazar(usuario, correoEstudiante, contexto + " · " + mensaje, ip, new ConflictoEstadoException(mensaje));
         }
 
-        // Un motivo facial se autoriza incluso si el estudiante está habilitado:
-        // el facial es obligatorio cuando tiene enrolamiento, y si falló o no
-        // pudo hacerse, el ingreso debe quedar como excepcional.
-        if (!motivo.esFacial()
-                && estudianteExamenService.habilitacion(codSis, ambiente).estado() == EstadoHabilitacion.HABILITADO) {
-            String mensaje = "El estudiante está habilitado: debe registrar su ingreso por el control normal.";
-            throw rechazar(usuario, correoEstudiante, contexto + " · " + mensaje, ip, new ConflictoEstadoException(mensaje));
-        }
+        if (!desdeSincronizacion) {
+            // Un motivo facial se autoriza incluso si el estudiante está habilitado:
+            // el facial es obligatorio cuando tiene enrolamiento, y si falló o no
+            // pudo hacerse, el ingreso debe quedar como excepcional.
+            if (!motivo.esFacial()
+                    && estudianteExamenService.habilitacion(codSis, ambiente).estado() == EstadoHabilitacion.HABILITADO) {
+                String mensaje = "El estudiante está habilitado: debe registrar su ingreso por el control normal.";
+                throw rechazar(usuario, correoEstudiante, contexto + " · " + mensaje, ip, new ConflictoEstadoException(mensaje));
+            }
 
-        EstadoIngresoAula estadoAula = ambienteExamenService.estadoIngreso(info);
-        if (estadoAula.cerrado()) {
-            throw rechazar(usuario, correoEstudiante, contexto + " · " + estadoAula.motivo(), ip,
-                    new ConflictoEstadoException(estadoAula.motivo()));
+            EstadoIngresoAula estadoAula = ambienteExamenService.estadoIngreso(info);
+            if (estadoAula.cerrado()) {
+                throw rechazar(usuario, correoEstudiante, contexto + " · " + estadoAula.motivo(), ip,
+                        new ConflictoEstadoException(estadoAula.motivo()));
+            }
+        } else {
+            // El registro offline se hizo dentro del examen: se valida la fecha
+            // del evento, no la hora actual en la que se sincroniza.
+            ambienteExamenService.verificarHoraEventoOffline(info, horaEvento);
         }
 
         EvidenciaSubida evidencia = evidenciaService.subir(respaldo, "control-ingreso/ingresos-excepcionales");
         Ingreso ingreso;
         try {
-            // Desde aquí hasta el final de la transacción nadie más puede
-            // registrar ingresos excepcionales en esta aula: el aforo no se pasa.
-            ingresoRepository.bloquearAmbiente(idAmbiente);
-            AforoDto aforo = ambienteExamenService.aforo(idAmbiente);
-            if (aforo.capacidad() != null && aforo.ocupados() >= aforo.capacidad()) {
-                String mensaje = "Aula llena (" + aforo.ocupados() + "/" + aforo.capacidad()
-                        + "). Solicite al Administrador reasignar el aula.";
-                throw rechazar(usuario, correoEstudiante, contexto + " · " + mensaje, ip, new ConflictoEstadoException(mensaje));
+            if (!desdeSincronizacion) {
+                // Desde aquí hasta el final de la transacción nadie más puede
+                // registrar ingresos excepcionales en esta aula: el aforo no se pasa.
+                ingresoRepository.bloquearAmbiente(idAmbiente);
+                AforoDto aforo = ambienteExamenService.aforo(idAmbiente);
+                if (aforo.capacidad() != null && aforo.ocupados() >= aforo.capacidad()) {
+                    String mensaje = "Aula llena (" + aforo.ocupados() + "/" + aforo.capacidad()
+                            + "). Solicite al Administrador reasignar el aula.";
+                    throw rechazar(usuario, correoEstudiante, contexto + " · " + mensaje, ip, new ConflictoEstadoException(mensaje));
+                }
             }
 
             ingreso = new Ingreso();
@@ -258,14 +323,19 @@ public class IngresoExcepcionalService {
             ingreso.setIdExamen(ambiente.getIdExamen());
             ingreso.setIdAmbiente(idAmbiente);
             ingreso.setIdUsuarioRegistra(usuario.idUsuario());
-            ingreso.setHoraIngreso(HoraOficial.ahora());
-            ingreso.setFechaIngreso(HoraOficial.hoy());
+            ingreso.setHoraIngreso(horaEvento);
+            ingreso.setFechaIngreso(horaEvento.toLocalDate());
             ingreso.setTipoIngreso(TipoIngreso.EXCEPCIONAL);
             // Lo registra a mano el docente/admin, no un escaneo (columna de la HU05).
             ingreso.setMetodoIngreso(MetodoIngreso.MANUAL);
             ingreso.setMotivoExcepcion(motivo);
             ingreso.setObservacionIngreso(observacionLimpia);
             ingreso.setEvidenciaUrl(evidencia == null ? null : evidencia.url());
+            // Clave de solicitud del dispositivo: hace idempotente el reintento
+            // de la sincronización offline (HU21).
+            if (clientUuid != null && !clientUuid.isBlank()) {
+                ingreso.setClientUuid(clientUuid);
+            }
             ingreso = ingresoRepository.saveAndFlush(ingreso);
         } catch (DataIntegrityViolationException e) {
             // Otro usuario registró el ingreso de este estudiante en el mismo instante (UNIQUE de la BD).
@@ -279,13 +349,15 @@ public class IngresoExcepcionalService {
 
         try {
             auditoriaService.registrarEnTransaccion("INGRESO_EXCEPCIONAL", usuario.correo(), correoEstudiante,
-                    contexto + " · ingreso #" + ingreso.getIdIngreso(), ip);
+                    contexto + " · ingreso #" + ingreso.getIdIngreso()
+                            + (desdeSincronizacion ? " · registrado offline" : ""), ip);
         } catch (RuntimeException e) {
             evidenciaService.eliminarSinFallar(evidencia);
             throw e;
         }
 
-        return aDto(ingreso, info, est.nombreCompleto(), ambienteExamenService.aforo(idAmbiente));
+        return new AutorizacionExcepcional(
+                aDto(ingreso, info, est.nombreCompleto(), ambienteExamenService.aforo(idAmbiente)), false);
     }
 
     // -------------------------------------------------------------------------
@@ -345,6 +417,12 @@ public class IngresoExcepcionalService {
                 && Duration.between(existente.getHoraIngreso(), HoraOficial.ahora()).compareTo(VENTANA_REPETICION) <= 0;
     }
 
+    /**
+     * En la sincronización offline se conserva la hora del dispositivo, así que
+     * el control de "examen en curso" se hace sobre esa marca y no sobre la
+     * hora actual. Se toleran 15 minutos de desfase de reloj
+     * ({@link AmbienteExamenService#TOLERANCIA_RELOJ_MINUTOS}).
+     */
     private MotivoExcepcion leerMotivo(String motivoTexto) {
         if (motivoTexto == null || motivoTexto.isBlank()) {
             throw new SolicitudInvalidaException("El motivo es obligatorio.");

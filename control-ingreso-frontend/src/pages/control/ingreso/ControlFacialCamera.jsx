@@ -13,6 +13,7 @@ import {
   inicializarFacialSqlite
 } from "../../../offline/facialSqliteDb";
 import { solicitarPermisosCamara, detenerPreviewNativo } from "../../../hooks/nativeCameraPreview";
+import AvatarConFoto from "../../../components/common/AvatarConFoto";
 
 const UMBRAL_SIMILITUD = 0.82;
 const UMBRAL_LIVENESS = 0.70;
@@ -102,6 +103,11 @@ export default function ControlFacialCamera({
     estudianteIdentificado?.codsisEstudiante ??
     estudianteIdentificado?.sis ??
     "";
+  const idUsuarioEstudiante =
+    estudiante?.idUsuarioEstudiante ??
+    estudianteIdentificado?.idUsuarioEstudiante ??
+    estudianteIdentificado?.idusuario ??
+    null;
 
   const detenerCamara = useCallback(() => {
     if (streamRef.current) {
@@ -389,7 +395,14 @@ export default function ControlFacialCamera({
     <div className="pt-2 flex justify-center">
       <div className="w-full max-w-[560px] max-md:max-w-none space-y-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex items-center gap-3">
+            <AvatarConFoto
+              idUsuario={idUsuarioEstudiante}
+              codigoSis={sisEstudiante}
+              className="w-12 h-14 shrink-0 rounded-lg overflow-hidden border border-[#CBD5E1] bg-[#F1F5F9] flex items-center justify-center"
+              fallback={<ScanFace className="w-6 h-6 text-[#64748B]" />}
+            />
+            <div className="min-w-0">
             <p className="m-0 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
               Paso 2 · Verificación facial obligatoria
             </p>
@@ -397,6 +410,7 @@ export default function ControlFacialCamera({
             <p className="m-0 text-xs font-semibold text-[#64748B]">
               SIS {sisEstudiante || "—"} · {estudianteIdentificado?.metodo || "Identificado"}
             </p>
+            </div>
           </div>
           {onCancelar && (
             <button

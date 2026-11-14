@@ -20,9 +20,9 @@ export default function CargaExamenesPasados() {
   function elegir(f) {
     quitar(); setError(""); setExito("");
     if (!f) return;
-    if (!f.name.toLowerCase().endsWith(".pdf") || !f.size || f.size > 10 * 1024 * 1024) {
-      setError("Selecciona un PDF de hasta 10 MB."); return;
-    }
+    if (!f.name.toLowerCase().endsWith(".pdf") || (f.type && f.type !== "application/pdf")) { setError("Solo se permiten archivos PDF."); return; }
+    if (f.size > 10 * 1024 * 1024) { setError("El archivo supera el tamaño máximo de 10 MB."); return; }
+    if (!f.size) { setError("El archivo PDF está vacío."); return; }
     setArchivo(f);
     const gestion = f.name.match(/(20[0-9]{2})[-_ ]([12])(?:[-_ .]|$)/);
     setDatos(d => ({ ...d,
@@ -54,7 +54,7 @@ export default function CargaExamenesPasados() {
       <h2 className="font-bold text-lg text-[#123F7B] mb-5">Cargar nuevo documento</h2>
       <fieldset disabled={guardando} className="space-y-5">
         <div>
-          <label className="block border-2 border-dashed border-blue-300 bg-blue-50 rounded-xl p-5 cursor-pointer hover:bg-blue-100">
+          <label onDragOver={e=>{e.preventDefault();}} onDrop={e=>{e.preventDefault();if(!guardando)elegir(e.dataTransfer.files?.[0]);}} className="block border-2 border-dashed border-blue-300 bg-blue-50 rounded-xl p-5 cursor-pointer hover:bg-blue-100">
             <span className="flex gap-2 items-center font-bold text-[#123F7B]"><Upload size={20} />{archivo ? "Cambiar PDF seleccionado" : "Seleccionar PDF del examen"}</span>
             <span className="block text-sm text-slate-600 mt-1">Un archivo PDF de hasta 10 MB. Revisa el título y la gestión antes de guardar.</span>
             <input ref={input} type="file" accept=".pdf,application/pdf" className="sr-only" aria-label="Seleccionar PDF del examen" onChange={e => elegir(e.target.files?.[0])} />
@@ -66,7 +66,7 @@ export default function CargaExamenesPasados() {
           <label className="block text-sm font-semibold text-[#123F7B]">Gestión *<input name="strPeriodo" value={datos.strPeriodo} onChange={campo} required pattern="[12]-[12][0-9]{3}" placeholder="2-2026" title="Formato 1-2026 o 2-2026" className={control} /></label>
           <label className="block text-sm font-semibold text-[#123F7B]">Fecha exacta (opcional)<input name="strFecha" type="date" value={datos.strFecha} onChange={campo} className={control} /><span className="block text-xs text-slate-500 mt-1">Déjala vacía si no figura en el documento.</span></label>
         </div>
-        <label className="block text-sm font-semibold text-[#123F7B]">Descripción o fuente (opcional)<textarea name="strObservaciones" value={datos.strObservaciones} onChange={campo} maxLength={2000} rows={3} className={control} /><span className="block text-xs text-slate-500 mt-1">Esta información será pública junto al documento.</span></label>
+        <label className="block text-sm font-semibold text-[#123F7B]">Descripción o fuente (opcional)<textarea name="strObservaciones" value={datos.strObservaciones} onChange={campo} maxLength={500} rows={3} className={control} /><span className="block text-xs text-slate-500 mt-1">Máximo 500 caracteres ({datos.strObservaciones.length}/500). Esta información será pública junto al documento.</span></label>
         <div className="flex justify-end gap-3"><button type="button" onClick={limpiar} className="rounded-lg border px-4 py-2">Limpiar</button><button type="submit" className="rounded-lg bg-[#123F7B] text-white font-bold px-4 py-2 disabled:opacity-50">{guardando ? "Guardando PDF…" : "Guardar documento"}</button></div>
       </fieldset>
     </form>

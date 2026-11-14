@@ -34,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,9 +44,9 @@ import java.util.stream.Collectors;
 
 /**
  * HU14 · Registro de Expulsados.
- * - Operador: registra (queda PENDIENTE). No autoriza.
  * - Docente: registra y autoriza (solo sus propios exámenes).
  * - Administrador: solo ve reportes globales (solo lectura).
+ * - Operador: sin permiso para registrar expulsiones.
  */
 @Service
 public class RegistroExpulsionService {
@@ -114,14 +115,18 @@ public class RegistroExpulsionService {
     }
 
     // =========================================================================
-    // REGISTRAR (Operador, Docente, Administrador)
+    // REGISTRAR (Docente)
     // =========================================================================
 
     @Transactional
     public RegistroExpulsionResponse registrar(Integer idExamen, RegistroExpulsionRequest req,
                                                MultipartFile evidenciaArchivo, String ip) {
         ContextoUsuarioService.UsuarioActual usuario = contextoUsuarioService.actual();
-        verificarAccesoExamen(usuario, idExamen, true, "Registrar expulsión", ip);
+        if (usuario.esAdmin()) {
+            throw new AccesoDenegadoException(
+                    "El administrador solo puede consultar reportes de expulsiones; no puede registrar expulsiones.");
+        }
+        verificarAccesoExamen(usuario, idExamen, false, "Registrar expulsión", ip);
 
         // Validar que el ingreso existe y pertenece al examen.
         Ingreso ingreso = ingresoRepository.findById(req.idIngreso())
@@ -131,6 +136,11 @@ public class RegistroExpulsionService {
             throw new ConflictoEstadoException(
                     "El ingreso #" + req.idIngreso() + " no pertenece al examen #" + idExamen + ".");
         }
+
+        // Validar que el examen esté en curso. Si no, no se puede registrar la expulsión.
+        verificarExamenEnCurso(ingreso);
+
+        ingresoRepository.bloquearIngreso(req.idIngreso());
 
         // No puede haber ya una expulsión autorizada para este ingreso.
         Optional<Expulsion> yaAutorizada = expulsionRepository.findByIdIngresoAndEstado(
@@ -197,10 +207,10 @@ public class RegistroExpulsionService {
         }
 
         try {
-            auditoriaService.registrarEnTransaccion(
+            auditoriaService.registrarExpulsionEnTransaccion(
                     "EXPULSION_REGISTRADA", usuario.correo(),
                     correoEstudiante(ingreso.getIdUsuarioEstudiante()),
-                    "examen #" + idExamen + " · ingreso #" + req.idIngreso() + " · " + motivoLimpio, ip);
+                    "examen #" + idExamen + " · ingreso #" + req.idIngreso(), motivoLimpio, ip);
         } catch (RuntimeException e) {
             evidenciaService.eliminarSinFallar(evidencia);
             throw e;
@@ -210,13 +220,50 @@ public class RegistroExpulsionService {
     }
 
     // =========================================================================
-    // BUSCAR ESTUDIANTE PARA EXPULSIÓN (Docente, Operador, Administrador)
+    // BUSCAR ESTUDIANTE PARA EXPULSIÓN (Docente)
     // =========================================================================
 
     @Transactional(readOnly = true)
+    private void verificarExamenEnCurso(Ingreso ingreso) {
+        Integer idAmbiente = ingreso.getIdAmbiente();
+        Ambiente ambiente = ambienteRepository.findById(idAmbiente)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No se encontró el aula del examen con ID " + idAmbiente + "."));
+
+        AmbienteInfo info = ambienteExamenService.describir(ambiente);
+        LocalDate fechaExamen = info.fechaExamen();
+        LocalTime horaInicio = ambiente.getHoraInicio();
+        LocalTime horaFin = ambiente.getHoraFin();
+
+        if (fechaExamen == null || horaInicio == null || horaFin == null) {
+            // No hay ventana de tiempo definida; no procedemos a bloquear la expulsión.
+            return;
+        }
+
+        LocalDateTime momentoEvento = LocalDateTime.of(HoraOficial.hoy(), HoraOficial.ahora().toLocalTime());
+        LocalDateTime inicioExamen = LocalDateTime.of(fechaExamen, horaInicio);
+        LocalDateTime finExamen = LocalDateTime.of(fechaExamen, horaFin);
+
+        boolean aunNoEmpieza = momentoEvento.isBefore(inicioExamen);
+        boolean yaTermino = momentoEvento.isAfter(finExamen);
+
+        if (aunNoEmpieza || yaTermino) {
+            throw new ConflictoEstadoException(
+                    "No se puede registrar una expulsión: el examen no está en curso.");
+        }
+    }
+
     public EstudianteExpulsionDto buscarEstudianteParaExpulsion(Integer idExamen, String ci, String ip) {
         ContextoUsuarioService.UsuarioActual usuario = contextoUsuarioService.actual();
-        verificarAccesoExamen(usuario, idExamen, true, "Buscar estudiante para expulsión", ip);
+        if (usuario.esAdmin()) {
+            throw new AccesoDenegadoException(
+                    "El administrador solo puede consultar reportes; no puede buscar estudiantes para expulsar.");
+        }
+        if (usuario.esOperador()) {
+            throw new AccesoDenegadoException(
+                    "El operador no tiene permiso para buscar estudiantes para expulsar.");
+        }
+        verificarAccesoExamen(usuario, idExamen, false, "Buscar estudiante para expulsión", ip);
 
         // Buscar estudiante por CI o Código SIS
         EstudianteExamenService.EstudianteEncontrado encontrado = estudianteExamenService.buscar(ci)
@@ -458,6 +505,62 @@ public class RegistroExpulsionService {
         } catch (RuntimeException e) {
             throw e;
         }
+
+        return armarRespuesta(expulsion);
+    }
+
+    // =========================================================================
+    // REVOCAR (solo Docente): revierte una expulsión autorizada.
+    // =========================================================================
+    @Transactional
+    public RegistroExpulsionResponse revocar(Integer idExamen, Integer idExpulsion, String motivo, String ip) {
+        ContextoUsuarioService.UsuarioActual usuario = contextoUsuarioService.actual();
+        if (!usuario.esDocente()) {
+            throw new AccesoDenegadoException("Solo el docente puede revocar una expulsión.");
+        }
+        verificarAccesoExamen(usuario, idExamen, false, "Revocar expulsión", ip);
+
+        String motivoLimpio = motivo == null ? "" : motivo.trim();
+        if (motivoLimpio.length() < DESCRIPCION_MIN) {
+            throw new SolicitudInvalidaException("El motivo de revocación es obligatorio (mínimo " + DESCRIPCION_MIN + " caracteres).");
+        }
+
+        Expulsion expulsion = expulsionRepository.findById(idExpulsion)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe la expulsión con ID " + idExpulsion + "."));
+
+        Ingreso ingreso = ingresoRepository.findById(expulsion.getIdIngreso())
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No se encontró el ingreso asociado a la expulsión."));
+        if (!idExamen.equals(ingreso.getIdExamen())) {
+            throw new ConflictoEstadoException(
+                    "La expulsión #" + idExpulsion + " no pertenece al examen #" + idExamen + ".");
+        }
+
+        if (expulsion.getEstado() != EstadoExpulsion.AUTORIZADA) {
+            throw new ConflictoEstadoException("Solo se puede revocar una expulsión autorizada (estado actual: "
+                    + expulsion.getEstado() + ").");
+        }
+
+        expulsion.setEstado(EstadoExpulsion.REVOCADA);
+        // No se pisan fechaAutorizacion ni idUsuarioAutoriza: son datos históricos
+        // de quién autorizó la expulsión y cuándo. La revocación queda en la
+        // observación y en la auditoría.
+        String obsActual = expulsion.getObservacion();
+        expulsion.setObservacion(obsActual == null || obsActual.isBlank()
+                ? ("Revocada: " + motivoLimpio)
+                : (obsActual + " | Revocada: " + motivoLimpio));
+        expulsionRepository.save(expulsion);
+
+        // Restaurar el ingreso: el estudiante puede volver a ingresar.
+        ingreso.setIdExpulsion(null);
+        ingresoRepository.saveAndFlush(ingreso);
+
+        auditoriaService.registrarEnTransaccion(
+                "EXPULSION_REVOCADA", usuario.correo(),
+                correoEstudiante(ingreso.getIdUsuarioEstudiante()),
+                "examen #" + idExamen + " · ingreso #" + ingreso.getIdIngreso()
+                + " · expulsión #" + idExpulsion + " revocada · motivo: " + motivoLimpio, ip);
 
         return armarRespuesta(expulsion);
     }

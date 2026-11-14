@@ -7,7 +7,9 @@ public enum MotivoExcepcion {
     LLEGADA_TARDIA("Llegada tardía"),
     TRASLADO_AULA("Traslado desde otra aula"),
     FALLO_FACIAL("Fallo de verificación facial"),
-    SIN_ENROLAMIENTO_FACIAL("Sin enrolamiento facial");
+    SIN_ENROLAMIENTO_FACIAL("Sin enrolamiento facial"),
+    /** Omite únicamente el control biométrico durante una sesión auditada. */
+    MODO_RAPIDO("Modo rápido");
 
     private final String etiqueta;
 

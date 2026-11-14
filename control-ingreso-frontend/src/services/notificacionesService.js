@@ -26,17 +26,33 @@ export function crearAvisosExamenes(examenes, ahora = new Date()) {
 export async function obtenerAvisosExamenes() {
   const token=obtenerToken();
   if(!token) return [];
-  const respuesta=await fetch(`${strApiBaseUrl}/api/notificaciones`,{headers:{Authorization:`Bearer ${token}`}});
+  const respuesta=await fetch(`${strApiBaseUrl}/api/notificaciones`,{headers:{Authorization:`Bearer ${token}`}})
+    .catch(()=>{throw new Error("No se pudieron cargar sus notificaciones. Revisa tu conexión.");});
   if(!respuesta.ok) throw new Error(respuesta.status===401?"Inicie sesión para ver sus notificaciones.":"No se pudieron cargar sus notificaciones.");
-  const {examenes,cambios}=await respuesta.json();
+  const {examenes,cambios,eventos}=await respuesta.json();
+  if(Array.isArray(eventos)) return [...eventos].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha) || String(b.intId).localeCompare(String(a.intId),undefined,{numeric:true}))
+    .map(e=>({...e,strDescripcion:formatearDescripcion(e.strDescripcion),strHace:formatearFechaAviso(e.fecha)}));
   return [...crearAvisosCambios(cambios), ...crearAvisosExamenes(examenes)];
+}
+
+export function formatearFechaAviso(fecha) {
+ return new Intl.DateTimeFormat("es-BO",{timeZone:"America/La_Paz",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(fecha));
+}
+
+export function formatearDescripcion(texto="") {
+ const [materia,...detalle]=texto.split(" · ");
+ // Presentación del catálogo SAGA en mayúsculas; la BD conserva el nombre original.
+ const acentos={introduccion:"introducción",programacion:"programación",calculo:"cálculo",algebra:"álgebra",fisica:"física",quimica:"química",administracion:"administración",investigacion:"investigación",computacion:"computación",metodos:"métodos",analisis:"análisis",diseno:"diseño",teoria:"teoría",matematica:"matemática",ingenieria:"ingeniería",mecanica:"mecánica",electronica:"electrónica",estadistica:"estadística",logica:"lógica"};
+ const nombre=materia===materia.toLocaleUpperCase("es") ? materia.toLocaleLowerCase("es").replace(/[a-záéíóúñ]+/g,p=>acentos[p]??p) : materia;
+ const resultado=[nombre.charAt(0).toLocaleUpperCase("es")+nombre.slice(1),...detalle].join(" · ");
+ return resultado.replace(/\s*\(#\d+\)/g,"").replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g,"$3/$2/$1");
 }
 
 export function crearAvisosCambios(cambios) {
  return cambios.map(cambio => ({
   intId: `cambio-${cambio.id}`, strTipo: "examen",
-  strTitulo: cambio.tipo === "AULA" ? "Cambió de aula" : "Cambió de horario",
-  strDescripcion: `${cambio.asignatura} · Antes: ${cambio.anterior}. Ahora: ${cambio.actual}.`,
-  strHace: new Intl.DateTimeFormat("es-BO", {timeZone:"America/La_Paz",dateStyle:"short",timeStyle:"short"}).format(new Date(cambio.fecha)),
+  strTitulo: cambio.tipo === "AULA" ? "Cambio de aula" : "Cambio de horario",
+  strDescripcion: formatearDescripcion(`${cambio.asignatura} · Antes: ${cambio.anterior}. Ahora: ${cambio.actual}.`),
+  strHace: formatearFechaAviso(cambio.fecha),
  }));
 }
