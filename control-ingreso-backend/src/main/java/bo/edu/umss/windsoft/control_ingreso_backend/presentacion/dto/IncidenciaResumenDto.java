@@ -13,6 +13,7 @@ public record IncidenciaResumenDto(
         Integer idExamen,
         String tipo,
         String tipoEtiqueta,
+        String descripcion,
         String severidad,
         String severidadEtiqueta,
         String estado,
