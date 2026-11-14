@@ -458,7 +458,7 @@ public class IncidenciaService {
             AmbienteInfo info = infos.get(i.getIdAmbiente());
             return new IncidenciaResumenDto(i.getIdIncidencia(), i.getCodigo(), i.getFechaHora(), i.getIdAmbiente(),
                     info.aula(), info.asignatura(), info.ambiente().getIdExamen(),
-                    i.getTipo().name(), i.getTipo().getEtiqueta(),
+                    i.getTipo().name(), i.getTipo().getEtiqueta(), i.getDescripcion(),
                     i.getSeveridad().name(), i.getSeveridad().getEtiqueta(),
                     i.getEstado().name(), i.getEstado().getEtiqueta(),
                     nombre(usuarios.get(i.getIdUsuarioReporta())),

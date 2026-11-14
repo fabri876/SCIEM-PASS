@@ -48,4 +48,18 @@ public interface ExpulsionRepository extends JpaRepository<Expulsion, Integer> {
               AND e.estado = 'PENDIENTE'
             """, nativeQuery = true)
     long contarPendientesPorExamen(@Param("idExamen") Integer idExamen);
+
+    /** HU14/BUG-052: expulsiones de un examen y aula, para mostrarlas en Últimos registros. */
+    @Query(value = """
+            SELECT e.* FROM expulsion e
+            JOIN ingreso i ON i.idingreso = e.idingreso
+            WHERE i.idasignatura = :idAsignatura
+              AND i.idexamen = :idExamen
+              AND i.idambiente = :idAmbiente
+            ORDER BY e.horaexpulsion DESC
+            """, nativeQuery = true)
+    List<Expulsion> findByExamenYAmbiente(
+            @Param("idAsignatura") Integer idAsignatura,
+            @Param("idExamen") Integer idExamen,
+            @Param("idAmbiente") Integer idAmbiente);
 }
