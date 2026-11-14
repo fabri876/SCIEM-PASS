@@ -683,6 +683,24 @@ public class IncidenciaService {
         String detalle = incidencia.getCodigo() + " · " + anterior.name() + " → " + incidencia.getEstado().name()
                 + (esRevocacion ? " · resolución anterior: \"" + valor(resolucionAnterior) + "\" · " : " · ")
                 + "resolución: " + resolucionLimpia;
+
+        // Al revocar una incidencia que tuvo expulsión asociada, se debe limpiar
+        // el idExpulsion del ingreso para que el estudiante deje de aparecer
+        // como "ya fue expulsado" (RETIRADO) y se puedan registrar nuevas
+        // incidencias para él (BUG-055 / TC-293).
+        if (esRevocacion) {
+            Optional<Expulsion> expulsionAsociada = expulsionRepository.findFirstByIdIncidencia(incidencia.getIdIncidencia());
+            expulsionAsociada.ifPresent(e -> {
+                if (e.getIdIngreso() != null) {
+                    Ingreso ingresoExpulsado = ingresoRepository.findById(e.getIdIngreso()).orElse(null);
+                    if (ingresoExpulsado != null) {
+                        ingresoExpulsado.setIdExpulsion(null);
+                        ingresoRepository.saveAndFlush(ingresoExpulsado);
+                    }
+                }
+            });
+        }
+
         auditoriaService.registrarEnTransaccion(accionAuditoria, usuario.correo(), correoAfectado(incidencia, usuario),
                 detalle, ip);
         return armarDetalle(incidencia, ambiente);

@@ -61,6 +61,12 @@ const ESTILO_ESTADO = {
 };
 
 function textoTipo(item) {
+  // Cuando el tipo es "Otro", el texto descriptivo escrito por el usuario va en
+  // el campo descripcion (p.ej. "no trabajo barbijo"). Mostrar ese texto en vez
+  // de la etiqueta genérica "Otro" (BUG-050 / TC-214).
+  if (item.tipo === "OTRO" && item.descripcion && item.descripcion.trim()) {
+    return item.descripcion.trim();
+  }
   return item.tipoEtiqueta || ETIQUETAS_TIPO[item.tipo] || item.tipo || "Incidencia";
 }
 
@@ -124,7 +130,9 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
           estado: esError ? "ERROR_SYNC" : "PENDIENTE_SYNC",
           estadoEtiqueta: esError ? "Rechazada por el servidor" : "Pendiente de envío",
           tipo: p.tipo,
-          tipoEtiqueta: ETIQUETAS_TIPO[p.tipo] || p.tipo,
+          tipoEtiqueta: p.tipo === "OTRO" && p.descripcion && p.descripcion.trim()
+            ? p.descripcion.trim()
+            : ETIQUETAS_TIPO[p.tipo] || p.tipo,
           severidad: p.severidad,
           severidadEtiqueta: ETIQUETAS_SEVERIDAD[p.severidad] || p.severidad,
           descripcion: p.descripcion,

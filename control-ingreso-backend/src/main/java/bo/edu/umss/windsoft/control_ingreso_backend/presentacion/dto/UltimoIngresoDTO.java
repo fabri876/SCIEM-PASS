@@ -16,27 +16,29 @@ public record UltimoIngresoDTO(
         /** Similitud facial 0..1; null cuando el ingreso fue sin facial. */
         Double scoreFacial,
         String estado,
-        boolean modoRapido
+        boolean modoRapido,
+        /** Id de la expulsión asociada, si el estudiante fue expulsado de este examen. */
+        Integer idExpulsion
 ) {
     public UltimoIngresoDTO(Integer idIngreso, LocalDateTime horaIngreso, String metodoIngreso,
                             EstudianteResumenDTO estudiante, String registradoPor, Integer idAsignatura,
                             Integer idExamen, Integer idAmbiente, boolean verificacionFacial,
                             Double scoreFacial) {
         this(idIngreso, horaIngreso, metodoIngreso, estudiante, registradoPor, idAsignatura, idExamen,
-                idAmbiente, verificacionFacial, scoreFacial, "PERMITIDO", false);
+                idAmbiente, verificacionFacial, scoreFacial, "PERMITIDO", false, null);
     }
 
     public UltimoIngresoDTO(Integer idIngreso, LocalDateTime horaIngreso, String metodoIngreso,
                             EstudianteResumenDTO estudiante, String registradoPor, Integer idAsignatura,
                             Integer idExamen, Integer idAmbiente, String estado) {
         this(idIngreso, horaIngreso, metodoIngreso, estudiante, registradoPor, idAsignatura, idExamen,
-                idAmbiente, false, null, estado, false);
+                idAmbiente, false, null, estado, false, null);
     }
 
     public UltimoIngresoDTO(Integer idIngreso, LocalDateTime horaIngreso, String metodoIngreso,
                             EstudianteResumenDTO estudiante, String registradoPor, Integer idAsignatura,
                             Integer idExamen, Integer idAmbiente) {
         this(idIngreso, horaIngreso, metodoIngreso, estudiante, registradoPor, idAsignatura, idExamen,
-                idAmbiente, false, null, "PERMITIDO", false);
+                idAmbiente, false, null, "PERMITIDO", false, null);
     }
 }
