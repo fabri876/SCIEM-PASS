@@ -187,6 +187,19 @@ export async function cancelarExamen(idExamen, strMotivo) {
     return response.json();
 }
 
+// Temporal: reactiva un examen cancelado para pruebas.
+export async function reactivarExamen(idExamen) {
+    const response = await fetch(`${strApiBaseUrl}/api/examenes/${idExamen}/reactivar`, {
+        method: "POST",
+        headers: construirHeaders(),
+    });
+    if (!response.ok) {
+        const objError = await response.json().catch(() => null);
+        throw new Error(objError?.mensaje || objError?.message || "No se pudo reactivar el examen.");
+    }
+    return response.json();
+}
+
 export async function obtenerExamenPorId(idExamen) {
     const usuario = obtenerUsuarioActual();
     const controller = new AbortController();

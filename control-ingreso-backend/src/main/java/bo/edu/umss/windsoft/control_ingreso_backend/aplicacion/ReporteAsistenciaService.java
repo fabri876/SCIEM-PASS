@@ -58,6 +58,9 @@ public class ReporteAsistenciaService {
 
     public byte[] generar(Integer idExamen, String formato, Set<String> secciones, ContextoUsuarioService.UsuarioActual usuario) {
         Examen examen = examenRepository.findById(idExamen).orElseThrow(() -> new IllegalArgumentException("Examen no encontrado."));
+        if (Boolean.TRUE.equals(examen.getCancelado())) {
+            throw new IllegalArgumentException("El reporte no está disponible para un examen cancelado.");
+        }
         if (usuario.esDocente() && !Objects.equals(examen.getIdUsuario(), usuario.idUsuario()))
             throw new SecurityException("No tienes permiso para generar el reporte de este examen.");
         if (usuario.esOperador()) throw new SecurityException("No tienes permiso para generar este reporte.");

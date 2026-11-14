@@ -149,6 +149,9 @@ public class MonitoreoService {
 
     @Transactional(readOnly = true)
     public TableroMonitoreoDto tablero(Integer idExamen, String ip) {
+        if (examenRepository.findById(idExamen).map(Examen::getCancelado).orElse(false)) {
+            throw new RecursoNoEncontradoException("El examen cancelado no tiene monitoreo disponible.");
+        }
         UsuarioActual usuario = contextoUsuarioService.actual();
         List<Ambiente> ambientes = ambienteExamenService.ambientesVisibles(usuario, idExamen, null, false,
                 "Ver dashboard del examen " + idExamen, ip);
@@ -388,6 +391,9 @@ public class MonitoreoService {
     /** Ingresos vigentes del examen agrupados cada "intervalo" minutos, sin huecos. */
     @Transactional(readOnly = true)
     public List<LlegadaDto> llegadas(Integer idExamen, int intervalo, String ip) {
+        if (examenRepository.findById(idExamen).map(Examen::getCancelado).orElse(false)) {
+            return List.of();
+        }
         UsuarioActual usuario = contextoUsuarioService.actual();
         List<Ambiente> ambientes = ambienteExamenService.ambientesVisibles(usuario, idExamen, null, false,
                 "Ver curva de llegada del examen " + idExamen, ip);

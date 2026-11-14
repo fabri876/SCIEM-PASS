@@ -23,13 +23,13 @@ public interface AmbienteRepository extends JpaRepository<Ambiente, Integer> {
     List<Ambiente> findByIdExamen(Integer idExamen);
 
     @Query("SELECT a FROM Ambiente a WHERE a.idAula = :idAula " +
-           "AND a.idExamen IN (SELECT e.idExamen FROM Examen e WHERE e.fechaExamen = :fecha AND e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL'))")
+           "AND a.idExamen IN (SELECT e.idExamen FROM Examen e WHERE e.fechaExamen = :fecha AND e.cancelado = false AND e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL'))")
     
     List<Ambiente> findByIdAulaYFecha(@Param("idAula") Integer idAula, @Param("fecha") LocalDate fecha);
 
     @Query("SELECT a FROM Ambiente a WHERE a.idExamen IN "
             + "(SELECT e.idExamen FROM Examen e WHERE e.fechaExamen = :fecha "
-            + "AND e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL'))")
+            + "AND e.cancelado = false AND e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL'))")
     List<Ambiente> findByFechaSemestreActual(@Param("fecha") LocalDate fecha);
     
     @Query("SELECT a FROM Ambiente a WHERE a.idExamen IN :idsExamen AND a.idExamen IN (SELECT e.idExamen FROM Examen e WHERE e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL'))")

@@ -64,6 +64,10 @@ public class EstudianteQrService {
         Examen examen = examenRepository.findById(idExamen)
                 .orElseThrow(() -> new IllegalArgumentException("Examen no encontrado: " + idExamen));
 
+        if (Boolean.TRUE.equals(examen.getCancelado())) {
+            return sinQr("Este examen fue cancelado.", examen, null);
+        }
+
         // 2. Verificar que el estudiante esté habilitado para este examen
         // Buscamos si existe al menos una habilitacion activa para este usuario y examen
         boolean habilitado = habilitacionRepository
