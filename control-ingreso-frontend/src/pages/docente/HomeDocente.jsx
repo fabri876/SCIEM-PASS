@@ -143,6 +143,8 @@ export default function HomeDocente() {
                             totalInscritos: total,
                             esExamenReal: true,
                             ambientes: ex.ambientes || [],
+                            cancelado: Boolean(ex.cancelado),
+                            motivoCancelacion: ex.motivoCancelacion || "",
                         };
                     });
                     setExamenes(mapeados);
@@ -204,7 +206,7 @@ export default function HomeDocente() {
     })();
 
     const listExamenesCalendario = examenes
-        .filter((e) => e.esExamenReal !== false && e.fechaExamen)
+        .filter((e) => e.esExamenReal !== false && e.fechaExamen && !e.cancelado)
         .map((e) => ({
             id: e.idExamen,
             fecha: String(e.fechaExamen).slice(0, 10),
@@ -393,6 +395,7 @@ export default function HomeDocente() {
                                 TarjetaExamen={TarjetaExamenDocente}
                                 onRegistrar={fnIrARegistrarExamen}
                                 idResaltado={idExamenResaltado}
+                                onCambio={() => setNumRecarga((n) => n + 1)}
                             />
                         ) : strMenuActivo === "registrar-examen" ? (
                             <SeccionRegistrarExamen

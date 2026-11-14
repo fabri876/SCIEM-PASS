@@ -31,7 +31,7 @@ public interface ExamenRepository extends JpaRepository<Examen, Integer> {
 
     /** Tipos de examen ya registrados por un docente en una asignatura. */
     @Query("SELECT DISTINCT e.idTipoExamen FROM Examen e " +
-           "WHERE e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL') AND e.idAsignatura = :idAsignatura AND e.codsisDocente = :codsisDocente")
+           "WHERE e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL') AND e.cancelado = false AND e.idAsignatura = :idAsignatura AND e.codsisDocente = :codsisDocente")
     List<Integer> findTiposUsadosByAsignaturaAndDocente(
             @Param("idAsignatura") Integer idAsignatura,
             @Param("codsisDocente") Integer codsisDocente);
@@ -39,7 +39,7 @@ public interface ExamenRepository extends JpaRepository<Examen, Integer> {
     /** Tipos usados dentro de un grupo específico. */
     @Query("SELECT DISTINCT e.idTipoExamen FROM Examen e " +
            "WHERE e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL') " +
-           "AND e.idAsignatura = :idAsignatura AND e.codsisDocente = :codsisDocente " +
+           "AND e.cancelado = false AND e.idAsignatura = :idAsignatura AND e.codsisDocente = :codsisDocente " +
            "AND e.idGrupo = :idGrupo")
     List<Integer> findTiposUsadosByGrupo(
             @Param("idAsignatura") Integer idAsignatura,

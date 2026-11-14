@@ -22,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import java.util.List;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenDetalleDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CancelarExamenRequest;
 
 @RestController
 @RequestMapping("/api/examenes")
@@ -45,6 +46,20 @@ public class ExamenController {
             @PathVariable Integer id,
             @Valid @RequestBody ExamenRequest request, HttpServletRequest httpRequest) {
         return ResponseEntity.ok(examenService.actualizarExamen(id, request, ClientIpResolver.resolver(httpRequest)));
+    }
+
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<ExamenRespuestaDto> cancelarExamen(
+            @PathVariable Integer id, @RequestBody CancelarExamenRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(examenService.cancelarExamen(id,
+                request == null ? null : request.motivo(), ClientIpResolver.resolver(httpRequest)));
+    }
+
+    @PostMapping("/{id}/reactivar")
+    public ResponseEntity<ExamenRespuestaDto> reactivarExamen(
+            @PathVariable Integer id, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(examenService.reactivarExamen(id, ClientIpResolver.resolver(httpRequest)));
     }
 
     @GetMapping("/horarios-regulares")

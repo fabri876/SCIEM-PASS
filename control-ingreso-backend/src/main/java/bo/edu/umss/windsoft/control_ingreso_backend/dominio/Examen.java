@@ -3,6 +3,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.dominio;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "examen")
@@ -36,6 +37,18 @@ public class Examen {
 
     @Column(name = "estadoexamen")
     private Boolean estadoExamen;
+
+    @Column(name = "cancelado", nullable = false)
+    private Boolean cancelado = false;
+
+    @Column(name = "motivocancelacion", length = 200)
+    private String motivoCancelacion;
+
+    @Column(name = "fechacancelacion")
+    private LocalDateTime fechaCancelacion;
+
+    @Column(name = "idusuariocancelacion")
+    private Integer idUsuarioCancelacion;
 
     @Column(name = "idasignatura")
     private Integer idAsignatura;
@@ -106,6 +119,15 @@ public class Examen {
     public void setEstadoExamen(Boolean estadoExamen) {
         this.estadoExamen = estadoExamen;
     }
+
+    public Boolean getCancelado() { return cancelado; }
+    public void setCancelado(Boolean cancelado) { this.cancelado = cancelado; }
+    public String getMotivoCancelacion() { return motivoCancelacion; }
+    public void setMotivoCancelacion(String motivoCancelacion) { this.motivoCancelacion = motivoCancelacion; }
+    public LocalDateTime getFechaCancelacion() { return fechaCancelacion; }
+    public void setFechaCancelacion(LocalDateTime fechaCancelacion) { this.fechaCancelacion = fechaCancelacion; }
+    public Integer getIdUsuarioCancelacion() { return idUsuarioCancelacion; }
+    public void setIdUsuarioCancelacion(Integer idUsuarioCancelacion) { this.idUsuarioCancelacion = idUsuarioCancelacion; }
 
     public Integer getIdAsignatura() {
         return idAsignatura;

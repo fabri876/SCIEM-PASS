@@ -15,6 +15,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoIntento;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Expulsion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AsignacionNoActivaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
@@ -30,6 +31,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CarreraEstudian
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceEnrollmentRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IntentoNoAutorizadoRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExpulsionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.TipoExamenRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.DelegadoExamenDTO;
@@ -61,6 +63,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -90,6 +94,7 @@ public class ControlIngresoAyudanteService {
     private final AsignacionAulaService asignacionAulaService;
     private final IntentoIngresoService intentoIngresoService;
     private final IntentoNoAutorizadoRepository intentosRepository;
+    private final ExpulsionRepository expulsionRepository;
     private final AuditoriaService auditoriaService;
     private final IntentoExamenIncorrectoService intentoExamenIncorrectoService;
     private final FaceEnrollmentRepository faceEnrollmentRepository;
@@ -113,12 +118,14 @@ public class ControlIngresoAyudanteService {
             AsignacionAulaService asignacionAulaService,
             IntentoIngresoService intentoIngresoService,
             IntentoNoAutorizadoRepository intentosRepository,
+            ExpulsionRepository expulsionRepository,
             AuditoriaService auditoriaService,
             IntentoExamenIncorrectoService intentoExamenIncorrectoService,
             FaceEnrollmentRepository faceEnrollmentRepository) {
         this.asignacionAulaService = asignacionAulaService;
         this.intentoIngresoService = intentoIngresoService;
         this.intentosRepository = intentosRepository;
+        this.expulsionRepository = expulsionRepository;
         this.auditoriaService = auditoriaService;
         this.intentoExamenIncorrectoService = intentoExamenIncorrectoService;
         this.faceEnrollmentRepository = faceEnrollmentRepository;
@@ -301,25 +308,72 @@ public class ControlIngresoAyudanteService {
                             ing.getIdExpulsion());
                 })
                 .toList());
+        // BUG-052: cargar expulsiones antes de los intentos para poder distinguir
+        // un intento de reingreso de expulsado de un duplicado real.
+        List<Expulsion> expulsiones = expulsionRepository.findByExamenYAmbiente(idAsignatura, idExamen, idAmbiente);
+        Set<Integer> codSisExpulsados = expulsiones.stream()
+                .flatMap(e -> {
+                    Ingreso ingRel = ingresoRepository.findById(e.getIdIngreso()).orElse(null);
+                    return ingRel != null ? java.util.stream.Stream.of(ingRel.getCodsisEstudiante())
+                            : java.util.stream.Stream.empty();
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
         var intentos = soloPropios
                 ? intentosRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteAndIdUsuarioRegistraOrderByHoraIntentoDesc(
                         idAsignatura, idExamen, idAmbiente, idActual)
                 : intentosRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIntentoDesc(
                         idAsignatura, idExamen, idAmbiente);
         intentos.stream()
-                .forEach(i -> {
-                    Usuario estudiante = usuarioRepository.findById(i.getIdUsuarioEstudiante()).orElse(null);
-                    Usuario operador = usuarioRepository.findById(i.getIdUsuarioRegistra()).orElse(null);
-                    String nombre = estudiante == null ? "Estudiante registrado"
-                            : (estudiante.getNombreusuario() + " " + estudiante.getApellidousuario()).trim();
-                    var resumen = new EstudianteResumenDTO(i.getIdUsuarioEstudiante(), i.getCodsisEstudiante(),
-                            estudiante == null ? null : estudiante.getCiusuario(), nombre,
-                            carreraDelEstudiante(i.getIdUsuarioEstudiante(), i.getCodsisEstudiante()), resolverFotoUrl(i.getIdUsuarioEstudiante()));
-                    String registrador = operador == null ? null
-                            : (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim();
-                    resultado.add(new UltimoIngresoDTO(i.getIdIntento(), i.getHoraIntento(), i.getMetodoVerificacion(), resumen,
-                            registrador, i.getIdAsignatura(), i.getIdExamen(), i.getIdAmbiente(), i.getMotivo().name()));
+        .forEach(i -> {
+            Usuario estudiante = usuarioRepository.findById(i.getIdUsuarioEstudiante()).orElse(null);
+            Usuario operador = usuarioRepository.findById(i.getIdUsuarioRegistra()).orElse(null);
+            String nombre = estudiante == null ? "Estudiante registrado"
+                    : (estudiante.getNombreusuario() + " " + estudiante.getApellidousuario()).trim();
+            var resumen = new EstudianteResumenDTO(i.getIdUsuarioEstudiante(), i.getCodsisEstudiante(),
+                    estudiante == null ? null : estudiante.getCiusuario(), nombre,
+                    carreraDelEstudiante(i.getIdUsuarioEstudiante(), i.getCodsisEstudiante()), resolverFotoUrl(i.getIdUsuarioEstudiante()));
+            String registrador = operador == null ? null
+                    : (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim();
+
+            // Si el intento es DUPLICADO pero el estudiante está expulsado, mostrarlo como EXPULSADO.
+            String estadoIntento = i.getMotivo().name();
+            if (i.getMotivo() == MotivoIntento.DUPLICADO && codSisExpulsados.contains(i.getCodsisEstudiante())) {
+                estadoIntento = "EXPULSADO";
+            }
+
+            resultado.add(new UltimoIngresoDTO(i.getIdIntento(), i.getHoraIntento(), i.getMetodoVerificacion(), resumen,
+                    registrador, i.getIdAsignatura(), i.getIdExamen(), i.getIdAmbiente(), estadoIntento));
+        });
+
+        expulsiones.stream()
+                .filter(e -> !soloPropios || e.getIdUsuario().equals(idActual))
+                .forEach(e -> {
+                    Ingreso ingRel = ingresoRepository.findById(e.getIdIngreso()).orElse(null);
+                    Integer idUsuarioEst = ingRel != null ? ingRel.getIdUsuarioEstudiante() : null;
+                    Integer codsis = ingRel != null ? ingRel.getCodsisEstudiante() : null;
+                    Usuario user = idUsuarioEst != null ? usuarioRepository.findById(idUsuarioEst).orElse(null) : null;
+                    Estudiante est = codsis != null ? estudianteRepository.findByCodsisestudiante(codsis).orElse(null) : null;
+                    String ci = user != null ? user.getCiusuario() : "";
+                    String nombreCompleto = user != null
+                            ? (user.getNombreusuario() + " " + user.getApellidousuario()).trim()
+                            : "Estudiante registrado";
+                    EstudianteResumenDTO resumen = new EstudianteResumenDTO(
+                            idUsuarioEst, codsis, ci, nombreCompleto,
+                            carreraDelEstudiante(idUsuarioEst, codsis), resolverFotoUrl(idUsuarioEst));
+                    Usuario operador = e.getIdUsuario() != null ? usuarioRepository.findById(e.getIdUsuario()).orElse(null) : null;
+                    String registradoPor = operador != null
+                            ? (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim()
+                            : null;
+                    resultado.add(new UltimoIngresoDTO(
+                            null, e.getHoraExpulsion(), "EXPULSIÓN", resumen, registradoPor,
+                            ingRel != null ? ingRel.getIdAsignatura() : idAsignatura,
+                            ingRel != null ? ingRel.getIdExamen() : idExamen,
+                            ingRel != null ? ingRel.getIdAmbiente() : idAmbiente,
+                            false, null, "EXPULSADO", false, e.getIdExpulsion()));
                 });
+
         return resultado.stream().sorted(Comparator.comparing(UltimoIngresoDTO::horaIngreso,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(limite > 0 ? Math.min(limite, 10) : 5).toList();
@@ -372,6 +426,13 @@ public class ControlIngresoAyudanteService {
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
             LocalDateTime horaMarcacion, String clientUuid, String ip) {
         validarAsignacionDeControl(dto, idOperador);
+        var examenActual = examenRepository.findById(dto.idexamen()).orElse(null);
+        if (examenActual != null && Boolean.TRUE.equals(examenActual.getCancelado())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ResultadoIngresoDTO(
+                    "EXAMEN_CANCELADO",
+                    "INGRESO DENEGADO - El examen fue cancelado.",
+                    null, null, null, null));
+        }
         validarModoRapido(dto);
 
         // El horario se valida únicamente para registros online. Las marcas
@@ -910,7 +971,8 @@ public class ControlIngresoAyudanteService {
         LocalTime horaIni = amb != null ? amb.getHoraInicio() : null;
         LocalTime horaFin = amb != null ? amb.getHoraFin() : null;
 
-        String estadoMateria = calcularEstadoMateria(fechaEx, horaIni, horaFin);
+        String estadoMateria = ex != null && Boolean.TRUE.equals(ex.getCancelado())
+                ? "CANCELADO" : calcularEstadoMateria(fechaEx, horaIni, horaFin);
 
         Integer idAsig = ae.getId().getIdasignatura();
         Integer idEx = ae.getId().getIdexamen();
@@ -1009,7 +1071,8 @@ public class ControlIngresoAyudanteService {
         LocalTime horaIni = amb != null ? amb.getHoraInicio() : null;
         LocalTime horaFin = amb != null ? amb.getHoraFin() : null;
 
-        String estadoMateria = calcularEstadoMateria(fechaEx, horaIni, horaFin);
+        String estadoMateria = ex != null && Boolean.TRUE.equals(ex.getCancelado())
+                ? "CANCELADO" : calcularEstadoMateria(fechaEx, horaIni, horaFin);
 
         Integer idAsig = ae.getId().getIdasignatura();
         Integer idEx = ae.getId().getIdexamen();

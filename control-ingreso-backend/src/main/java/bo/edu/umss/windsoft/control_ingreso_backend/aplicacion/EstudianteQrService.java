@@ -67,6 +67,11 @@ public class EstudianteQrService {
         Examen examen = examenRepository.findById(idExamen)
                 .orElseThrow(() -> new IllegalArgumentException("Examen no encontrado: " + idExamen));
 
+        // Un examen cancelado no debe entregar QR aunque exista una verificacion facial vigente.
+        if (Boolean.TRUE.equals(examen.getCancelado())) {
+            return sinQr("Este examen fue cancelado.", examen, null);
+        }
+
         // El QR nunca se entrega por una bandera del navegador: requiere una
         // verificacion facial vigente persistida por el servidor.
         if (!faceEnrollmentService.tieneAutorizacionQrVigente(idUsuario, idExamen)) {

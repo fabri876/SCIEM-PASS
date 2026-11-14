@@ -172,6 +172,34 @@ export async function obtenerMisExamenes() {
     return res.examenes;
 }
 
+// POST /api/examenes/{id}/cancelar · body { motivo }
+// Solo el docente dueño o el administrador, hasta 15 minutos antes del inicio.
+export async function cancelarExamen(idExamen, strMotivo) {
+    const response = await fetch(`${strApiBaseUrl}/api/examenes/${idExamen}/cancelar`, {
+        method: "POST",
+        headers: construirHeaders(),
+        body: JSON.stringify({ motivo: strMotivo }),
+    });
+    if (!response.ok) {
+        const objError = await response.json().catch(() => null);
+        throw new Error(objError?.mensaje || objError?.message || "No se pudo cancelar el examen. Intenta nuevamente.");
+    }
+    return response.json();
+}
+
+// Temporal: reactiva un examen cancelado para pruebas.
+export async function reactivarExamen(idExamen) {
+    const response = await fetch(`${strApiBaseUrl}/api/examenes/${idExamen}/reactivar`, {
+        method: "POST",
+        headers: construirHeaders(),
+    });
+    if (!response.ok) {
+        const objError = await response.json().catch(() => null);
+        throw new Error(objError?.mensaje || objError?.message || "No se pudo reactivar el examen.");
+    }
+    return response.json();
+}
+
 export async function obtenerExamenPorId(idExamen) {
     const usuario = obtenerUsuarioActual();
     const controller = new AbortController();

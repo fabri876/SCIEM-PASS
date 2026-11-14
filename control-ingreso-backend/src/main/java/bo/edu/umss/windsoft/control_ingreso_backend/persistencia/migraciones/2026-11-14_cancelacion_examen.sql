@@ -1,0 +1,5 @@
+ALTER TABLE examen
+    ADD COLUMN IF NOT EXISTS cancelado BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS motivocancelacion VARCHAR(200),
+    ADD COLUMN IF NOT EXISTS fechacancelacion TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS idusuariocancelacion INTEGER REFERENCES usuario(idusuario);

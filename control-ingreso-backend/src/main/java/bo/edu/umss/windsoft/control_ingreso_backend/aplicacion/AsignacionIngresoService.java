@@ -162,6 +162,10 @@ public class AsignacionIngresoService {
                 Examen examen = examenRepository.findById(idExamen)
                                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                                 "Examen no encontrado: " + idExamen));
+                if (Boolean.TRUE.equals(examen.getCancelado())) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                        "No se pueden modificar ayudantes de un examen cancelado.");
+                }
                 if (usuario != null && usuario.esDocente() && !usuario.idUsuario().equals(examen.getIdUsuario())) {
                         throw new AccesoDenegadoException(
                                         "No puede consultar operadores de un examen de otro docente.");

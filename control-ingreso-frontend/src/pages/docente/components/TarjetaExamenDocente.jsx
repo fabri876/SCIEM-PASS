@@ -2,11 +2,16 @@
 // - "Registrar ingreso": desde 15 minutos antes del inicio hasta que termina el examen.
 // - "Habilitaciones": solo antes de que empiece el examen (después ya no se pueden editar).
 // - Finalizado: "Ver ingresos" (todos los estudiantes con su estado, solo lectura).
+// - "Cancelar": solo en próximos, hasta 15 minutos antes del inicio. Un examen cancelado
+//   queda con la etiqueta "Cancelado", su motivo y sin botones.
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { estadoExamen, esHoy, puedeControlarIngreso, aperturaControl } from "../utilidadesExamenDocente";
+import { estadoExamen, esHoy, puedeControlarIngreso, aperturaControl, puedeCancelarExamen } from "../utilidadesExamenDocente";
+import ModalCancelarExamen from "../../../components/examenes/ModalCancelarExamen";
 import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
 import PanelIngresosExamen from "../../control/ingreso/componentes/PanelIngresosExamen";
+// Reactivación temporal reservada para pruebas futuras:
+// import { reactivarExamen } from "../../../services/examenService";
 // "Seguridad de Sistemas · Primer Parcial · 24 oct" para el panel de ingresos
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 function subtituloIngresos(strMateria, strTipo, strFecha) {
@@ -37,10 +42,14 @@ const horaCorta = (date) => `${String(date.getHours()).padStart(2, "0")}:${Strin
 
 const BOTON_PRINCIPAL = "bg-[#003770] hover:bg-[#124B83] text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap";
 const BOTON_SECUNDARIO = "bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#1A365D] font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap";
+// Mismo tamaño que "Habilitaciones", con borde y texto rojo
+const BOTON_CANCELAR = "bg-white border border-[#FECACA] hover:bg-[#FEF2F2] text-[#B91C1C] font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-xs cursor-pointer whitespace-nowrap";
 
-export default function TarjetaExamenDocente({ examen, boolResaltado = false, dateAhora = new Date() }) {
+export default function TarjetaExamenDocente({ examen, boolResaltado = false, dateAhora = new Date(), onCambio }) {
   const navigate = useNavigate();
   const [boolIngresosAbierto, setBoolIngresosAbierto] = useState(false);
+  const [boolCancelarAbierto, setBoolCancelarAbierto] = useState(false);
+  // const [boolReactivando, setBoolReactivando] = useState(false);
   const boolReal = examen.esExamenReal !== false;
   const strEstado = boolReal ? estadoExamen(examen, dateAhora) : "SIN_FECHA";
   const boolHoy = esHoy(examen, dateAhora);
@@ -51,10 +60,18 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
   const dateApertura = aperturaControl(examen);
   const boolAvisoApertura = boolReal && boolHoy && strEstado === "PROXIMO" && dateApertura && dateAhora < dateApertura;
   const objFecha = partesFecha(examen.fechaExamen);
+  const boolCancelado = strEstado === "CANCELADO";
   const boolFinalizado = strEstado === "FINALIZADO";
+  const boolApagado = boolFinalizado || boolCancelado;
   const boolEnCurso = strEstado === "EN_CURSO";
+  const boolCancelar = boolReal && puedeCancelarExamen(examen, dateAhora);
 
-  const objBadge = boolEnCurso
+  // Reactivación temporal deshabilitada:
+  // async function handleReactivar() { ... }
+
+  const objBadge = boolCancelado
+    ? { strTexto: "Cancelado", strClase: "bg-[#B91C1C] text-white" }
+    : boolEnCurso
     ? { strTexto: "● En curso", strClase: "bg-[#003770] text-white" }
     : strEstado === "PROXIMO"
       ? { strTexto: boolHoy ? "Hoy" : "Próximo", strClase: "bg-[#E8F1FB] text-[#003770]" }
@@ -70,15 +87,15 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
       id={`examen-${examen.idExamen}`}
       className={
         "border rounded-xl px-5 py-4 flex items-center gap-4 flex-wrap transition max-md:px-4 " +
-        (boolFinalizado ? "bg-[#FBFCFE] " : "bg-white ") +
+        (boolApagado ? "bg-[#FBFCFE] " : "bg-white ") +
         (boolResaltado || boolEnCurso ? "border-[#003770] shadow-[0_4px_14px_rgba(0,55,112,.08)]" : "border-[#CBD5E1]")
       }
     >
-      <div className={"w-14 h-14 rounded-[10px] flex flex-col items-center justify-center shrink-0 " + (boolFinalizado || !objFecha ? "bg-[#F1F5F9]" : "bg-[#E8F1FB]")}>
+      <div className={"w-14 h-14 rounded-[10px] flex flex-col items-center justify-center shrink-0 " + (boolApagado || !objFecha ? "bg-[#F1F5F9]" : "bg-[#E8F1FB]")}>
         {objFecha ? (
           <>
-            <b className={"text-xl leading-none font-black " + (boolFinalizado ? "text-[#64748B]" : "text-[#003770]")}>{objFecha.strDia}</b>
-            <span className={"mt-0.5 text-[10px] font-extrabold " + (boolFinalizado ? "text-[#64748B]" : "text-[#003770]")}>{objFecha.strMes}</span>
+            <b className={"text-xl leading-none font-black " + (boolApagado ? "text-[#64748B]" : "text-[#003770]")}>{objFecha.strDia}</b>
+            <span className={"mt-0.5 text-[10px] font-extrabold " + (boolApagado ? "text-[#64748B]" : "text-[#003770]")}>{objFecha.strMes}</span>
           </>
         ) : (
           <b className="text-base text-[#94A3B8]">—</b>
@@ -87,7 +104,7 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
 
       <div className="flex-1 min-w-[200px]">
         <div className="flex items-center gap-2 flex-wrap">
-          <h4 className="m-0 font-black text-sm text-[#08264A]">{examen.nombreExamen}</h4>
+          <h4 className={"m-0 font-black text-sm " + (boolCancelado ? "text-[#64748B] line-through" : "text-[#08264A]")}>{examen.nombreExamen}</h4>
           {objBadge && <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{objBadge.strTexto}</span>}
         </div>
         <p className="mt-0.5 text-xs font-bold text-[#64748B]">
@@ -95,6 +112,9 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
           {examen.tipoExamen && strDetalle ? " · " : ""}
           {strDetalle}
         </p>
+        {boolCancelado && examen.motivoCancelacion && (
+          <p className="mt-1 text-[11px] font-semibold text-[#B91C1C] break-words">Motivo: {examen.motivoCancelacion}</p>
+        )}
         {boolAvisoApertura && (
           <p className="mt-1 text-[11px] font-semibold text-[#64748B]">El registro de ingreso se habilita a las {horaCorta(dateApertura)}</p>
         )}
@@ -108,7 +128,7 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
         </div>
       )}
 
-      {(boolControl || boolHabilitaciones) && (
+      {!boolCancelado && (boolControl || boolHabilitaciones || boolCancelar) && (
         <div className="flex items-center gap-2 flex-wrap max-md:w-full">
           {boolControl && (
             <button
@@ -128,8 +148,21 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
               Habilitaciones
             </button>
           )}
+          {boolCancelar && (
+            <button type="button" onClick={() => setBoolCancelarAbierto(true)} className={BOTON_CANCELAR}>
+              Cancelar
+            </button>
+          )}
         </div>
       )}
+
+      {/* Reactivar examen: reservado temporalmente para pruebas futuras. */}
+
+      <ModalCancelarExamen
+        examen={boolCancelarAbierto ? examen : null}
+        onCerrar={() => setBoolCancelarAbierto(false)}
+        onCancelado={() => { setBoolCancelarAbierto(false); onCambio?.(); }}
+      />
 
       <PanelIngresosExamen
         boolAbierto={boolIngresosAbierto}
