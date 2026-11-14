@@ -208,6 +208,8 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
 
   const listVisibles = useMemo(() => listExamenes
     .map((e) => ({ examen: e, strEstado: estadoExamen(e, dateAhora) }))
+    // Un examen cancelado no tiene control de ingreso
+    .filter(({ strEstado }) => strEstado !== "CANCELADO")
     .filter(({ strEstado }) => strFiltro === "TODOS" || strEstado === strFiltro)
     .sort((a, b) => {
       if (ORDEN_ESTADO[a.strEstado] !== ORDEN_ESTADO[b.strEstado]) return ORDEN_ESTADO[a.strEstado] - ORDEN_ESTADO[b.strEstado];

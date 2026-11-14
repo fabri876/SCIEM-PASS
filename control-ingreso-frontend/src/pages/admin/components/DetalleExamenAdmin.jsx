@@ -128,6 +128,13 @@ export default function DetalleExamenAdmin({
                 </span>
             </div>
 
+            {strEstado === "CANCELADO" && (
+                <div className="mt-3 rounded-xl bg-[#FEF2F2] border border-[#FECACA] px-4 py-3">
+                    <p className="text-[10.5px] font-extrabold tracking-wider text-[#B91C1C]">MOTIVO DE LA CANCELACIÓN</p>
+                    <p className="text-[13px] text-[#7F1D1D] mt-1 break-words">{examen.motivoCancelacion || "Sin motivo registrado"}</p>
+                </div>
+            )}
+
             <Tarjeta strTitulo="Examen">
                 <DosColumnas
                     izquierda={<Campo strEtiqueta="Docente">{strDocente}</Campo>}
