@@ -10,6 +10,8 @@ import { estadoExamen, esHoy, puedeControlarIngreso, aperturaControl, puedeCance
 import ModalCancelarExamen from "../../../components/examenes/ModalCancelarExamen";
 import { textoGrupoExamen } from "../../../components/examenes/textoGrupoExamen";
 import PanelIngresosExamen from "../../control/ingreso/componentes/PanelIngresosExamen";
+// Reactivación temporal reservada para pruebas futuras:
+// import { reactivarExamen } from "../../../services/examenService";
 // "Seguridad de Sistemas · Primer Parcial · 24 oct" para el panel de ingresos
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 function subtituloIngresos(strMateria, strTipo, strFecha) {
@@ -47,6 +49,7 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
   const navigate = useNavigate();
   const [boolIngresosAbierto, setBoolIngresosAbierto] = useState(false);
   const [boolCancelarAbierto, setBoolCancelarAbierto] = useState(false);
+  // const [boolReactivando, setBoolReactivando] = useState(false);
   const boolReal = examen.esExamenReal !== false;
   const strEstado = boolReal ? estadoExamen(examen, dateAhora) : "SIN_FECHA";
   const boolHoy = esHoy(examen, dateAhora);
@@ -62,6 +65,9 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
   const boolApagado = boolFinalizado || boolCancelado;
   const boolEnCurso = strEstado === "EN_CURSO";
   const boolCancelar = boolReal && puedeCancelarExamen(examen, dateAhora);
+
+  // Reactivación temporal deshabilitada:
+  // async function handleReactivar() { ... }
 
   const objBadge = boolCancelado
     ? { strTexto: "Cancelado", strClase: "bg-[#B91C1C] text-white" }
@@ -149,6 +155,8 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
           )}
         </div>
       )}
+
+      {/* Reactivar examen: reservado temporalmente para pruebas futuras. */}
 
       <ModalCancelarExamen
         examen={boolCancelarAbierto ? examen : null}

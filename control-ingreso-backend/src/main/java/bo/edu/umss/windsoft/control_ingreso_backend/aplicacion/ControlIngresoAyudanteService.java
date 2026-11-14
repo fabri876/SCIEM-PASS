@@ -372,6 +372,13 @@ public class ControlIngresoAyudanteService {
     public ResponseEntity<ResultadoIngresoDTO> registrarIngreso(VerificarIngresoRequestDTO dto, Integer idOperador,
             LocalDateTime horaMarcacion, String clientUuid, String ip) {
         validarAsignacionDeControl(dto, idOperador);
+        var examenActual = examenRepository.findById(dto.idexamen()).orElse(null);
+        if (examenActual != null && Boolean.TRUE.equals(examenActual.getCancelado())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ResultadoIngresoDTO(
+                    "EXAMEN_CANCELADO",
+                    "INGRESO DENEGADO - El examen fue cancelado.",
+                    null, null, null, null));
+        }
         validarModoRapido(dto);
 
         // El horario se valida únicamente para registros online. Las marcas
@@ -909,7 +916,8 @@ public class ControlIngresoAyudanteService {
         LocalTime horaIni = amb != null ? amb.getHoraInicio() : null;
         LocalTime horaFin = amb != null ? amb.getHoraFin() : null;
 
-        String estadoMateria = calcularEstadoMateria(fechaEx, horaIni, horaFin);
+        String estadoMateria = ex != null && Boolean.TRUE.equals(ex.getCancelado())
+                ? "CANCELADO" : calcularEstadoMateria(fechaEx, horaIni, horaFin);
 
         Integer idAsig = ae.getId().getIdasignatura();
         Integer idEx = ae.getId().getIdexamen();
@@ -1008,7 +1016,8 @@ public class ControlIngresoAyudanteService {
         LocalTime horaIni = amb != null ? amb.getHoraInicio() : null;
         LocalTime horaFin = amb != null ? amb.getHoraFin() : null;
 
-        String estadoMateria = calcularEstadoMateria(fechaEx, horaIni, horaFin);
+        String estadoMateria = ex != null && Boolean.TRUE.equals(ex.getCancelado())
+                ? "CANCELADO" : calcularEstadoMateria(fechaEx, horaIni, horaFin);
 
         Integer idAsig = ae.getId().getIdasignatura();
         Integer idEx = ae.getId().getIdexamen();

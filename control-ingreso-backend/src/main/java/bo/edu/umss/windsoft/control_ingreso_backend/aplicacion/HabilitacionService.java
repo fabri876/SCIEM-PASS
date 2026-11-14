@@ -60,6 +60,7 @@ public class HabilitacionService {
     public HabilitacionResponseDto asociarEstudiante(AsociarEstudianteExamenRequest request) {
         var examen = examenRepository.findById(request.idExamen())
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el examen."));
+        validarExamenNoCancelado(examen);
         if (!examen.getIdAsignatura().equals(request.idAsignatura())) {
             throw new IllegalArgumentException("La asignatura no corresponde al examen.");
         }
@@ -130,6 +131,7 @@ public class HabilitacionService {
                                                           String ejecutor, String ip) {
         Habilitacion habilitacion = habilitacionRepository.findById(idHabilitacion)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró la habilitación con ID: " + idHabilitacion));
+        examenRepository.findById(habilitacion.getIdExamen()).ifPresent(this::validarExamenNoCancelado);
 
         Boolean estadoAnterior = habilitacion.getEstadohabilitacion();
         Boolean nuevoEstado = request.resolverEstado();
@@ -162,10 +164,19 @@ public class HabilitacionService {
 
     @Transactional
     public void eliminarAsociacion(Integer idHabilitacion) {
-        if (!habilitacionRepository.existsById(idHabilitacion)) {
+        Habilitacion habilitacion = habilitacionRepository.findById(idHabilitacion).orElse(null);
+        if (habilitacion == null) {
             throw new RecursoNoEncontradoException("No se encontró la habilitación con ID: " + idHabilitacion);
         }
+        examenRepository.findById(habilitacion.getIdExamen()).ifPresent(this::validarExamenNoCancelado);
         habilitacionRepository.deleteById(idHabilitacion);
+    }
+
+    private void validarExamenNoCancelado(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen examen) {
+        if (Boolean.TRUE.equals(examen.getCancelado())) {
+            throw new bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException(
+                    "No se pueden modificar habilitaciones de un examen cancelado.");
+        }
     }
 
     // BUG-007 (QA): "Exportar lista oficial" era 100% decorativo, no había

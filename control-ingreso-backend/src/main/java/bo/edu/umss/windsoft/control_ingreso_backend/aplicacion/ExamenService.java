@@ -7,6 +7,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.*;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenRespuestaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AmbienteRespuestaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.NormaGeneralRespuestaDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenDetalleDto;
 
@@ -53,6 +55,7 @@ public class ExamenService {
     private final EstudianteRepository estudianteRepository;
     private final IngresoRepository ingresoRepository;
     private final AuditoriaService auditoriaService;
+    private final CredencialRepository credencialRepository;
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -74,7 +77,8 @@ public class ExamenService {
             EstudianteRepository estudianteRepository,
             IngresoRepository ingresoRepository,
             CambioExamenService cambiosExamen,
-            AuditoriaService auditoriaService) {
+            AuditoriaService auditoriaService,
+            CredencialRepository credencialRepository) {
 
         this.cambiosExamen = cambiosExamen;
         this.examenRepository = examenRepository;
@@ -96,6 +100,69 @@ public class ExamenService {
         this.estudianteRepository = estudianteRepository;
         this.ingresoRepository = ingresoRepository;
         this.auditoriaService = auditoriaService;
+        this.credencialRepository = credencialRepository;
+    }
+
+    @Transactional
+    public ExamenRespuestaDto cancelarExamen(Integer idExamen, String motivo, String ip) {
+        Examen examen = examenRepository.findById(idExamen)
+                .orElseThrow(() -> new IllegalArgumentException("Examen no encontrado."));
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Integer idUsuario = (Integer) auth.getDetails();
+        boolean esAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
+        if (!esAdmin && !Objects.equals(examen.getIdUsuario(), idUsuario)) {
+            throw new AccesoDenegadoException("No tienes permiso para cancelar este examen.");
+        }
+        String limpio = motivo == null ? "" : motivo.trim();
+        if (limpio.isEmpty()) throw new IllegalArgumentException("El motivo de cancelación es obligatorio.");
+        if (limpio.length() > 200) throw new IllegalArgumentException("El motivo no puede superar 200 caracteres.");
+        if (Boolean.TRUE.equals(examen.getCancelado())) {
+            throw new ConflictoEstadoException("El examen ya está cancelado.");
+        }
+        List<Ambiente> ambientes = ambienteRepository.findByIdExamen(idExamen);
+        LocalTime inicio = ambientes.stream().map(Ambiente::getHoraInicio).filter(Objects::nonNull).min(LocalTime::compareTo)
+                .orElseThrow(() -> new IllegalArgumentException("El examen no tiene horario configurado."));
+        LocalDateTime limite = LocalDateTime.of(examen.getFechaExamen(), inicio).minusMinutes(15);
+        if (!HoraOficial.ahora().isBefore(limite)) {
+            throw new ConflictoEstadoException("El examen ya no puede cancelarse: faltan menos de 15 minutos para su inicio.");
+        }
+        examen.setCancelado(true);
+        examen.setMotivoCancelacion(limpio);
+        examen.setFechaCancelacion(HoraOficial.ahora());
+        examen.setIdUsuarioCancelacion(idUsuario);
+        examen.setEstadoExamen(false);
+        credencialRepository.findAllByIdExamen(idExamen).forEach(c -> c.setEstado("ANULADO"));
+        examenRepository.save(examen);
+        auditoriaService.registrarEnTransaccion("CANCELACION_EXAMEN", auth.getName(), String.valueOf(idUsuario),
+                "examen=" + idExamen + ", motivo=" + limpio, ip);
+        return enriquecerExamen(examen);
+    }
+
+    @Transactional
+    public ExamenRespuestaDto reactivarExamen(Integer idExamen, String ip) {
+        Examen examen = examenRepository.findById(idExamen)
+                .orElseThrow(() -> new IllegalArgumentException("Examen no encontrado."));
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Integer idUsuario = (Integer) auth.getDetails();
+        boolean esAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
+        if (!esAdmin && !Objects.equals(examen.getIdUsuario(), idUsuario)) {
+            throw new AccesoDenegadoException("No tienes permiso para reactivar este examen.");
+        }
+        if (!Boolean.TRUE.equals(examen.getCancelado())) {
+            throw new ConflictoEstadoException("El examen no está cancelado.");
+        }
+        examen.setCancelado(false);
+        examen.setMotivoCancelacion(null);
+        examen.setFechaCancelacion(null);
+        examen.setIdUsuarioCancelacion(null);
+        examen.setEstadoExamen(true);
+        credencialRepository.findAllByIdExamen(idExamen).forEach(c -> c.setEstado("ACTIVO"));
+        examenRepository.save(examen);
+        auditoriaService.registrarEnTransaccion("REACTIVACION_EXAMEN", auth.getName(), String.valueOf(idUsuario),
+                "examen=" + idExamen, ip);
+        return enriquecerExamen(examen);
     }
 
     // -------------------------------------------------------------------------
@@ -134,6 +201,9 @@ public class ExamenService {
         Examen examenExistente = examenRepository.findById(idExamen)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No se encontró el examen con ID: " + idExamen));
+        if (Boolean.TRUE.equals(examenExistente.getCancelado())) {
+            throw new ConflictoEstadoException("Este examen fue cancelado y ya no se puede editar.");
+        }
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean esAdmin = auth.getAuthorities().stream()
@@ -536,6 +606,9 @@ public class ExamenService {
             dto.setDuracionExamen(examen.getDuracionExamen());
             dto.setFechaCreacionExamen(examen.getFechaCreacionExamen());
             dto.setEstadoExamen(examen.getEstadoExamen());
+            dto.setCancelado(Boolean.TRUE.equals(examen.getCancelado()));
+            dto.setMotivoCancelacion(examen.getMotivoCancelacion());
+            dto.setFechaCancelacion(examen.getFechaCancelacion());
             dto.setIdAsignatura(examen.getIdAsignatura());
             dto.setIdGrupo(examen.getIdGrupo());
             dto.setIdTipoExamen(examen.getIdTipoExamen());
@@ -773,6 +846,7 @@ public class ExamenService {
     private void validarSinSolapamientoDocente(Integer idUsuario, Integer codsisDocente, LocalDate fecha,
                                                 LocalTime inicio, LocalTime fin, Integer idExamenAExcluir) {
         List<Integer> ids = examenRepository.findByIdUsuarioAndCodsisDocente(idUsuario, codsisDocente).stream()
+                .filter(examen -> !Boolean.TRUE.equals(examen.getCancelado()))
                 .filter(examen -> fecha.equals(examen.getFechaExamen()))
                 .map(Examen::getIdExamen)
                 .filter(id -> id != null && !id.equals(idExamenAExcluir))
