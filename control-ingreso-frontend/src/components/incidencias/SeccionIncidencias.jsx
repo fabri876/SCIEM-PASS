@@ -519,6 +519,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             <RefreshCw className={`w-3.5 h-3.5 ${boolCargando ? "animate-spin" : ""}`} />
           </button>
 
+          {rol === "DOCENTE" && (
           <button
             onClick={fnAbrirIncidencia}
             disabled={boolCargandoAulas || aulasAsignadas.length === 0}
@@ -528,6 +529,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             <Plus className="w-3.5 h-3.5" />
             <span>Incidencia</span>
           </button>
+          )}
 
           <button
             onClick={() => setBoolModalExcepcional(true)}

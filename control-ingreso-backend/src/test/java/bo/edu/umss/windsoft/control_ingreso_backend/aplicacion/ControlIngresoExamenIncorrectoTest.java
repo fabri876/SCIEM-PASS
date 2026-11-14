@@ -46,6 +46,7 @@ class ControlIngresoExamenIncorrectoTest {
     @Mock IntentoIngresoService intentos;
     @Mock AuditoriaService auditoria;
     @Mock IntentoExamenIncorrectoService incorrectos;
+    @Mock FaceEnrollmentRepository faceEnrollmentRepository;
     @InjectMocks ControlIngresoAyudanteService servicio;
     private final UUID solicitud = UUID.randomUUID();
 

@@ -37,6 +37,9 @@ class GrupoServiceTest {
     AyudanteRepository ayudantes;
     @Mock
     DocenteAsignaturaRepository docenteAsignaturas;
+    @Mock
+    // GrupoService lo usa para resolver el examen de una asignatura al cambiar el grupo.
+    ExamenRepository examenes;
     @InjectMocks
     GrupoService servicio;
 

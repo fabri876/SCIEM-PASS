@@ -5,6 +5,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ContextoUsuarioSe
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.IncidenciaService;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.IngresoExcepcionalService;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpResolver;
+import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ReintentoConcurrencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AmbienteControlDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CatalogosIncidenciaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CerrarIncidenciaDto;
@@ -14,6 +15,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.IncidenciaD
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.IncidenciaListaDto;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
@@ -102,8 +105,21 @@ public class IncidenciaController {
             @RequestParam(defaultValue = "false") boolean retirarEstudiante,
             @RequestParam(required = false) MultipartFile evidencia,
             HttpServletRequest request) {
-        IncidenciaDetalleDto respuesta = incidenciaService.registrar(claveSolicitud, idAmbiente, tipo, severidad,
-                descripcion, codSisEstudiante, retirarEstudiante, evidencia, ClientIpResolver.resolver(request));
+        if (claveSolicitud == null || claveSolicitud.isBlank()
+                || idAmbiente == null
+                || tipo == null || tipo.isBlank()
+                || severidad == null || severidad.isBlank()
+                || descripcion == null || descripcion.isBlank()) {
+            throw new SolicitudInvalidaException(
+                    "Faltan campos obligatorios: claveSolicitud, idAmbiente, tipo, severidad y descripcion son requeridos.");
+        }
+
+        // Reintento de concurrencia para la operacion de registro de incidencia.
+
+        IncidenciaDetalleDto respuesta = ReintentoConcurrencia.ejecutar("registro-incidencia",
+                () -> incidenciaService.registrar(claveSolicitud, idAmbiente, tipo, severidad,
+                        descripcion, codSisEstudiante, retirarEstudiante, evidencia,
+                        ClientIpResolver.resolver(request)));
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
 
