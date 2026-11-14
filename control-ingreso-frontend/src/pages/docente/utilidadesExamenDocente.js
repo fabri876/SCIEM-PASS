@@ -22,8 +22,10 @@ export function rangoExamen(examen) {
   };
 }
 
-// "EN_CURSO" | "PROXIMO" | "FINALIZADO" | "SIN_FECHA"
+// "EN_CURSO" | "PROXIMO" | "FINALIZADO" | "SIN_FECHA" | "CANCELADO"
+// Un examen cancelado se reconoce antes de mirar la hora.
 export function estadoExamen(examen, ahora = new Date()) {
+  if (examen?.cancelado) return "CANCELADO";
   const { inicio, fin } = rangoExamen(examen);
   if (!inicio) return "SIN_FECHA";
   if (ahora > fin) return "FINALIZADO";
@@ -38,7 +40,7 @@ export function esHoy(examen, ahora = new Date()) {
 
 // true desde (inicio - MINUTOS_ANTES_CONTROL_INGRESO) hasta el fin del examen
 export function puedeControlarIngreso(examen, ahora = new Date()) {
-  if (examen?.esExamenReal === false) return false;
+  if (examen?.esExamenReal === false || examen?.cancelado) return false;
   const { inicio, fin } = rangoExamen(examen);
   if (!inicio) return false;
   const apertura = new Date(inicio.getTime() - MINUTOS_ANTES_CONTROL_INGRESO * 60000);
@@ -49,6 +51,16 @@ export function puedeControlarIngreso(examen, ahora = new Date()) {
 export function aperturaControl(examen) {
   const { inicio } = rangoExamen(examen);
   return inicio ? new Date(inicio.getTime() - MINUTOS_ANTES_CONTROL_INGRESO * 60000) : null;
+}
+
+// Un examen se puede cancelar hasta 15 minutos antes de su inicio
+// (cuando se abre el control de ingreso). El servidor vuelve a validarlo.
+export const MINUTOS_LIMITE_CANCELACION = MINUTOS_ANTES_CONTROL_INGRESO;
+export function puedeCancelarExamen(examen, ahora = new Date()) {
+  if (!examen || examen.cancelado || examen.esExamenReal === false) return false;
+  const { inicio } = rangoExamen(examen);
+  if (!inicio) return false;
+  return ahora < new Date(inicio.getTime() - MINUTOS_LIMITE_CANCELACION * 60000);
 }
 
 // Marca de tiempo para ordenar

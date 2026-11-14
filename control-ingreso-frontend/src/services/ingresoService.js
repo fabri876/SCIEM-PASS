@@ -140,7 +140,8 @@ export async function obtenerExamenesAsignados() {
     fnSesionVencida();
   }
 
-  return datos.map((e) => {
+  // Un examen cancelado ya no aparece para el ayudante.
+  return datos.filter((e) => String(e.estadoMateria || "").toUpperCase() !== "CANCELADO").map((e) => {
     const horaInicio = e.horaInicio ? String(e.horaInicio).substring(0, 5) : "";
     const horaFin = e.horaFin ? String(e.horaFin).substring(0, 5) : "";
     const strEstado = String(e.estadoMateria || "").toUpperCase();

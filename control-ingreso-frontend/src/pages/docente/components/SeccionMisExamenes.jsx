@@ -10,9 +10,10 @@ const FILTROS = [
   { clave: "EN_CURSO", etiqueta: "En curso" },
   { clave: "PROXIMO", etiqueta: "Próximos" },
   { clave: "FINALIZADO", etiqueta: "Finalizados" },
+  { clave: "CANCELADO", etiqueta: "Cancelados" },
 ];
 
-const ORDEN_ESTADO = { EN_CURSO: 0, PROXIMO: 1, SIN_FECHA: 2, FINALIZADO: 3 };
+const ORDEN_ESTADO = { EN_CURSO: 0, PROXIMO: 1, SIN_FECHA: 2, FINALIZADO: 3, CANCELADO: 4 };
 
 export default function SeccionMisExamenes({
   examenes = [],
@@ -20,6 +21,7 @@ export default function SeccionMisExamenes({
   TarjetaExamen = TarjetaExamenDocente,
   onRegistrar,
   idResaltado = null,
+  onCambio,
 }) {
   const [strFiltro, setStrFiltro] = useState("TODOS");
   const [strAsignatura, setStrAsignatura] = useState("");
@@ -41,8 +43,8 @@ export default function SeccionMisExamenes({
     .filter(({ strEstado }) => strFiltro === "TODOS" || strEstado === strFiltro)
     .sort((a, b) => {
       if (ORDEN_ESTADO[a.strEstado] !== ORDEN_ESTADO[b.strEstado]) return ORDEN_ESTADO[a.strEstado] - ORDEN_ESTADO[b.strEstado];
-      // Finalizados: el más reciente primero · los demás: el más cercano primero
-      return a.strEstado === "FINALIZADO"
+      // Finalizados y cancelados: el más reciente primero · los demás: el más cercano primero
+      return a.strEstado === "FINALIZADO" || a.strEstado === "CANCELADO"
         ? marcaTiempo(b.examen) - marcaTiempo(a.examen)
         : marcaTiempo(a.examen) - marcaTiempo(b.examen);
     })
@@ -110,6 +112,7 @@ export default function SeccionMisExamenes({
               examen={examen}
               dateAhora={dateAhora}
               boolResaltado={String(examen.idExamen) === String(idResaltado)}
+              onCambio={onCambio}
             />
           ))
         )}
