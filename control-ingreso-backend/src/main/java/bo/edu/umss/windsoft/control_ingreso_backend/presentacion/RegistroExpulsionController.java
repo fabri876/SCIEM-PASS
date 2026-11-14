@@ -2,6 +2,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.RegistroExpulsionService;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpResolver;
+import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ReintentoConcurrencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.EstudianteExpulsionDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExpulsionListaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.RegistroExpulsionRequest;
@@ -17,7 +18,7 @@ import java.util.List;
 /**
  * HU14 · Expulsiones.
  * Endpoints:
- *   POST  /api/examenes/{idExamen}/expulsiones          → registrar (DOCENTE, ADMINISTRADOR, OPERADOR)
+ *   POST  /api/examenes/{idExamen}/expulsiones          → registrar (DOCENTE)
  *   GET   /api/examenes/{idExamen}/expulsiones          → listar (DOCENTE, ADMINISTRADOR, OPERADOR)
  *   GET   /api/examenes/{idExamen}/expulsiones/pendientes → listar pendientes (DOCENTE, ADMINISTRADOR, OPERADOR)
  *   GET   /api/examenes/{idExamen}/expulsiones/pendientes/total → contar pendientes (badge)
@@ -43,8 +44,11 @@ public class RegistroExpulsionController {
             @RequestParam(required = false) MultipartFile evidencia,
             HttpServletRequest request) {
         RegistroExpulsionRequest req = new RegistroExpulsionRequest(idIngreso, motivoExpulsion, observacion);
-        RegistroExpulsionResponse respuesta = registroExpulsionService.registrar(
-                idExamen, req, evidencia, ClientIpResolver.resolver(request));
+        // BUG-001: reintento ante un conflicto transitorio de concurrencia (deadlock o lock
+        // timeout al sellar la auditoria). Cada intento abre su propia transaccion.
+        RegistroExpulsionResponse respuesta = ReintentoConcurrencia.ejecutar("registro-expulsion",
+                () -> registroExpulsionService.registrar(
+                        idExamen, req, evidencia, ClientIpResolver.resolver(request)));
         return ResponseEntity.ok(respuesta);
     }
 

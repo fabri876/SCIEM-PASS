@@ -19,6 +19,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.SeveridadIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ClaveSolicitudDuplicadaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
@@ -45,6 +46,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -201,6 +203,27 @@ class IncidenciaServiceTest {
     }
 
     @Test
+    @DisplayName("BUG-001: si el UNIQUE de la clave choca al insertar, se relanza como reintentable")
+    void registrar_mismaClaveChocaPorUnico() {
+        // Dos peticiones con la misma clave llegan a la vez: las dos pasan la comprobación
+        // previa y el UNIQUE de 'clavesolicitud' rechaza a la segunda. No es un rechazo:
+        // la incidencia ya está guardada, así que se relanza como error reintentable y el
+        // siguiente intento la encuentra y la devuelve (los dos registros terminan en 201).
+        when(incidenciaRepository.saveAndFlush(any(Incidencia.class))).thenThrow(
+                new DataIntegrityViolationException("violacion",
+                        new org.hibernate.exception.ConstraintViolationException("duplicate key",
+                                new java.sql.SQLException(
+                                        "duplicate key value violates unique constraint \"incidencia_clavesolicitud_key\"",
+                                        "23505"),
+                                "INSERT INTO incidencia ...",
+                                "incidencia_clavesolicitud_key")));
+
+        assertThrows(ClaveSolicitudDuplicadaException.class,
+                () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OTRO", "BAJA",
+                        DESCRIPCION, null, false, null, "ip"));
+    }
+
+    @Test
     @DisplayName("El operador no puede registrar incidencias, ni siquiera en el aula que tiene asignada")
     void registrar_operador() {
         autenticar("OPERADOR", 70, "roberto.vargas@umss.edu");
@@ -297,8 +320,8 @@ class IncidenciaServiceTest {
 
         assertEquals(5, ingreso.getIdExpulsion());
         verify(ingresoRepository).saveAndFlush(ingreso);
-        verify(auditoriaService).registrarEnTransaccion(eq("EXPULSION_REGISTRADA"), anyString(), eq("j.perez@est.umss.edu"),
-                contains("ingreso #1203"), anyString());
+        verify(auditoriaService).registrarExpulsionEnTransaccion(eq("EXPULSION_REGISTRADA"), anyString(), eq("j.perez@est.umss.edu"),
+                contains("ingreso #1203"), anyString(), anyString());
     }
 
     @Test

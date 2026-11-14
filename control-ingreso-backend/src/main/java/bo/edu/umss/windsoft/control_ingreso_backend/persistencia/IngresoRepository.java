@@ -78,4 +78,28 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Integer> {
     @Query(value = "SELECT idambiente FROM ambiente WHERE idambiente = :idAmbiente FOR UPDATE",
            nativeQuery = true)
     Integer bloquearAmbiente(@Param("idAmbiente") Integer idAmbiente);
+
+    /**
+     * Bloquea la fila del ingreso hasta que termine la transacción.
+     *
+     * BUG-001: sin este lock, dos expulsiones simultáneas del mismo estudiante pasaban
+     * las dos la comprobación "no está retirado" y las dos creaban una expulsión
+     * (la segunda machacaba la referencia del ingreso). Con el lock, la segunda espera
+     * y luego ve la expulsión de la primera, así que responde 409 en vez de duplicar.
+     */
+    @Query(value = "SELECT idingreso FROM ingreso WHERE idingreso = :idIngreso FOR UPDATE",
+           nativeQuery = true)
+    Integer bloquearIngreso(@Param("idIngreso") Integer idIngreso);
+
+    /**
+     * Bloquea el ingreso de un estudiante en un examen (usado cuando la expulsión se
+     * registra desde una incidencia, donde el ingreso se busca por código SIS).
+     */
+    @Query(value = "SELECT idingreso FROM ingreso "
+                   + "WHERE codsisestudiante = :codSis AND idasignatura = :idAsignatura AND idexamen = :idExamen "
+                   + "FOR UPDATE",
+           nativeQuery = true)
+    Integer bloquearIngresoPorEstudiante(@Param("codSis") Integer codSis,
+                                          @Param("idAsignatura") Integer idAsignatura,
+                                          @Param("idExamen") Integer idExamen);
 }

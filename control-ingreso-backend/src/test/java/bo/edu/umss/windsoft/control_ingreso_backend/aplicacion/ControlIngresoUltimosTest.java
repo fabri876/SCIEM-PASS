@@ -29,6 +29,7 @@ class ControlIngresoUltimosTest {
     @Mock UsuarioRepository usuarios;
     @Mock EstudianteRepository estudiantes;
     @Mock CarreraEstudianteRepository carreras;
+    @Mock FaceEnrollmentRepository faceEnrollmentRepository;
     @InjectMocks ControlIngresoAyudanteService servicio;
 
     @BeforeEach void preparar() {

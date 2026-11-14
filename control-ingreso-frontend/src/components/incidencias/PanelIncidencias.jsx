@@ -202,7 +202,9 @@ export default function PanelIncidencias({
             </div>
           )}
 
-          {opciones.map((opcion) => {
+          {opciones
+            .filter((opcion) => !(opcion.clave === "incidencia" && rol !== "DOCENTE"))
+            .map((opcion) => {
             const Icono = opcion.icono;
             return (
               <button

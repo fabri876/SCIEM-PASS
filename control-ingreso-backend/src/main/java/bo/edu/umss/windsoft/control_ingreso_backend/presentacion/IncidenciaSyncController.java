@@ -7,6 +7,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoE
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ReintentarSincronizacionException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpResolver;
+import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ReintentoConcurrencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.BatchSyncIncidenciasRequestDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.IncidenciaDetalleDto;
 import jakarta.servlet.http.HttpServletRequest;
@@ -71,10 +72,11 @@ public class IncidenciaSyncController {
                     continue;
                 }
 
-                IncidenciaDetalleDto incidencia = incidenciaService.registrar(
-                        item.clientUuid(), item.idAmbiente(), item.tipo(), item.severidad(), item.descripcion(),
-                        item.codSisEstudiante(), Boolean.TRUE.equals(item.retirarEstudiante()), null,
-                        item.registradoEn(), ip);
+                IncidenciaDetalleDto incidencia = ReintentoConcurrencia.ejecutar("sync-incidencia",
+                        () -> incidenciaService.registrar(
+                                item.clientUuid(), item.idAmbiente(), item.tipo(), item.severidad(), item.descripcion(),
+                                item.codSisEstudiante(), Boolean.TRUE.equals(item.retirarEstudiante()), null,
+                                item.registradoEn(), ip));
                 resultado.put("estado", "PROCESADO");
                 resultado.put("idIncidencia", incidencia.idIncidencia());
 

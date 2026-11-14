@@ -15,6 +15,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.SeveridadIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ClaveSolicitudDuplicadaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ReintentarSincronizacionException;
@@ -199,6 +201,22 @@ public class IncidenciaService {
             estudiante = estudianteExamenService.buscarPorCodSis(codSisEstudiante)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Estudiante no encontrado."));
 
+            // BUG-001: bloquea el ingreso del estudiante antes de leerlo. Sin el lock, dos
+            // expulsiones simultáneas del mismo estudiante pasaban las dos la comprobación
+            // "no está retirado" y las dos creaban una expulsión. Con el lock, la segunda
+            // espera y luego ve la expulsión de la primera (409) en vez de duplicarla.
+            ingresoRepository.bloquearIngresoPorEstudiante(codSisEstudiante,
+                    ambiente.getIdAsignatura(), ambiente.getIdExamen());
+
+            // El estudiante debe estar inscrito en la asignatura del examen para que
+            // la incidencia sea válida: un estudiante con ingreso previo pero no inscrito
+            // en la materia no puede registrar incidencias en ese examen (BUG-020-EXP).
+            if (!estudianteExamenService.estaInscritoEnAsignatura(codSisEstudiante,
+                    ambiente.getIdAsignatura())) {
+                throw new SolicitudInvalidaException(
+                        "El estudiante no está inscrito en la asignatura de este examen; no se puede registrar una incidencia para él.");
+            }
+
             ingresoEstudiante = ingresoRepository.findByCodsisEstudianteAndIdAsignaturaAndIdExamen(
                     codSisEstudiante, ambiente.getIdAsignatura(), ambiente.getIdExamen());
 
@@ -227,6 +245,10 @@ public class IncidenciaService {
 
         Ingreso ingresoARetirar = null;
         if (retirarEstudiante) {
+            if (usuario.esAdmin()) {
+                throw new AccesoDenegadoException(
+                        "El administrador solo puede consultar reportes; no puede registrar expulsiones.");
+            }
             if (estudiante == null) {
                 throw new SolicitudInvalidaException("Para retirar a un estudiante debe indicar quién es.");
             }
@@ -324,6 +346,12 @@ public class IncidenciaService {
         } catch (DataIntegrityViolationException e) {
             // La misma clave llegó dos veces al mismo tiempo (UNIQUE de la BD).
             evidenciaService.eliminarSinFallar(evidencia);
+            if (esClaveSolicitudDuplicada(e)) {
+                // No es un rechazo: la incidencia ya está guardada. Se relanza como error
+                // reintentable para que el siguiente intento la encuentre y la devuelva
+                // (idempotencia real: los dos registros terminados en 201 y sin duplicar).
+                throw new ClaveSolicitudDuplicadaException("Esta incidencia ya fue registrada.", e);
+            }
             throw new ConflictoEstadoException("Esta incidencia ya fue registrada.");
         } catch (RuntimeException e) {
             evidenciaService.eliminarSinFallar(evidencia);
@@ -338,10 +366,15 @@ public class IncidenciaService {
                     incidencia.getCodigo() + " · " + tipo.name() + " · " + severidad.name() + " · " + contexto, ip);
             if (expulsion != null) {
                 // "autorizada al momento": la expulsión nace AUTORIZADA, así que
-                // el detalle de auditoría lo deja explícito.
-                auditoriaService.registrarEnTransaccion("EXPULSION_REGISTRADA", usuario.correo(), afectado,
+                // el detalle de auditoría lo deja explícito. El motivo se incluye
+                // en el texto de la acción para que quede visible en la interfaz
+                // (BUG-021: antes solo se guardaba en la columna aparte "motivo"
+                // y no se mostraba en la lista de auditoría).
+                auditoriaService.registrarExpulsionEnTransaccion("EXPULSION_REGISTRADA", usuario.correo(), afectado,
                         incidencia.getCodigo() + " · ingreso #" + ingresoARetirar.getIdIngreso()
-                                + " retirado · expulsión autorizada al momento · " + contexto, ip);
+                                + " retirado · motivo: " + expulsion.getMotivoExpulsion()
+                                + " · expulsión autorizada al momento · " + contexto,
+                        expulsion.getMotivoExpulsion(), ip);
             }
         } catch (RuntimeException e) {
             evidenciaService.eliminarSinFallar(evidencia);
@@ -658,6 +691,25 @@ public class IncidenciaService {
     // -------------------------------------------------------------------------
     // Auxiliares
     // -------------------------------------------------------------------------
+
+    /**
+     * true si la violación de integridad viene del UNIQUE de 'incidencia.clavesolicitud'.
+     *
+     * BUG-001: si la clave ya se usó, la incidencia existe y no hay nada que reprobar; solo
+     * hay que devolverla. Si la violación es de otro UNIQUE, es un dato inválido de verdad y
+     * se rechaza con 409 como antes.
+     */
+    private boolean esClaveSolicitudDuplicada(DataIntegrityViolationException e) {
+        for (Throwable t = e; t != null; t = (t.getCause() == t ? null : t.getCause())) {
+            if (t instanceof org.hibernate.exception.ConstraintViolationException violacion) {
+                String nombre = violacion.getConstraintName();
+                if (nombre != null && nombre.toLowerCase().contains("clavesolicitud")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     private Incidencia obtener(Integer idIncidencia) {
         return incidenciaRepository.findById(idIncidencia)

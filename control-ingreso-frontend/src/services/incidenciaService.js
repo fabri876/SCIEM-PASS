@@ -36,8 +36,10 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
     ...(opcionesFetch.headers || {}),
   };
 
-  const esEscritura = String(opcionesFetch.method || "GET").toUpperCase() !== "GET";
-  const tiempoMaximo = timeoutMs ?? (esEscritura ? TIMEOUT_ESCRITURA_MS : TIMEOUT_LECTURA_MS);
+  const esEscritura =
+    String(opcionesFetch.method || "GET").toUpperCase() !== "GET";
+  const tiempoMaximo =
+    timeoutMs ?? (esEscritura ? TIMEOUT_ESCRITURA_MS : TIMEOUT_LECTURA_MS);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), tiempoMaximo);
 
@@ -51,12 +53,12 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
   } catch (error) {
     if (error?.name === "AbortError" || controller.signal.aborted) {
       throw errorSinConexion(
-        "No se pudo conectar con el servidor a tiempo. Revisa tu conexión e intenta de nuevo; no se guardó nada."
+        "No se pudo conectar con el servidor a tiempo. Revisa tu conexión e intenta de nuevo; no se guardó nada.",
       );
     }
     // Sin red o servidor caído: el backend no llegó a guardar nada.
     throw errorSinConexion(
-      "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo; no se guardó nada."
+      "No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo; no se guardó nada.",
     );
   } finally {
     clearTimeout(timer);
@@ -66,7 +68,7 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
     cerrarSesion();
     sessionStorage.setItem(
       "mensajeSesion",
-      "Tu sesión expiró, vuelve a iniciar sesión"
+      "Tu sesión expiró, vuelve a iniciar sesión",
     );
     window.location.href = "/login";
     throw new Error("Tu sesión expiró, vuelve a iniciar sesión");
@@ -74,11 +76,24 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
 
   if (!response.ok) {
     const objError = await response.json().catch(() => null);
-    throw new Error(
+    const strMensaje =
       objError?.mensaje ||
       objError?.error ||
-      `Error ${response.status} en el servidor.`
-    );
+      `Error ${response.status} en el servidor.`;
+
+    // BUG-001: un 5xx (o un 503 por conflicto de concurrencia) NO es un rechazo de la
+    // operación: el servidor no pudo completarla pero el registro es válido y se puede
+    // reintentar. Se marca como "offline" para que la interfaz lo guarde en la cola local
+    // del dispositivo en vez de descartarlo: así la expulsión no se pierde nunca.
+    if (response.status >= 500) {
+      const error = new Error(strMensaje);
+      error.offline = true;
+      error.reintentable = true;
+      error.status = response.status;
+      throw error;
+    }
+
+    throw new Error(strMensaje);
   }
 
   if (response.status === 204) {
@@ -106,7 +121,9 @@ export async function obtenerAmbientesDelDia(strFecha) {
   const params = new URLSearchParams();
   if (strFecha) params.set("fecha", strFecha);
   const strQuery = params.toString() ? `?${params.toString()}` : "";
-  return fetchAutenticado(`/api/incidencias/ambientes${strQuery}`, { timeoutMs: 20000 });
+  return fetchAutenticado(`/api/incidencias/ambientes${strQuery}`, {
+    timeoutMs: 20000,
+  });
 }
 
 /**
@@ -118,7 +135,9 @@ export async function obtenerAmbientesDelDia(strFecha) {
  *        OPERADOR (aulas asignadas en la HU05)
  */
 export async function obtenerAulasAsignadas() {
-  return fetchAutenticado("/api/incidencias/aulas-asignadas", { timeoutMs: 20000 });
+  return fetchAutenticado("/api/incidencias/aulas-asignadas", {
+    timeoutMs: 20000,
+  });
 }
 
 /** Avisa al menú lateral (contador de abiertas) que algo cambió. */
@@ -196,7 +215,11 @@ export async function registrarIncidencia({
  * POST /api/incidencias/{id}/evidencia (multipart)
  * Roles: ADMINISTRADOR, DOCENTE, OPERADOR
  */
-export async function subirEvidenciaIncidencia(idIncidencia, archivo, strNombre = "evidencia.jpg") {
+export async function subirEvidenciaIncidencia(
+  idIncidencia,
+  archivo,
+  strNombre = "evidencia.jpg",
+) {
   const formData = new FormData();
   formData.append("evidencia", archivo, strNombre);
   return fetchAutenticado(`/api/incidencias/${idIncidencia}/evidencia`, {
@@ -211,11 +234,19 @@ export async function subirEvidenciaIncidencia(idIncidencia, archivo, strNombre 
  * Roles: ADMINISTRADOR, DOCENTE
  * Devuelve IncidenciaListaDto: { totales: { abiertas, enRevision, cerradas }, incidencias: [...] }
  */
-export async function listarIncidencias({ idExamen, idAmbiente, idAsignatura, tipo, estado } = {}) {
+export async function listarIncidencias({
+  idExamen,
+  idAmbiente,
+  idAsignatura,
+  tipo,
+  estado,
+} = {}) {
   const params = new URLSearchParams();
   if (idExamen) params.set("idExamen", idExamen);
-  if (idAmbiente && idAmbiente !== "TODAS") params.set("idAmbiente", idAmbiente);
-  if (idAsignatura && idAsignatura !== "TODAS") params.set("idAsignatura", idAsignatura);
+  if (idAmbiente && idAmbiente !== "TODAS")
+    params.set("idAmbiente", idAmbiente);
+  if (idAsignatura && idAsignatura !== "TODAS")
+    params.set("idAsignatura", idAsignatura);
   if (tipo && tipo !== "TODOS") params.set("tipo", tipo);
   if (estado && estado !== "TODOS") params.set("estado", estado);
 
@@ -229,11 +260,20 @@ export async function listarIncidencias({ idExamen, idAmbiente, idAsignatura, ti
  * Roles: ADMINISTRADOR, DOCENTE
  * Devuelve el Blob del archivo .xlsx.
  */
-export async function exportarIncidenciasExcel({ idExamen, idAmbiente, idAsignatura, tipo, estado, soloExpulsiones } = {}) {
+export async function exportarIncidenciasExcel({
+  idExamen,
+  idAmbiente,
+  idAsignatura,
+  tipo,
+  estado,
+  soloExpulsiones,
+} = {}) {
   const params = new URLSearchParams();
   if (idExamen) params.set("idExamen", idExamen);
-  if (idAmbiente && idAmbiente !== "TODAS") params.set("idAmbiente", idAmbiente);
-  if (idAsignatura && idAsignatura !== "TODAS") params.set("idAsignatura", idAsignatura);
+  if (idAmbiente && idAmbiente !== "TODAS")
+    params.set("idAmbiente", idAmbiente);
+  if (idAsignatura && idAsignatura !== "TODAS")
+    params.set("idAsignatura", idAsignatura);
   if (tipo && tipo !== "TODOS") params.set("tipo", tipo);
   if (estado && estado !== "TODOS") params.set("estado", estado);
   if (soloExpulsiones) params.set("soloExpulsiones", "true");
@@ -243,22 +283,34 @@ export async function exportarIncidenciasExcel({ idExamen, idAmbiente, idAsignat
   const timer = setTimeout(() => controller.abort(), TIMEOUT_EXPORTACION_MS);
   let response;
   try {
-    response = await fetch(`${strApiBaseUrl}/api/incidencias/exportar?${params.toString()}`, {
-      headers: { ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}) },
-      signal: controller.signal,
-    });
+    response = await fetch(
+      `${strApiBaseUrl}/api/incidencias/exportar?${params.toString()}`,
+      {
+        headers: {
+          ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
+        },
+        signal: controller.signal,
+      },
+    );
   } catch (error) {
     if (error?.name === "AbortError" || controller.signal.aborted) {
-      throw errorSinConexion("El servidor no respondió a tiempo para exportar. Revisa tu conexión.");
+      throw errorSinConexion(
+        "El servidor no respondió a tiempo para exportar. Revisa tu conexión.",
+      );
     }
-    throw errorSinConexion("No se pudo conectar con el servidor para exportar.");
+    throw errorSinConexion(
+      "No se pudo conectar con el servidor para exportar.",
+    );
   } finally {
     clearTimeout(timer);
   }
 
   if (response.status === 401) {
     cerrarSesion();
-    sessionStorage.setItem("mensajeSesion", "Tu sesión expiró, vuelve a iniciar sesión");
+    sessionStorage.setItem(
+      "mensajeSesion",
+      "Tu sesión expiró, vuelve a iniciar sesión",
+    );
     window.location.href = "/login";
     throw new Error("Tu sesión expiró, vuelve a iniciar sesión");
   }
@@ -266,7 +318,9 @@ export async function exportarIncidenciasExcel({ idExamen, idAmbiente, idAsignat
   if (!response.ok) {
     const objError = await response.json().catch(() => null);
     throw new Error(
-      objError?.mensaje || objError?.error || `Error ${response.status} al exportar.`
+      objError?.mensaje ||
+        objError?.error ||
+        `Error ${response.status} al exportar.`,
     );
   }
 
@@ -326,9 +380,12 @@ export async function revocarExpulsion(idExamen, idExpulsion, strMotivo) {
   const params = new URLSearchParams();
   if (strMotivo) params.set("motivo", strMotivo);
   const strQuery = params.toString() ? `?${params.toString()}` : "";
-  return fetchAutenticado(`/api/examenes/${idExamen}/expulsiones/${idExpulsion}/revocar${strQuery}`, {
-    method: "PUT",
-  });
+  return fetchAutenticado(
+    `/api/examenes/${idExamen}/expulsiones/${idExpulsion}/revocar${strQuery}`,
+    {
+      method: "PUT",
+    },
+  );
 }
 
 // Re-exportamos los servicios de ingresos excepcionales para máxima compatibilidad
