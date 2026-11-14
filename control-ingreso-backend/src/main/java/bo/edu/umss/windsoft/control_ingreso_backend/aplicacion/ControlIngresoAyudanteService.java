@@ -295,8 +295,10 @@ public class ControlIngresoAyudanteService {
                             ing.getIdExamen(),
                             ing.getIdAmbiente(),
                             ing.getScoreFacial() != null,
-                            ing.getScoreFacial(), "PERMITIDO",
-                            ing.getMotivoExcepcion() == MotivoExcepcion.MODO_RAPIDO);
+                            ing.getScoreFacial(),
+                            ing.getIdExpulsion() != null ? "EXPULSADO" : "PERMITIDO",
+                            ing.getMotivoExcepcion() == MotivoExcepcion.MODO_RAPIDO,
+                            ing.getIdExpulsion());
                 })
                 .toList());
         var intentos = soloPropios
@@ -354,8 +356,10 @@ public class ControlIngresoAyudanteService {
         String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
         return new UltimoIngresoDTO(ing.getIdIngreso(), ing.getHoraIngreso(), metodo, resumen,
                 "Registro propio", ing.getIdAsignatura(), ing.getIdExamen(), ing.getIdAmbiente(),
-                ing.getScoreFacial() != null, ing.getScoreFacial(), "PERMITIDO",
-                ing.getMotivoExcepcion() == MotivoExcepcion.MODO_RAPIDO);
+                ing.getScoreFacial() != null, ing.getScoreFacial(),
+                ing.getIdExpulsion() != null ? "EXPULSADO" : "PERMITIDO",
+                ing.getMotivoExcepcion() == MotivoExcepcion.MODO_RAPIDO,
+                ing.getIdExpulsion());
     }
 
     @Transactional
