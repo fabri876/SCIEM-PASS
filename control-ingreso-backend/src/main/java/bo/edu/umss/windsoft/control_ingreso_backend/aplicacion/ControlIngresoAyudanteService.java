@@ -629,6 +629,7 @@ public class ControlIngresoAyudanteService {
         nuevoIngreso.setFechaIngreso(LocalDate.now(ZONA_HORARIA));
         nuevoIngreso.setHoraIngreso(horaMarcacion != null ? horaMarcacion : LocalDateTime.now(ZONA_HORARIA));
         nuevoIngreso.setClientUuid(clientUuid);
+        if (clientUuid != null) nuevoIngreso.setSincronizadoEn(LocalDateTime.now(ZONA_HORARIA));
         boolean modoRapido = Boolean.TRUE.equals(dto.modoRapido());
         nuevoIngreso.setTipoIngreso(modoRapido ? TipoIngreso.EXCEPCIONAL : TipoIngreso.NORMAL);
         nuevoIngreso.setMotivoExcepcion(modoRapido ? MotivoExcepcion.MODO_RAPIDO : null);

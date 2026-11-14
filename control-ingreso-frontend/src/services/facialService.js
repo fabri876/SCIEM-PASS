@@ -29,6 +29,10 @@ export function enrolarRostro(formData) {
   return solicitar("/api/face/enroll", { method: "POST", body: formData });
 }
 
+export function registrarConsentimientoFacial() {
+  return solicitar("/api/face/enrollment/consentimiento", { method: "POST" });
+}
+
 export function verificarRostroEstudiante({ embedding, livenessScore, idExamen }) {
   return solicitar("/api/face/verificar-estudiante", {
     method: "POST",

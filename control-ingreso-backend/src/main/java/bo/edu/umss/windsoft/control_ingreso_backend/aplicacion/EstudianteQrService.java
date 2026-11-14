@@ -33,6 +33,7 @@ public class EstudianteQrService {
     private final AulaRepository aulaRepository;
     private final HabilitacionRepository habilitacionRepository;
     private final QrGeneratorService qrGeneratorService;
+    private final FaceEnrollmentService faceEnrollmentService;
 
     public EstudianteQrService(CredencialRepository credencialRepository,
                                ExamenRepository examenRepository,
@@ -40,7 +41,8 @@ public class EstudianteQrService {
                                AmbienteRepository ambienteRepository,
                                AulaRepository aulaRepository,
                                HabilitacionRepository habilitacionRepository,
-                               QrGeneratorService qrGeneratorService) {
+                               QrGeneratorService qrGeneratorService,
+                               FaceEnrollmentService faceEnrollmentService) {
         this.credencialRepository = credencialRepository;
         this.examenRepository = examenRepository;
         this.asignaturaRepository = asignaturaRepository;
@@ -48,6 +50,7 @@ public class EstudianteQrService {
         this.aulaRepository = aulaRepository;
         this.habilitacionRepository = habilitacionRepository;
         this.qrGeneratorService = qrGeneratorService;
+        this.faceEnrollmentService = faceEnrollmentService;
     }
 
     /**
@@ -63,6 +66,12 @@ public class EstudianteQrService {
         // 1. Verificar que el examen exista
         Examen examen = examenRepository.findById(idExamen)
                 .orElseThrow(() -> new IllegalArgumentException("Examen no encontrado: " + idExamen));
+
+        // El QR nunca se entrega por una bandera del navegador: requiere una
+        // verificacion facial vigente persistida por el servidor.
+        if (!faceEnrollmentService.tieneAutorizacionQrVigente(idUsuario, idExamen)) {
+            return sinQr("Verifica tu rostro antes de consultar la credencial QR.", examen, null);
+        }
 
         // 2. Verificar que el estudiante esté habilitado para este examen
         // Buscamos si existe al menos una habilitacion activa para este usuario y examen

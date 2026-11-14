@@ -58,6 +58,12 @@ public class FaceController {
                 .body(enrollmentService.enrolar(file, embedding, modelVersion, consentimientoAt));
     }
 
+    @PostMapping("/enrollment/consentimiento")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public ResponseEntity<FaceEnrollmentStatusDto> registrarConsentimiento() {
+        return ResponseEntity.status(HttpStatus.CREATED).body(enrollmentService.registrarConsentimiento());
+    }
+
     @PostMapping(value = "/enrollment/{idUsuario}/override", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<FaceEnrollmentStatusDto> reenrolarComoAdministrador(@PathVariable Integer idUsuario,
@@ -108,7 +114,9 @@ public class FaceController {
     public ResponseEntity<byte[]> obtenerFotoEnrolamiento(@PathVariable Integer idUsuario) {
         byte[] bytes = enrollmentService.obtenerFotoBytes(idUsuario);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "max-age=3600, private")
+                // Una foto biometrica puede ser reemplazada o eliminada: nunca
+                // servir una version anterior desde la cache del navegador.
+                .header(HttpHeaders.CACHE_CONTROL, "no-store, private")
                 .body(bytes);
     }
 

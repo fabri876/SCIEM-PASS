@@ -37,7 +37,7 @@ public class FaceEnrollment {
     @Column(name = "model_version", nullable = false, length = 100)
     private String modelVersion;
 
-    @Column(name = "estado", nullable = false, length = 20)
+    @Column(name = "estado", nullable = false, length = 30)
     private String estado;
 
     @Column(name = "consentimiento_at", nullable = false)

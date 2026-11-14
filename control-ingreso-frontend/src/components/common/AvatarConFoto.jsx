@@ -3,6 +3,11 @@ import { obtenerToken } from "../../services/authService";
 import { strApiBaseUrl } from "../../services/apiConfig";
 import { fotoRepo } from "../../offline/fotoRepo";
 
+// Evita reintentos inmediatos para una foto que el servidor ya confirmó ausente.
+// Es temporal: si el estudiante se enrola, una recarga normal vuelve a consultarla.
+const fotosNoEncontradasHasta = new Map();
+const DURACION_AUSENCIA_MS = 30_000;
+
 /**
  * Muestra la foto biométrica del estudiante (fetch autenticado con JWT).
  * Si falla, renderiza el fallback (iniciales).
@@ -27,19 +32,38 @@ export default function AvatarConFoto({ idUsuario, codigoSis, className, fallbac
     };
     const token = obtenerToken();
     async function cargar() {
-      if (codigoSis) {
-        try { mostrar((await fotoRepo.obtenerFoto(codigoSis))?.blob); } catch { /* sin copia local */ }
+      if (!idUsuario) {
+        if (codigoSis) {
+          try { mostrar((await fotoRepo.obtenerFoto(codigoSis))?.blob); } catch { /* sin copia local */ }
+        }
+        return;
       }
-      if (!idUsuario) return;
+      const sinFotoHasta = fotosNoEncontradasHasta.get(idUsuario);
+      if (sinFotoHasta && sinFotoHasta > Date.now()) return;
       try {
         const respuesta = await fetch(`${strApiBaseUrl}/api/face/enrollment/${idUsuario}/foto`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
+          cache: "no-store",
         });
-        if (!respuesta.ok) return;
+        if (!respuesta.ok) {
+          // Un 404 confirma que la foto se eliminó del servidor: no mantener
+          // una miniatura biométrica antigua en IndexedDB.
+          if (respuesta.status === 404) {
+            fotosNoEncontradasHasta.set(idUsuario, Date.now() + DURACION_AUSENCIA_MS);
+            if (codigoSis) await fotoRepo.eliminarFoto(codigoSis);
+          }
+          return;
+        }
         const blob = await respuesta.blob();
+        fotosNoEncontradasHasta.delete(idUsuario);
         mostrar(blob);
         if (codigoSis) await fotoRepo.guardarMiniatura(codigoSis, blob);
-      } catch { /* La copia local se conserva si la red falla. */ }
+      } catch {
+        // Sin red, la copia local permite seguir operando offline.
+        if (codigoSis) {
+          try { mostrar((await fotoRepo.obtenerFoto(codigoSis))?.blob); } catch { /* sin copia local */ }
+        }
+      }
     }
     cargar();
 

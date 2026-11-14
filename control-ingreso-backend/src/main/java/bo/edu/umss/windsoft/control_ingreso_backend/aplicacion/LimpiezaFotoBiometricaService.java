@@ -22,6 +22,12 @@ public class LimpiezaFotoBiometricaService {
 
     @Transactional
     public Long encolar(String ruta) {
+        Long existente = repository.findByRuta(ruta)
+                .map(LimpiezaFotoBiometrica::getId)
+                .orElse(null);
+        if (existente != null) {
+            return existente;
+        }
         LimpiezaFotoBiometrica pendiente = new LimpiezaFotoBiometrica();
         pendiente.setRuta(ruta);
         pendiente.setCreadoEn(LocalDateTime.now());

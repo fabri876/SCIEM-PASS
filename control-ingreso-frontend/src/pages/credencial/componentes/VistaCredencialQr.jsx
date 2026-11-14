@@ -109,16 +109,10 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
   else if (boolInhabilitado) strColorBanda = "bg-[#B91C1C]";
   const strNombre = `${usuario?.nombre || ""} ${usuario?.apellido || ""}`.trim();
 
-  const strClaveSession = `qr_facial_verificado_${examen.id}_${usuario?.idUsuario || usuario?.idusuario || "est"}`;
-  const [boolFacialVerificado, setBoolFacialVerificado] = useState(() => {
-    try {
-      return sessionStorage.getItem(strClaveSession) === "true";
-    } catch {
-      return false;
-    }
-  });
+  const boolRequiereFacial = !boolCargando && !strError && !objQr?.contenidoQr &&
+    String(objQr?.mensaje || "").toLowerCase().includes("verifica tu rostro");
 
-  if (!boolCargando && boolDisponible && !boolFacialVerificado) {
+  if (boolRequiereFacial) {
     return (
       <div className="flex flex-col gap-3 text-[#08264A]">
         <section aria-label="Verificación facial previa a QR" className="bg-white border border-[#CBD5E1] rounded-2xl p-6 shadow-sm">
@@ -126,10 +120,11 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
             examen={examen}
             usuario={usuario}
             onVerificado={() => {
-              try {
-                sessionStorage.setItem(strClaveSession, "true");
-              } catch {}
-              setBoolFacialVerificado(true);
+              setBoolCargando(true);
+              obtenerQrExamen(examen.id)
+                .then((d) => setObjQr(ajustarQrPorHorario(d, examen)))
+                .catch((e) => setStrError(e.message))
+                .finally(() => setBoolCargando(false));
             }}
             onCancelar={onVolver}
           />

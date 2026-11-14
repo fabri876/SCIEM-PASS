@@ -113,6 +113,7 @@ export default function HomeEstudiante() {
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center text-center">
               <AvatarConFoto
                 idUsuario={usuario?.idUsuario}
+                codigoSis={usuario?.codigoSis}
                 className="w-16 h-16 rounded-2xl overflow-hidden bg-[#1A365D] shadow-md mb-3 flex items-center justify-center shrink-0"
                 fallback={<span className="text-white font-black text-xl">{strIniciales}</span>}
               />
