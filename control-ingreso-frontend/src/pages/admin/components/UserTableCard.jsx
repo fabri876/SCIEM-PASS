@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Search, Plus, Pencil, Ban, CheckCircle2, Trash2 } from "lucide-react";
 import VentanaEmergente from "../../../components/common/VentanaEmergente";
-import AvatarConFoto from "../../../components/common/AvatarConFoto";
 import UsuarioFormModal from "./UsuarioFormModal";
 
 const COLORES_AVATAR = [
@@ -188,15 +187,11 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
                     <tr key={user.idUsuario} className="hover:bg-bg-app/80 transition-colors text-secondary text-text-body">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <AvatarConFoto
-                            idUsuario={user.idUsuario}
-                            className="w-8 h-8 rounded-full overflow-hidden shrink-0"
-                            fallback={
-                              <div className={`w-8 h-8 rounded-full ${colorAvatar(user.idUsuario)} text-bg-card font-bold text-badge flex items-center justify-center shrink-0`}>
-                                {initials}
-                              </div>
-                            }
-                          />
+                          {/* No cargar fotos faciales masivamente en la tabla general.
+                              Evita solicitudes 404 para estudiantes sin enrolamiento. */}
+                          <div className={`w-8 h-8 rounded-full ${colorAvatar(user.idUsuario)} text-bg-card font-bold text-badge flex items-center justify-center shrink-0`}>
+                            {initials}
+                          </div>
                           <span className="font-bold text-primary-navy truncate">{nombreCompleto}</span>
                         </div>
                       </td>

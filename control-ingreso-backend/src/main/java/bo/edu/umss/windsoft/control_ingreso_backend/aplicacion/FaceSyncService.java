@@ -71,10 +71,12 @@ public class FaceSyncService {
         List<FaceSyncResponseDto.ItemResultadoDto> intentos = new ArrayList<>();
         List<FaceSyncResponseDto.ItemResultadoDto> ingresos = new ArrayList<>();
         for (FaceSyncRequestDto.IntentoDto dto : request.intentos() == null ? List.<FaceSyncRequestDto.IntentoDto>of() : request.intentos()) {
-            intentos.add(sincronizarIntento(dto, idOperador));
+            try { intentos.add(sincronizarIntento(dto, idOperador)); }
+            catch (ResponseStatusException ex) { intentos.add(resultado(dto == null ? null : dto.clientUuid(), "ERROR", ex.getReason())); }
         }
         for (FaceSyncRequestDto.IngresoDto dto : request.ingresos() == null ? List.<FaceSyncRequestDto.IngresoDto>of() : request.ingresos()) {
-            ingresos.add(sincronizarIngreso(dto, idOperador));
+            try { ingresos.add(sincronizarIngreso(dto, idOperador)); }
+            catch (ResponseStatusException ex) { ingresos.add(resultado(dto == null ? null : dto.clientUuid(), "ERROR", ex.getReason())); }
         }
         return new FaceSyncResponseDto(intentos, ingresos);
     }

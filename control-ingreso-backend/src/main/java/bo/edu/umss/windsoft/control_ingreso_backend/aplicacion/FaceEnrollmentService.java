@@ -1,9 +1,13 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.FaceEnrollment;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.FaceConsentimiento;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.FaceVerificacionEstudiante;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.storage.StorageProvider;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceEnrollmentRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceConsentimientoRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceVerificacionEstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceEnrollmentAdminDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceEnrollmentStatusDto;
@@ -26,6 +30,8 @@ import java.util.stream.Collectors;
 @Service
 public class FaceEnrollmentService {
     private static final String ACTIVO = "activo";
+    private static final String PENDIENTE_REENROLAMIENTO = "pendiente_reenrolamiento";
+    private static final int MAX_INTENTOS_QR = 3;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final FaceEnrollmentRepository enrollmentRepository;
@@ -35,11 +41,15 @@ public class FaceEnrollmentService {
     private final EstudianteRepository estudianteRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final LimpiezaFotoBiometricaService limpiezaFotoBiometricaService;
+    private final FaceConsentimientoRepository consentimientoRepository;
+    private final FaceVerificacionEstudianteRepository verificacionRepository;
 
     public FaceEnrollmentService(FaceEnrollmentRepository enrollmentRepository, StorageProvider storageProvider,
                                  ContextoUsuarioService contextoUsuarioService, UsuarioRepository usuarioRepository,
                                  EstudianteRepository estudianteRepository, ApplicationEventPublisher eventPublisher,
-                                 LimpiezaFotoBiometricaService limpiezaFotoBiometricaService) {
+                                 LimpiezaFotoBiometricaService limpiezaFotoBiometricaService,
+                                 FaceConsentimientoRepository consentimientoRepository,
+                                 FaceVerificacionEstudianteRepository verificacionRepository) {
         this.enrollmentRepository = enrollmentRepository;
         this.storageProvider = storageProvider;
         this.contextoUsuarioService = contextoUsuarioService;
@@ -47,6 +57,20 @@ public class FaceEnrollmentService {
         this.estudianteRepository = estudianteRepository;
         this.eventPublisher = eventPublisher;
         this.limpiezaFotoBiometricaService = limpiezaFotoBiometricaService;
+        this.consentimientoRepository = consentimientoRepository;
+        this.verificacionRepository = verificacionRepository;
+    }
+
+    @Transactional
+    public FaceEnrollmentStatusDto registrarConsentimiento() {
+        var usuario = contextoUsuarioService.actual();
+        if (!usuario.esEstudiante()) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo el estudiante puede aceptar el consentimiento.");
+        FaceConsentimiento consentimiento = new FaceConsentimiento();
+        consentimiento.setIdUsuario(usuario.idUsuario());
+        consentimiento.setAceptadoEn(LocalDateTime.now());
+        consentimiento.setVersionTerminos("v1");
+        consentimientoRepository.save(consentimiento);
+        return new FaceEnrollmentStatusDto(usuario.idUsuario(), "consentido", consentimiento.getAceptadoEn());
     }
 
     @Transactional
@@ -56,21 +80,29 @@ public class FaceEnrollmentService {
         if (!usuario.esEstudiante()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo el estudiante puede registrar su rostro.");
         }
-        validarSolicitud(file, embedding, modelVersion, consentimientoAt);
-        if (enrollmentRepository.findByIdUsuarioForUpdate(usuario.idUsuario()).isPresent()) {
+        FaceConsentimiento consentimiento = consentimientoRepository.findTopByIdUsuarioOrderByAceptadoEnDesc(usuario.idUsuario())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes aceptar el consentimiento antes de capturar tu rostro."));
+        validarSolicitud(file, embedding, modelVersion, consentimiento.getAceptadoEn());
+        FaceEnrollment existente = enrollmentRepository.findByIdUsuarioForUpdate(usuario.idUsuario()).orElse(null);
+        if (existente != null && !PENDIENTE_REENROLAMIENTO.equals(existente.getEstado())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "El estudiante ya tiene un enrolamiento facial historico.");
         }
 
-        FaceEnrollment nuevo = new FaceEnrollment();
+        FaceEnrollment nuevo = existente == null ? new FaceEnrollment() : existente;
+        String rutaAnterior = existente == null ? null : existente.getPhotoPath();
         nuevo.setIdUsuario(usuario.idUsuario());
         nuevo.setPhotoPath(guardarNuevaFoto(file));
         nuevo.setEmbedding(embedding.trim());
         nuevo.setModelVersion(modelVersion.trim());
         nuevo.setEstado(ACTIVO);
-        nuevo.setConsentimientoAt(consentimientoAt);
+        nuevo.setConsentimientoAt(consentimiento.getAceptadoEn());
         nuevo.setFechaRegistro(LocalDateTime.now());
         enrollmentRepository.save(nuevo);
+        if (rutaAnterior != null) {
+            Long idLimpieza = limpiezaFotoBiometricaService.encolar(rutaAnterior);
+            eventPublisher.publishEvent(new FotoEnrolamientoReemplazadaEvent(idLimpieza));
+        }
         return new FaceEnrollmentStatusDto(usuario.idUsuario(), ACTIVO, nuevo.getFechaRegistro());
     }
 
@@ -116,8 +148,8 @@ public class FaceEnrollmentService {
     @Transactional
     public FaceEnrollmentStatusDto cambiarEstado(Integer idEnrollment, String estado) {
         String estadoNormalizado = estado == null ? "" : estado.trim().toLowerCase();
-        if (!"bloqueado".equals(estadoNormalizado)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El unico estado administrativo permitido es bloqueado.");
+        if (!"bloqueado".equals(estadoNormalizado) && !PENDIENTE_REENROLAMIENTO.equals(estadoNormalizado)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El estado debe ser bloqueado o pendiente_reenrolamiento.");
         }
         FaceEnrollment enrollment = enrollmentRepository.findById(idEnrollment)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Enrolamiento no encontrado."));
@@ -174,7 +206,7 @@ public class FaceEnrollmentService {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La foto debe ser JPEG o PNG.");
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public FaceVerificacionEstudianteResponseDto verificarEstudiante(String embeddingJson, Double livenessScore, Integer idExamen) {
         ContextoUsuarioService.UsuarioActual usuario = contextoUsuarioService.actual();
         if (!usuario.esEstudiante()) {
@@ -184,11 +216,19 @@ public class FaceEnrollmentService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "El estudiante no cuenta con un enrolamiento facial activo."));
 
+        if (idExamen == null || idExamen <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El examen es obligatorio.");
+        }
+        if (verificacionRepository.countByIdUsuarioAndIdExamenAndResultado(usuario.idUsuario(), idExamen, "RECHAZADO") >= MAX_INTENTOS_QR) {
+            return new FaceVerificacionEstudianteResponseDto(false, 0.0, livenessScore, "Alcanzaste el limite de 3 intentos para este examen.");
+        }
         if (embeddingJson == null || embeddingJson.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El vector biométrico en vivo es obligatorio.");
         }
 
         if (livenessScore != null && livenessScore < 0.70) {
+            guardarVerificacion(usuario.idUsuario(), idExamen, false, 0.0, livenessScore,
+                    "La prueba de vida no supero el minimo requerido.");
             return new FaceVerificacionEstudianteResponseDto(false, 0.0, livenessScore,
                     "No se pudo confirmar que seas una persona real. Mira de frente a la cámara.");
         }
@@ -209,11 +249,37 @@ public class FaceEnrollmentService {
                 ? "Identidad confirmada con éxito."
                 : "El rostro no coincide suficientemente con la foto registrada en tu primer ingreso.";
 
-        return new FaceVerificacionEstudianteResponseDto(autorizado, score, livenessScore, mensaje);
+        return guardarVerificacion(usuario.idUsuario(), idExamen, autorizado, score, livenessScore, mensaje);
+    }
+
+    private FaceVerificacionEstudianteResponseDto guardarVerificacion(Integer idUsuario, Integer idExamen,
+            boolean autorizado, double score, Double liveness, String mensaje) {
+        FaceVerificacionEstudiante intento = new FaceVerificacionEstudiante();
+        intento.setIdUsuario(idUsuario); intento.setIdExamen(idExamen);
+        intento.setResultado(autorizado ? "AUTORIZADO" : "RECHAZADO");
+        intento.setScore(score); intento.setLivenessScore(liveness); intento.setVerificadoEn(LocalDateTime.now());
+        if (autorizado) intento.setVenceEn(LocalDateTime.now().plusMinutes(10));
+        verificacionRepository.save(intento);
+        return new FaceVerificacionEstudianteResponseDto(autorizado, score, liveness, mensaje);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean tieneAutorizacionQrVigente(Integer idUsuario, Integer idExamen) {
+        return verificacionRepository.findTopByIdUsuarioAndIdExamenAndResultadoAndVenceEnAfterOrderByVerificadoEnDesc(
+                idUsuario, idExamen, "AUTORIZADO", LocalDateTime.now()).isPresent();
     }
 
     @Transactional(readOnly = true)
     public byte[] obtenerFotoBytes(Integer idUsuario) {
+        var usuario = contextoUsuarioService.actual();
+        if (usuario.esEstudiante() && !usuario.idUsuario().equals(idUsuario)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para ver la foto de otro estudiante.");
+        }
+        // No se exponen fotos por URL a docentes u operadores sin una relacion
+        // academica explicitamente verificada por el flujo de control.
+        if (!usuario.esEstudiante() && !usuario.esAdmin()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "La foto biometrica solo se consulta desde un contexto academico autorizado.");
+        }
         FaceEnrollment enrollment = enrollmentRepository
                 .findByIdUsuarioAndEstado(idUsuario, ACTIVO)
                 .orElseThrow(() -> new ResponseStatusException(

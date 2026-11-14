@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, ShieldCheck, RefreshCw, AlertCircle } from "lucide-react";
 import useHumanFace from "../../hooks/useHumanFace";
-import { enrolarRostro } from "../../services/facialService";
+import { enrolarRostro, registrarConsentimientoFacial, obtenerEstadoEnrolamiento } from "../../services/facialService";
+import { obtenerUsuarioActual } from "../../services/authService";
+import { fotoRepo } from "../../offline/fotoRepo";
 import { aHoraLocalIso } from "../../offline/fechaLocal";
 import { solicitarPermisosCamara, detenerPreviewNativo } from "../../hooks/nativeCameraPreview";
 
@@ -15,6 +17,7 @@ export default function EnrolamientoFacialPage() {
   const streamRef = useRef(null);
   const estableDesde = useRef(null);
   const deteccionEnCurso = useRef(false);
+  const envioEnCurso = useRef(false);
   const navigate = useNavigate();
 
   const { listo, cargando: cargandoModelo, error: errorModelo, detectarRostro, recargarModelo } = useHumanFace();
@@ -25,6 +28,18 @@ export default function EnrolamientoFacialPage() {
   const [errorPermiso, setErrorPermiso] = useState(false);
   const [iniciandoCamara, setIniciandoCamara] = useState(false);
   const [diagnostico, setDiagnostico] = useState(null);
+  const [estadoEnrolamiento, setEstadoEnrolamiento] = useState("cargando");
+
+  useEffect(() => {
+    let activo = true;
+    obtenerEstadoEnrolamiento().then((dato) => {
+      if (!activo) return;
+      const actual = dato?.estado || "pendiente";
+      setEstadoEnrolamiento(actual);
+      if (actual === "activo") navigate("/estudiante", { replace: true });
+    }).catch(() => activo && setEstadoEnrolamiento("error"));
+    return () => { activo = false; };
+  }, [navigate]);
 
   const detenerCamara = useCallback(() => {
     if (streamRef.current) {
@@ -152,7 +167,8 @@ export default function EnrolamientoFacialPage() {
   }, [consentimiento, cargandoModelo, errorModelo]);
 
   const capturar = async () => {
-    if (!videoRef.current || !valido || enviando) return;
+    if (!videoRef.current || !valido || enviando || envioEnCurso.current) return;
+    envioEnCurso.current = true;
     setEnviando(true);
     setEstado("Procesando enrolamiento...");
 
@@ -179,6 +195,11 @@ export default function EnrolamientoFacialPage() {
       formData.append("consentimientoAt", aHoraLocalIso());
 
       await enrolarRostro(formData);
+      // Guardar la copia local solo despues de la confirmacion del servidor.
+      const usuarioActual = obtenerUsuarioActual();
+      if (usuarioActual?.codigoSis) {
+        await fotoRepo.guardarMiniatura(usuarioActual.codigoSis, blob).catch(() => {});
+      }
       setEstado("¡Enrolamiento facial completado con éxito!");
       detenerCamara();
       setTimeout(() => navigate("/estudiante", { replace: true }), 1000);
@@ -187,9 +208,20 @@ export default function EnrolamientoFacialPage() {
       setValido(false);
       estableDesde.current = null;
     } finally {
+      envioEnCurso.current = false;
       setEnviando(false);
     }
   };
+
+  if (estadoEnrolamiento === "cargando") return null;
+  if (estadoEnrolamiento === "bloqueado") return (
+    <main className="min-h-screen bg-[var(--color-bg-app)] p-5 flex items-center justify-center">
+      <section className="max-w-md rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] p-6 text-center text-[#B91C1C]">
+        <AlertCircle className="mx-auto mb-3" /><h1 className="font-bold">Registro facial bloqueado</h1>
+        <p className="mt-2 text-sm">Contacta a administración para habilitar tu re-enrolamiento.</p>
+      </section>
+    </main>
+  );
 
   return (
     <main className="min-h-screen bg-[var(--color-bg-app)] font-sans p-4 flex items-center justify-center">
@@ -225,7 +257,15 @@ export default function EnrolamientoFacialPage() {
             </div>
             <button
               type="button"
-              onClick={() => setConsentimiento(true)}
+              onClick={async () => {
+                try {
+                  setEstado("Registrando consentimiento...");
+                  await registrarConsentimientoFacial();
+                  setConsentimiento(true);
+                } catch (error) {
+                  setEstado(error.message || "No se pudo registrar tu consentimiento. Intenta nuevamente.");
+                }
+              }}
               className="w-full rounded-xl bg-[image:var(--gradient-button)] py-3 font-bold text-white shadow-sm hover:opacity-95 transition-opacity"
             >
               Acepto y continuar
