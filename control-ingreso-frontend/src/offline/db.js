@@ -74,6 +74,12 @@ db.version(7).stores({
     "clientUuid, incidenciaClientUuid, [syncStatus+nextRetryAt], syncStatus",
 });
 
+// v9: índice examenId en expulsiones_pendientes para filtrar por examen
+db.version(9).stores({
+  expulsiones_pendientes:
+    "clientUuid, incidenciaClientUuid, syncStatus, examenId",
+});
+
 // v8: ingresos excepcionales autorizados sin conexión. El respaldo (foto)
 // viaja como blob y se sube al sincronizar (HU21).
 db.version(8).stores({
