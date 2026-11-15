@@ -411,6 +411,7 @@ export default function ControlFacialCamera({
             <AvatarConFoto
               idUsuario={idUsuarioEstudiante}
               codigoSis={sisEstudiante}
+              idExamen={idExamenNum}
               className="w-12 h-14 shrink-0 rounded-lg overflow-hidden border border-[#CBD5E1] bg-[#F1F5F9] flex items-center justify-center"
               fallback={<ScanFace className="w-6 h-6 text-[#64748B]" />}
             />

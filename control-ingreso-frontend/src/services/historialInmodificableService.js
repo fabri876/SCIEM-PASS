@@ -102,6 +102,9 @@ async function fetchAutenticado(strRuta, objOpciones = {}, respuestaBinaria = fa
  */
 function inferirModulo(strOperacion) {
   const op = (strOperacion || "").toUpperCase();
+  if (op.includes("FACIAL_")) {
+    return "FACIAL";
+  }
   if (op.includes("INTENTO_EXAMEN_INCORRECTO") || op.includes("HU-09") || op.includes("INGRESO") || op.includes("ACCESO")) {
     return "CONTROL_INGRESO";
   }

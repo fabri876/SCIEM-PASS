@@ -252,9 +252,43 @@ export default function HistorialInmodificable() {
         return "bg-sky-50 text-sky-700 border-sky-200";
       case "SEGURIDAD":
         return "bg-purple-50 text-purple-700 border-purple-200";
+      case "FACIAL":
+        return "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200";
       default:
         return "bg-slate-100 text-slate-700 border-slate-200";
     }
+  };
+
+  // Los campos firmados siguen llegando intactos desde el backend; para los
+  // eventos faciales se muestran en una frase breve porque ejecutor e IP ya
+  // tienen sus propios campos en la inspección.
+  const fnDetalleLegible = (bloque) => {
+    if ((bloque?.modulo || "").toUpperCase() !== "FACIAL") return bloque?.detalles;
+
+    const campos = Object.fromEntries(String(bloque.detalles || "").split(" | ").map((parte) => {
+      const indice = parte.indexOf("=");
+      return indice < 0 ? [parte, ""] : [parte.slice(0, indice), parte.slice(indice + 1)];
+    }));
+    const etiquetas = {
+      FACIAL_CONSENTIMIENTO_ACEPTADO: "Consentimiento facial aceptado.",
+      FACIAL_ENROLAMIENTO_INICIAL_COMPLETADO: "Enrolamiento facial inicial completado.",
+      FACIAL_REENROLAMIENTO_AUTORIZADO: "Re-enrolamiento facial autorizado.",
+      FACIAL_ENROLAMIENTO_BLOQUEADO: "Enrolamiento facial bloqueado.",
+      FACIAL_REENROLAMIENTO_COMPLETADO: "Re-enrolamiento facial completado.",
+      FACIAL_QR_AUTORIZADO: "Verificación facial para QR autorizada.",
+      FACIAL_QR_RECHAZADO: "Verificación facial para QR rechazada.",
+      FACIAL_QR_LIMITE_INTENTOS: "Límite de intentos de verificación QR alcanzado.",
+      FACIAL_CONTROL_AUTORIZADO: "Control facial autorizado.",
+      FACIAL_CONTROL_RECHAZADO: "Control facial rechazado.",
+      FACIAL_INGRESO_MANUAL_EXCEPCIONAL: "Ingreso manual excepcional por verificación facial.",
+      FACIAL_COLISION_OFFLINE: "Colisión detectada durante la sincronización offline.",
+    };
+    const entidad = [campos.sis && `SIS ${campos.sis}`, campos.estudiante_correo]
+      .filter(Boolean).join(" · ");
+    const contexto = [campos.examen && `Examen ${campos.examen}`, campos.ambiente && `Ambiente ${campos.ambiente}`]
+      .filter(Boolean).join(" · ");
+    return [etiquetas[bloque.operacionEjecutada] || "Evento facial registrado.", entidad && `Estudiante: ${entidad}.`, contexto]
+      .filter(Boolean).join(" ");
   };
 
   return (
@@ -371,14 +405,15 @@ export default function HistorialInmodificable() {
             >
               <option value="TODOS">Todos los Módulos (Auditoría General)</option>
               <option value="CONTROL_INGRESO">CONTROL DE INGRESO (Verificación)</option>
-              <option value="EXPULSIONES">EXPULSIONES (HU-14 / Incidentes)</option>
-              <option value="ING_EXCEPCIONAL">ING_EXCEPCIONAL (HU-06)</option>
+              <option value="EXPULSIONES">EXPULSIONES</option>
+              <option value="ING_EXCEPCIONAL">ING_EXCEPCIONAL</option>
               <option value="HABILITACIONES">HABILITACIONES (Nóminas)</option>
               <option value="CARGA_MASIVA">CARGA_MASIVA (Estudiantes / Docentes)</option>
               <option value="EXAMENES">EXAMENES (Programación)</option>
               <option value="INCIDENCIAS">INCIDENCIAS</option>
               <option value="USUARIOS">USUARIOS Y ROLES</option>
               <option value="SEGURIDAD">SEGURIDAD Y SESIONES</option>
+              <option value="FACIAL">AUDITORÍA FACIAL</option>
             </select>
           </div>
 
@@ -430,13 +465,13 @@ export default function HistorialInmodificable() {
           {errorFechas && <p role="alert" className="col-span-full text-xs text-rose-700">{errorFechas}</p>}
 
           {/* Botón Aplicar */}
-          <div className="col-span-1 sm:col-span-1 lg:col-span-2">
+          <div className="col-span-1 sm:col-span-2 lg:col-span-4">
             <button
               type="submit"
-              className="w-full h-10 inline-flex items-center justify-center gap-2 bg-[#021B3B] text-white rounded-xl text-xs font-bold hover:bg-[#003770] transition shadow-xs cursor-pointer"
+              className="w-full h-11 inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#003770] text-white text-sm font-bold tracking-wide shadow-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:bg-[#08264A] hover:shadow-lg active:translate-y-0 active:scale-[0.99]"
             >
-              <Search className="w-3.5 h-3.5" />
-              <span>Aplicar Filtros Forenses</span>
+              <Search className="w-4 h-4" strokeWidth={2.5} />
+              <span className="uppercase">Aplicar filtros</span>
             </button>
           </div>
         </form>
@@ -711,7 +746,7 @@ export default function HistorialInmodificable() {
               </span>
             </div>
             <p className="text-xs text-slate-700 leading-relaxed font-medium">
-              {bloqueSeleccionado.detalles}
+              {fnDetalleLegible(bloqueSeleccionado)}
             </p>
           </div>
 
