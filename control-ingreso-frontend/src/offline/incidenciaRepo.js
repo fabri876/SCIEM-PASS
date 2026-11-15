@@ -15,6 +15,7 @@ export const incidenciaRepo = {
    */
   async encolar({
     idAmbiente,
+    idExamen,
     tipo,
     severidad,
     accion,
@@ -50,6 +51,7 @@ export const incidenciaRepo = {
     await db.incidencias_pendientes.add({
       clientUuid,
       idAmbiente: Number(idAmbiente),
+      idExamen: idExamen != null ? Number(idExamen) : null,
       tipo,
       severidad,
       accion,
@@ -244,7 +246,7 @@ export const incidenciaRepo = {
     const incidencias = await db.incidencias_pendientes
       .filter((i) => Number(i.idExamen) === exId && i.syncStatus !== ESTADO_SYNC.SINCRONIZADO)
       .toArray();
-    await db.transaction("rw", [db.incidencias_pendientes, db.expulsiones_pendientes], async () => {
+    await db.transaction("rw", [db.incidencias_pendientes, db.expulsiones_pendientes, db.evidencias_pendientes], async () => {
       for (const inc of incidencias) {
         await db.incidencias_pendientes.update(inc.clientUuid, {
           syncStatus: ESTADO_SYNC.ERROR,
@@ -258,6 +260,18 @@ export const incidenciaRepo = {
           .toArray();
         for (const e of expulsiones) {
           await db.expulsiones_pendientes.update(e.clientUuid, {
+            syncStatus: ESTADO_SYNC.ERROR,
+            nextRetryAt: 0,
+            ultimoError: "Examen cancelado",
+            sincronizadoEn: Date.now(),
+          });
+        }
+        const evidencias = await db.evidencias_pendientes
+          .where("incidenciaClientUuid")
+          .equals(inc.clientUuid)
+          .toArray();
+        for (const ev of evidencias) {
+          await db.evidencias_pendientes.update(ev.clientUuid, {
             syncStatus: ESTADO_SYNC.ERROR,
             nextRetryAt: 0,
             ultimoError: "Examen cancelado",
