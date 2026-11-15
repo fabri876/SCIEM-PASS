@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
+  BarChart2,
   Upload,
   CheckCircle2,
   Check,
@@ -35,6 +36,18 @@ const CATALOGO_TIPOS = [
   { codigo: "OTRO", etiqueta: "Otro" },
 ];
 
+const CATALOGO_ACCIONES = [
+  { codigo: "REGISTRO", etiqueta: "Registro de la incidencia", nivel: 1 },
+  { codigo: "ADVERTENCIA_VERBAL", etiqueta: "Advertencia verbal", nivel: 2 },
+  { codigo: "ADVERTENCIA_ESCRITA", etiqueta: "Advertencia escrita", nivel: 3 },
+  { codigo: "CAMBIO_ASIENTO", etiqueta: "Cambio de asiento", nivel: 4 },
+  { codigo: "RETIRO_MATERIAL", etiqueta: "Retiro del material/dispositivo", nivel: 5 },
+  { codigo: "DESCUENTO_PUNTAJE", etiqueta: "Descuento de puntos", nivel: 6 },
+  { codigo: "ANULACION_PREGUNTA", etiqueta: "Anulación de pregunta/sección", nivel: 7 },
+  { codigo: "ANULACION_EXAMEN", etiqueta: "Anulación del examen", nivel: 8 },
+  { codigo: "OTRO", etiqueta: "Otro", nivel: 9 },
+];
+
 const CATALOGO_SEVERIDADES = [
   { codigo: "BAJA", etiqueta: "Baja", color: "bg-[#4A97D3] text-white" },
   { codigo: "MEDIA", etiqueta: "Media", color: "bg-[#1860A3] text-white" },
@@ -50,6 +63,21 @@ function nuevaClaveSolicitud() {
     : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
         (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16)
       );
+}
+
+function mapearSeveridad(codigoAccion) {
+  const mapa = {
+    REGISTRO: "BAJA",
+    ADVERTENCIA_VERBAL: "BAJA",
+    ADVERTENCIA_ESCRITA: "MEDIA",
+    CAMBIO_ASIENTO: "MEDIA",
+    RETIRO_MATERIAL: "MEDIA",
+    DESCUENTO_PUNTAJE: "MEDIA",
+    ANULACION_PREGUNTA: "ALTA",
+    ANULACION_EXAMEN: "ALTA",
+    EXPULSION_EXAMEN: "ALTA",
+  };
+  return mapa[codigoAccion] || "BAJA";
 }
 
 /**
@@ -98,6 +126,9 @@ export default function ModalIncidencia({
   const [retirarEstudiante, setRetirarEstudiante] = useState(false);
   const [boolEsExpulsion, setBoolEsExpulsion] = useState(false);
   const [strOtroDetalle, setStrOtroDetalle] = useState("");
+  const [strOtroDetalleAccion, setStrOtroDetalleAccion] = useState("");
+  const [accionSeleccionada, setAccionSeleccionada] = useState(null);
+  const [strPuntajeReducir, setStrPuntajeReducir] = useState("");
   const [boolCerrandoExpulsion, setBoolCerrandoExpulsion] = useState(false);
 
   // Se reinicia SOLO al abrir. Antes dependía también de las listas que manda
@@ -121,6 +152,9 @@ export default function ModalIncidencia({
     setRetirarEstudiante(false);
     setBoolEsExpulsion(false);
     setStrOtroDetalle("");
+    setStrOtroDetalleAccion("");
+    setAccionSeleccionada(null);
+    setStrPuntajeReducir("");
     setBoolCerrandoExpulsion(false);
 
     setAulaSeleccionada(aulaPreseleccionada || aulasDisponibles[0] || null);
@@ -191,24 +225,28 @@ export default function ModalIncidencia({
   const strDetalleOtroCapitalizado = strDetalleOtro
     ? strDetalleOtro.charAt(0).toUpperCase() + strDetalleOtro.slice(1)
     : "";
-  const prefijoOtro =
-    tipoSeleccionado === "OTRO" && strDetalleOtroCapitalizado
-      ? `${strDetalleOtroCapitalizado}. `
-      : "";
-  const maxDescripcion = Math.max(DESCRIPCION_MIN, DESCRIPCION_MAX - prefijoOtro.length);
-  const strDescripcionFinal = `${prefijoOtro}${strDescripcion.trim()}`;
-  const faltantes = [
-    !idAmbienteActual && "el aula del examen",
-    !tipoSeleccionado && "el tipo",
-    tipoSeleccionado === "OTRO" && !otroValido && "la especificación del tipo Otro",
-    !severidadSeleccionada && "la severidad",
-    !descripcionValida && `una descripción de al menos ${DESCRIPCION_MIN} caracteres`,
-    retirarEstudiante && !estudianteInvolucrado && "el estudiante a retirar",
-    retirarEstudiante && estudianteYaRetirado && "no se puede expulsar a un estudiante ya retirado",
-    retirarEstudiante && boolAulaFija && !boolExamenActivo && "el examen debe estar en curso para registrar una expulsión",
-    retirarEstudiante && boolAulaFija && aulasDisponiblesFiltradas.length === 0 &&
-      "un examen en curso para registrar la expulsión",
-  ].filter(Boolean);
+  const strDetalleOtroAccion = strOtroDetalleAccion.trim();
+  const strDetalleOtroAccionCapitalizado = strDetalleOtroAccion
+    ? strDetalleOtroAccion.charAt(0).toUpperCase() + strDetalleOtroAccion.slice(1)
+    : "";
+  const maxDescripcion = DESCRIPCION_MAX;
+  const strDescripcionFinal = strDescripcion.trim();
+    const faltantes = [
+      !idAmbienteActual && "el aula del examen",
+      !tipoSeleccionado && "el tipo",
+      !accionSeleccionada && "la acción",
+      !severidadSeleccionada && "la severidad",
+      accionSeleccionada === "DESCUENTO_PUNTAJE" && !strPuntajeReducir && "el puntaje a reducir",
+      tipoSeleccionado === "OTRO" && !otroValido && "la especificación del tipo Otro",
+      accionSeleccionada === "OTRO" && !strOtroDetalleAccion.trim() && "la especificación de la acción Otro",
+      !estudianteInvolucrado && "el estudiante involucrado",
+      !descripcionValida && `una descripción de al menos ${DESCRIPCION_MIN} caracteres`,
+      retirarEstudiante && !estudianteInvolucrado && "el estudiante a retirar",
+      retirarEstudiante && estudianteYaRetirado && "no se puede expulsar a un estudiante ya retirado",
+      retirarEstudiante && boolAulaFija && !boolExamenActivo && "el examen debe estar en curso para registrar una expulsión",
+      retirarEstudiante && boolAulaFija && aulasDisponiblesFiltradas.length === 0 &&
+        "un examen en curso para registrar la expulsión",
+    ].filter(Boolean);
   const puedeRegistrar =
     faltantes.length === 0 && !boolGuardando && !strExito && !estudianteYaRetirado && !strErrorBusquedaEstudiante &&
     !(boolEsExpulsion && aulasDisponiblesFiltradas.length === 0);
@@ -348,6 +386,10 @@ export default function ModalIncidencia({
     const datosIncidencia = {
       idAmbiente: idAmbienteActual,
       tipo: tipoSeleccionado,
+      accion: accionSeleccionada,
+      detalleTipoOtro: tipoSeleccionado === "OTRO" ? strDetalleOtroCapitalizado : null,
+      detalleAccionOtro: accionSeleccionada === "OTRO" ? strDetalleOtroAccionCapitalizado : null,
+      puntajeReducir: strPuntajeReducir ? parseFloat(strPuntajeReducir) : null,
       severidad: severidadSeleccionada,
       descripcion: strDescripcionFinal,
       codSisEstudiante: estudianteInvolucrado?.codSis || null,
@@ -368,6 +410,8 @@ export default function ModalIncidencia({
           registradoEn: datosIncidencia.registradoEn,
           reportadoPor: creadoPor,
           nombreEstudiante: estudianteInvolucrado?.nombreCompleto || null,
+          detalleTipoOtro: tipoSeleccionado === "OTRO" ? strDetalleOtroCapitalizado : null,
+          detalleAccionOtro: accionSeleccionada === "OTRO" ? strDetalleOtroAccionCapitalizado : null,
         });
       }
       // La foto se guarda como Blob en IndexedDB y se sube al sincronizar (CA11/CA25).
@@ -561,30 +605,6 @@ export default function ModalIncidencia({
             )}
           </div>
 
-          <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1.5">
-              Severidad <span className="text-[#B91C1C]">*</span>
-            </label>            <div className="grid grid-cols-3 border border-[#CBD5E1] rounded-xl overflow-hidden bg-[#F1F5F9] p-1 gap-1">
-              {CATALOGO_SEVERIDADES.map((sev) => {
-                const isSelected = severidadSeleccionada === sev.codigo;
-                const esExpulsion = boolEsExpulsion && sev.codigo !== "ALTA";
-                return (
-                  <button
-                    key={sev.codigo}
-                    type="button"
-                    onClick={() => setSeveridadSeleccionada(sev.codigo)}
-                    disabled={esExpulsion}
-                    className={`py-2 text-xs font-extrabold rounded-lg transition text-center cursor-pointer ${
-                      isSelected ? sev.color + " shadow-xs" : "text-[#64748B] hover:text-[#08264A]"
-                    } ${esExpulsion ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    {sev.etiqueta}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Estudiante involucrado (opcional) */}
           <div>
             <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1">
@@ -724,6 +744,92 @@ export default function ModalIncidencia({
                 </div>
               </label>
             </div>
+            </div>
+
+          {/* Severidad */}
+          <div>
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1.5">
+              Severidad <span className="text-[#B91C1C]">*</span>
+            </label>
+            <div className="grid grid-cols-3 border border-[#CBD5E1] rounded-xl overflow-hidden bg-[#F1F5F9] p-1 gap-1">
+              {CATALOGO_SEVERIDADES.map((sev) => {
+                const isSelected = severidadSeleccionada === sev.codigo;
+                return (
+                  <button
+                    key={sev.codigo}
+                    type="button"
+                    onClick={() => setSeveridadSeleccionada(sev.codigo)}
+                    className={`py-2 text-xs font-extrabold rounded-lg transition text-center cursor-pointer ${
+                      isSelected ? sev.color + " shadow-xs" : "text-[#64748B] hover:text-[#08264A]"
+                    }`}
+                  >
+                    {sev.etiqueta}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Acción */}
+          <div>
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1.5">
+              Acción <span className="text-[#B91C1C]">*</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {CATALOGO_ACCIONES.map((acc) => {
+                const isSelected = accionSeleccionada === acc.codigo;
+                return (
+                  <button
+                    key={acc.codigo}
+                    type="button"
+                    onClick={() => setAccionSeleccionada(acc.codigo)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer border ${
+                      isSelected
+                        ? "bg-[#003770] border-[#003770] text-white shadow-xs"
+                        : "bg-white border-[#CBD5E1] text-[#475569] hover:bg-[#F1F5F9]"
+                    }`}
+                  >
+                    {acc.etiqueta}
+                  </button>
+                );
+              })}
+            </div>
+            {accionSeleccionada === "DESCUENTO_PUNTAJE" && (
+              <div className="mt-2 rounded-xl border border-[#B6D3EE] bg-[#F0F6FC] p-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#003770]">
+                  <BarChart2 className="w-3.5 h-3.5" />
+                  Puntaje a reducir <span className="text-[#B91C1C]">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={strPuntajeReducir}
+                  onChange={(e) => setStrPuntajeReducir(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="mt-1.5 w-full bg-white border border-[#B6D3EE] rounded-xl px-3 py-2 text-xs font-semibold text-[#08264A] placeholder-[#9AA8BA] focus:outline-none focus:border-[#4A97D3] transition"
+                />
+                <p className="mt-1 text-[10px] text-[#7A8BA0] font-bold">
+                  Se descontará este puntaje del resultado final del estudiante.
+                </p>
+              </div>
+            )}
+            {accionSeleccionada === "OTRO" && (
+              <div className="mt-2 rounded-xl border border-[#B6D3EE] bg-[#F0F6FC] p-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#003770]">
+                  <FileText className="w-3.5 h-3.5" />
+                  Especifica la acción <span className="text-[#B91C1C]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={strOtroDetalleAccion}
+                  onChange={(e) => setStrOtroDetalleAccion(e.target.value)}
+                  maxLength={80}
+                  placeholder="Describe brevemente la acción..."
+                  className="mt-1.5 w-full bg-white border border-[#B6D3EE] rounded-xl px-3 py-2 text-xs font-semibold text-[#08264A] placeholder-[#9AA8BA] focus:outline-none focus:border-[#4A97D3] transition"
+                />
+              </div>
+            )}
           </div>
 
           {/* Descripción */}

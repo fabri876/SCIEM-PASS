@@ -10,6 +10,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Expulsion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HoraOficial;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AccionIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.SeveridadIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
@@ -817,7 +818,10 @@ public class RegistroExpulsionService {
                 ingreso.getIdAmbiente(),
                 tipo.name(),
                 SeveridadIncidencia.ALTA.name(),
+                AccionIncidencia.REGISTRO.name(),
+                null,
                 descripcion,
+                null, null,
                 ingreso.getCodsisEstudiante(),
                 false,
                 evidenciaArchivo,

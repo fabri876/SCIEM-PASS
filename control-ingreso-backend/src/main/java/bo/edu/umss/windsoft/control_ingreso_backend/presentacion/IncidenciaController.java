@@ -100,7 +100,11 @@ public class IncidenciaController {
             @RequestParam Integer idAmbiente,
             @RequestParam String tipo,
             @RequestParam String severidad,
+            @RequestParam String accion,
+            @RequestParam(required = false) Double puntajeReducir,
             @RequestParam String descripcion,
+            @RequestParam(required = false) String detalleTipoOtro,
+            @RequestParam(required = false) String detalleAccionOtro,
             @RequestParam(required = false) Integer codSisEstudiante,
             @RequestParam(defaultValue = "false") boolean retirarEstudiante,
             @RequestParam(required = false) MultipartFile evidencia,
@@ -109,16 +113,18 @@ public class IncidenciaController {
                 || idAmbiente == null
                 || tipo == null || tipo.isBlank()
                 || severidad == null || severidad.isBlank()
+                || accion == null || accion.isBlank()
                 || descripcion == null || descripcion.isBlank()) {
             throw new SolicitudInvalidaException(
-                    "Faltan campos obligatorios: claveSolicitud, idAmbiente, tipo, severidad y descripcion son requeridos.");
+                    "Faltan campos obligatorios: claveSolicitud, idAmbiente, tipo, severidad, accion y descripcion son requeridos.");
         }
 
         // Reintento de concurrencia para la operacion de registro de incidencia.
 
         IncidenciaDetalleDto respuesta = ReintentoConcurrencia.ejecutar("registro-incidencia",
-                () -> incidenciaService.registrar(claveSolicitud, idAmbiente, tipo, severidad,
-                        descripcion, codSisEstudiante, retirarEstudiante, evidencia,
+                () -> incidenciaService.registrar(claveSolicitud, idAmbiente, tipo, severidad, accion,
+                        puntajeReducir, descripcion, detalleTipoOtro, detalleAccionOtro,
+                        codSisEstudiante, retirarEstudiante, evidencia,
                         ClientIpResolver.resolver(request)));
         return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
     }
