@@ -233,4 +233,39 @@ export const incidenciaRepo = {
       },
     );
   },
+
+  /**
+   * Descarta las incidencias (y sus expulsiones vinculadas) de un examen que
+   * se detectó como cancelado al volver el internet. Se marcan como ERROR con
+   * el motivo "Examen cancelado" y no se reintentan.
+   */
+  async descartarPorExamenCancelado(idExamen) {
+    const exId = Number(idExamen);
+    const incidencias = await db.incidencias_pendientes
+      .filter((i) => Number(i.idExamen) === exId && i.syncStatus !== ESTADO_SYNC.SINCRONIZADO)
+      .toArray();
+    await db.transaction("rw", [db.incidencias_pendientes, db.expulsiones_pendientes], async () => {
+      for (const inc of incidencias) {
+        await db.incidencias_pendientes.update(inc.clientUuid, {
+          syncStatus: ESTADO_SYNC.ERROR,
+          nextRetryAt: 0,
+          ultimoError: "Examen cancelado",
+          sincronizadoEn: Date.now(),
+        });
+        const expulsiones = await db.expulsiones_pendientes
+          .where("incidenciaClientUuid")
+          .equals(inc.clientUuid)
+          .toArray();
+        for (const e of expulsiones) {
+          await db.expulsiones_pendientes.update(e.clientUuid, {
+            syncStatus: ESTADO_SYNC.ERROR,
+            nextRetryAt: 0,
+            ultimoError: "Examen cancelado",
+            sincronizadoEn: Date.now(),
+          });
+        }
+      }
+    });
+    return incidencias.length;
+  },
 };

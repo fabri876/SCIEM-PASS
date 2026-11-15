@@ -182,6 +182,8 @@ public class IncidenciaService {
                 "Registrar incidencia", ip);
         // Se puede registrar el día del examen o después, pero no antes.
         AmbienteInfo infoAmbiente = ambienteExamenService.describir(ambiente);
+        // Impedir registrar incidencias sobre un examen cancelado.
+        ambienteExamenService.verificarExamenNoCancelado(infoAmbiente);
         ambienteExamenService.verificarExamenYaIniciado(infoAmbiente);
         if (desdeSincronizacion) {
             // El registro se hizo sin conexión: se valida la marca del
@@ -581,6 +583,10 @@ public class IncidenciaService {
         Ambiente ambiente = ambienteExamenService.obtener(incidencia.getIdAmbiente());
         contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Adjuntar evidencia a " + incidencia.getCodigo(), ip);
+
+        // Impedir adjuntar evidencia a una incidencia de un examen cancelado.
+        AmbienteInfo infoEvidencia = ambienteExamenService.describir(ambiente);
+        ambienteExamenService.verificarExamenNoCancelado(infoEvidencia);
 
         evidenciaService.validar(archivo);
         if (incidencia.getEvidenciaUrl() != null && !incidencia.getEvidenciaUrl().isBlank()) {

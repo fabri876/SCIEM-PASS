@@ -43,7 +43,7 @@ export default function ControlIngresoDocente() {
   const idControl = idAsignatura && idAmbiente ? `${idAsignatura}-${idExamen}-${idAmbiente}` : (idExamen ? Number(idExamen) : null);
   const objExamenInicial = objExamenNavegado && idControl ? { id: idControl, idasignatura: idAsignatura, idexamen: Number(idExamen), idambiente: idAmbiente, materia: objExamenNavegado.nombreExamen || objExamenNavegado.nombreAsignatura, tipo: objExamenNavegado.tipoExamen || objExamenNavegado.nombreTipoExamen || "Examen", aula: objExamenNavegado.aulaNombre || objExamenNavegado.aula || objAmbiente?.nombreAmbiente || objAmbiente?.nombreAula, edificio: objExamenNavegado.bloque || objAmbiente?.ubicacionAmbiente || objAmbiente?.bloque, fecha: objExamenNavegado.fechaExamen, horaInicio: objExamenNavegado.horaInicio || objAmbiente?.horaInicio, horaFin: objExamenNavegado.horaFin || objAmbiente?.horaFin, contador: { ingresaron: objExamenNavegado.ingresados || 0, pendientes: objExamenNavegado.noLlegan || 0, inhabilitados: objExamenNavegado.inhabilitados || 0, habilitados: objExamenNavegado.totalInscritos || 0 } } : null;
   const ctrl = useControlIngreso(idControl, { examenInicial: objExamenInicial });
-  const { estadoRed, fnCambiarRed } = useOperador();
+  const { estadoRed } = useOperador();
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
   const [boolPanelIncidencias, setBoolPanelIncidencias] = useState(false);
   const [excepcionFacial, setExcepcionFacial] = useState(null);
@@ -97,40 +97,6 @@ export default function ControlIngresoDocente() {
         <Header />
       </div>
       <main className="max-w-[1200px] w-full mx-auto pt-[115px] px-4 sm:px-6 space-y-6">
-
-        {/* Segmented control Online/Offline (idéntico a operador) */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="inline-flex items-center gap-1 p-1.5 rounded-2xl bg-white border border-[#CBD5E1] shadow-xs">
-            <button
-              type="button"
-              onClick={() => fnCambiarRed("online")}
-              aria-pressed={boolEnLinea}
-              className={
-                "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
-                (boolEnLinea ? "bg-[#003770] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
-              }
-            >
-              Online
-            </button>
-            <button
-              type="button"
-              onClick={() => fnCambiarRed("offline")}
-              aria-pressed={!boolEnLinea}
-              className={
-                "px-4 h-9 rounded-xl text-xs font-extrabold transition-colors cursor-pointer " +
-                (!boolEnLinea ? "bg-[#B91C1C] text-white shadow-xs" : "text-[#64748B] hover:bg-[#F1F5F9]")
-              }
-            >
-              Offline
-            </button>
-          </div>
-          <p className="text-xs font-bold text-[#64748B]">
-            Estado actual:{" "}
-            <span className={boolEnLinea ? "text-[#1860A3]" : "text-[#B91C1C]"}>
-              {boolEnLinea ? "Con red" : "Sin red"}
-            </span>
-          </p>
-        </div>
 
         {/* Volver + avisos de conexión (offline, almacenamiento, sincronización) */}
         <EncabezadoControl

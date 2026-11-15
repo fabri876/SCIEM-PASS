@@ -468,6 +468,9 @@ export default function ModalIncidencia({
         onCerrar();
       }, 900);
     } catch (err) {
+      const mensajeServidor = err.message || "";
+      const esExamenCancelado = mensajeServidor.includes("Examen cancelado")
+        || mensajeServidor.includes("Este examen fue cancelado");
       if (err?.offline || (await estaOfflineIncidencia())) {
         try {
           await guardarOffline();
@@ -475,8 +478,14 @@ export default function ModalIncidencia({
           setStrError(errorOffline.message || "No se pudo guardar la incidencia en el dispositivo.");
           setBoolGuardando(false);
         }
+      } else if (esExamenCancelado) {
+        setStrError(mensajeServidor);
+        setBoolGuardando(false);
+        setTimeout(() => {
+          onCerrar();
+        }, 600);
       } else {
-        setStrError(err.message || "Ocurrió un error al registrar la incidencia.");
+        setStrError(mensajeServidor || "Ocurrió un error al registrar la incidencia.");
         setBoolGuardando(false);
       }
     }
