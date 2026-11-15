@@ -16,6 +16,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Expulsion;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.FaceEnrollment;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AsignacionNoActivaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
@@ -61,6 +62,11 @@ import java.util.Locale;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -263,9 +269,26 @@ public class ControlIngresoAyudanteService {
                 : ingresoRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIngresoDesc(
                         idAsignatura, idExamen, idAmbiente);
 
+        // Batch-load related entities to avoid N+1 queries
+        Set<Integer> studentUserIds = lista.stream()
+                .map(Ingreso::getIdUsuarioEstudiante)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<Integer> operatorUserIds = lista.stream()
+                .map(Ingreso::getIdUsuarioRegistra)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Integer, Usuario> studentUserMap = usuarioRepository.findAllById(studentUserIds).stream()
+                .collect(Collectors.toMap(Usuario::getIdusuario, Function.identity()));
+        Map<Integer, Usuario> operatorUserMap = usuarioRepository.findAllById(operatorUserIds).stream()
+                .collect(Collectors.toMap(Usuario::getIdusuario, Function.identity()));
+        Map<Integer, FaceEnrollment> faceEnrollmentMap = faceEnrollmentRepository.findByIdUsuarioInAndEstado(studentUserIds, "activo").stream()
+                .collect(Collectors.toMap(FaceEnrollment::getIdUsuario, Function.identity()));
+
         var resultado = new java.util.ArrayList<>(lista.stream()
                 .map(ing -> {
-                    Usuario user = usuarioRepository.findById(ing.getIdUsuarioEstudiante()).orElse(null);
+                    Usuario user = studentUserMap.get(ing.getIdUsuarioEstudiante());
                     Estudiante est = estudianteRepository.findByCodsisestudiante(ing.getCodsisEstudiante())
                             .orElse(null);
 
@@ -281,13 +304,13 @@ public class ControlIngresoAyudanteService {
                             ci,
                             nombreCompleto,
                             carreraDelEstudiante(ing.getIdUsuarioEstudiante(), codsis),
-                            resolverFotoUrl(ing.getIdUsuarioEstudiante()));
+                            faceEnrollmentMap.containsKey(ing.getIdUsuarioEstudiante())
+                                    ? "/api/face/enrollment/" + ing.getIdUsuarioEstudiante() + "/foto"
+                                    : null);
 
                     String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
 
-                    Usuario operador = ing.getIdUsuarioRegistra() != null
-                            ? usuarioRepository.findById(ing.getIdUsuarioRegistra()).orElse(null)
-                            : null;
+                    Usuario operador = operatorUserMap.get(ing.getIdUsuarioRegistra());
                     String registradoPor = operador != null
                             ? (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim()
                             : null;

@@ -79,7 +79,7 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
           const strDatos = [e.sis && `SIS ${e.sis}`, e.ci && `C.I. ${e.ci}`].filter(Boolean).join(" · ");
           return (
             <li
-              key={r.idRegistro || (e.ci || e.sis) + r.hora}
+              key={`${r.idRegistro || e.ci || e.sis}-${r.hora}-${i}`}
               className={
                 FILA + "py-3 border-t border-[#E2E8F0] " +
                 (boolNuevo ? "bg-[#F0F6FC] shadow-[inset_4px_0_0_#003770]" : i % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white")
