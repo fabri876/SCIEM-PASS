@@ -6,6 +6,7 @@ import java.util.List;
 public record CatalogosIncidenciaDto(
         List<OpcionCatalogoDto> tiposIncidencia,
         List<OpcionCatalogoDto> severidades,
+        List<OpcionCatalogoDto> accionesIncidencia,
         List<OpcionCatalogoDto> estados,
         List<OpcionCatalogoDto> motivosExcepcion) {
 }

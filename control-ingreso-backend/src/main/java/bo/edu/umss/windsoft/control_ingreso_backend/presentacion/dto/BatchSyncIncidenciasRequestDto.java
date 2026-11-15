@@ -15,7 +15,13 @@ public record BatchSyncIncidenciasRequestDto(
             Integer idAmbiente,
             String tipo,
             String severidad,
+            // Acción aplicada y texto libre cuando la acción es OTRO. Si no llegan
+            // (clientes viejos) el servidor asume REGISTRO y sin detalle.
+            String accion,
+            Double puntajeReducir,
             String descripcion,
+            String detalleTipoOtro,
+            String detalleAccionOtro,
             Integer codSisEstudiante,
             Boolean retirarEstudiante,
             OffsetDateTime registradoEn
