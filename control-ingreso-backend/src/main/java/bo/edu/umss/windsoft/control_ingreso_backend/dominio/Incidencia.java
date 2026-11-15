@@ -53,8 +53,23 @@ public class Incidencia {
     @Column(name = "severidad", nullable = false)
     private SeveridadIncidencia severidad;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "accion", nullable = false)
+    private AccionIncidencia accion = AccionIncidencia.REGISTRO;
+
+    @Column(name = "puntaje_reducir", columnDefinition = "numeric")
+    private Double puntajeReducir;
+
     @Column(name = "descripcion", nullable = false)
     private String descripcion;
+
+    /** Texto libre cuando el tipo es OTRO (se guarda aparte de la descripción). */
+    @Column(name = "detalletipootro")
+    private String detalleTipoOtro;
+
+    /** Texto libre cuando la acción es OTRO (se guarda aparte de la descripción). */
+    @Column(name = "detalleaccionotro")
+    private String detalleAccionOtro;
 
     @Column(name = "evidenciaurl")
     private String evidenciaUrl;
@@ -104,8 +119,16 @@ public class Incidencia {
     public void setTipo(TipoIncidencia tipo) { this.tipo = tipo; }
     public SeveridadIncidencia getSeveridad() { return severidad; }
     public void setSeveridad(SeveridadIncidencia severidad) { this.severidad = severidad; }
+    public AccionIncidencia getAccion() { return accion; }
+    public void setAccion(AccionIncidencia accion) { this.accion = accion; }
+    public Double getPuntajeReducir() { return puntajeReducir; }
+    public void setPuntajeReducir(Double puntajeReducir) { this.puntajeReducir = puntajeReducir; }
     public String getDescripcion() { return descripcion; }
     public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+    public String getDetalleTipoOtro() { return detalleTipoOtro; }
+    public void setDetalleTipoOtro(String detalleTipoOtro) { this.detalleTipoOtro = detalleTipoOtro; }
+    public String getDetalleAccionOtro() { return detalleAccionOtro; }
+    public void setDetalleAccionOtro(String detalleAccionOtro) { this.detalleAccionOtro = detalleAccionOtro; }
     public String getEvidenciaUrl() { return evidenciaUrl; }
     public void setEvidenciaUrl(String evidenciaUrl) { this.evidenciaUrl = evidenciaUrl; }
     public EstadoIncidencia getEstado() { return estado; }

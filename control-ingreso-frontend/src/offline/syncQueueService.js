@@ -678,7 +678,13 @@ export async function sincronizarIncidenciasPendientes({
         idAmbiente: item.idAmbiente,
         tipo: item.tipo,
         severidad: item.severidad,
+        // La acción y sus detalles también viajan: antes se perdían al
+        // sincronizar y la incidencia quedaba como "Registro" en el servidor.
+        accion: item.accion || "REGISTRO",
+        puntajeReducir: item.puntajeReducir ?? null,
         descripcion: item.descripcion,
+        detalleTipoOtro: item.detalleTipoOtro || null,
+        detalleAccionOtro: item.detalleAccionOtro || null,
         codSisEstudiante: item.codSisEstudiante || null,
         retirarEstudiante: Boolean(item.retirarEstudiante),
         registradoEn: item.registradoEn,
