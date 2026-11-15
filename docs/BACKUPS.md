@@ -9,6 +9,32 @@ Yo implementé un módulo para que el administrador pueda, desde su panel:
 - Ver una **bitácora independiente** (`bitacora_backups`) con quién hizo qué y cuándo.
 - Además, dejé una **copia automática cada 3 días** a las 23:55 (hora de La Paz).
 
+## Activación local
+
+El módulo permanece desactivado si no existe `backup.enabled=true`. Así, los
+desarrolladores que no tienen credenciales de Supabase Storage pueden ejecutar
+el backend normalmente.
+
+Para habilitarlo, cada responsable debe agregar a su
+`src/main/resources/application-local.yaml` (archivo no versionado):
+
+```yaml
+backup:
+  enabled: true
+```
+
+Además debe configurar las variables privadas descritas en la sección 4 y
+tener `pg_dump` y `psql` disponibles en el `PATH`.
+
+En produccion, `BACKUP_ENABLED=true` se configura solamente en Render. El Web
+Service mantiene `BACKUP_AUTO_ENABLED=false`; el respaldo automatico se ejecuta
+en un Cron Job separado con `BACKUP_RUN_ONCE=true`. El Cron Job puede correr a
+diario y la aplicacion solo genera una copia cuando ya transcurrieron tres dias.
+
+Antes de habilitarlo en Render, el responsable debe ejecutar el script
+`docs/sql/2026-11-15-bitacora-backups-admin-id-text.sql` en el SQL Editor de
+Supabase. No contiene secretos y conserva los valores UUID ya registrados.
+
 ## 2. Arquitectura
 | Pieza | Qué hace |
 |---|---|

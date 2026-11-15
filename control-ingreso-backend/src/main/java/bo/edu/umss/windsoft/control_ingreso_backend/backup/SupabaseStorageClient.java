@@ -1,8 +1,9 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.backup;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+@ConditionalOnProperty(prefix = "backup", name = "enabled", havingValue = "true")
 public class SupabaseStorageClient {
 
     @Value("${backup.storage.url}")
