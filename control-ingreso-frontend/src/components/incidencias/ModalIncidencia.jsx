@@ -385,6 +385,7 @@ export default function ModalIncidencia({
 
     const datosIncidencia = {
       idAmbiente: idAmbienteActual,
+      idExamen: aulaSeleccionada?.idExamen ?? null,
       tipo: tipoSeleccionado,
       accion: accionSeleccionada,
       detalleTipoOtro: tipoSeleccionado === "OTRO" ? strDetalleOtroCapitalizado : null,

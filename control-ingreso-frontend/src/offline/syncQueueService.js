@@ -663,6 +663,7 @@ export async function sincronizarIncidenciasPendientes({
   let procesados = 0;
   let duplicados = 0;
   let errores = 0;
+  const examenesCancelados = new Set();
 
   while (true) {
     const lote = await incidenciaRepo.pendientes(Math.max(1, tamanoLote));
@@ -816,6 +817,9 @@ export async function sincronizarIncidenciasPendientes({
         const intentos = (item.intentos || 0) + 1;
         const mensajeServidor = resultado?.mensaje || "";
         const esExamenCancelado = mensajeServidor.includes(MENSAJE_EXAMEN_CANCELADO);
+        if (esExamenCancelado && item.idExamen != null) {
+          examenesCancelados.add(Number(item.idExamen));
+        }
         const reintentable =
           !esExamenCancelado && estado !== "ERROR_VALIDACION" && estado !== "NO_AUTORIZADO";
         await incidenciaRepo.marcarEstado(
@@ -832,6 +836,15 @@ export async function sincronizarIncidenciasPendientes({
                 : resultado?.mensaje || estado || "ITEM_NO_DEVUELTO_POR_SERVIDOR",
           },
         );
+      }
+    }
+
+    // Descartar todas las pendientes de exámenes detectados como cancelados.
+    for (const idExamen of examenesCancelados) {
+      try {
+        await incidenciaRepo.descartarPorExamenCancelado(idExamen);
+      } catch (errDescartar) {
+        console.warn("[sync] Error descartando incidencias de examen cancelado:", errDescartar);
       }
     }
 
@@ -959,6 +972,7 @@ export async function sincronizarEvidenciasPendientes({
   // Una evidencia por incidencia: la función de subida ya recorre todas las
   // evidencias de la incidencia, así que no hay que repetirla por cada una.
   const incidenciasVistas = new Set();
+  const examenesCancelados = new Set();
   for (const ev of lote) {
     if (incidenciasVistas.has(ev.incidenciaClientUuid)) continue;
     incidenciasVistas.add(ev.incidenciaClientUuid);
@@ -966,13 +980,43 @@ export async function sincronizarEvidenciasPendientes({
       ev.incidenciaClientUuid,
     );
     const idIncidencia = incidencia?.idIncidencia;
-    if (!idIncidencia) continue; // Aún no sincronizó la incidencia: se reintenta luego.
+    if (!idIncidencia) {
+      // Si la incidencia fue descartada por examen cancelado, descartar también
+      // su evidencia para que no quede "sin enviar" para siempre.
+      if (
+        incidencia &&
+        incidencia.syncStatus === ESTADO_SYNC.ERROR &&
+        incidencia.ultimoError?.includes(MENSAJE_EXAMEN_CANCELADO) &&
+        incidencia.idExamen != null
+      ) {
+        examenesCancelados.add(Number(incidencia.idExamen));
+        await evidenciaRepo.marcarEstado(
+          ev.clientUuid,
+          ESTADO_SYNC.ERROR,
+          {
+            ultimoError: MENSAJE_EXAMEN_CANCELADO,
+            sincronizadoEn: Date.now(),
+          },
+        );
+        errores++;
+      }
+      continue;
+    }
     const res = await subirEvidenciasDeIncidencia(
       ev.incidenciaClientUuid,
       idIncidencia,
     );
     subidas += res.subidas;
     errores += res.errores;
+  }
+
+  // Descartar evidencias de exámenes detectados como cancelados.
+  for (const idExamen of examenesCancelados) {
+    try {
+      await incidenciaRepo.descartarPorExamenCancelado(idExamen);
+    } catch (errDescartar) {
+      console.warn("[sync] Error descartando evidencias de examen cancelado:", errDescartar);
+    }
   }
 
   return {
@@ -993,6 +1037,7 @@ export async function sincronizarIngresosExcepcionalesPendientes({
   let procesados = 0;
   let duplicados = 0;
   let errores = 0;
+  const examenesCancelados = new Set();
 
   for (const item of lote) {
     await ingresoExcepcionalRepo.marcarEstado(
@@ -1080,6 +1125,9 @@ export async function sincronizarIngresosExcepcionalesPendientes({
       const intentos = (item.intentos || 0) + 1;
       const mensajeServidor = respuesta?.mensaje || "";
       const esExamenCancelado = mensajeServidor.includes(MENSAJE_EXAMEN_CANCELADO);
+      if (esExamenCancelado && item.idExamen != null) {
+        examenesCancelados.add(Number(item.idExamen));
+      }
       const reintentable =
         !esExamenCancelado && estado !== "ERROR_VALIDACION" && estado !== "NO_AUTORIZADO";
       await ingresoExcepcionalRepo.marcarEstado(
@@ -1096,6 +1144,15 @@ export async function sincronizarIngresosExcepcionalesPendientes({
               : respuesta?.mensaje || estado || "ITEM_NO_DEVUELTO_POR_SERVIDOR",
         },
       );
+    }
+  }
+
+  // Descartar todos los pendientes de exámenes detectados como cancelados.
+  for (const idExamen of examenesCancelados) {
+    try {
+      await ingresoExcepcionalRepo.descartarPorExamenCancelado(idExamen);
+    } catch (errDescartar) {
+      console.warn("[sync] Error descartando ingresos excepcionales de examen cancelado:", errDescartar);
     }
   }
 
@@ -1121,6 +1178,7 @@ export async function sincronizarRevocacionesPendientes({
   const deviceId = await obtenerDeviceId();
   let procesados = 0;
   let errores = 0;
+  const examenesCancelados = new Set();
 
   while (true) {
     const lote = await revocacionRepo.pendientes(Math.max(1, tamanoLote));
@@ -1178,6 +1236,9 @@ export async function sincronizarRevocacionesPendientes({
         const intentos = (item.intentos || 0) + 1;
         const mensajeServidor = error.message || "";
         const esExamenCancelado = mensajeServidor.includes(MENSAJE_EXAMEN_CANCELADO);
+        if (esExamenCancelado && item.idExamen != null) {
+          examenesCancelados.add(Number(item.idExamen));
+        }
         await revocacionRepo.marcarEstado(
           item.clientUuid,
           esExamenCancelado ? ESTADO_SYNC.ERROR : ESTADO_SYNC.PENDIENTE,
@@ -1209,6 +1270,15 @@ export async function sincronizarRevocacionesPendientes({
           });
           break;
         }
+      }
+    }
+
+    // Descartar todas las revocaciones pendientes de exámenes detectados como cancelados.
+    for (const idExamen of examenesCancelados) {
+      try {
+        await revocacionRepo.descartarPorExamenCancelado(idExamen);
+      } catch (errDescartar) {
+        console.warn("[sync] Error descartando revocaciones de examen cancelado:", errDescartar);
       }
     }
   }
