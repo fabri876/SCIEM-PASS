@@ -2,6 +2,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.backup;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 @Service
+@ConditionalOnProperty(prefix = "backup", name = "enabled", havingValue = "true")
 public class BackupSchedulerService {
 
     @Value("${backup.auto.enabled}") private boolean autoActivo;
@@ -31,9 +33,20 @@ public class BackupSchedulerService {
             Instant limite = Instant.now().minus(Duration.ofDays(intervaloDias)).plus(Duration.ofHours(2));
             if (ultimo != null && ultimo.toInstant().isAfter(limite)) return;
 
-            backupService.generar(BackupService.SISTEMA_ID, "GENERAR_AUTO");
+            ejecutarSiCorresponde();
         } catch (Exception e) {
             System.err.println("Backup automático falló: " + e.getMessage());
         }
+    }
+
+    public boolean ejecutarSiCorresponde() throws Exception {
+        Timestamp ultimo = jdbc.queryForObject(
+                "SELECT MAX(fecha) FROM bitacora_backups WHERE accion = 'GENERAR_AUTO' AND estado = 'EXITO'",
+                Timestamp.class);
+        Instant limite = Instant.now().minus(Duration.ofDays(intervaloDias)).plus(Duration.ofHours(2));
+        if (ultimo != null && ultimo.toInstant().isAfter(limite)) return false;
+
+        backupService.generar("SISTEMA_BACKUP", "GENERAR_AUTO");
+        return true;
     }
 }

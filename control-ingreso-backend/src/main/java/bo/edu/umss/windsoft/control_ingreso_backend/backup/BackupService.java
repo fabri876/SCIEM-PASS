@@ -3,10 +3,15 @@ package bo.edu.umss.windsoft.control_ingreso_backend.backup;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -19,9 +24,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 @Service
+@ConditionalOnProperty(prefix = "backup", name = "enabled", havingValue = "true")
 public class BackupService {
 
     public static final String SISTEMA_ID = "00000000-0000-0000-0000-000000000000";
+    private static final long CANDADO_BACKUP = 8_821_438_911L;
     private static final Pattern NOMBRE_VALIDO = Pattern.compile("^backup_[A-Za-z0-9_\\-]+\\.sql$");
     private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
@@ -48,12 +55,15 @@ public class BackupService {
         if (!ocupado.compareAndSet(false, true)) {
             throw new IllegalStateException("Hay otra operación de backup o restauración en curso");
         }
+        Connection candado = null;
         try {
+            candado = adquirirCandadoDistribuido();
             String nombre = generarInterno(adminId, accion, null);
             Map<String, Object> res = new HashMap<>();
             res.put("nombre", nombre);
             return res;
         } finally {
+            liberarCandadoDistribuido(candado);
             ocupado.set(false);
         }
     }
@@ -103,8 +113,10 @@ public class BackupService {
         if (!ocupado.compareAndSet(false, true)) {
             throw new IllegalStateException("Hay otra operación de backup o restauración en curso");
         }
+        Connection candado = null;
         Path ruta = Path.of(System.getProperty("java.io.tmpdir"), "restore_" + nombre);
         try {
+            candado = adquirirCandadoDistribuido();
             storage.descargar(nombre, ruta);
 
             // Respaldo de seguridad antes de tocar nada
@@ -130,6 +142,7 @@ public class BackupService {
         } finally {
             restaurando = false;
             borrarLocal(ruta);
+            liberarCandadoDistribuido(candado);
             ocupado.set(false);
         }
     }
@@ -155,7 +168,7 @@ public class BackupService {
     private void registrar(String adminId, String accion, String archivo, String estado, String detalles) {
         try {
             jdbc.update("INSERT INTO bitacora_backups (admin_id, accion, archivo_nombre, estado, detalles) "
-                    + "VALUES (?::uuid, ?, ?, ?, ?)", adminId, accion, archivo, estado, detalles);
+                    + "VALUES (?, ?, ?, ?, ?)", adminId, accion, archivo, estado, detalles);
         } catch (Exception e) {
             System.err.println("No se pudo escribir en bitacora_backups: " + e.getMessage());
         }
@@ -192,6 +205,41 @@ public class BackupService {
             Files.deleteIfExists(ruta);
         } catch (Exception ignorado) {
             // no es crítico
+        }
+    }
+
+    private Connection adquirirCandadoDistribuido() throws Exception {
+        Connection conexion = DriverManager.getConnection(
+                "jdbc:postgresql://" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=require",
+                dbUser, dbPassword);
+        try (PreparedStatement sentencia = conexion.prepareStatement("SELECT pg_try_advisory_lock(?)")) {
+            sentencia.setLong(1, CANDADO_BACKUP);
+            try (ResultSet resultado = sentencia.executeQuery()) {
+                if (resultado.next() && resultado.getBoolean(1)) {
+                    return conexion;
+                }
+            }
+        } catch (Exception e) {
+            conexion.close();
+            throw e;
+        }
+        conexion.close();
+        throw new IllegalStateException("Hay otra operacion de backup o restauracion en curso");
+    }
+
+    private void liberarCandadoDistribuido(Connection conexion) {
+        if (conexion == null) return;
+        try (PreparedStatement sentencia = conexion.prepareStatement("SELECT pg_advisory_unlock(?)")) {
+            sentencia.setLong(1, CANDADO_BACKUP);
+            sentencia.execute();
+        } catch (Exception e) {
+            System.err.println("No se pudo liberar el candado de backup: " + e.getMessage());
+        } finally {
+            try {
+                conexion.close();
+            } catch (Exception ignorado) {
+                // Al cerrar la sesion PostgreSQL tambien libera el candado.
+            }
         }
     }
 }
