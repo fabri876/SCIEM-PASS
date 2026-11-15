@@ -217,6 +217,9 @@ public class HistorialInmodificableService {
 
     public static String inferirModulo(String operacion, String accion) {
         String texto = ((operacion != null ? operacion : "") + " " + (accion != null ? accion : "")).toUpperCase();
+        if (texto.contains("FACIAL_")) {
+            return "FACIAL";
+        }
         if (texto.contains("EXPULSION") || texto.contains("HU-14") || texto.contains("EXPULS")) {
             return "EXPULSIONES";
         }

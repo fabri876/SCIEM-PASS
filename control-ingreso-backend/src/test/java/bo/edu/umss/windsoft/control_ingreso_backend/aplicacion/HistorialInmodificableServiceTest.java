@@ -43,6 +43,13 @@ class HistorialInmodificableServiceTest {
     }
 
     @Test
+    @DisplayName("Los eventos FACIAL se clasifican en el modulo de auditoria facial")
+    void inferirModulo_eventoFacial() {
+        assertEquals("FACIAL", HistorialInmodificableService.inferirModulo(
+                "FACIAL_QR_AUTORIZADO", "[FACIAL_QR_AUTORIZADO]"));
+    }
+
+    @Test
     @DisplayName("El formato HU15-V1 conserva acentos, separadores y microsegundos")
     void hashEventoPersistido_vectorConocido() {
         String hash = AuditoriaHashService.hashEventoPersistido(1, "0".repeat(64), 7, 2,

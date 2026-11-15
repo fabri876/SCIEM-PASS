@@ -1,9 +1,12 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.FaceEnrollment;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.FaceConsentimiento;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.storage.StorageProvider;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceEnrollmentRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceConsentimientoRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceVerificacionEstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceEnrollmentStatusDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerificacionEstudianteResponseDto;
@@ -13,6 +16,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
@@ -25,13 +30,16 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class FaceEnrollmentServiceTest {
     @Mock private FaceEnrollmentRepository enrollmentRepository;
     @Mock private StorageProvider storageProvider;
@@ -40,7 +48,17 @@ class FaceEnrollmentServiceTest {
     @Mock private EstudianteRepository estudianteRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private LimpiezaFotoBiometricaService limpiezaFotoBiometricaService;
+    @Mock private FaceConsentimientoRepository consentimientoRepository;
+    @Mock private FaceVerificacionEstudianteRepository verificacionRepository;
+    @Mock private AuditoriaFacialService auditoriaFacialService;
     @InjectMocks private FaceEnrollmentService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void prepararConsentimiento() {
+        FaceConsentimiento consentimiento = new FaceConsentimiento();
+        consentimiento.setAceptadoEn(LocalDateTime.now());
+        when(consentimientoRepository.findTopByIdUsuarioOrderByAceptadoEnDesc(any())).thenReturn(Optional.of(consentimiento));
+    }
 
     @Test
     void enrolar_siYaExisteHistorial_respondeConflictSinGuardarArchivo() throws Exception {
@@ -233,5 +251,32 @@ class FaceEnrollmentServiceTest {
                 () -> service.verificarEstudiante("[1.0]", 0.85, 12));
 
         assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
+    }
+
+    @Test
+    void obtenerFotoBytes_docenteAsignadoAlExamen_entregaFoto() throws Exception {
+        FaceEnrollment enrollment = new FaceEnrollment();
+        enrollment.setPhotoPath("enrollments/rostro.jpg");
+        when(contextoUsuarioService.actual()).thenReturn(new ContextoUsuarioService.UsuarioActual(2, "doc@umss.edu", "DOCENTE"));
+        when(enrollmentRepository.findByIdUsuarioAndEstado(15, "activo")).thenReturn(Optional.of(enrollment));
+        when(storageProvider.get("enrollments/rostro.jpg")).thenReturn(new byte[] {1, 2, 3});
+
+        byte[] foto = service.obtenerFotoBytes(15, 20, "127.0.0.1");
+
+        assertArrayEquals(new byte[] {1, 2, 3}, foto);
+        verify(contextoUsuarioService).verificarAccesoExamen(
+                eq(new ContextoUsuarioService.UsuarioActual(2, "doc@umss.edu", "DOCENTE")),
+                eq(20), eq(true), eq("Consultar foto biometrica"), eq("127.0.0.1"));
+    }
+
+    @Test
+    void obtenerFotoBytes_docenteSinExamen_respondeForbidden() {
+        when(contextoUsuarioService.actual()).thenReturn(new ContextoUsuarioService.UsuarioActual(2, "doc@umss.edu", "DOCENTE"));
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> service.obtenerFotoBytes(15, null, "127.0.0.1"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
+        verify(enrollmentRepository, never()).findByIdUsuarioAndEstado(any(), anyString());
     }
 }

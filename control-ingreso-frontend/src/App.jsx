@@ -80,7 +80,9 @@ function GuardEnrolamientoEstudiante({ children }) {
   const [estado, setEstado] = React.useState("cargando");
   useEffect(() => { obtenerEstadoEnrolamiento().then((dato) => setEstado(dato?.estado || "pendiente")).catch(() => setEstado("error")); }, []);
   if (estado === "cargando") return null;
-  if (estado === "pendiente" || estado === "bloqueado") return <Navigate to="/estudiante/enrolamiento-facial" replace />;
+  if (estado === "pendiente" || estado === "bloqueado" || estado === "pendiente_reenrolamiento") {
+    return <Navigate to="/estudiante/enrolamiento-facial" replace />;
+  }
   return children;
 }
 

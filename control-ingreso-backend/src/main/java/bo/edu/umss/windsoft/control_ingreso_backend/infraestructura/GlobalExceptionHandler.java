@@ -13,6 +13,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ErrorRespon
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,19 @@ public class GlobalExceptionHandler {
     // --- Excepciones del flujo de auto-registro genérico (RegistroUsuarioService) ---
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleIntegridad(org.springframework.dao.DataIntegrityViolationException ex) {
+        Throwable causa = NestedExceptionUtils.getMostSpecificCause(ex);
+        String detalleOriginal = String.valueOf(causa.getMessage());
+        String detalle = detalleOriginal.toLowerCase();
+        logger.error("Violacion de integridad de base de datos: {}", detalleOriginal, ex);
+        if (detalle.contains("face_enrollment") && detalle.contains("estado")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("mensaje",
+                    "La base de datos aun no permite el estado pendiente_reenrolamiento. "
+                            + "Ejecute la migracion HU22 de enrolamiento facial y vuelva a intentar."));
+        }
+        if (detalle.contains("limpieza_foto_biometrica")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("mensaje",
+                    "No se pudo programar la limpieza de la foto anterior. Revise la cola limpieza_foto_biometrica."));
+        }
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("mensaje",
                 "No se pudo guardar: existe un registro duplicado o una relación inválida. Actualice los datos y vuelva a intentar."));
     }

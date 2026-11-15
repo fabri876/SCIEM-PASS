@@ -63,12 +63,14 @@ public class IngresoExcepcionalService {
     private final ContextoUsuarioService contextoUsuarioService;
     private final EvidenciaService evidenciaService;
     private final AuditoriaService auditoriaService;
+    private final AuditoriaFacialService auditoriaFacialService;
 
     public IngresoExcepcionalService(IngresoRepository ingresoRepository, UsuarioRepository usuarioRepository,
                                      AmbienteExamenService ambienteExamenService,
                                      EstudianteExamenService estudianteExamenService,
                                      ContextoUsuarioService contextoUsuarioService,
-                                     EvidenciaService evidenciaService, AuditoriaService auditoriaService) {
+                                     EvidenciaService evidenciaService, AuditoriaService auditoriaService,
+                                     AuditoriaFacialService auditoriaFacialService) {
         this.ingresoRepository = ingresoRepository;
         this.usuarioRepository = usuarioRepository;
         this.ambienteExamenService = ambienteExamenService;
@@ -76,6 +78,7 @@ public class IngresoExcepcionalService {
         this.contextoUsuarioService = contextoUsuarioService;
         this.evidenciaService = evidenciaService;
         this.auditoriaService = auditoriaService;
+        this.auditoriaFacialService = auditoriaFacialService;
     }
 
     // -------------------------------------------------------------------------
@@ -101,6 +104,8 @@ public class IngresoExcepcionalService {
                 "Consultar estudiante", ip);
 
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
+        // Impedir consultar/autorizar sobre un examen cancelado.
+        ambienteExamenService.verificarExamenNoCancelado(info);
         EstadoIngresoAula estadoAula = ambienteExamenService.estadoIngreso(info);
         AforoDto aforo = ambienteExamenService.aforo(idAmbiente);
         // Consulta desde el formulario de ingreso excepcional (no desde incidencias):
@@ -213,6 +218,8 @@ public class IngresoExcepcionalService {
         contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, true,
                 "Autorizar ingreso excepcional", ip);
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
+        // Impedir autorizar sobre un examen cancelado.
+        ambienteExamenService.verificarExamenNoCancelado(info);
         boolean desdeSincronizacion = registradoEn != null;
         LocalDateTime horaEvento = desdeSincronizacion
                 ? registradoEn.atZoneSameInstant(HoraOficial.ZONA).toLocalDateTime()
@@ -354,6 +361,14 @@ public class IngresoExcepcionalService {
         } catch (RuntimeException e) {
             evidenciaService.eliminarSinFallar(evidencia);
             throw e;
+        }
+
+        if (motivo.esFacial()) {
+            auditoriaFacialService.publicar("FACIAL_INGRESO_MANUAL_EXCEPCIONAL", usuario.correo(), correoEstudiante,
+                    ip, desdeSincronizacion ? "sincronizacion_offline" : "control_presencial",
+                    "sis=" + codSis + " | estudiante_correo=" + correoEstudiante + " | examen="
+                            + ambiente.getIdExamen() + " | ambiente=" + idAmbiente + " | resultado=autorizado"
+                            + " | motivo=" + motivo.name() + " | ingreso=" + ingreso.getIdIngreso());
         }
 
         return new AutorizacionExcepcional(

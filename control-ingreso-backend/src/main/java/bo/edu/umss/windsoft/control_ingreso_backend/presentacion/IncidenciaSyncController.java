@@ -1,6 +1,7 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.presentacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.IncidenciaService;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AccionIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,8 +76,11 @@ public class IncidenciaSyncController {
 
                 IncidenciaDetalleDto incidencia = ReintentoConcurrencia.ejecutar("sync-incidencia",
                         () -> incidenciaService.registrar(
-                                item.clientUuid(), item.idAmbiente(), item.tipo(), item.severidad(), item.descripcion(),
-                                item.codSisEstudiante(), Boolean.TRUE.equals(item.retirarEstudiante()), null,
+                                item.clientUuid(), item.idAmbiente(), item.tipo(), item.severidad(),
+                                accionTexto(item), item.puntajeReducir(),
+                                item.descripcion(), item.detalleTipoOtro(), item.detalleAccionOtro(),
+                                item.codSisEstudiante(),
+                                Boolean.TRUE.equals(item.retirarEstudiante()), null,
                                 item.registradoEn(), ip));
                 resultado.put("estado", "PROCESADO");
                 resultado.put("idIncidencia", incidencia.idIncidencia());
@@ -116,8 +121,12 @@ public class IncidenciaSyncController {
                     | AccesoDenegadoException ex) {
                 // Errores de datos o de estado: reintentar no cambiaría el resultado,
                 // así que el dispositivo no debe volver a encolar el ítem.
+                String mensaje = ex.getMessage();
+                if ("Este examen fue cancelado.".equals(mensaje)) {
+                    mensaje = "Examen cancelado";
+                }
                 resultado.put("estado", "ERROR_VALIDACION");
-                resultado.put("mensaje", ex.getMessage());
+                resultado.put("mensaje", mensaje);
             } catch (Exception ex) {
                 // Fallo inesperado del servidor: sí conviene reintentar.
                 logger.error("Error sincronizando la incidencia {}: {}", item == null ? null : item.clientUuid(),
@@ -131,6 +140,17 @@ public class IncidenciaSyncController {
         cuerpo.put("batchId", solicitud.batchId());
         cuerpo.put("items", resultados);
         return ResponseEntity.ok(cuerpo);
+    }
+
+    /**
+     * Acción aplicada de una incidencia sincronizada. Los clientes antiguos no
+     * enviaban el campo: en ese caso la incidencia se registra como REGISTRO,
+     * que es el valor por defecto de la columna en la base de datos.
+     */
+    private static String accionTexto(BatchSyncIncidenciasRequestDto.ItemDto item) {
+        return item.accion() == null || item.accion().isBlank()
+                ? AccionIncidencia.REGISTRO.name()
+                : item.accion().trim();
     }
 
     /**

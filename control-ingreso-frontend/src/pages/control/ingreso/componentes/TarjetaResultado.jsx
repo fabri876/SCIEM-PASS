@@ -196,11 +196,12 @@ function configurar(r, strRol) {
 const COLOR_BANDA = { ok: "bg-[#003770]", gris: "bg-[#475569]", bad: "bg-[#B91C1C]" };
 
 // Espacio de la foto: muestra la foto si el backend la envía; si no, las iniciales
-function Foto({ idUsuario, codigoSis, strNombre }) {
+function Foto({ idUsuario, codigoSis, idExamen, strNombre }) {
   return (
     <AvatarConFoto
       idUsuario={idUsuario}
       codigoSis={codigoSis}
+      idExamen={idExamen}
       className="w-24 h-[116px] max-md:w-20 max-md:h-24 rounded-xl border border-[#CBD5E1] bg-gradient-to-b from-[#E2E8F0] to-[#CBD5E1] flex flex-col items-center justify-center shrink-0 overflow-hidden"
       fallback={
         <>
@@ -212,7 +213,7 @@ function Foto({ idUsuario, codigoSis, strNombre }) {
   );
 }
 
-export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIncidencia, strRol = "operador" }) {
+export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIncidencia, strRol = "operador", idExamen }) {
   const refTarjeta = useRef(null);
 
   useEffect(() => {
@@ -267,7 +268,7 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
 
       {/* Foto + datos del estudiante */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 px-4 sm:px-5 py-4 sm:py-[18px]">
-        <Foto idUsuario={e?.idusuario} codigoSis={e?.sis} strNombre={strNombre} />
+        <Foto idUsuario={e?.idusuario} codigoSis={e?.sis} idExamen={idExamen} strNombre={strNombre} />
         <div className="min-w-0">
           <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{strNombre}</div>
           {objResultado.metodo && (

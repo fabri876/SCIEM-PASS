@@ -4,6 +4,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.AmbienteExamenSer
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.ContextoUsuarioService;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.IncidenciaService;
 import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.IngresoExcepcionalService;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.EventoIncidenciaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.IncidenciaDetalleDto;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
@@ -57,16 +58,18 @@ class IncidenciaControllerConcurrenciaTest {
     private IncidenciaDetalleDto detalle(int id) {
         return new IncidenciaDetalleDto(id, "INC-0" + id, LocalDateTime.now(), 7, "Aula 601", "Cálculo I", 3,
                 "OTRO", "Otro", "ALTA", "Alta", "ABIERTA", "Abierta", "docente@umss.edu", 202201994,
-                "Estudiante Uno", true, DESCRIPCION, null, null, null, null, List.of());
+                "Estudiante Uno", true, DESCRIPCION,                 "CAMBIO_ASIENTO", "Cambio de asiento", null, null, null, null, null, null, null,
+                List.<EventoIncidenciaDto>of());
     }
 
     @Test
     @DisplayName("Un conflicto transitorio no pierde el registro: se reintenta y responde 201")
     void reintentaElConflictoTransitorio() {
         AtomicInteger intentos = new AtomicInteger();
-        // any() y no anyString(): la IP sale null en una request simulada.
+        // any() y no anyString() en los parámetros opcionales (detalles e IP):
+        // con una request simulada llegan null y anyString() no acepta null.
         when(incidenciaService.registrar(anyString(), anyInt(), anyString(), anyString(), anyString(),
-                any(), anyBoolean(), any(), any()))
+                any(), anyString(), any(), any(), any(), anyBoolean(), any(), any()))
                 .thenAnswer(invocacion -> {
                     if (intentos.incrementAndGet() == 1) {
                         throw new DeadlockLoserDataAccessException("deadlock detectado",
@@ -76,7 +79,8 @@ class IncidenciaControllerConcurrenciaTest {
                 });
 
         ResponseEntity<IncidenciaDetalleDto> respuesta = controller.registrar(
-                UUID.randomUUID().toString(), 7, "OTRO", "ALTA", DESCRIPCION, 202201994, true, null, request);
+                UUID.randomUUID().toString(), 7, "OTRO", "ALTA", "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, 202201994, true,
+                null, request);
 
         assertEquals(HttpStatus.CREATED.value(), respuesta.getStatusCode().value());
         assertEquals(2, intentos.get(), "el registro debe reintentarse tras el conflicto");
@@ -88,7 +92,7 @@ class IncidenciaControllerConcurrenciaTest {
         AtomicInteger llamadas = new AtomicInteger();
         // El primer intento choca con el contador compartido de la auditoría (deadlock).
         when(incidenciaService.registrar(anyString(), anyInt(), anyString(), anyString(), anyString(),
-                any(), anyBoolean(), any(), any()))
+                any(), anyString(), any(), any(), any(), anyBoolean(), any(), any()))
                 .thenAnswer(invocacion -> {
                     int numero = llamadas.incrementAndGet();
                     if (numero == 1) {
@@ -103,13 +107,13 @@ class IncidenciaControllerConcurrenciaTest {
         try {
             Future<ResponseEntity<IncidenciaDetalleDto>> primero = ejecutor.submit(() -> {
                 salida.await();
-                return controller.registrar(UUID.randomUUID().toString(), 7, "OTRO", "ALTA", DESCRIPCION,
-                        202201994, true, null, request);
+                return controller.registrar(UUID.randomUUID().toString(), 7, "OTRO", "ALTA", "CAMBIO_ASIENTO", null,
+                        DESCRIPCION, null, null, 202201994, true, null, request);
             });
             Future<ResponseEntity<IncidenciaDetalleDto>> segundo = ejecutor.submit(() -> {
                 salida.await();
-                return controller.registrar(UUID.randomUUID().toString(), 7, "OTRO", "ALTA", DESCRIPCION,
-                        202201994, true, null, request);
+                return controller.registrar(UUID.randomUUID().toString(), 7, "OTRO", "ALTA", "CAMBIO_ASIENTO", null,
+                        DESCRIPCION, null, null, 202201994, true, null, request);
             });
 
             salida.countDown();

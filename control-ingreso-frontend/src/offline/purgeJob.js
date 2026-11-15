@@ -94,15 +94,16 @@ export async function purgarAsistenciasProcesadas() {
  * excepcionales ya confirmados por el servidor (sincronizado, duplicado) que
  * tengan más de 72h.
  *
- * NO se purgan los registros en ERROR: el servidor los rechazó y son la única
- * traza que le queda al docente de lo que no se pudo registrar. Se conservan
- * hasta que el docente los revise (o hasta que se descarte el dispositivo).
+ * Se purgan también los registros en ERROR por "Examen cancelado": el examen
+ * ya no existe para operar, así que no hay nada que conservar ni reintentar.
+ * Los demás registros en ERROR se mantienen como traza para el docente.
  */
 export async function purgarIncidenciasProcesadas() {
   const corte = calcularCorte();
   const estadosPurgables = [
     ESTADO_SYNC.SINCRONIZADO,
     ESTADO_SYNC.DUPLICADO,
+    ESTADO_SYNC.ERROR,
   ];
 
   let eliminados = 0;

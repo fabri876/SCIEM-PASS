@@ -87,6 +87,7 @@ class IngresoExcepcionalServiceTest {
     @Mock private HabilitacionRepository habilitacionRepository;
     @Mock private EvidenciaService evidenciaService;
     @Mock private AuditoriaService auditoriaService;
+    @Mock private AuditoriaFacialService auditoriaFacialService;
 
     private IngresoExcepcionalService service;
     private Examen examen;
@@ -100,7 +101,7 @@ class IngresoExcepcionalServiceTest {
         EstudianteExamenService estudiantes = new EstudianteExamenService(estudianteRepository, usuarioRepository,
                 habilitacionRepository, estudianteGrupoRepository);
         service = new IngresoExcepcionalService(ingresoRepository, usuarioRepository, ambientes, estudiantes,
-                contexto, evidenciaService, auditoriaService);
+                contexto, evidenciaService, auditoriaService, auditoriaFacialService);
 
         Ambiente ambiente = new Ambiente();
         ambiente.setIdAmbiente(ID_AMBIENTE);

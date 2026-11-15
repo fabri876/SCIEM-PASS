@@ -80,6 +80,15 @@ export default function ControlFacialCamera({
   const usuario = obtenerUsuarioActual();
   const idOperador = usuario?.idUsuario ?? usuario?.idusuario;
   const idExamenNum = useMemo(() => normalizarIdExamen(idExamen), [idExamen]);
+  const claveIntentos = useMemo(() => {
+    const estudianteId = estudianteIdentificado?.idUsuarioEstudiante ?? estudianteIdentificado?.idusuario ?? estudianteIdentificado?.codsisEstudiante ?? estudianteIdentificado?.sis;
+    return idExamenNum && estudianteId ? `sciem-face-intentos-${idExamenNum}-${estudianteId}` : null;
+  }, [idExamenNum, estudianteIdentificado]);
+
+  useEffect(() => {
+    if (!claveIntentos) return;
+    try { setIntentos(Math.min(MAX_INTENTOS_ESTUDIANTE, Number(localStorage.getItem(claveIntentos) || 0))); } catch { setIntentos(0); }
+  }, [claveIntentos]);
 
   // El estudiante se busca en el paquete facial por SIS o por id de usuario.
   const estudiante = useMemo(() => {
@@ -181,6 +190,8 @@ export default function ControlFacialCamera({
    */
   useEffect(() => {
     if (!boolPaqueteCargado || refFallback.current) return;
+    // No reemplazar el resultado de un intento por el mensaje de disponibilidad.
+    if (estado.startsWith("RECHAZADO") || estado.startsWith("AUTORIZADO")) return;
 
     if (paquete.length === 0) {
       refFallback.current = "paquete";
@@ -211,7 +222,7 @@ export default function ControlFacialCamera({
     }
 
     setEstado(`Rostro de ${nombreEstudiante} listo para verificar.`);
-  }, [boolPaqueteCargado, paquete, estudiante, nombreEstudiante, onFalloFacial, onSinEnrolamiento]);
+  }, [boolPaqueteCargado, paquete, estudiante, nombreEstudiante, onFalloFacial, onSinEnrolamiento, estado]);
 
   const iniciarCamara = useCallback(async (modo = facingMode) => {
     detenerCamara();
@@ -372,6 +383,7 @@ export default function ControlFacialCamera({
       } else {
         const siguiente = intentos + 1;
         setIntentos(siguiente);
+        try { if (claveIntentos) localStorage.setItem(claveIntentos, String(siguiente)); } catch {}
         const motivo = lectura.valido ? "" : ` ${lectura.motivo || ""}`;
         setEstado(
           `RECHAZADO: similitud ${(similitud * 100).toFixed(0)}% (liveness ${(liveness * 100).toFixed(0)}%).${motivo} Intento ${siguiente}/${MAX_INTENTOS_ESTUDIANTE}.`
@@ -399,6 +411,7 @@ export default function ControlFacialCamera({
             <AvatarConFoto
               idUsuario={idUsuarioEstudiante}
               codigoSis={sisEstudiante}
+              idExamen={idExamenNum}
               className="w-12 h-14 shrink-0 rounded-lg overflow-hidden border border-[#CBD5E1] bg-[#F1F5F9] flex items-center justify-center"
               fallback={<ScanFace className="w-6 h-6 text-[#64748B]" />}
             />

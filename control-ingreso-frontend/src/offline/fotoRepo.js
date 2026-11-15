@@ -66,6 +66,13 @@ export const fotoRepo = {
     return await db.fotos.get(sis);
   },
 
+  /** Elimina una copia local cuando el servidor confirma que ya no existe. */
+  async eliminarFoto(codigoSis) {
+    const sis = String(codigoSis || '').trim();
+    if (!sis) return;
+    await db.fotos.delete(sis);
+  },
+
   /**
    * Retorna el número total de fotos almacenadas.
    */

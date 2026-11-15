@@ -173,7 +173,7 @@ class IncidenciaServiceTest {
     @DisplayName("Registrar: queda ABIERTA con código INC-014 y se audita")
     void registrar_ok() {
         IncidenciaDetalleDto dto = service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OBJETO_PROHIBIDO",
-                "MEDIA", DESCRIPCION, null, false, null, "ip");
+                "MEDIA", "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, null, false, null, "ip");
 
         assertEquals("INC-014", dto.codigo());
         assertEquals("ABIERTA", dto.estado());
@@ -196,7 +196,7 @@ class IncidenciaServiceTest {
         when(incidenciaRepository.findByClaveSolicitud(any())).thenReturn(Optional.of(existente));
 
         IncidenciaDetalleDto dto = service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OTRO", "BAJA",
-                DESCRIPCION, null, false, null, "ip");
+                "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, null, false, null, "ip");
 
         assertEquals("INC-014", dto.codigo());
         verify(incidenciaRepository, never()).saveAndFlush(any());
@@ -220,7 +220,7 @@ class IncidenciaServiceTest {
 
         assertThrows(ClaveSolicitudDuplicadaException.class,
                 () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OTRO", "BAJA",
-                        DESCRIPCION, null, false, null, "ip"));
+                        "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, null, false, null, "ip"));
     }
 
     @Test
@@ -233,7 +233,7 @@ class IncidenciaServiceTest {
 
         AccesoDenegadoException ex = assertThrows(AccesoDenegadoException.class,
                 () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "FALLA_TECNICA", "BAJA",
-                        "El lector QR dejó de funcionar.", null, false, null, "ip"));
+                        "CAMBIO_ASIENTO", null, "El lector QR dejó de funcionar.", null, null, null, false, null, "ip"));
         assertEquals("Acceso denegado: su rol no tiene permiso para esta acción.", ex.getMessage());
         verify(auditoriaService).registrar(eq("ACCESO_DENEGADO"), anyString(), anyString(), anyString(), anyString());
         verify(incidenciaRepository, never()).saveAndFlush(any());
@@ -249,7 +249,7 @@ class IncidenciaServiceTest {
 
         AccesoDenegadoException ex = assertThrows(AccesoDenegadoException.class,
                 () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "FALLA_TECNICA", "BAJA",
-                        "El lector QR dejó de funcionar.", null, false, null, "ip"));
+                        "CAMBIO_ASIENTO", null, "El lector QR dejó de funcionar.", null, null, null, false, null, "ip"));
         assertEquals("Acceso denegado: su rol no tiene permiso para esta acción.", ex.getMessage());
         verify(auditoriaService).registrar(eq("ACCESO_DENEGADO"), anyString(), anyString(), anyString(), anyString());
         verify(incidenciaRepository, never()).saveAndFlush(any());
@@ -261,7 +261,7 @@ class IncidenciaServiceTest {
         examen.setIdUsuario(999);
 
         assertThrows(AccesoDenegadoException.class, () -> service.registrar(UUID.randomUUID().toString(),
-                ID_AMBIENTE, "OTRO", "BAJA", DESCRIPCION, null, false, null, "ip"));
+                ID_AMBIENTE, "OTRO", "BAJA", "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, null, false, null, "ip"));
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
 
@@ -271,7 +271,7 @@ class IncidenciaServiceTest {
         examen.setFechaExamen(HoraOficial.hoy().minusDays(3));
 
         IncidenciaDetalleDto dto = service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OTRO", "BAJA",
-                DESCRIPCION, null, false, null, "ip");
+                "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, null, false, null, "ip");
         assertEquals("ABIERTA", dto.estado());
     }
 
@@ -281,7 +281,7 @@ class IncidenciaServiceTest {
         examen.setFechaExamen(HoraOficial.hoy().plusDays(2));
 
         assertThrows(ConflictoEstadoException.class, () -> service.registrar(UUID.randomUUID().toString(),
-                ID_AMBIENTE, "OTRO", "BAJA", DESCRIPCION, null, false, null, "ip"));
+                ID_AMBIENTE, "OTRO", "BAJA", "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, null, false, null, "ip"));
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
 
@@ -301,7 +301,7 @@ class IncidenciaServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThrows(SolicitudInvalidaException.class, () -> service.registrar(UUID.randomUUID().toString(),
-                ID_AMBIENTE, "SUPLANTACION", "ALTA", DESCRIPCION, CODSIS, true, null, "ip"));
+                ID_AMBIENTE, "SUPLANTACION", "ALTA", "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, CODSIS, true, null, "ip"));
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
 
@@ -315,8 +315,8 @@ class IncidenciaServiceTest {
         // La expulsión solo se crea si la incidencia recién guardada sigue ABIERTA.
         incidenciaGuardada(EstadoIncidencia.ABIERTA);
 
-        service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION", "ALTA", DESCRIPCION,
-                CODSIS, true, null, "ip");
+        service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION", "ALTA", "CAMBIO_ASIENTO",
+                null, DESCRIPCION, null, null, CODSIS, true, null, "ip");
 
         assertEquals(5, ingreso.getIdExpulsion());
         verify(ingresoRepository).saveAndFlush(ingreso);
@@ -337,8 +337,8 @@ class IncidenciaServiceTest {
                 .thenReturn(Optional.of(ingreso));
         incidenciaGuardada(EstadoIncidencia.ABIERTA);
 
-        service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION", "ALTA", DESCRIPCION,
-                CODSIS, true, null, "ip");
+        service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION", "ALTA", "CAMBIO_ASIENTO",
+                null, DESCRIPCION, null, null, CODSIS, true, null, "ip");
 
         ArgumentCaptor<Expulsion> captor = ArgumentCaptor.forClass(Expulsion.class);
         verify(expulsionRepository).save(captor.capture());
@@ -355,7 +355,7 @@ class IncidenciaServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThrows(SolicitudInvalidaException.class, () -> service.registrar(UUID.randomUUID().toString(),
-                ID_AMBIENTE, "OTRO", "BAJA", DESCRIPCION, CODSIS, false, null, "ip"));
+                ID_AMBIENTE, "OTRO", "BAJA", "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, CODSIS, false, null, "ip"));
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
 
@@ -369,7 +369,7 @@ class IncidenciaServiceTest {
                 .thenReturn(Optional.of(ingreso));
 
         assertThrows(ConflictoEstadoException.class, () -> service.registrar(UUID.randomUUID().toString(),
-                ID_AMBIENTE, "CONDUCTA_INAPROPIADA", "MEDIA", DESCRIPCION, CODSIS, false, null, "ip"));
+                ID_AMBIENTE, "CONDUCTA_INAPROPIADA", "MEDIA", "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, CODSIS, false, null, "ip"));
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
 
@@ -377,11 +377,11 @@ class IncidenciaServiceTest {
     @DisplayName("Descripción de menos de 15 caracteres o tipo inválido: no se guarda")
     void registrar_validaciones() {
         assertThrows(SolicitudInvalidaException.class, () -> service.registrar(UUID.randomUUID().toString(),
-                ID_AMBIENTE, "OTRO", "BAJA", "corta", null, false, null, "ip"));
+                ID_AMBIENTE, "OTRO", "BAJA", "CAMBIO_ASIENTO", null, "corta", null, null, null, false, null, "ip"));
         assertThrows(SolicitudInvalidaException.class, () -> service.registrar(UUID.randomUUID().toString(),
-                ID_AMBIENTE, "INVENTADO", "BAJA", DESCRIPCION, null, false, null, "ip"));
+                ID_AMBIENTE, "INVENTADO", "BAJA", "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, null, false, null, "ip"));
         assertThrows(SolicitudInvalidaException.class, () -> service.registrar("no-es-uuid",
-                ID_AMBIENTE, "OTRO", "BAJA", DESCRIPCION, null, false, null, "ip"));
+                ID_AMBIENTE, "OTRO", "BAJA", "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, null, false, null, "ip"));
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
 
@@ -453,7 +453,7 @@ class IncidenciaServiceTest {
         OffsetDateTime momentoEvento = ahora.atZone(HoraOficial.ZONA).toOffsetDateTime();
 
         IncidenciaDetalleDto dto = service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION",
-                "ALTA", DESCRIPCION, CODSIS, true, null, momentoEvento, "ip");
+                "ALTA", "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, CODSIS, true, null, momentoEvento, "ip");
 
         assertEquals("ABIERTA", dto.estado());
         assertEquals(5, ingreso.getIdExpulsion());
@@ -476,7 +476,7 @@ class IncidenciaServiceTest {
 
         ConflictoEstadoException ex = assertThrows(ConflictoEstadoException.class,
                 () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OTRO", "BAJA",
-                        DESCRIPCION, null, false, null, momentoEvento, "ip"));
+                        "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, null, false, null, momentoEvento, "ip"));
         assertTrue(ex.getMessage().contains("anterior a la fecha de este examen"));
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
@@ -491,7 +491,7 @@ class IncidenciaServiceTest {
 
         ConflictoEstadoException ex = assertThrows(ConflictoEstadoException.class,
                 () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "OTRO", "BAJA",
-                        DESCRIPCION, null, false, null, momentoEvento, "ip"));
+                        "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, null, false, null, momentoEvento, "ip"));
         assertTrue(ex.getMessage().contains("fecha futura"));
         verify(incidenciaRepository, never()).saveAndFlush(any());
     }
@@ -510,7 +510,7 @@ class IncidenciaServiceTest {
 
         ConflictoEstadoException ex = assertThrows(ConflictoEstadoException.class,
                 () -> service.registrar(UUID.randomUUID().toString(), ID_AMBIENTE, "SUPLANTACION", "ALTA",
-                        DESCRIPCION, CODSIS, true, null, "ip"));
+                        "CAMBIO_ASIENTO", null, DESCRIPCION, null, null, CODSIS, true, null, "ip"));
         assertEquals("No se puede registrar una expulsión: el examen no está en curso.", ex.getMessage());
     }
 

@@ -16,7 +16,6 @@ import { useLayoutAyudante } from "../layoutAyudanteContexto";
 import SeccionControlIngreso from "../ingreso/SeccionControlIngreso";
 import EncabezadoControl from "../ingreso/componentes/EncabezadoControl";
 import PanelMiLista from "../ingreso/componentes/PanelMiLista";
-import SelectorConexion from "../components/SelectorConexion";
 import TarjetaHoyAyudante from "../inicio/TarjetaHoyAyudante";
 import CalendarioExamenes from "../../credencial/componentes/CalendarioExamenes";
 import ProximoExamenDocente from "../../docente/components/ProximoExamenDocente";
@@ -78,7 +77,6 @@ export default function ConectadoOperador() {
   if (ctrl.idExamen != null) {
     return (
       <div className="space-y-5">
-        <SelectorConexion />
         <EncabezadoControl
           net={estadoRed.net}
           pend={estadoRed.pend}
@@ -172,7 +170,6 @@ export default function ConectadoOperador() {
                 <h3 className="text-base font-black text-[#08264A]">Mis exámenes de hoy</h3>
                 <p className="text-xs font-bold text-slate-500 mt-0.5">{fechaDeHoy()}</p>
               </div>
-              <SelectorConexion />
             </div>
             <div className="px-5 py-4 space-y-2.5">
               {ctrl.boolCargandoExamenes && listHoy.length === 0 ? (

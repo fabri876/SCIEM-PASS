@@ -20,6 +20,7 @@ import { configRepo } from "./configRepo.js";
 
 const MOTIVO_EXPULSADO = "EXPULSADO";
 const ESTADOS_SIN_SELECCION = new Set(["NO_ENCONTRADO", "NO_INSCRITO", "SIN_INGRESO", "SIN_NOMINA"]);
+const MENSAJE_EXAMEN_CANCELADO = "Examen cancelado";
 
 /**
  * true cuando el dispositivo no tiene conexión real o el usuario forzó el
@@ -102,6 +103,25 @@ export async function estaExpulsadoLocal(examenId, codigoSis, expulsadoEnNomina 
  *   ci?: string|null, nombreCompleto?: string|null, horaIngresoPrevio?: string|null,
  *   aulaIngresoPrevio?: string|null, local: true}>}
  */
+/**
+ * true si el examen tiene al menos una incidencia/encolamiento rechazado por
+ * "Examen cancelado" en este dispositivo. Se usa para no permitir nuevos
+ * registros de ese examen mientras esté sin conexión.
+ */
+export async function examenEstaCancelado(idExamen) {
+  if (!idExamen) return false;
+  const exId = Number(idExamen);
+  const [incidencias, excepcionales] = await Promise.all([
+    db.incidencias_pendientes.toArray(),
+    db.ingresos_excepcionales_pendientes.toArray(),
+  ]);
+  const rechazado = [...incidencias, ...excepcionales].some((item) => {
+    if (Number(item.idExamen || item.idAmbiente) !== exId) return false;
+    return item.ultimoError && item.ultimoError.includes(MENSAJE_EXAMEN_CANCELADO);
+  });
+  return rechazado;
+}
+
 export async function buscarEstudianteIncidenciaLocal({ idExamen, consulta }) {
   const exId = Number(idExamen);
   const texto = String(consulta || "").trim();
@@ -111,6 +131,14 @@ export async function buscarEstudianteIncidenciaLocal({ idExamen, consulta }) {
       estado: "SIN_NOMINA",
       mensaje:
         "Sin conexión y no se pudo determinar el examen del aula. Vuelve a abrir el formulario.",
+      local: true,
+    };
+  }
+
+  if (await examenEstaCancelado(exId)) {
+    return {
+      estado: "EXAMEN_CANCELADO",
+      mensaje: MENSAJE_EXAMEN_CANCELADO + " · no se registró.",
       local: true,
     };
   }
@@ -209,6 +237,16 @@ export async function buscarEstudianteExcepcionalLocal({ idExamen, consulta }) {
     return {
       estado: "SIN_NOMINA",
       mensaje: "Sin conexión y no se pudo determinar el examen del aula. Vuelve a abrir el formulario.",
+      puedeAutorizarExcepcional: false,
+      puedeRegistrarIncidencia: false,
+      local: true,
+    };
+  }
+
+  if (await examenEstaCancelado(exId)) {
+    return {
+      estado: "EXAMEN_CANCELADO",
+      mensaje: MENSAJE_EXAMEN_CANCELADO + " · no se registró.",
       puedeAutorizarExcepcional: false,
       puedeRegistrarIncidencia: false,
       local: true,
