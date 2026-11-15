@@ -244,14 +244,16 @@ export default function HomeDocente() {
             <div className="flex-1 w-full">
                 <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-6 gap-6">
 
-                    <button
-                        type="button"
-                        onClick={() => setBoolMenuLateralMovil(true)}
-                        aria-expanded={boolMenuLateralMovil}
-                        className="fixed top-[78px] left-4 z-30 inline-flex items-center gap-2 rounded-xl bg-[#003770] px-3.5 py-2 text-xs font-extrabold text-white shadow-md lg:hidden"
-                    >
-                        <span aria-hidden="true">☰</span> Menú
-                    </button>
+                    {!boolMenuLateralMovil && (
+                        <button
+                            type="button"
+                            onClick={() => setBoolMenuLateralMovil(true)}
+                            aria-expanded={boolMenuLateralMovil}
+                            className="fixed top-[88px] left-4 z-[60] inline-flex items-center gap-2 rounded-xl bg-[#003770] px-3.5 py-2 text-xs font-extrabold text-white shadow-md lg:hidden"
+                        >
+                            <span aria-hidden="true">☰</span> Menú
+                        </button>
+                    )}
 
                     {/* SIDEBAR IZQUIERDA */}
                     {boolMenuLateralMovil && (
