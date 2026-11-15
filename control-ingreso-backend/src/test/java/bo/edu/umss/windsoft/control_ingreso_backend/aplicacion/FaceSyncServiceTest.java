@@ -3,6 +3,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.FaceIntento;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceIntentoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceSyncRequestDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceSyncResponseDto;
@@ -38,6 +39,12 @@ class FaceSyncServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+    private EstudianteRepository estudianteRepository;
+
+    @Mock
+    private AuditoriaFacialService auditoriaFacialService;
 
     @InjectMocks
     private FaceSyncService syncService;

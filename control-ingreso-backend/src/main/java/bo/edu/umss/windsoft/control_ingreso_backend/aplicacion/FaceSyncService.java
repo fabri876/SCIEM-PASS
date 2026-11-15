@@ -7,6 +7,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceIntentoRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceAuditoriaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceIntentoAdminDto;
@@ -30,13 +31,18 @@ public class FaceSyncService {
     private final IngresoRepository ingresoRepository;
     private final ContextoUsuarioService contextoUsuarioService;
     private final UsuarioRepository usuarioRepository;
+    private final EstudianteRepository estudianteRepository;
+    private final AuditoriaFacialService auditoriaFacialService;
 
     public FaceSyncService(FaceIntentoRepository intentoRepository, IngresoRepository ingresoRepository,
-                           ContextoUsuarioService contextoUsuarioService, UsuarioRepository usuarioRepository) {
+                           ContextoUsuarioService contextoUsuarioService, UsuarioRepository usuarioRepository,
+                           EstudianteRepository estudianteRepository, AuditoriaFacialService auditoriaFacialService) {
         this.intentoRepository = intentoRepository;
         this.ingresoRepository = ingresoRepository;
         this.contextoUsuarioService = contextoUsuarioService;
         this.usuarioRepository = usuarioRepository;
+        this.estudianteRepository = estudianteRepository;
+        this.auditoriaFacialService = auditoriaFacialService;
     }
 
     @Transactional(readOnly = true)
@@ -66,22 +72,27 @@ public class FaceSyncService {
 
     @Transactional
     public FaceSyncResponseDto sincronizar(FaceSyncRequestDto request) {
+        return sincronizar(request, "-");
+    }
+
+    @Transactional
+    public FaceSyncResponseDto sincronizar(FaceSyncRequestDto request, String ip) {
         if (request == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El lote es obligatorio.");
         Integer idOperador = contextoUsuarioService.actual().idUsuario();
         List<FaceSyncResponseDto.ItemResultadoDto> intentos = new ArrayList<>();
         List<FaceSyncResponseDto.ItemResultadoDto> ingresos = new ArrayList<>();
         for (FaceSyncRequestDto.IntentoDto dto : request.intentos() == null ? List.<FaceSyncRequestDto.IntentoDto>of() : request.intentos()) {
-            try { intentos.add(sincronizarIntento(dto, idOperador)); }
+            try { intentos.add(sincronizarIntento(dto, idOperador, ip)); }
             catch (ResponseStatusException ex) { intentos.add(resultado(dto == null ? null : dto.clientUuid(), "ERROR", ex.getReason())); }
         }
         for (FaceSyncRequestDto.IngresoDto dto : request.ingresos() == null ? List.<FaceSyncRequestDto.IngresoDto>of() : request.ingresos()) {
-            try { ingresos.add(sincronizarIngreso(dto, idOperador)); }
+            try { ingresos.add(sincronizarIngreso(dto, idOperador, ip)); }
             catch (ResponseStatusException ex) { ingresos.add(resultado(dto == null ? null : dto.clientUuid(), "ERROR", ex.getReason())); }
         }
         return new FaceSyncResponseDto(intentos, ingresos);
     }
 
-    private FaceSyncResponseDto.ItemResultadoDto sincronizarIntento(FaceSyncRequestDto.IntentoDto dto, Integer idOperador) {
+    private FaceSyncResponseDto.ItemResultadoDto sincronizarIntento(FaceSyncRequestDto.IntentoDto dto, Integer idOperador, String ip) {
         validarUuid(dto == null ? null : dto.clientUuid());
         if (intentoRepository.findByClientUuid(dto.clientUuid()).isPresent()) {
             return resultado(dto.clientUuid(), "DUPLICADO", "El intento ya fue sincronizado.");
@@ -110,10 +121,15 @@ public class FaceSyncService {
         intento.setCapturadoEn(dto.capturadoEn() == null ? LocalDateTime.now() : dto.capturadoEn());
         intento.setSincronizadoEn(LocalDateTime.now());
         intentoRepository.save(intento);
+        String afectado = correo(dto.idUsuarioEstudiante());
+        auditoriaFacialService.publicar("autorizado".equals(resultado) ? "FACIAL_CONTROL_AUTORIZADO" : "FACIAL_CONTROL_RECHAZADO",
+                correo(idOperador), afectado, ip, "sincronizacion_offline",
+                detalleEstudiante(dto.idUsuarioEstudiante(), afectado, dto.idExamen(), dto.idAmbiente(), resultado,
+                        dto.score(), dto.livenessScore(), null));
         return resultado(dto.clientUuid(), "PROCESADO", "Intento facial sincronizado.");
     }
 
-    private FaceSyncResponseDto.ItemResultadoDto sincronizarIngreso(FaceSyncRequestDto.IngresoDto dto, Integer idOperador) {
+    private FaceSyncResponseDto.ItemResultadoDto sincronizarIngreso(FaceSyncRequestDto.IngresoDto dto, Integer idOperador, String ip) {
         validarUuid(dto == null ? null : dto.clientUuid());
         if (dto.idAmbiente() == null || dto.idUsuarioEstudiante() == null || dto.codsisEstudiante() == null
                 || dto.idAsignatura() == null || dto.idExamen() == null) {
@@ -126,6 +142,11 @@ public class FaceSyncService {
                 dto.codsisEstudiante(), dto.idAsignatura(), dto.idExamen());
         if (previo.isPresent()) {
             ingresoRepository.marcarAuditoria(previo.get().getIdIngreso());
+            String afectado = correo(dto.idUsuarioEstudiante());
+            auditoriaFacialService.publicar("FACIAL_COLISION_OFFLINE", correo(idOperador), afectado, ip,
+                    "sincronizacion_offline", detalleEstudiante(dto.idUsuarioEstudiante(), afectado, dto.idExamen(),
+                            dto.idAmbiente(), "colision", dto.scoreFacial(), dto.livenessScore(),
+                            "ingreso_existente=" + previo.get().getIdIngreso()));
             return resultado(dto.clientUuid(), "COLISION_AUDITADA",
                     "Se conservó la primera marcación y se marcó para auditoría.");
         }
@@ -158,7 +179,27 @@ public class FaceSyncService {
             ingreso.setAuditFlag(true);
         }
         ingresoRepository.save(ingreso);
+        if (tipo == TipoIngreso.EXCEPCIONAL) {
+            String afectado = correo(dto.idUsuarioEstudiante());
+            auditoriaFacialService.publicar("FACIAL_INGRESO_MANUAL_EXCEPCIONAL", correo(idOperador), afectado, ip,
+                    "sincronizacion_offline", detalleEstudiante(dto.idUsuarioEstudiante(), afectado, dto.idExamen(),
+                            dto.idAmbiente(), "autorizado", dto.scoreFacial(), dto.livenessScore(),
+                            "motivo=" + ingreso.getMotivoExcepcion()));
+        }
         return resultado(dto.clientUuid(), "PROCESADO", "Marcación facial sincronizada.");
+    }
+
+    private String correo(Integer idUsuario) {
+        return usuarioRepository.findById(idUsuario).map(u -> u.getCorreousuario()).orElse("-");
+    }
+
+    private String detalleEstudiante(Integer idUsuario, String correo, Integer idExamen, Integer idAmbiente,
+                                     String resultado, Double score, Double liveness, String extra) {
+        String sis = estudianteRepository.findByIdusuario(idUsuario)
+                .map(e -> String.valueOf(e.getCodsisestudiante())).orElse("-");
+        return "sis=" + sis + " | estudiante_correo=" + correo + " | examen=" + idExamen
+                + " | ambiente=" + idAmbiente + " | resultado=" + resultado
+                + " | score=" + score + " | liveness=" + liveness + (extra == null ? "" : " | " + extra);
     }
 
     private void validarReglasIngreso(FaceSyncRequestDto.IngresoDto dto, MetodoIngreso metodo, TipoIngreso tipo) {
