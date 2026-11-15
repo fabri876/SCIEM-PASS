@@ -18,9 +18,7 @@ async function pedir(strRuta, objOpciones = {}) {
     },
   });
 
-  if (resp.status === 401) {
-    fnSesionVencida();
-  }
+  if (resp.status === 401) fnSesionVencida();
 
   if (!resp.ok) {
     const objError = await resp.json().catch(() => null);

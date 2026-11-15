@@ -78,6 +78,7 @@ public class ExamenController {
         return ResponseEntity.ok(examenService.obtenerDetalleExamenPorAsignatura(idAsignatura));
     }
 
+
     @GetMapping
     public ResponseEntity<List<ExamenRespuestaDto>> obtenerExamenes() {
         return ResponseEntity.ok(examenService.obtenerExamenesEnriquecidos());

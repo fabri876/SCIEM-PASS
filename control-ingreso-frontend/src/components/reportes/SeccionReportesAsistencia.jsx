@@ -276,6 +276,8 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
   const [boolDescargando, setBoolDescargando] = useState(false);
   const [objAviso, setObjAviso] = useState(null);
   const refDescargando = useRef(false);
+  const refCacheReportes = useRef(new Map());
+  const refCacheExamenesDocente = useRef(new Map());
 
   // Para admin se carga primero solo el catálogo de docentes. Los exámenes se
   // consultan al seleccionar uno, evitando traer todos los exámenes del semestre.
@@ -314,8 +316,19 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
     setStrErrorCarga("");
     setIdAsignatura("");
     setIdExamen("");
+    const cache = refCacheExamenesDocente.current.get(String(idDocente));
+    if (cache && Date.now() - cache.fecha < 30000) {
+      setListExamenes(cache.examenes);
+      setBoolCargando(false);
+      return undefined;
+    }
     obtenerExamenesFinalizadosDocente(idDocente)
-      .then((listEx) => { if (boolVivo) setListExamenes(Array.isArray(listEx) ? listEx.map(normalizarExamen) : []); })
+      .then((listEx) => {
+        if (!boolVivo) return;
+        const examenes = Array.isArray(listEx) ? listEx.map(normalizarExamen) : [];
+        refCacheExamenesDocente.current.set(String(idDocente), { fecha: Date.now(), examenes });
+        setListExamenes(examenes);
+      })
       .catch(() => { if (boolVivo) setStrErrorCarga("No se pudieron cargar los exámenes del docente."); })
       .finally(() => { if (boolVivo) setBoolCargando(false); });
     return () => { boolVivo = false; };
@@ -396,7 +409,16 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
     setBoolDescargando(true);
     setObjAviso(null);
     try {
-      const { blobArchivo, strNombre } = await descargarReporteAsistencia(objExamen.idExamen, strFormato === "excel" ? "xlsx" : "pdf", listSeccionesElegidas);
+      const formato = strFormato === "excel" ? "xlsx" : "pdf";
+      const clave = `${objExamen.idExamen}|${formato}|${[...listSeccionesElegidas].sort().join(",")}`;
+      const anterior = refCacheReportes.current.get(clave);
+      const datos = anterior && Date.now() - anterior.fecha < 30000
+        ? anterior
+        : await descargarReporteAsistencia(objExamen.idExamen, formato, listSeccionesElegidas);
+      if (!anterior || Date.now() - anterior.fecha >= 30000) {
+        refCacheReportes.current.set(clave, { ...datos, fecha: Date.now() });
+      }
+      const { blobArchivo, strNombre } = datos;
       const strUrl = URL.createObjectURL(blobArchivo);
       const elEnlace = document.createElement("a");
       elEnlace.href = strUrl;
