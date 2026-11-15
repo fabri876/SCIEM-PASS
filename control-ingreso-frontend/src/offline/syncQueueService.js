@@ -21,6 +21,10 @@ export const URL_SYNC_INGRESOS_EXCEPCIONALES =
 // (datos invalidos o peticion no autorizada: reintentar no cambiaria el resultado).
 const ESTADOS_NO_REINTENTABLES = new Set(["NO_AUTORIZADO", "ERROR_VALIDACION"]);
 
+// Mensaje que el servidor devuelve cuando el examen de la incidencia/ingreso
+// fue cancelado. No es reintentable: el examen ya no existe para operar.
+const MENSAJE_EXAMEN_CANCELADO = "Examen cancelado";
+
 // Suscriptores desacoplados de React
 const suscriptores = new Set();
 let envioEnCursoLocal = false;
@@ -810,8 +814,10 @@ export async function sincronizarIncidenciasPendientes({
       } else {
         errores++;
         const intentos = (item.intentos || 0) + 1;
+        const mensajeServidor = resultado?.mensaje || "";
+        const esExamenCancelado = mensajeServidor.includes(MENSAJE_EXAMEN_CANCELADO);
         const reintentable =
-          estado !== "ERROR_VALIDACION" && estado !== "NO_AUTORIZADO";
+          !esExamenCancelado && estado !== "ERROR_VALIDACION" && estado !== "NO_AUTORIZADO";
         await incidenciaRepo.marcarEstado(
           item.clientUuid,
           reintentable ? ESTADO_SYNC.PENDIENTE : ESTADO_SYNC.ERROR,
@@ -821,7 +827,9 @@ export async function sincronizarIncidenciasPendientes({
               ? Date.now() + calcularBackoffMs(intentos)
               : 0,
             ultimoError:
-              resultado?.mensaje || estado || "ITEM_NO_DEVUELTO_POR_SERVIDOR",
+              esExamenCancelado
+                ? MENSAJE_EXAMEN_CANCELADO
+                : resultado?.mensaje || estado || "ITEM_NO_DEVUELTO_POR_SERVIDOR",
           },
         );
       }
@@ -1070,8 +1078,10 @@ export async function sincronizarIngresosExcepcionalesPendientes({
     } else {
       errores++;
       const intentos = (item.intentos || 0) + 1;
+      const mensajeServidor = respuesta?.mensaje || "";
+      const esExamenCancelado = mensajeServidor.includes(MENSAJE_EXAMEN_CANCELADO);
       const reintentable =
-        estado !== "ERROR_VALIDACION" && estado !== "NO_AUTORIZADO";
+        !esExamenCancelado && estado !== "ERROR_VALIDACION" && estado !== "NO_AUTORIZADO";
       await ingresoExcepcionalRepo.marcarEstado(
         item.clientUuid,
         reintentable ? ESTADO_SYNC.PENDIENTE : ESTADO_SYNC.ERROR,
@@ -1081,7 +1091,9 @@ export async function sincronizarIngresosExcepcionalesPendientes({
             ? Date.now() + calcularBackoffMs(intentos)
             : 0,
           ultimoError:
-            respuesta?.mensaje || estado || "ITEM_NO_DEVUELTO_POR_SERVIDOR",
+            esExamenCancelado
+              ? MENSAJE_EXAMEN_CANCELADO
+              : respuesta?.mensaje || estado || "ITEM_NO_DEVUELTO_POR_SERVIDOR",
         },
       );
     }
@@ -1164,16 +1176,21 @@ export async function sincronizarRevocacionesPendientes({
       } catch (error) {
         errores++;
         const intentos = (item.intentos || 0) + 1;
+        const mensajeServidor = error.message || "";
+        const esExamenCancelado = mensajeServidor.includes(MENSAJE_EXAMEN_CANCELADO);
         await revocacionRepo.marcarEstado(
           item.clientUuid,
-          ESTADO_SYNC.PENDIENTE,
+          esExamenCancelado ? ESTADO_SYNC.ERROR : ESTADO_SYNC.PENDIENTE,
           {
             intentos,
-            nextRetryAt:
-              error.status === 401
+            nextRetryAt: esExamenCancelado
+              ? 0
+              : error.status === 401
                 ? 0
                 : Date.now() + calcularBackoffMs(intentos),
-            ultimoError: error.message || "FALLO_CONEXION",
+            ultimoError: esExamenCancelado
+              ? MENSAJE_EXAMEN_CANCELADO
+              : error.message || "FALLO_CONEXION",
           },
         );
         if (error.status === 401) {

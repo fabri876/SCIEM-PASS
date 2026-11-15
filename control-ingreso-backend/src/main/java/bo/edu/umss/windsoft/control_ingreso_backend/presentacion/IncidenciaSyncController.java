@@ -121,8 +121,12 @@ public class IncidenciaSyncController {
                     | AccesoDenegadoException ex) {
                 // Errores de datos o de estado: reintentar no cambiaría el resultado,
                 // así que el dispositivo no debe volver a encolar el ítem.
+                String mensaje = ex.getMessage();
+                if ("Este examen fue cancelado.".equals(mensaje)) {
+                    mensaje = "Examen cancelado";
+                }
                 resultado.put("estado", "ERROR_VALIDACION");
-                resultado.put("mensaje", ex.getMessage());
+                resultado.put("mensaje", mensaje);
             } catch (Exception ex) {
                 // Fallo inesperado del servidor: sí conviene reintentar.
                 logger.error("Error sincronizando la incidencia {}: {}", item == null ? null : item.clientUuid(),

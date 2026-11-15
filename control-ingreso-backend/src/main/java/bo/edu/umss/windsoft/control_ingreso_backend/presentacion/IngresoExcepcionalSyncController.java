@@ -73,8 +73,12 @@ public class IngresoExcepcionalSyncController {
         } catch (SolicitudInvalidaException | ConflictoEstadoException | RecursoNoEncontradoException
                 | AccesoDenegadoException e) {
             // Errores de datos o de estado: reintentar no cambiaría el resultado.
+            String mensaje = e.getMessage();
+            if ("Este examen fue cancelado.".equals(mensaje)) {
+                mensaje = "Examen cancelado";
+            }
             resultado.put("estado", "ERROR_VALIDACION");
-            resultado.put("mensaje", e.getMessage());
+            resultado.put("mensaje", mensaje);
             return ResponseEntity.ok(resultado);
         } catch (Exception e) {
             resultado.put("estado", "ERROR");
