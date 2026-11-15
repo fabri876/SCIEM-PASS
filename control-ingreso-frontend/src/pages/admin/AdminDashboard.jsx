@@ -19,6 +19,7 @@ import SeccionReportesAsistencia from "../../components/reportes/SeccionReportes
 import SeccionReporteIntentosIncorrectos from "../../components/reportes/SeccionReporteIntentosIncorrectos";
 import GestionEnrolamientosAdmin from "./GestionEnrolamientosAdmin";
 import AuditoriaFacialAdmin from "./AuditoriaFacialAdmin";
+import BackupsPanel from "./components/BackupsPanel";
 import { obtenerUsuarioActual } from "../../services/authService";
 import {
     listarUsuarios,
@@ -238,6 +239,13 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     {activeMenu === "Historial de Semestres" && <HistorialSemestres onCambio={() => { setRevisionAcademica(v => v + 1); void fnCargarUsuarios(); }} />}
                     {activeMenu === "Enrolamientos Faciales" && <GestionEnrolamientosAdmin />}
                     {activeMenu === "Auditoría Facial" && <AuditoriaFacialAdmin />}
+
+                    {/* =================================================
+                        COPIAS DE SEGURIDAD (BACKUPS DE LA BASE DE DATOS)
+                        ================================================= */}
+                    {activeMenu === "Copias de Seguridad" && (
+                        <BackupsPanel onRestaurado={() => { void fnCargarUsuarios(); setRevisionAcademica(v => v + 1); }} />
+                    )}
 
                     {/* =================================================
                         HISTORIAL INMODIFICABLE (HU15)
