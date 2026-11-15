@@ -21,7 +21,8 @@ public class NotificacionesService {
     public record Avisos(List<ExamenPublicoDto> examenes,List<CambioExamenDto> cambios,List<AvisoEvento> eventos) {
         public Avisos(List<ExamenPublicoDto> examenes,List<CambioExamenDto> cambios){this(examenes,cambios,List.of());}
     }
-    @Transactional(readOnly=true) public Avisos propios(){
+    @Transactional(readOnly=true) public Avisos propios(){return propios(null,null,null);}
+    @Transactional(readOnly=true) public Avisos propios(Integer carrera,Integer nivel,Integer asignatura){
         var auth=SecurityContextHolder.getContext().getAuthentication();
         if(auth==null||!auth.isAuthenticated()||!(auth.getDetails() instanceof Integer)) throw new AccessDeniedException("Inicie sesión para ver sus notificaciones.");
         int id=(Integer)auth.getDetails();
@@ -29,7 +30,10 @@ public class NotificacionesService {
                 .filter(r->List.of("ADMINISTRADOR","DOCENTE","ESTUDIANTE","OPERADOR","AYUDANTE").contains(r)).findFirst()
                 .orElseThrow(()->new AccessDeniedException("El rol no tiene notificaciones de exámenes."));
         var ahora=ZonedDateTime.now(ZoneId.of("America/La_Paz"));
-        if(eventos!=null) return new Avisos(List.of(),List.of(),eventos.propios(id,rol).stream().map(e->personalizar(e,rol)).toList());
+        boolean filtrado=carrera!=null||nivel!=null||asignatura!=null;
+        if(filtrado && !"ADMINISTRADOR".equals(rol)) throw new AccessDeniedException("Solo el administrador puede filtrar por catálogo académico.");
+        if(eventos!=null) return new Avisos(List.of(),List.of(),
+                (filtrado?eventos.propios(id,rol,carrera,nivel,asignatura):eventos.propios(id,rol)).stream().map(e->personalizar(e,rol)).toList());
         return new Avisos(examenes.proximosParaUsuario(ahora.toLocalDate(),ahora.toLocalTime(),id,rol),cambios.recientesParaUsuario(id,rol));
     }
 

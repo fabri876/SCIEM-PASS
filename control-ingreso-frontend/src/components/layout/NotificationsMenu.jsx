@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { obtenerUsuarioActual, obtenerToken } from "../../services/authService";
 import { useLocation } from "react-router-dom";
 import { obtenerAvisosExamenes } from "../../services/notificacionesService";
+import { obtenerCarreras, obtenerNiveles, obtenerAsignaturasFiltradas } from "../../services/grupoService";
 
 // Clave donde guardo los ids de las notificaciones ya leídas (por navegador)
 const STR_CLAVE_LEIDAS = "notificaciones-leidas";
@@ -43,6 +44,14 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
   const location=useLocation();
   const usuario=obtenerUsuarioActual();
   const sesion=Boolean(usuario&&obtenerToken());
+  const administrador=sesion && usuario?.rol === "ADMINISTRADOR";
+  const [carrera, setCarrera] = useState("");
+  const [nivel, setNivel] = useState("");
+  const [asignatura, setAsignatura] = useState("");
+  const [carreras, setCarreras] = useState([]);
+  const [niveles, setNiveles] = useState([]);
+  const [asignaturas, setAsignaturas] = useState([]);
+  const [errorCatalogo, setErrorCatalogo] = useState("");
   const claveLeidas=`${STR_CLAVE_LEIDAS}-${usuario?.idUsuario??"invitado"}`;
   const [arrNotificaciones, setArrNotificaciones] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -60,12 +69,33 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
 
   const fnMarcarComoLeidas = () => {
     // Guardo solo los ids actuales, así el almacenamiento no crece con avisos viejos
-    const setNuevo = new Set(arrNotificaciones.map((n) => n.intId));
+    const setNuevo = new Set([...setLeidas, ...arrNotificaciones.map((n) => n.intId)]);
     setSetLeidas(setNuevo);
     try {
       localStorage.setItem(claveLeidas, JSON.stringify([...setNuevo]));
     } catch {}
   };
+
+  useEffect(() => {
+    setCarrera(""); setNivel(""); setAsignatura("");
+  }, [claveLeidas]);
+
+  useEffect(() => {
+    let activo = true;
+    if (!administrador || !boolAbierto) return;
+    setErrorCatalogo("");
+    const cargar = async () => {
+      try {
+        const [cs, ns, ms] = await Promise.all([
+          obtenerCarreras(), carrera ? obtenerNiveles(carrera) : [],
+          carrera && nivel ? obtenerAsignaturasFiltradas(carrera, nivel) : [],
+        ]);
+        if (activo) { setCarreras(cs); setNiveles(ns); setAsignaturas(ms); }
+      } catch (e) { if (activo) setErrorCatalogo(e.message); }
+    };
+    void cargar();
+    return () => { activo = false; };
+  }, [administrador, boolAbierto, carrera, nivel, revision, claveLeidas]);
 
   // Abrir cuando la card "Notificaciones" del Inicio lo pide (evento global).
   // La instancia desktop también existe (oculta) en celular: ahí se ignora,
@@ -86,7 +116,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
     setCargando(true);
     const cargar = async () => {
       try {
-        const datos = await obtenerAvisosExamenes();
+        const datos = await obtenerAvisosExamenes(administrador ? { carrera, nivel, asignatura } : {});
         if (activo) { setArrNotificaciones(datos); setError(""); }
       } catch (e) {
         if (activo) { setArrNotificaciones([]); setError(e.message); }
@@ -95,7 +125,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
     void cargar();
     const timer = setInterval(cargar, 15000);
     return () => { activo = false; if (timer) clearInterval(timer); };
-  }, [boolAbierto, revision, sesion, claveLeidas, location.pathname]);
+  }, [boolAbierto, revision, sesion, claveLeidas, location.pathname, administrador, carrera, nivel, asignatura]);
 
   // Cerrar al hacer clic afuera o con Escape (solo tiene sentido en desktop,
   // en mobile el panel se cierra junto con el menú de hamburguesa)
@@ -143,10 +173,42 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
         </button>
       </div>
 
+      {administrador && <div className="px-[18px] py-3 border-b border-[#EEF1F8] space-y-2">
+        <p className="text-xs font-bold text-[#294B7C]">Filtrar notificaciones del semestre</p>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <label className="col-span-2">Carrera
+            <select aria-label="Carrera de notificaciones" value={carrera} onChange={e => {
+              setCarrera(e.target.value); setNivel(""); setAsignatura(""); setNiveles([]); setAsignaturas([]);
+            }} className="block w-full mt-1 rounded-lg border border-[#E2E8F0] p-2 bg-white">
+              <option value="">Todas las carreras</option>
+              {carreras.map(c => <option key={c.idCarrera} value={c.idCarrera}>{c.nombre} ({c.codigo})</option>)}
+            </select>
+          </label>
+          <label>Nivel
+            <select aria-label="Nivel de notificaciones" value={nivel} disabled={!carrera} onChange={e => {
+              setNivel(e.target.value); setAsignatura(""); setAsignaturas([]);
+            }} className="block w-full mt-1 rounded-lg border border-[#E2E8F0] p-2 bg-white disabled:bg-slate-100">
+              <option value="">Todos los niveles</option>
+              {niveles.map(n => <option key={n.idNivel} value={n.idNivel}>{n.nombre}</option>)}
+            </select>
+          </label>
+          <label>Asignatura
+            <select aria-label="Asignatura de notificaciones" value={asignatura} disabled={!nivel} onChange={e => setAsignatura(e.target.value)}
+              className="block w-full mt-1 rounded-lg border border-[#E2E8F0] p-2 bg-white disabled:bg-slate-100">
+              <option value="">Todas las asignaturas</option>
+              {asignaturas.map(a => <option key={a.idAsignatura} value={a.idAsignatura}>{a.nombreAsignatura} ({a.codigoOficial})</option>)}
+            </select>
+          </label>
+        </div>
+        {carrera && <button type="button" className="text-xs font-bold text-[#2563EB]" onClick={() => {
+          setCarrera(""); setNivel(""); setAsignatura(""); setNiveles([]); setAsignaturas([]);
+        }}>Limpiar filtros</button>}
+        {errorCatalogo && <p role="alert" className="text-xs text-accent-red">{errorCatalogo}<button type="button" onClick={() => setRevision(v => v + 1)} className="ml-2 underline">Reintentar</button></p>}
+      </div>}
       {!sesion && <p className="p-4 text-sm text-[#64748B]">Inicie sesión para ver sus notificaciones.</p>}
       {sesion && cargando && <p role="status" className="p-4 text-sm text-[#64748B]">Cargando avisos…</p>}
       {sesion && error && <div role="alert" className="p-4 text-sm text-accent-red">{error}<button type="button" onClick={() => setRevision(v => v + 1)} className="block mt-2 font-bold underline">Reintentar</button></div>}
-      {sesion && !cargando && !error && !arrNotificaciones.length && <p className="p-4 text-sm text-[#64748B]">No tienes notificaciones</p>}
+      {sesion && !cargando && !error && !arrNotificaciones.length && <p className="p-4 text-sm text-[#64748B]">{administrador && carrera ? "No hay notificaciones con estos filtros" : "No tienes notificaciones"}</p>}
       <ul className="max-h-[360px] overflow-y-auto">
         {(sesion ? arrNotificaciones : []).map((notif) => {
           const boolNueva = !setLeidas.has(notif.intId);
