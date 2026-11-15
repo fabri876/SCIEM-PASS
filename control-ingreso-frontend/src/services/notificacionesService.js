@@ -23,10 +23,11 @@ export function crearAvisosExamenes(examenes, ahora = new Date()) {
   });
 }
 
-export async function obtenerAvisosExamenes() {
+export async function obtenerAvisosExamenes(filtros = {}) {
   const token=obtenerToken();
   if(!token) return [];
-  const respuesta=await fetch(`${strApiBaseUrl}/api/notificaciones`,{headers:{Authorization:`Bearer ${token}`}})
+  const parametros=new URLSearchParams(Object.entries(filtros).filter(([,valor])=>valor!==""&&valor!=null));
+  const respuesta=await fetch(`${strApiBaseUrl}/api/notificaciones${parametros.size?`?${parametros}`:""}`,{headers:{Authorization:`Bearer ${token}`}})
     .catch(()=>{throw new Error("No se pudieron cargar sus notificaciones. Revisa tu conexión.");});
   if(!respuesta.ok) throw new Error(respuesta.status===401?"Inicie sesión para ver sus notificaciones.":"No se pudieron cargar sus notificaciones.");
   const {examenes,cambios,eventos}=await respuesta.json();
