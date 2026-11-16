@@ -24,6 +24,7 @@ import { generarUuid } from "../../../offline/uuid";
 import { useIntentosExamenPendientes } from "../../../offline/useIntentosExamenPendientes";
 import { liveQuery } from "dexie";
 import { db } from "../../../offline/db";
+import { ingresoExcepcionalRepo } from "../../../offline/ingresoExcepcionalRepo";
 import {
   useConectividad,
   useNominaLocal,
@@ -49,6 +50,7 @@ function estudianteOffline(e) {
     carrera: e.carrera || "Carrera no asignada",
     aulaAsignada: e.aulaAsignada || null,
     normaParticular: e.normaParticular || null,
+    estadoEnrolamientoFacial: e.estadoEnrolamientoFacial ?? "DESCONOCIDO",
   };
 }
 
@@ -171,6 +173,18 @@ function mapearResultadoOffline(r, strValor, strMetodo) {
       return {
         ...baseResultado("NO_EN_NOMINA_OFFLINE", strValor, metodo),
         mensaje: r.motivo,
+      };
+    case "REQUIERE_EXCEPCIONAL_ENROLAMIENTO":
+      return {
+        ...baseResultado("REQUIERE_EXCEPCIONAL_ENROLAMIENTO", strValor, metodo),
+        estudiante: e,
+        mensaje: r.motivo || "El estado facial requiere un ingreso excepcional.",
+      };
+    case "EXCEPCIONAL_LOCAL_PENDIENTE":
+      return {
+        ...baseResultado("EXCEPCIONAL_LOCAL_PENDIENTE", strValor, metodo),
+        estudiante: e,
+        mensaje: r.motivo || "Existe un ingreso excepcional local sin confirmar.",
       };
     default:
       return {
@@ -961,6 +975,21 @@ export default function useControlIngreso(
           },
         );
         refSolicitudPendiente.current = null;
+        // Un excepcional guardado en este dispositivo es una reserva local:
+        // jamás se debe convertir en un ingreso normal antes de confirmarlo.
+        const sis = r?.estudiante?.sis;
+        const excepcionalPendiente = sis
+          ? await ingresoExcepcionalRepo.pendienteParaEstudiante(ex?.idexamen ?? id, sis)
+          : null;
+        if (excepcionalPendiente && (r.resultado === "IDENTIFICADO" || r.resultado === "PERMITIDO")) {
+          const bloqueado = {
+            ...r,
+            resultado: "EXCEPCIONAL_LOCAL_PENDIENTE",
+            mensaje: excepcionalPendiente.ultimoError || "Existe un ingreso excepcional local sin confirmar.",
+          };
+          setObjResultado({ ...bloqueado, metodoOriginal: strMetodo, clave: Date.now() });
+          return bloqueado;
+        }
         setObjResultado({ ...r, metodoOriginal: strMetodo, clave: Date.now() });
         if (
           r.resultado === "EXAMEN_INCORRECTO" ||
@@ -1089,6 +1118,12 @@ export default function useControlIngreso(
           scores,
         );
         const enriquecido = { ...r, conFacial: true };
+        // Un rechazo del servidor nunca debe mutar contador ni nómina local.
+        if (r.resultado !== "PERMITIDO") {
+          setObjResultado({ ...enriquecido, clave: Date.now() });
+          setObjIdentificacion(null);
+          return enriquecido;
+        }
         await fnAplicarRegistro(enriquecido, ident);
         return enriquecido;
       } catch (e) {

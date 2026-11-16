@@ -56,6 +56,13 @@ export const asistenciaRepo = {
         throw error;
       }
 
+      if ((estudiante.estadoEnrolamientoFacial || 'DESCONOCIDO') !== 'ACTIVO') {
+        const error = new Error('El estado de enrolamiento requiere un ingreso excepcional.');
+        error.codigo = 'REQUIERE_EXCEPCIONAL_ENROLAMIENTO';
+        error.estadoEnrolamientoFacial = estudiante.estadoEnrolamientoFacial || 'DESCONOCIDO';
+        throw error;
+      }
+
       // 2. Verificar habilitación
       if (!estudiante.habilitado) {
         const error = new Error(`El estudiante está inhabilitado: ${estudiante.motivoBloqueo || 'Sin derecho a examen'}`);

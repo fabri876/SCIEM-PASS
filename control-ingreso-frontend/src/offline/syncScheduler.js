@@ -159,6 +159,7 @@ async function dispararSincronizacion(motivo) {
       ultimoResultado = {
         asistencias: res,
         incidencias: resIncidencias,
+        revocaciones: resRevocaciones,
         evidencias: resEvidencias,
         ingresosExcepcionales: resExcepcionales,
         facial: resFacial,
@@ -257,7 +258,16 @@ export async function sincronizarAhora({ enviarLote, tamanoLote } = {}) {
   }
 
   notificarCambioScheduler();
-  return res;
+  return {
+    ...res,
+    colas: ultimoResultado,
+    enviados: (res?.enviados || 0) + (resExcepcionales?.procesados || 0),
+    procesados: (res?.procesados || 0) + (resExcepcionales?.procesados || 0),
+    duplicados: (res?.duplicados || 0) + (resExcepcionales?.duplicados || 0),
+    errores: (res?.errores || 0) + (resExcepcionales?.errores || 0)
+      + (resIncidencias?.errores || 0) + (resRevocaciones?.errores || 0)
+      + (resEvidencias?.errores || 0),
+  };
 }
 
 function programarCicloPeriodico() {

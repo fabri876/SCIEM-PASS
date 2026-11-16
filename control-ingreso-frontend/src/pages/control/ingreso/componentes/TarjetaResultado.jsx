@@ -77,6 +77,13 @@ function configurar(r, strRol) {
       };
     case "YA_REGISTRADO":
       return { strTono: "gris", Icono: RotateCcw, strTitulo: "YA REGISTRADO", strSub: "YA MARCÓ SU INGRESO A ESTE EXAMEN" };
+    case "EXCEPCIONAL_LOCAL_PENDIENTE":
+      return {
+        strTono: "bad", Icono: AlertTriangle,
+        strTitulo: "INGRESO EXCEPCIONAL PENDIENTE",
+        strSub: "NO SE PUEDE REGISTRAR UN INGRESO NORMAL TODAVÍA",
+        nota: <Nota>Existe un ingreso excepcional local sin confirmar. Sincronízalo o revísalo antes de intentar registrar nuevamente.</Nota>,
+      };
     case "RETIRADO":
       return {
         strTono: "bad", Icono: Ban, strTitulo: "ESTUDIANTE EXPULSADO", strSub: "NO PUEDE VOLVER A INGRESAR A ESTE EXAMEN",
@@ -178,6 +185,11 @@ function configurar(r, strRol) {
         strTono: "bad", Icono: SearchX, strTitulo: "NO ENCONTRADO EN LA NÓMINA", strSub: "VERIFICACIÓN SIN CONEXIÓN",
         strQuien: "Sin coincidencias en la nómina",
         nota: <Nota>No se encontró {r.metodo === "QR" ? "el código QR" : <>el dato «{r.valor ?? ""}»</>} en la nómina descargada de este examen. No se puede confirmar si está registrado en el sistema ni su examen correspondiente; verifica con conexión o consulta al docente. El intento no fue registrado en auditoría.</Nota>,
+      };
+    case "REQUIERE_EXCEPCIONAL_ENROLAMIENTO":
+      return {
+        strTono: "advertencia", Icono: AlertTriangle, strTitulo: "INGRESO EXCEPCIONAL REQUERIDO",
+        strSub: "EL ESTADO FACIAL NO PERMITE UN INGRESO NORMAL",
       };
     case "NO_ENCONTRADO":
       return {

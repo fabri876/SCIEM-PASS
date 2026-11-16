@@ -255,6 +255,7 @@ const MAPA_ESTADOS = {
   QR_INVALIDO: "QR_INVALIDO",
   FUERA_DE_FILA: "FUERA_DE_FILA",
   OTRA_FILA: "FUERA_DE_FILA",
+  REQUIERE_EXCEPCIONAL_ENROLAMIENTO: "REQUIERE_EXCEPCIONAL_ENROLAMIENTO",
 };
 
 export async function validarIngreso(
@@ -345,6 +346,7 @@ export async function validarIngreso(
           est.nombreAmbiente ||
           objExamen.aula,
         normaParticular: est.normaParticular || null,
+        estadoEnrolamientoFacial: est.estadoEnrolamientoFacial ?? "DESCONOCIDO",
       }
     : null;
 
