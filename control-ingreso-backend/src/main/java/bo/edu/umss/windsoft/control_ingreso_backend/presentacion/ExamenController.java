@@ -103,6 +103,13 @@ public class ExamenController {
         return ResponseEntity.ok(examenService.obtenerMisExamenesEnriquecidos(idUsuarioAutenticado));
     }
 
+    @GetMapping("/mis-examenes-resumen")
+    @PreAuthorize("hasRole('DOCENTE')")
+    public ResponseEntity<List<ExamenRespuestaDto>> obtenerMisExamenesResumen() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return ResponseEntity.ok(examenService.obtenerMisExamenesResumen((Integer) auth.getDetails()));
+    }
+
     /** Consulta acotada para reportes del administrador; evita cargar todos los exámenes. */
     @GetMapping("/por-docente/{idUsuario}")
     @PreAuthorize("hasRole('ADMINISTRADOR')")

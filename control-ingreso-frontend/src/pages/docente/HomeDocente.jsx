@@ -6,7 +6,7 @@ import BulkUploadCard from "../admin/components/BulkUploadCard";
 import UsuarioFormFields from "../admin/components/UsuarioFormFields";
 import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
-import { obtenerMisExamenes } from "../../services/examenService";
+import { obtenerMisExamenesResumen } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
@@ -99,7 +99,7 @@ export default function HomeDocente() {
         async function cargarExamenesDocente() {
             setBoolCargando(true);
             try {
-                const dataExamenes = await obtenerMisExamenes();
+                const dataExamenes = await obtenerMisExamenesResumen();
                 if (!cancel && Array.isArray(dataExamenes)) {
                     const mapeados = dataExamenes.map((ex) => {
                         const primerAmb = ex.ambientes && ex.ambientes.length > 0 ? ex.ambientes[0] : null;

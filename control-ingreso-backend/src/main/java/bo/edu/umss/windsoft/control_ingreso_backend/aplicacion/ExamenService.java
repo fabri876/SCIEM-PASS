@@ -477,6 +477,13 @@ public class ExamenService {
         return obtenerExamenesDocenteEnriquecidos(idUsuarioAutenticado, docente.getCodsisdocente());
     }
 
+    /** Resumen liviano para la pantalla de inicio docente. */
+    public List<ExamenRespuestaDto> obtenerMisExamenesResumen(Integer idUsuarioAutenticado) {
+        Docente docente = docenteRepository.findByIdusuario(idUsuarioAutenticado)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró un docente para el usuario autenticado."));
+        return enriquecerLote(examenRepository.findByIdUsuarioAndCodsisDocente(idUsuarioAutenticado, docente.getCodsisdocente()), false);
+    }
+
     /** Exámenes enriquecidos de un docente solicitado por el administrador. */
     public List<ExamenRespuestaDto> obtenerExamenesDocenteParaAdmin(Integer idUsuario) {
         Docente docente = docenteRepository.findByIdusuario(idUsuario)

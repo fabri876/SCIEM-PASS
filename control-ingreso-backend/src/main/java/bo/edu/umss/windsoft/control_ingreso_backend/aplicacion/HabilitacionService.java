@@ -29,10 +29,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
 public class HabilitacionService {
+    private static final long CACHE_MS = 15_000L;
+    private final Map<String, EntradaCache> cacheExamenes = new ConcurrentHashMap<>();
+
+    private record EntradaCache(long creado, List<HabilitacionResponseDto> datos) {}
 
     private final HabilitacionRepository habilitacionRepository;
     private final UsuarioRepository usuarioRepository;
@@ -115,8 +120,13 @@ public class HabilitacionService {
 
     @Transactional(readOnly = true)
     public List<HabilitacionResponseDto> obtenerPorAsignaturaYExamen(Integer idAsignatura, Integer idExamen) {
+        String clave = idAsignatura + ":" + idExamen;
+        EntradaCache cache = cacheExamenes.get(clave);
+        if (cache != null && System.currentTimeMillis() - cache.creado < CACHE_MS) return cache.datos;
         List<Habilitacion> lista = habilitacionRepository.findHabilitacionesConEstudiante(idAsignatura, idExamen);
-        return mapearADtosBatch(lista);
+        List<HabilitacionResponseDto> datos = mapearADtosBatch(lista);
+        cacheExamenes.put(clave, new EntradaCache(System.currentTimeMillis(), datos));
+        return datos;
     }
 
     @Transactional(readOnly = true)
@@ -159,6 +169,7 @@ public class HabilitacionService {
                 "habilitacion=" + idHabilitacion + ", estudiante=" + guardada.getIdUsuario()
                         + ", examen=" + guardada.getIdExamen() + ", estado_anterior=" + estadoAnterior
                         + ", estado_nuevo=" + guardada.getEstadohabilitacion(), ip);
+        cacheExamenes.remove(guardada.getIdAsignatura() + ":" + guardada.getIdExamen());
         return mapearADto(guardada);
     }
 

@@ -172,6 +172,31 @@ export async function obtenerMisExamenes() {
     return res.examenes;
 }
 
+let cacheMisExamenesResumen = null;
+let promesaMisExamenesResumen = null;
+const TTL_MIS_EXAMENES_RESUMEN = 30_000;
+
+export async function obtenerMisExamenesResumen({ boolForzar = false } = {}) {
+    const ahora = Date.now();
+    if (!boolForzar && cacheMisExamenesResumen && ahora - cacheMisExamenesResumen.timestamp < TTL_MIS_EXAMENES_RESUMEN) {
+        return cacheMisExamenesResumen.data;
+    }
+    if (!boolForzar && promesaMisExamenesResumen) return promesaMisExamenesResumen;
+
+    promesaMisExamenesResumen = fetch(`${strApiBaseUrl}/api/examenes/mis-examenes-resumen`, { headers: construirHeaders() })
+        .then((response) => {
+            if (!response.ok) throw new Error("No se pudieron obtener los exámenes del docente");
+            return response.json();
+        })
+        .then((data) => {
+            cacheMisExamenesResumen = { data, timestamp: Date.now() };
+            return data;
+        })
+        .finally(() => { promesaMisExamenesResumen = null; });
+
+    return promesaMisExamenesResumen;
+}
+
 // POST /api/examenes/{id}/cancelar · body { motivo }
 // Solo el docente dueño o el administrador, hasta 15 minutos antes del inicio.
 export async function cancelarExamen(idExamen, strMotivo) {
@@ -202,54 +227,29 @@ export async function reactivarExamen(idExamen) {
 
 export async function obtenerExamenPorId(idExamen) {
     const usuario = obtenerUsuarioActual();
-    const controller = new AbortController();
-    let timerId = null;
-
     try {
-        const promesaTimeout = new Promise((_, reject) => {
-            timerId = setTimeout(() => {
-                controller.abort();
-                reject(Object.assign(new Error("Timeout de red"), { name: "TimeoutError" }));
-            }, 5000);
+        const response = await fetch(`${strApiBaseUrl}/api/examenes/${idExamen}`, {
+            headers: construirHeaders(),
         });
-
-        const promesaFetch = (async () => {
-            const response = await fetch(`${strApiBaseUrl}/api/examenes/${idExamen}`, {
-                headers: construirHeaders(),
-                signal: controller.signal,
-            });
-
             if (!response.ok) {
                 const err = new Error("No se pudo obtener el examen");
                 err.status = response.status;
                 throw err;
             }
-
-            return await response.json();
-        })();
-
-        // Evitar unhandled rejection si el timeout rechaza primero
-        promesaFetch.catch(() => {});
-
-        return await Promise.race([promesaFetch, promesaTimeout]);
+        return await response.json();
     } catch (error) {
         const status = error?.status;
-        const esTimeout = error?.name === "TimeoutError";
         const esErrorRedSinStatus = status === undefined || status === null;
         const es5xx = typeof status === "number" && status >= 500 && status <= 599;
         const es401 = status === 401;
 
         // Solo cae al respaldo ante error de red, timeout, 5xx o 401. 403, 404 u otros 4xx se propagan.
-        if (esTimeout || esErrorRedSinStatus || es5xx || es401) {
+        if (esErrorRedSinStatus || es5xx || es401) {
             const local = await examenRepo.obtenerExamen(idExamen, { usuarioId: usuario?.idUsuario ?? null });
             if (local) return local;
         }
 
         throw error;
-    } finally {
-        if (timerId) {
-            clearTimeout(timerId);
-        }
     }
 }
 
