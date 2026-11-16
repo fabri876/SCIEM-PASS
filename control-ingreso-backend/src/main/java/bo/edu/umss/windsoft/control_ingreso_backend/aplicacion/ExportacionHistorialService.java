@@ -2,7 +2,6 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HistorialInmodificableBloqueDto;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -17,8 +16,8 @@ public class ExportacionHistorialService {
         this.auditoria = auditoria;
     }
 
-    /** Si falla la generacion o su auditoria, no se devuelve un archivo como exitoso. */
-    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    /** La lectura consistente termina antes de iniciar la transaccion que registra la exportacion.
+     * Si falla la generacion o el registro, no se devuelve un archivo como exitoso. */
     public byte[] generar(String modulo, String ejecutor, String fecha, String fechaInicio, String fechaFin,
                           String busqueda, String responsable, String ip) {
         List<HistorialInmodificableBloqueDto> registros = historial.listarHistorialInmodificable(

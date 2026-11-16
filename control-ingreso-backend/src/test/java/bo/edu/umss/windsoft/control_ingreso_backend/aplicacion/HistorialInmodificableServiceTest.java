@@ -50,6 +50,12 @@ class HistorialInmodificableServiceTest {
     }
 
     @Test
+    void cancelacionYReactivacionPertenecenAlModuloExamenes() {
+        assertEquals("EXAMENES", HistorialInmodificableService.inferirModulo("CANCELACION_EXAMEN", "[CANCELACION_EXAMEN]"));
+        assertEquals("EXAMENES", HistorialInmodificableService.inferirModulo("REACTIVACION_EXAMEN", "[REACTIVACION_EXAMEN]"));
+    }
+
+    @Test
     @DisplayName("El formato HU15-V1 conserva acentos, separadores y microsegundos")
     void hashEventoPersistido_vectorConocido() {
         String hash = AuditoriaHashService.hashEventoPersistido(1, "0".repeat(64), 7, 2,

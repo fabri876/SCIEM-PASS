@@ -10,7 +10,7 @@ import {
   ERROR_NOMINA,
   ERROR_ASISTENCIA
 } from './constantes.js';
-import { strApiBaseUrl } from '../services/apiConfig.js';
+import { strApiBaseUrl, encabezadoVersionCliente } from '../services/apiConfig.js';
 import { obtenerToken } from '../services/authService.js';
 import { obtenerClockOffsetMs } from './connectivityService.js';
 
@@ -64,7 +64,7 @@ export async function fetchPaginaPorDefecto({ url, signal }) {
     : `${strApiBaseUrl}${url}`;
 
   const token = obtenerToken();
-  const headers = { Accept: 'application/json' };
+  const headers = { Accept: 'application/json', ...encabezadoVersionCliente() };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }

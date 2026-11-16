@@ -5,7 +5,7 @@
  * Conecta directamente con IngresoExcepcionalController del backend (/api/ingresos-excepcionales).
  * Requiere autenticación con token JWT de rol DOCENTE (de la materia) o ADMINISTRADOR.
  */
-import { strApiBaseUrl } from "./apiConfig";
+import { strApiBaseUrl, encabezadoVersionCliente } from "./apiConfig";
 import { obtenerToken, cerrarSesion } from "./authService";
 
 /**
@@ -17,6 +17,7 @@ async function fetchAutenticado(strRuta, objOpciones = {}) {
   const esFormData = objOpciones.body instanceof FormData;
 
   const headers = {
+    ...encabezadoVersionCliente(),
     ...(esFormData ? {} : { "Content-Type": "application/json" }),
     ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
     ...(objOpciones.headers || {}),
