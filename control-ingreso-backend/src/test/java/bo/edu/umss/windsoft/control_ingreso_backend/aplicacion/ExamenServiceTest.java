@@ -68,6 +68,7 @@ class ExamenServiceTest {
     @Mock private IngresoRepository ingresoRepository;
     @Mock private NormaGeneralRepository normaGeneralRepository;
     @Mock private CambioExamenService cambiosExamen;
+    @Mock private CredencialRepository credencialRepository;
 
     @InjectMocks
     private ExamenService examenService;
@@ -163,6 +164,58 @@ class ExamenServiceTest {
     // ---------------------------------------------------------------------
     // Pruebas
     // ---------------------------------------------------------------------
+
+    private Examen prepararCancelacion(boolean cancelado) {
+        var auth = new UsernamePasswordAuthenticationToken("admin@example.invalid", null,
+                List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")));
+        auth.setDetails(1);
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        Examen examen = new Examen();
+        examen.setIdExamen(100);
+        examen.setIdAsignatura(ID_ASIGNATURA);
+        examen.setFechaExamen(FECHA_FUTURA);
+        examen.setCancelado(cancelado);
+        when(examenRepository.findById(100)).thenReturn(Optional.of(examen));
+        Ambiente ambiente = ambienteOcupado(100, LocalTime.of(9, 0), LocalTime.of(11, 0));
+        when(ambienteRepository.findByIdExamen(100)).thenReturn(List.of(ambiente));
+        return examen;
+    }
+
+    @Test
+    void cancelarExamen_registraMotivoEjecutorYExamen() {
+        Examen examen = prepararCancelacion(false);
+        examenService.cancelarExamen(100, "  Cambio de horario  ", "127.0.0.1");
+        assertTrue(examen.getCancelado());
+        verify(auditoriaService).registrarEnTransaccion(eq("CANCELACION_EXAMEN"), eq("admin@example.invalid"),
+                eq("1"), contains("examen=100, motivo=Cambio de horario"), eq("127.0.0.1"));
+    }
+
+    @Test
+    void reactivarExamen_registraOperacion() {
+        Examen examen = prepararCancelacion(true);
+        examenService.reactivarExamen(100, "127.0.0.1");
+        assertFalse(examen.getCancelado());
+        verify(auditoriaService).registrarEnTransaccion(eq("REACTIVACION_EXAMEN"), eq("admin@example.invalid"),
+                eq("1"), contains("examen=100"), eq("127.0.0.1"));
+    }
+
+    @Test
+    void cancelarExamen_sinMotivoNoRegistraCancelacionExitosa() {
+        prepararCancelacion(false);
+        assertThrows(IllegalArgumentException.class, () -> examenService.cancelarExamen(100, "  ", "127.0.0.1"));
+        verify(auditoriaService, never()).registrarEnTransaccion(eq("CANCELACION_EXAMEN"), any(), any(), any(), any());
+        verify(examenRepository, never()).save(any(Examen.class));
+    }
+
+    @Test
+    void cancelarExamen_falloAuditoriaImpideRespuestaExitosa() throws Exception {
+        prepararCancelacion(false);
+        doThrow(new IllegalStateException("auditoria no disponible")).when(auditoriaService)
+                .registrarEnTransaccion(eq("CANCELACION_EXAMEN"), any(), any(), any(), any());
+        assertThrows(IllegalStateException.class, () -> examenService.cancelarExamen(100, "Cambio", "127.0.0.1"));
+        assertNotNull(ExamenService.class.getMethod("cancelarExamen", Integer.class, String.class, String.class)
+                .getAnnotation(org.springframework.transaction.annotation.Transactional.class));
+    }
 
     @Test
     @DisplayName("La creacion exitosa solicita auditoria en la misma transaccion")
