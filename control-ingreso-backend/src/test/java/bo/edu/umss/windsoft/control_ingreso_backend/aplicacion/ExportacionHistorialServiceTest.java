@@ -4,6 +4,11 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HistorialIn
 import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -44,5 +49,23 @@ class ExportacionHistorialServiceTest {
         servicio.generar(null, null, null, null, null, "uno; registros=99 | ip=falsa\nlinea", "admin", "ip");
         verify(auditoria).registrarCompletoEnTransaccion(anyString(), anyString(), anyString(),
                 argThat(d -> d.contains("uno\\; registros=99 \\| ip=falsa\\nlinea; registros=0")), anyString());
+    }
+
+    @Test void dieciochoExportacionesConcurrentesSolicitanDieciochoAuditorias() throws Exception {
+        when(historial.listarHistorialInmodificable(any(), any(), any(), any(), any(), any())).thenReturn(List.of());
+        CountDownLatch inicio = new CountDownLatch(1);
+        List<Future<byte[]>> resultados = new ArrayList<>();
+        try (var ejecutor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int i = 0; i < 18; i++) {
+                resultados.add(ejecutor.submit(() -> {
+                    inicio.await();
+                    return servicio.generar(null, null, null, null, null, null, "admin@example.invalid", "local");
+                }));
+            }
+            inicio.countDown();
+            for (var resultado : resultados) assertTrue(resultado.get(10, TimeUnit.SECONDS).length > 0);
+        }
+        verify(auditoria, times(18)).registrarCompletoEnTransaccion(eq("EXPORTACION_HISTORIAL_CSV"),
+                eq("admin@example.invalid"), eq("admin@example.invalid"), anyString(), eq("local"));
     }
 }
