@@ -50,3 +50,4 @@ backup:
   auto:
     interval-days: ${BACKUP_INTERVAL_DAYS:3}
     enabled: ${BACKUP_AUTO_ENABLED:false}
+    
