@@ -581,7 +581,7 @@ public class ExamenService {
         // --- FIN NUEVO ---
 
         // Grupos por asignatura
-        Map<Integer, List<Grupo>> gruposPorAsignatura = asignaturasPorId.keySet().isEmpty()
+        Map<Integer, List<Grupo>> gruposPorAsignatura = !incluirResumen || asignaturasPorId.keySet().isEmpty()
                 ? Map.of()
                 : grupoRepository.findByIdAsignaturaIn(idsAsignatura)
                         .stream()
