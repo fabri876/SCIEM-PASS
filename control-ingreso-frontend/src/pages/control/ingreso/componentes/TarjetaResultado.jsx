@@ -225,6 +225,16 @@ function Foto({ idUsuario, codigoSis, idExamen, strNombre }) {
   );
 }
 
+// "CI" / "C.I." / "SIS" / "QR" / "Lista" → texto para "Identificado por …"
+function textoMetodoIdentificacion(strMetodo) {
+  const str = String(strMetodo || "").toUpperCase().replace(/\./g, "");
+  if (str === "QR") return "código QR";
+  if (str === "SIS") return "código SIS";
+  if (str === "CI") return "C.I.";
+  if (str === "LISTA") return "lista";
+  return strMetodo;
+}
+
 export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIncidencia, strRol = "operador", idExamen }) {
   const refTarjeta = useRef(null);
 
@@ -283,10 +293,11 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
         <Foto idUsuario={e?.idusuario} codigoSis={e?.sis} idExamen={idExamen} strNombre={strNombre} />
         <div className="min-w-0">
           <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{strNombre}</div>
+          {/* Cómo se identificó al estudiante (no es un dato del estudiante) */}
           {objResultado.metodo && (
-            <span className="mt-1.5 inline-flex items-center rounded-full bg-[#F0F6FC] border border-[#D9E8F7] px-2.5 py-0.5 text-[11px] font-bold text-[#124B83]">
-              {objResultado.metodo}
-              {objResultado.conFacial != null && ` · ${objResultado.conFacial ? "con facial" : "sin facial"}`}
+            <span className="mt-1 block text-[12px] font-semibold text-[#64748B]">
+              Identificado por {textoMetodoIdentificacion(objResultado.metodo)}
+              {objResultado.conFacial != null && ` · ${objResultado.conFacial ? "con verificación facial" : "sin verificación facial"}`}
               {objResultado.modoRapido && " · modo rápido"}
             </span>
           )}

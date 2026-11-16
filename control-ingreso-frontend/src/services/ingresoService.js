@@ -34,8 +34,8 @@ async function pedir(strRuta, objOpciones = {}) {
       const objError = await resp.json().catch(() => null);
       throw new Error(
         objError?.mensaje ||
-          objError?.error ||
-          `Error ${resp.status} en el servidor.`,
+        objError?.error ||
+        `Error ${resp.status} en el servidor.`,
       );
     }
 
@@ -120,13 +120,13 @@ function nombreRegistrador(obj) {
 function mapearFilas(e) {
   const listFilas = Array.isArray(e.filas)
     ? e.filas.map((f) => ({
-        desde: f.letraDesde || f.desde,
-        hasta: f.letraHasta || f.hasta,
-        operador: f.nombreOperador || f.operador || "",
-        ingresaron: f.ingresaron || 0,
-        total: f.total || f.totalHabilitados || 0,
-        esMia: Boolean(f.esMia),
-      }))
+      desde: f.letraDesde || f.desde,
+      hasta: f.letraHasta || f.hasta,
+      operador: f.nombreOperador || f.operador || "",
+      ingresaron: f.ingresaron || 0,
+      total: f.total || f.totalHabilitados || 0,
+      esMia: Boolean(f.esMia),
+    }))
     : [];
   let fila = listFilas.find((f) => f.esMia) || null;
   if (!fila && e.letraDesde && e.letraHasta) {
@@ -170,8 +170,8 @@ export async function obtenerExamenesAsignados() {
         const objError = await resp.json().catch(() => null);
         const err = new Error(
           objError?.mensaje ||
-            objError?.error ||
-            `Error ${resp.status} en el servidor.`,
+          objError?.error ||
+          `Error ${resp.status} en el servidor.`,
         );
         err.status = resp.status;
         throw err;
@@ -320,8 +320,8 @@ export async function validarIngreso(
   if (!objData?.estado) {
     throw new Error(
       objData?.mensaje ||
-        objData?.error ||
-        `No se pudo verificar el ingreso (error ${resp.status}).`,
+      objData?.error ||
+      `No se pudo verificar el ingreso (error ${resp.status}).`,
     );
   }
 
@@ -346,6 +346,7 @@ export async function validarIngreso(
           est.nombreAmbiente ||
           objExamen.aula,
         normaParticular: est.normaParticular || null,
+        // Necesario para decidir ingreso normal vs. excepcional en todos los modos.
         estadoEnrolamientoFacial: est.estadoEnrolamientoFacial ?? "DESCONOCIDO",
       }
     : null;
@@ -375,11 +376,11 @@ export async function validarIngreso(
     registradoPor: strRegistrador,
     ingresoPrevio: objData.primerIngreso
       ? {
-          hora: soloHora(objData.primerIngreso.horaIngreso) || "",
-          fecha: soloFecha(objData.primerIngreso.horaIngreso),
-          aula: objData.primerIngreso.nombreAmbiente,
-          registradoPor: nombreRegistrador(objData.primerIngreso),
-        }
+        hora: soloHora(objData.primerIngreso.horaIngreso) || "",
+        fecha: soloFecha(objData.primerIngreso.horaIngreso),
+        aula: objData.primerIngreso.nombreAmbiente,
+        registradoPor: nombreRegistrador(objData.primerIngreso),
+      }
       : null,
     motivos: objData.motivoInhabilitacion
       ? [objData.motivoInhabilitacion]
@@ -389,13 +390,13 @@ export async function validarIngreso(
     modoRapido: objData.modoRapido === true,
     filaCorrecta: objData.filaCorrecta
       ? {
-          desde: objData.filaCorrecta.letraDesde || objData.filaCorrecta.desde,
-          hasta: objData.filaCorrecta.letraHasta || objData.filaCorrecta.hasta,
-          operador:
-            objData.filaCorrecta.nombreOperador ||
-            objData.filaCorrecta.operador ||
-            "",
-        }
+        desde: objData.filaCorrecta.letraDesde || objData.filaCorrecta.desde,
+        hasta: objData.filaCorrecta.letraHasta || objData.filaCorrecta.hasta,
+        operador:
+          objData.filaCorrecta.nombreOperador ||
+          objData.filaCorrecta.operador ||
+          "",
+      }
       : null,
   };
 }

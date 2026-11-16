@@ -18,26 +18,39 @@ function textoAula(strAula) {
   return /^aula/i.test(String(strAula).trim()) ? String(strAula).trim() : `Aula ${strAula}`;
 }
 
-function Chip({ children }) {
-  return (
-    <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/15 text-[12px] font-semibold text-white whitespace-nowrap max-md:text-[11px]">
-      {children}
-    </span>
-  );
+// Los nombres llegan en mayúsculas y sin tildes ("INTRODUCCION A LA PROGRAMACION").
+// Se corrigen las terminaciones que siempre llevan tilde (-CIÓN, -SIÓN) y palabras frecuentes.
+const PALABRAS_CON_TILDE = {
+  INFORMATICA: "INFORMÁTICA", MATEMATICA: "MATEMÁTICA", MATEMATICAS: "MATEMÁTICAS", FISICA: "FÍSICA",
+  QUIMICA: "QUÍMICA", LOGICA: "LÓGICA", ELECTRONICA: "ELECTRÓNICA", ESTADISTICA: "ESTADÍSTICA",
+  CALCULO: "CÁLCULO", ALGEBRA: "ÁLGEBRA", BASICA: "BÁSICA", BASICO: "BÁSICO", NUMERICO: "NUMÉRICO",
+  NUMERICOS: "NUMÉRICOS", METODOS: "MÉTODOS", METODO: "MÉTODO", ANALISIS: "ANÁLISIS", TECNICAS: "TÉCNICAS",
+  TECNICA: "TÉCNICA", DINAMICA: "DINÁMICA", MECANICA: "MECÁNICA", GEOMETRIA: "GEOMETRÍA",
+  INGENIERIA: "INGENIERÍA", TEORIA: "TEORÍA", ECONOMIA: "ECONOMÍA", GRAFICA: "GRÁFICA", GRAFICOS: "GRÁFICOS",
+  INTELIGENCIA: "INTELIGENCIA", AUDITORIA: "AUDITORÍA", OPERATIVA: "OPERATIVA", ELECTRICOS: "ELÉCTRICOS",
+  ELECTRICA: "ELÉCTRICA", AUTOMATICO: "AUTOMÁTICO", ARQUITECTURA: "ARQUITECTURA", PRACTICA: "PRÁCTICA",
+};
+function conTildes(strTexto) {
+  return String(strTexto || "").replace(/[A-Za-zÁÉÍÓÚÑáéíóúñ]+/g, (strPalabra) => {
+    const strMayus = strPalabra.toUpperCase();
+    let strNueva = PALABRAS_CON_TILDE[strMayus] || strMayus.replace(/([CS])ION(ES)?$/, (m, c, es) => (es ? `${c}IONES` : `${c}IÓN`));
+    if (strNueva === strMayus) return strPalabra;
+    return strPalabra === strMayus ? strNueva : strNueva.charAt(0) + strNueva.slice(1).toLowerCase();
+  });
 }
 
 // boolRojo: recuadro rojo de la paleta (#B91C1C) con la cifra en blanco (Inhabilitados)
 function Contador({ numValor, strEtiqueta, boolRojo = false }) {
   return (
-    <div className={"min-w-[104px] max-md:min-w-0 rounded-xl px-4 py-3 max-md:px-3 " + (boolRojo ? "bg-[#B91C1C]" : "bg-white/10")}>
-      <b className="block text-[22px] max-md:text-[18px] leading-none font-bold text-white">{numValor}</b>
-      <span className={"block mt-1.5 text-[12px] max-md:text-xs " + (boolRojo ? "text-white" : "text-white/80")}>{strEtiqueta}</span>
+    <div className={"min-w-[88px] max-md:min-w-0 rounded-lg px-3 py-2 " + (boolRojo ? "bg-[#B91C1C]" : "bg-white/10")}>
+      <b className="block text-[18px] max-md:text-[16px] leading-none font-bold text-white">{numValor}</b>
+      <span className={"block mt-1 text-[11px] " + (boolRojo ? "text-white" : "text-white/80")}>{strEtiqueta}</span>
     </div>
   );
 }
 
-// children: botones a la derecha (por ejemplo "Lista oficial del aula")
-// listAvisos: chips extra (por ejemplo "Registro desde las 19:15")
+// children: botones a la derecha (por ejemplo "Lista oficial del examen")
+// listAvisos: avisos extra en texto (por ejemplo "Registro desde las 19:15")
 // strEstadoVivo: "vivo" (con internet, examen abierto), "finalizado" o null (sin internet)
 export default function TarjetaExamen({ examen, objContador, children, listAvisos = [], strEstadoVivo = null }) {
   if (!examen) {
@@ -58,39 +71,45 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
 
   return (
     <section aria-label="Examen en control" className="bg-[#003770] rounded-2xl px-7 py-6 max-md:px-4 max-md:py-5 text-white">
-      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-5 items-start">
-        <div className="min-w-0 w-full flex-shrink-0">
-          <span className="block text-xs font-bold uppercase tracking-[.8px] text-white/75">
-            Control de ingreso · {examen.tipo}{strGrupo ? ` · ${strGrupo}` : ""}
-          </span>
-          <h1 className="m-0 mt-1 text-[28px] max-md:text-[22px] font-bold leading-tight">{examen.materia}</h1>
-          <div className="mt-3.5 flex flex-wrap gap-2">
-            <Chip>{textoFecha(examen.fecha)}</Chip>
-            {strHorario && <Chip>{strHorario}</Chip>}
-            {examen.aula && <Chip>{textoAula(examen.aula)}</Chip>}
-            {listAvisos.filter(Boolean).map((strAviso) => <Chip key={strAviso}>{strAviso}</Chip>)}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-x-6 gap-y-4 items-start">
+        <div className="min-w-0">
+          {/* Tipo de examen + estado de la conexión ("En vivo") */}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <span className="text-xs font-bold uppercase tracking-[.8px] text-white/75">
+              Control de ingreso · {conTildes(examen.tipo)}{strGrupo ? ` · ${strGrupo}` : ""}
+            </span>
+            {strEstadoVivo === "vivo" && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-bold text-white">
+                <i className="w-1.5 h-1.5 rounded-full bg-[#7DD3FC] shadow-[0_0_0_3px_rgba(125,211,252,.25)] animate-pulse" />
+                En vivo
+              </span>
+            )}
+            {strEstadoVivo === "finalizado" && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-bold text-white/85">
+                Examen finalizado
+              </span>
+            )}
           </div>
+          <h1 className="m-0 mt-1 text-[28px] max-md:text-[22px] font-bold leading-tight break-words">{conTildes(examen.materia)}</h1>
+          {/* Fecha · horario · aula en texto simple (sin recuadros) */}
+          <p className="m-0 mt-2 text-[13px] font-medium text-white/80">
+            {[textoFecha(examen.fecha), strHorario, examen.aula ? textoAula(examen.aula) : ""].filter(Boolean).join(" · ")}
+          </p>
+          {listAvisos.filter(Boolean).length > 0 && (
+            <p className="m-0 mt-1 text-[13px] max-md:text-xs text-white/70">{listAvisos.filter(Boolean).join(" · ")}</p>
+          )}
         </div>
 
-        <div className="flex flex-col gap-3 min-w-0">
-          {children && <div className="flex flex-wrap justify-end gap-2 max-md:justify-start">{children}</div>}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-md:gap-2 max-md:w-full">
+        <div className="flex flex-col gap-3 min-w-0 md:items-end">
+          {children && <div className="flex flex-wrap justify-end gap-2 max-md:justify-start max-md:w-full">{children}</div>}
+          {/* Tantas columnas como contadores: sin espacio vacío al lado del recuadro rojo */}
+          <div className={"grid gap-2 max-md:w-full " + (numExp > 0 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
             <Contador numValor={numIng} strEtiqueta="Ingresaron" />
             <Contador numValor={numPend} strEtiqueta="Ausentes" />
             {/* Entró pero se lo retiró del examen: no cuenta como ausente. */}
             {numExp > 0 && <Contador numValor={numExp} strEtiqueta="Expulsados" />}
             <Contador numValor={numInh} strEtiqueta="Inhabilitados" boolRojo />
           </div>
-          <span className="inline-flex items-center gap-2 text-[13px] text-white/75">
-            {strEstadoVivo === "vivo" && (
-              <>
-                <i className="w-2 h-2 rounded-full bg-[#7DD3FC] shadow-[0_0_0_4px_rgba(125,211,252,.25)] animate-pulse" />
-                <span>En vivo ·</span>
-              </>
-            )}
-            {strEstadoVivo === "finalizado" && <span>Examen finalizado ·</span>}
-            {numHab} {numHab === 1 ? "estudiante habilitado" : "estudiantes habilitados"}
-          </span>
         </div>
       </div>
     </section>

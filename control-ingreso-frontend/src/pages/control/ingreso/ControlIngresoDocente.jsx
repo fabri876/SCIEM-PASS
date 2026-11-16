@@ -1,4 +1,5 @@
-// Página del DOCENTE (y del ADMINISTRADOR): mismo control de ingreso + lista oficial del aula (solo lectura)
+// Página del DOCENTE (y del ADMINISTRADOR): mismo control de ingreso + lista oficial del examen (solo lectura)
+// Con internet la lista muestra a todo el examen; sin internet, solo el aula (y el tramo, si lo tiene).
 // Sin internet: si el docente se asignó un tramo de apellidos, ve su tramo en la franja y "Mi lista";
 // si no, la lista muestra toda el aula con la nómina descargada (antes no cargaba sin internet).
 // Sin internet, "Últimos ingresos" muestra los registros guardados en este equipo (igual que el ayudante).
@@ -20,6 +21,7 @@ import ToastSyncConfirmacion from "../components/ToastSyncConfirmacion";
 import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilidadesExamenDocente";
 import ModalIngresoExcepcional from "../../../components/incidencias/ModalIngresoExcepcional";
 import PanelIncidencias from "../../../components/incidencias/PanelIncidencias";
+import { obtenerMisExamenesResumen } from "../../../services/examenService";
 
 export default function ControlIngresoDocente() {
   const { idExamen } = useParams();
@@ -47,6 +49,11 @@ export default function ControlIngresoDocente() {
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
   const [boolPanelIncidencias, setBoolPanelIncidencias] = useState(false);
   const [excepcionFacial, setExcepcionFacial] = useState(null);
+
+  // Precarga la lista para que el regreso a "Mis exámenes" no empiece desde cero.
+  useEffect(() => {
+    if (!boolAdmin) obtenerMisExamenesResumen().catch(() => {});
+  }, [boolAdmin]);
 
   const fnCerrarLista = useCallback(() => setBoolListaAbierta(false), []);
 
@@ -126,7 +133,7 @@ export default function ControlIngresoDocente() {
                   onClick={() => setBoolListaAbierta(true)}
                   className="min-h-10 px-4 rounded-lg bg-white text-[#003770] text-[14px] font-bold inline-flex items-center justify-center gap-2 hover:bg-[#F0F6FC] cursor-pointer max-md:w-full"
                 >
-                  <ListChecks className="w-4 h-4" /> {boolSinRed && objRangoDocente ? "Mi lista" : "Lista oficial del aula"}
+                  <ListChecks className="w-4 h-4" /> {boolSinRed && objRangoDocente ? "Mi lista" : boolSinRed ? "Lista oficial del aula" : "Lista oficial del examen"}
                 </button>
                 <button
                   type="button"
