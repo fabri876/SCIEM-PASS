@@ -566,7 +566,8 @@ public class ControlIngresoAyudanteService {
                 usuario.getCiusuario(),
                 usuario.getNombreusuario() + " " + usuario.getApellidousuario(),
                 carreras.isEmpty() ? null : String.join(", ", carreras),
-                resolverFotoUrl(usuario.getIdusuario()));
+                resolverFotoUrl(usuario.getIdusuario()),
+                estadoEnrolamientoFacial(usuario.getIdusuario()));
 
         // En línea todos los operadores asignados al aula pueden registrar
         // cualquier estudiante habilitado. La subdivisión por apellidos se
@@ -699,6 +700,23 @@ public class ControlIngresoAyudanteService {
                     null, null, false, Boolean.TRUE.equals(dto.modoRapido())));
         }
 
+        // Defensa de servidor: una app vieja o una cola offline no puede crear
+        // un NORMAL sin evidencia biometrica para un enrolamiento no activo.
+        String estadoEnrolamiento = estudianteResumen.estadoEnrolamientoFacial();
+        boolean tieneEvidenciaFacial = dto.scoreFacial() != null && dto.livenessScore() != null;
+        if (!"ACTIVO".equals(estadoEnrolamiento) && !tieneEvidenciaFacial) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(new ResultadoIngresoDTO(
+                    "REQUIERE_EXCEPCIONAL_ENROLAMIENTO",
+                    "El estado facial requiere registrar un ingreso excepcional.",
+                    estudianteResumen, null, null, estadoEnrolamiento));
+        }
+        if (Boolean.TRUE.equals(dto.modoRapido()) && !"ACTIVO".equals(estadoEnrolamiento)) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(new ResultadoIngresoDTO(
+                    "REQUIERE_EXCEPCIONAL_ENROLAMIENTO",
+                    "El modo rapido solo esta disponible con enrolamiento facial activo.",
+                    estudianteResumen, null, null, estadoEnrolamiento));
+        }
+
         // 4.3 Verificación facial: si llegan scores deben ser consistentes.
         validarScoresFaciales(dto);
 
@@ -776,6 +794,20 @@ public class ControlIngresoAyudanteService {
         if (motivo.length() < OBSERVACION_MODO_RAPIDO_MIN || motivo.length() > OBSERVACION_MODO_RAPIDO_MAX) {
             throw new SolicitudInvalidaException("El motivo del modo rápido debe tener entre 20 y 500 caracteres.");
         }
+    }
+
+    /** Estado compacto y determinista para el contrato de identificacion. */
+    private String estadoEnrolamientoFacial(Integer idUsuario) {
+        if (idUsuario == null) return "SIN_ENROLAMIENTO";
+        return faceEnrollmentRepository.findByIdUsuarioOrderByFechaRegistroDesc(idUsuario).stream().findFirst()
+                .map(e -> {
+                    String estado = e.getEstado() == null ? "" : e.getEstado().trim().toLowerCase(Locale.ROOT);
+                    if ("bloqueado".equals(estado)) return "BLOQUEADO";
+                    if ("pendiente_reenrolamiento".equals(estado)) return "PENDIENTE_REENROLAMIENTO";
+                    if ("activo".equals(estado) && e.getPhotoPath() != null && !e.getPhotoPath().isBlank()
+                            && e.getEmbedding() != null && !e.getEmbedding().isBlank()) return "ACTIVO";
+                    return "SIN_ENROLAMIENTO";
+                }).orElse("SIN_ENROLAMIENTO");
     }
 
     /**

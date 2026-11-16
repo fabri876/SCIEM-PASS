@@ -60,6 +60,8 @@ public class EstudianteListaOficialDTO {
     private String  observacion;
     private String  observacionHabilitacion;
     private String  carrera;
+    /** Estado canónico para decidir si el control puede registrar normalmente. */
+    private String estadoEnrolamientoFacial;
 
     public EstudianteListaOficialDTO() {}
 
@@ -175,4 +177,9 @@ public class EstudianteListaOficialDTO {
 
     public String getCarrera() { return carrera; }
     public void setCarrera(String carrera) { this.carrera = carrera; }
+
+    public String getEstadoEnrolamientoFacial() { return estadoEnrolamientoFacial; }
+    public void setEstadoEnrolamientoFacial(String estadoEnrolamientoFacial) {
+        this.estadoEnrolamientoFacial = estadoEnrolamientoFacial;
+    }
 }

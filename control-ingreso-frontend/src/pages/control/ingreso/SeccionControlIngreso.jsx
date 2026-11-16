@@ -57,7 +57,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
   }, []);
   const {
     listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
-    boolValidando, strError, strUltimoRegistrado, objIdentificacion, fnIdentificar, fnRegistrarConFacial, fnRegistrarSinFacial,
+    boolValidando, strError, strUltimoRegistrado, objIdentificacion, fnIdentificar, fnRegistrarConFacial,
     fnLimpiarIdentificacion, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
     objModoRapido, fnActivarModoRapido, fnDesactivarModoRapido, fnConfirmarIngresoRapido,
   } = ctrl;
@@ -129,18 +129,14 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     ? fnIdentificar
     : (strValor, strMetodo, objOpciones = {}) => fnIdentificar(strValor, strMetodo, { ...objOpciones, ignorarFila: true });
 
-  // Sin enrolamiento, paquete/cámara caídos o 3 fallos: online se autoriza
-  // como excepcional (docente/operador); offline se registra normal sin facial
-  // para no detener la fila.
+  // Ningún fallback biométrico registra normal: tanto online como offline usa
+  // el modal excepcional, que deja su propia cola idempotente si no hay red.
   const fnFallbackFacial = (strMotivo) => {
     const objIdent = ctrl.objIdentificacion;
     if (!objIdent) return;
-    if (objIdent.offline) {
-      fnRegistrarSinFacial();
-      return;
-    }
     const e = objIdent.estudiante;
-    onExcepcional?.({
+    if (!onExcepcional) return;
+    onExcepcional({
       motivo: strMotivo,
       idAmbiente,
       estudiante: {
@@ -151,6 +147,18 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     });
   };
 
+  const fnConfirmarRapidoSeguro = () => {
+    const ident = ctrl.objIdentificacion;
+    const estado = ident?.estudiante?.estadoEnrolamientoFacial;
+    if (estado && estado !== "ACTIVO") {
+      fnFallbackFacial("SIN_ENROLAMIENTO_FACIAL");
+      return;
+    }
+    fnConfirmarIngresoRapido();
+  };
+
+  // El estado llega desde IDENTIFICADO, aun cuando no se descargó nómina.
+  // Se resuelve antes de montar la cámara o de ofrecer modo rápido.
   return (
     <div className="flex flex-col gap-7 max-md:gap-[22px] text-[#08264A]">
       <div className="flex flex-col gap-2.5">
@@ -305,7 +313,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               onFalloFacial={() => fnFallbackFacial("FALLO_FACIAL")}
               onCancelarFacial={fnLimpiarIdentificacion}
               boolModoRapido={Boolean(objModoRapido)}
-              onConfirmarRapido={fnConfirmarIngresoRapido}
+              onConfirmarRapido={fnConfirmarRapidoSeguro}
             />
             {strError && (
               <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
