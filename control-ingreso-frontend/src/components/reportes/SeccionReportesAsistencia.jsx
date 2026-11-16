@@ -71,10 +71,12 @@ function nombreAula(strAula) {
 }
 
 // INGRESO | INHABILITADO | AUSENTE
+// Igual que el archivo descargado: quien tiene un ingreso registrado cuenta como asistente,
+// aunque esté inhabilitado (ingreso excepcional) o haya sido expulsado después de ingresar.
 function estadoFila(f) {
   const str = String(f.estado || "").toUpperCase();
+  if (str === "INGRESO" || str === "RETIRADO") return "INGRESO";
   if (str === "INHABILITADO" || f.habilitado === false || f.estadoHabilitacion === false) return "INHABILITADO";
-  if (str === "INGRESO") return "INGRESO";
   return "AUSENTE";
 }
 
@@ -121,16 +123,31 @@ function calcularResumen(listFilas) {
   return { ...objTotal, numPorcentaje: porcentaje(objTotal.numAsistentes, objTotal.numInscritos), listAulas };
 }
 
-function nombreArchivo(ex, strFormato) {
-  const strBase = [ex?.nombreAsignatura, textoTipo(ex || {}), String(ex?.fechaExamen || "").slice(0, 10)]
-    .filter(Boolean)
-    .join("-")
+// Parte del nombre del archivo: sin tildes ni símbolos, palabras unidas con "-".
+// Si el texto viene todo en mayúsculas, se pasa a mayúscula inicial.
+const PALABRAS_MENORES = new Set(["a", "al", "de", "del", "el", "la", "las", "los", "en", "y", "e", "o", "u", "con", "por", "para"]);
+function parteNombre(strTexto) {
+  let str = String(strTexto || "").trim();
+  if (str && str === str.toUpperCase()) {
+    str = str
+      .toLowerCase()
+      .split(/\s+/)
+      .map((p, i) => (i > 0 && PALABRAS_MENORES.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+      .join(" ");
+  }
+  return str
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-zA-Z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
-    .toLowerCase();
-  return `reporte-asistencia-${strBase || "examen"}.${strFormato === "excel" ? "xlsx" : "pdf"}`;
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// Ejemplo: Introduccion-a-la-Programacion_Segunda-evaluacion_2026-11-13.pdf
+function nombreArchivo(ex, strFormato) {
+  const strBase = [parteNombre(ex?.nombreAsignatura), parteNombre(textoTipo(ex || {})), String(ex?.fechaExamen || "").slice(0, 10)]
+    .filter(Boolean)
+    .join("_");
+  return `${strBase || "Reporte-de-asistencia"}.${strFormato === "excel" ? "xlsx" : "pdf"}`;
 }
 
 // ---------- Piezas visuales ----------
@@ -418,11 +435,11 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
       if (!anterior || Date.now() - anterior.fecha >= 30000) {
         refCacheReportes.current.set(clave, { ...datos, fecha: Date.now() });
       }
-      const { blobArchivo, strNombre } = datos;
+      const { blobArchivo } = datos;
       const strUrl = URL.createObjectURL(blobArchivo);
       const elEnlace = document.createElement("a");
       elEnlace.href = strUrl;
-      elEnlace.download = strNombre || nombreArchivo(objExamen, strFormato);
+      elEnlace.download = nombreArchivo(objExamen, strFormato);
       document.body.appendChild(elEnlace);
       elEnlace.click();
       elEnlace.remove();
