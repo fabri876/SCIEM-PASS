@@ -435,7 +435,27 @@ class MonitoreoServiceTest {
 
         assertTrue(csv.contains("Código SIS;Estudiante"));
         assertTrue(csv.contains("Alba"));
-        verify(auditoriaService).registrar(eq("EXPORTACION_ASISTENCIA"), anyString(), anyString(), contains("Aula 601"), eq("ip"));
+        verify(auditoriaService).registrarEnTransaccion(eq("EXPORTACION_ASISTENCIA"), anyString(), anyString(), contains("Aula 601"), eq("ip"));
+    }
+
+    @Test
+    void asistentesCsv_noRespondeExitoSiFallaAuditoria() {
+        when(ingresoRepository.findByIdAsignaturaAndIdExamen(ID_ASIGNATURA, ID_EXAMEN)).thenReturn(ingresos);
+        doThrow(new IllegalStateException("auditoria no disponible")).when(auditoriaService)
+                .registrarEnTransaccion(eq("EXPORTACION_ASISTENCIA"), anyString(), anyString(), anyString(), anyString());
+        assertThrows(IllegalStateException.class, () -> service.asistentesCsv(AMB_601, "ip"));
+    }
+
+    @Test
+    void operacionesAuditadasNoSonTransaccionesDeSoloLectura() throws Exception {
+        var listar = MonitoreoService.class.getMethod("listarExamenes", String.class)
+                .getAnnotation(org.springframework.transaction.annotation.Transactional.class);
+        var csv = MonitoreoService.class.getMethod("asistentesCsv", Integer.class, String.class)
+                .getAnnotation(org.springframework.transaction.annotation.Transactional.class);
+        assertNotNull(listar);
+        assertNotNull(csv);
+        assertFalse(listar.readOnly());
+        assertFalse(csv.readOnly());
     }
 
     @Test
