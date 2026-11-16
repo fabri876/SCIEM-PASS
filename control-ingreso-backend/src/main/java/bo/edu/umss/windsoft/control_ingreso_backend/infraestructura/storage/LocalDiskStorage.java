@@ -2,6 +2,8 @@ package bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.storage;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,12 +13,21 @@ import java.util.UUID;
 /** Implementación local con rutas normalizadas para impedir path traversal. */
 @Service
 public class LocalDiskStorage implements StorageProvider {
+    private static final Logger logger = LoggerFactory.getLogger(LocalDiskStorage.class);
     private final Path basePath;
 
-    public LocalDiskStorage(@Value("${storage.biometric.path:./storage/biometrics}") String rutaBase)
+    public LocalDiskStorage(@Value("${storage.biometric.path:./storage/biometrics}") String rutaBase,
+                            @Value("${storage.biometric.require-existing:false}") boolean requireExisting)
             throws IOException {
         this.basePath = Path.of(rutaBase).toAbsolutePath().normalize();
-        Files.createDirectories(this.basePath);
+        if (requireExisting) {
+            if (!Files.isDirectory(this.basePath) || !Files.isWritable(this.basePath)) {
+                throw new IOException("El almacenamiento biometrico requerido no existe o no permite escritura: " + basePath);
+            }
+        } else {
+            Files.createDirectories(this.basePath);
+        }
+        logger.info("Almacenamiento biometrico listo en {} ({} archivos)", basePath, contarArchivos());
     }
 
     @Override
@@ -46,6 +57,18 @@ public class LocalDiskStorage implements StorageProvider {
     @Override
     public boolean delete(String rutaRelativa) throws IOException {
         return Files.deleteIfExists(resolverRuta(rutaRelativa));
+    }
+
+    /** Comprueba escritura real sin dejar archivos persistentes. */
+    public void verificarSalud() throws IOException {
+        Path temporal = Files.createTempFile(basePath, ".health-", ".tmp");
+        Files.deleteIfExists(temporal);
+    }
+
+    private long contarArchivos() throws IOException {
+        try (var rutas = Files.walk(basePath)) {
+            return rutas.filter(Files::isRegularFile).count();
+        }
     }
 
     private Path resolverRuta(String rutaRelativa) {

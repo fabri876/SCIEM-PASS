@@ -16,14 +16,24 @@ export default defineConfig({
       },
       workbox: {
         cacheId: 'sciem-pass-modo-rapido-v1',
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,gif,woff2}'],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB para cubrir imágenes grandes de ~1.9 MB
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,gif,woff2,bin,json}'],
+        maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         skipWaiting: false,
         clientsClaim: false,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
+          {
+            // Respaldo del precache para los pesos cargados por Human.js.
+            urlPattern: /\/models\/.*\.(bin|json)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'modelos-faciales',
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // Cache de estilos de Google Fonts
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
