@@ -1,7 +1,7 @@
 // Servicio de control de ingreso
 // ÚNICO archivo que habla con el backend.
 
-import { strApiBaseUrl } from "./apiConfig";
+import { strApiBaseUrl, encabezadoVersionCliente } from "./apiConfig";
 import {
   obtenerToken,
   obtenerUsuarioActual,
@@ -21,6 +21,7 @@ async function pedir(strRuta, objOpciones = {}) {
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
+        ...encabezadoVersionCliente(),
         ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
         ...(objOpciones.headers || {}),
       },
@@ -274,6 +275,7 @@ export async function validarIngreso(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...encabezadoVersionCliente(),
         ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
       },
       body: JSON.stringify({

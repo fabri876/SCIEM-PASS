@@ -41,7 +41,7 @@ public class CorsConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(resolverOrigenesPermitidos(allowedOrigin));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Requested-With", "Accept"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Requested-With", "Accept", "X-App-Version"));
         // Date se expone para que el cliente pueda calcular desfases de reloj
         // durante la precarga y sincronización offline (HU7).
         configuration.setExposedHeaders(List.of("Idempotency-Key", "Date"));

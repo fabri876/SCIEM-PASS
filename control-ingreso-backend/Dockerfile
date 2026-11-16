@@ -2,7 +2,7 @@
 FROM maven:3.9.6-eclipse-temurin-21 AS build
 COPY . /app
 WORKDIR /app
-RUN mvn clean package -DskipTests -Plocal
+RUN mvn clean package -DskipTests
 
 # Etapa de ejecución
 FROM eclipse-temurin:21-jre
@@ -19,4 +19,4 @@ RUN apt-get update && apt-get install -y curl ca-certificates lsb-release \
 COPY --from=build /app/target/*.jar /app/app.jar
 EXPOSE 8080
 # Aquí ya incluimos los límites de memoria RAM que usamos en Railway
-ENTRYPOINT ["java", "-Xmx256m", "-Xss512k", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-Xss512k", "-jar", "/app/app.jar"]
