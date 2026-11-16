@@ -9,7 +9,7 @@ import { configRepo } from "./configRepo.js";
 import { obtenerDeviceId } from "./deviceId.js";
 import { generarUuid } from "./uuid.js";
 import { ESTADO_SYNC, STATUS_ITEM_SYNC } from "./constantes.js";
-import { strApiBaseUrl } from "../services/apiConfig.js";
+import { strApiBaseUrl, encabezadoVersionCliente } from "../services/apiConfig.js";
 import { obtenerToken } from "../services/authService.js";
 
 export const URL_BATCH_SYNC = "/api/v1/asistencias/batch-sync";
@@ -101,6 +101,7 @@ export async function enviarLoteHttp(payload, timeoutMs = 20000) {
   const headers = {
     "Content-Type": "application/json",
     "Idempotency-Key": payload.batchId,
+    ...encabezadoVersionCliente(),
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
@@ -1071,7 +1072,7 @@ export async function sincronizarIngresosExcepcionalesPendientes({
       try {
         resp = await fetch(`${strApiBaseUrl}${URL_SYNC_INGRESOS_EXCEPCIONALES}`, {
           method: "POST",
-          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          headers: { ...encabezadoVersionCliente(), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           body: formData,
           signal: controller.signal,
         });
