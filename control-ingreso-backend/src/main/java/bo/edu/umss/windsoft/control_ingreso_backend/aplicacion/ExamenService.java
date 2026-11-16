@@ -470,6 +470,11 @@ public class ExamenService {
         return enriquecerLote(examenRepository.findAll());
     }
 
+    /** Resumen para listados administrativos; omite normas y contadores pesados. */
+    public List<ExamenRespuestaDto> obtenerExamenesResumen() {
+        return enriquecerLote(examenRepository.findAll(), false);
+    }
+
     public List<ExamenRespuestaDto> obtenerMisExamenesEnriquecidos(Integer idUsuarioAutenticado) {
         Docente docente = docenteRepository.findByIdusuario(idUsuarioAutenticado)
                 .orElseThrow(() -> new IllegalArgumentException(

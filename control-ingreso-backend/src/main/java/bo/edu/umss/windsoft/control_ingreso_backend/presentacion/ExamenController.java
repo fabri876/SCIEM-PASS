@@ -84,6 +84,11 @@ public class ExamenController {
         return ResponseEntity.ok(examenService.obtenerExamenesEnriquecidos());
     }
 
+    @GetMapping("/resumen")
+    public ResponseEntity<List<ExamenRespuestaDto>> obtenerExamenesResumen() {
+        return ResponseEntity.ok(examenService.obtenerExamenesResumen());
+    }
+
     // FIX #3: examen individual también enriquecido
     @GetMapping("/{id}")
     public ResponseEntity<ExamenRespuestaDto> obtenerExamenPorId(@PathVariable Integer id) {
