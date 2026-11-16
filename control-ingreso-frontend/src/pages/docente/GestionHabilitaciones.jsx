@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, X } from "lucide-react";
 import { obtenerHabilitaciones, actualizarHabilitacion, exportarListaOficial, eliminarAsociacionExamen } from "../../services/habilitacionService";
 import { obtenerExamenPorId } from "../../services/examenService";
@@ -49,6 +49,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     const { idExamen: paramIdExamen } = useParams();
     const examenIdActivo = propExamenId || paramIdExamen;
     const navegar = useNavigate();
+    const objUbicacion = useLocation();
+    const examenNavegado = objUbicacion.state?.examen || null;
 
     const [infoExamen, setInfoExamen] = useState({
         nombreExamen: 'Cargando...',
@@ -94,16 +96,22 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
             try {
                 setCargando(true);
                 let targetIdAsignatura = examenIdActivo;
-                let exData = null;
+                // La tarjeta ya tiene los datos básicos del examen. Reutilizarlos
+                // evita otra consulta enriquecida antes de cargar estudiantes.
+                let exData = examenNavegado;
                 let asigData = null;
 
-                try {
-                    exData = await obtenerExamenPorId(examenIdActivo);
-                    if (exData && exData.idAsignatura) {
-                        targetIdAsignatura = exData.idAsignatura;
+                if (!exData) {
+                    try {
+                        exData = await obtenerExamenPorId(examenIdActivo);
+                        if (exData && exData.idAsignatura) {
+                            targetIdAsignatura = exData.idAsignatura;
+                        }
+                    } catch (errEx) {
+                        // Si el parámetro no es un idExamen directo, es targetIdAsignatura
                     }
-                } catch (errEx) {
-                    // Si el parámetro no es un idExamen directo, es targetIdAsignatura
+                } else if (exData.idAsignatura) {
+                    targetIdAsignatura = exData.idAsignatura;
                 }
 
                 try {
@@ -126,8 +134,8 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                         const strTipo = exData.nombreTipoExamen
                             ? `${exData.nombreTipoExamen}${exData.detalleTipoExamen ? ' (' + exData.detalleTipoExamen + ')' : ''}`
                             : '';
-                        nombreExamen = [exData.nombreAsignatura, strTipo].filter(Boolean).join(' · ') || 'Examen Oficial';
-                        fecha = exData.fechaExamen || '---';
+                        nombreExamen = [exData.nombreAsignatura || exData.nombreExamen, strTipo].filter(Boolean).join(' · ') || 'Examen Oficial';
+                        fecha = exData.fechaExamen || exData.fecha || '---';
                         objRango = {
                             fechaExamen: exData.fechaExamen,
                             horaInicio: exData.ambientes?.[0]?.horaInicio,

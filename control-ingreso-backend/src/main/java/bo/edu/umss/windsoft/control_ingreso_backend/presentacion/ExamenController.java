@@ -84,6 +84,11 @@ public class ExamenController {
         return ResponseEntity.ok(examenService.obtenerExamenesEnriquecidos());
     }
 
+    @GetMapping("/resumen")
+    public ResponseEntity<List<ExamenRespuestaDto>> obtenerExamenesResumen() {
+        return ResponseEntity.ok(examenService.obtenerExamenesResumen());
+    }
+
     // FIX #3: examen individual también enriquecido
     @GetMapping("/{id}")
     public ResponseEntity<ExamenRespuestaDto> obtenerExamenPorId(@PathVariable Integer id) {
@@ -101,6 +106,13 @@ public class ExamenController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Integer idUsuarioAutenticado = (Integer) auth.getDetails();
         return ResponseEntity.ok(examenService.obtenerMisExamenesEnriquecidos(idUsuarioAutenticado));
+    }
+
+    @GetMapping("/mis-examenes-resumen")
+    @PreAuthorize("hasRole('DOCENTE')")
+    public ResponseEntity<List<ExamenRespuestaDto>> obtenerMisExamenesResumen() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return ResponseEntity.ok(examenService.obtenerMisExamenesResumen((Integer) auth.getDetails()));
     }
 
     /** Consulta acotada para reportes del administrador; evita cargar todos los exámenes. */

@@ -21,6 +21,7 @@ import ToastSyncConfirmacion from "../components/ToastSyncConfirmacion";
 import { MINUTOS_ANTES_CONTROL_INGRESO, rangoExamen } from "../../docente/utilidadesExamenDocente";
 import ModalIngresoExcepcional from "../../../components/incidencias/ModalIngresoExcepcional";
 import PanelIncidencias from "../../../components/incidencias/PanelIncidencias";
+import { obtenerMisExamenesResumen } from "../../../services/examenService";
 
 export default function ControlIngresoDocente() {
   const { idExamen } = useParams();
@@ -48,6 +49,11 @@ export default function ControlIngresoDocente() {
   const [boolListaAbierta, setBoolListaAbierta] = useState(false);
   const [boolPanelIncidencias, setBoolPanelIncidencias] = useState(false);
   const [excepcionFacial, setExcepcionFacial] = useState(null);
+
+  // Precarga la lista para que el regreso a "Mis exámenes" no empiece desde cero.
+  useEffect(() => {
+    if (!boolAdmin) obtenerMisExamenesResumen().catch(() => {});
+  }, [boolAdmin]);
 
   const fnCerrarLista = useCallback(() => setBoolListaAbierta(false), []);
 
