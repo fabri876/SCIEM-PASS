@@ -13,6 +13,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Incidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoExcepcion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.SeveridadIncidencia;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AccionIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
@@ -110,6 +111,7 @@ public class IncidenciaService {
         return new CatalogosIncidenciaDto(
                 Arrays.stream(TipoIncidencia.values()).map(t -> new OpcionCatalogoDto(t.name(), t.getEtiqueta())).toList(),
                 Arrays.stream(SeveridadIncidencia.values()).map(s -> new OpcionCatalogoDto(s.name(), s.getEtiqueta())).toList(),
+                Arrays.stream(AccionIncidencia.values()).map(a -> new OpcionCatalogoDto(a.name(), a.getEtiqueta())).toList(),
                 Arrays.stream(EstadoIncidencia.values()).map(e -> new OpcionCatalogoDto(e.name(), e.getEtiqueta())).toList(),
                 Arrays.stream(MotivoExcepcion.values()).map(m -> new OpcionCatalogoDto(m.name(), m.getEtiqueta())).toList());
     }
@@ -133,10 +135,13 @@ public class IncidenciaService {
 
     @Transactional
     public IncidenciaDetalleDto registrar(String claveSolicitudTexto, Integer idAmbiente, String tipoTexto,
-                                          String severidadTexto, String descripcion, Integer codSisEstudiante,
+                                          String severidadTexto, String accionTexto, Double puntajeReducir,
+                                          String descripcion, String detalleTipoOtro, String detalleAccionOtro,
+                                          Integer codSisEstudiante,
                                           boolean retirarEstudiante, MultipartFile evidenciaArchivo, String ip) {
-        return registrar(claveSolicitudTexto, idAmbiente, tipoTexto, severidadTexto, descripcion, codSisEstudiante,
-                retirarEstudiante, evidenciaArchivo, null, ip);
+        return registrar(claveSolicitudTexto, idAmbiente, tipoTexto, severidadTexto, accionTexto, puntajeReducir,
+                descripcion, detalleTipoOtro, detalleAccionOtro, codSisEstudiante, retirarEstudiante,
+                evidenciaArchivo, null, ip);
     }
 
     /**
@@ -146,7 +151,9 @@ public class IncidenciaService {
      */
     @Transactional
     public IncidenciaDetalleDto registrar(String claveSolicitudTexto, Integer idAmbiente, String tipoTexto,
-                                          String severidadTexto, String descripcion, Integer codSisEstudiante,
+                                          String severidadTexto, String accionTexto, Double puntajeReducir,
+                                          String descripcion, String detalleTipoOtro, String detalleAccionOtro,
+                                          Integer codSisEstudiante,
                                           boolean retirarEstudiante, MultipartFile evidenciaArchivo,
                                           OffsetDateTime registradoEn, String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
@@ -175,6 +182,8 @@ public class IncidenciaService {
                 "Registrar incidencia", ip);
         // Se puede registrar el día del examen o después, pero no antes.
         AmbienteInfo infoAmbiente = ambienteExamenService.describir(ambiente);
+        // Impedir registrar incidencias sobre un examen cancelado.
+        ambienteExamenService.verificarExamenNoCancelado(infoAmbiente);
         ambienteExamenService.verificarExamenYaIniciado(infoAmbiente);
         if (desdeSincronizacion) {
             // El registro se hizo sin conexión: se valida la marca del
@@ -188,6 +197,10 @@ public class IncidenciaService {
 
         TipoIncidencia tipo = leerEnum(TipoIncidencia.class, tipoTexto, "El tipo de incidencia");
         SeveridadIncidencia severidad = leerEnum(SeveridadIncidencia.class, severidadTexto, "La severidad");
+        AccionIncidencia accion = leerEnum(AccionIncidencia.class, accionTexto, "La acción");
+        if (accion == AccionIncidencia.DESCUENTO_PUNTAJE && (puntajeReducir == null || puntajeReducir <= 0)) {
+            throw new SolicitudInvalidaException("Para el descuento de puntaje se requiere un puntaje mayor a cero.");
+        }
         String descripcionLimpia = descripcion == null ? "" : descripcion.trim();
         if (descripcionLimpia.length() < DESCRIPCION_MIN || descripcionLimpia.length() > DESCRIPCION_MAX) {
             throw new SolicitudInvalidaException("La descripción debe tener entre " + DESCRIPCION_MIN + " y "
@@ -304,6 +317,10 @@ public class IncidenciaService {
             }
             incidencia.setTipo(tipo);
             incidencia.setSeveridad(severidad);
+            incidencia.setAccion(accion);
+            incidencia.setPuntajeReducir(puntajeReducir);
+            incidencia.setDetalleTipoOtro(detalleTipoOtro);
+            incidencia.setDetalleAccionOtro(detalleAccionOtro);
             incidencia.setDescripcion(descripcionLimpia);
             incidencia.setEvidenciaUrl(evidencia == null ? null : evidencia.url());
             incidencia.setEstado(EstadoIncidencia.ABIERTA);
@@ -458,7 +475,10 @@ public class IncidenciaService {
             AmbienteInfo info = infos.get(i.getIdAmbiente());
             return new IncidenciaResumenDto(i.getIdIncidencia(), i.getCodigo(), i.getFechaHora(), i.getIdAmbiente(),
                     info.aula(), info.asignatura(), info.ambiente().getIdExamen(),
-                    i.getTipo().name(), i.getTipo().getEtiqueta(),
+                    i.getTipo().name(), i.getTipo().getEtiqueta(), i.getDetalleTipoOtro(),
+                    i.getDescripcion(),
+                    i.getAccion().name(), i.getAccion().getEtiqueta(), i.getDetalleAccionOtro(),
+                    i.getPuntajeReducir(),
                     i.getSeveridad().name(), i.getSeveridad().getEtiqueta(),
                     i.getEstado().name(), i.getEstado().getEtiqueta(),
                     nombre(usuarios.get(i.getIdUsuarioReporta())),
@@ -563,6 +583,10 @@ public class IncidenciaService {
         Ambiente ambiente = ambienteExamenService.obtener(incidencia.getIdAmbiente());
         contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, false,
                 "Adjuntar evidencia a " + incidencia.getCodigo(), ip);
+
+        // Impedir adjuntar evidencia a una incidencia de un examen cancelado.
+        AmbienteInfo infoEvidencia = ambienteExamenService.describir(ambiente);
+        ambienteExamenService.verificarExamenNoCancelado(infoEvidencia);
 
         evidenciaService.validar(archivo);
         if (incidencia.getEvidenciaUrl() != null && !incidencia.getEvidenciaUrl().isBlank()) {
@@ -751,7 +775,7 @@ public class IncidenciaService {
         List<EventoIncidenciaDto> lineaTiempo = new ArrayList<>();
         lineaTiempo.add(new EventoIncidenciaDto(i.getFechaHora(), "Registrada",
                 nombre(usuarios.get(i.getIdUsuarioReporta())),
-                i.getTipo().getEtiqueta() + " · severidad " + i.getSeveridad().getEtiqueta()));
+                i.getTipo().getEtiqueta() + " · " + i.getAccion().getEtiqueta() + " · severidad " + i.getSeveridad().getEtiqueta()));
         expulsion.ifPresent(e -> lineaTiempo.add(new EventoIncidenciaDto(e.getHoraExpulsion(),
                 "Estudiante retirado del examen", nombre(usuarios.get(e.getIdUsuario())), null)));
         if (i.getFechaRevision() != null) {
@@ -773,7 +797,10 @@ public class IncidenciaService {
                 i.getEstado().name(), i.getEstado().getEtiqueta(),
                 nombre(usuarios.get(i.getIdUsuarioReporta())),
                 i.getCodsisEstudiante(), nombre(usuarios.get(i.getIdUsuarioEstudiante())),
-                expulsion.isPresent(), i.getDescripcion(), i.getEvidenciaUrl(), i.getResolucion(),
+                expulsion.isPresent(), i.getDescripcion(),
+                i.getAccion().name(), i.getAccion().getEtiqueta(), i.getPuntajeReducir(),
+                i.getDetalleTipoOtro(), i.getDetalleAccionOtro(),
+                i.getEvidenciaUrl(), i.getResolucion(),
                 expulsion.map(Expulsion::getIdExpulsion).orElse(null),
                 expulsion.map(e -> e.getEstado().name()).orElse(null),
                 lineaTiempo);

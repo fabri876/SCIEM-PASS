@@ -10,6 +10,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Expulsion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.HoraOficial;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ingreso;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.AccionIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.SeveridadIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIncidencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
@@ -127,6 +128,13 @@ public class RegistroExpulsionService {
                     "El administrador solo puede consultar reportes de expulsiones; no puede registrar expulsiones.");
         }
         verificarAccesoExamen(usuario, idExamen, false, "Registrar expulsión", ip);
+
+        // Impedir registrar expulsión sobre un examen cancelado.
+        Examen examenCancelado = examenRepository.findById(idExamen)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Examen no encontrado."));
+        if (Boolean.TRUE.equals(examenCancelado.getCancelado())) {
+            throw new ConflictoEstadoException("Este examen fue cancelado.");
+        }
 
         // Validar que el ingreso existe y pertenece al examen.
         Ingreso ingreso = ingresoRepository.findById(req.idIngreso())
@@ -276,6 +284,11 @@ public class RegistroExpulsionService {
         Examen examen = examenRepository.findById(idExamen)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Examen no encontrado."));
 
+        // Impedir buscar estudiante para expulsión sobre un examen cancelado.
+        if (Boolean.TRUE.equals(examen.getCancelado())) {
+            throw new ConflictoEstadoException("Este examen fue cancelado.");
+        }
+
         // Obtener ambientes del examen (cualquier ambiente activo)
         List<Ambiente> ambientes = ambienteRepository.findByIdExamen(idExamen);
 
@@ -384,6 +397,14 @@ public class RegistroExpulsionService {
         } else {
             throw new AccesoDenegadoException("Su rol no tiene permiso para esta acción.");
         }
+
+        // Excluir expulsiones de exámenes cancelados.
+        idsExamen = idsExamen.stream()
+                .filter(idExamen -> {
+                    Examen examen = examenRepository.findById(idExamen).orElse(null);
+                    return examen == null || !Boolean.TRUE.equals(examen.getCancelado());
+                })
+                .collect(Collectors.toSet());
 
         return armarLista(filtrarPorExamenes(pendientes, idsExamen));
     }
@@ -817,7 +838,10 @@ public class RegistroExpulsionService {
                 ingreso.getIdAmbiente(),
                 tipo.name(),
                 SeveridadIncidencia.ALTA.name(),
+                AccionIncidencia.REGISTRO.name(),
+                null,
                 descripcion,
+                null, null,
                 ingreso.getCodsisEstudiante(),
                 false,
                 evidenciaArchivo,

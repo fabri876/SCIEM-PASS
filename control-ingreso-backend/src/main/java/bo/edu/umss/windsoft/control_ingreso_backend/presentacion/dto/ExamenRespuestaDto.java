@@ -3,6 +3,7 @@ package bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class ExamenRespuestaDto {
@@ -12,6 +13,9 @@ public class ExamenRespuestaDto {
     private LocalTime duracionExamen;
     private LocalDate fechaCreacionExamen;
     private Boolean estadoExamen;
+    private Boolean cancelado;
+    private String motivoCancelacion;
+    private LocalDateTime fechaCancelacion;
 
     private Integer idAsignatura;
     private Integer idGrupo;
@@ -57,6 +61,13 @@ public class ExamenRespuestaDto {
 
     public Boolean getEstadoExamen() { return estadoExamen; }
     public void setEstadoExamen(Boolean estadoExamen) { this.estadoExamen = estadoExamen; }
+
+    public Boolean getCancelado() { return cancelado; }
+    public void setCancelado(Boolean cancelado) { this.cancelado = cancelado; }
+    public String getMotivoCancelacion() { return motivoCancelacion; }
+    public void setMotivoCancelacion(String motivoCancelacion) { this.motivoCancelacion = motivoCancelacion; }
+    public LocalDateTime getFechaCancelacion() { return fechaCancelacion; }
+    public void setFechaCancelacion(LocalDateTime fechaCancelacion) { this.fechaCancelacion = fechaCancelacion; }
 
     public Integer getIdAsignatura() { return idAsignatura; }
     public void setIdAsignatura(Integer idAsignatura) { this.idAsignatura = idAsignatura; }

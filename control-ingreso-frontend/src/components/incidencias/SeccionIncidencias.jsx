@@ -40,6 +40,21 @@ const TIPOS_INCIDENCIA = [
   { codigo: "OTRO", etiqueta: "Otro" },
 ];
 
+/** Cuando el tipo es "Otro", mostrar el texto que escribió el docente. */
+function textoTipo(item) {
+  if (item.tipo === "OTRO") {
+    if (item.detalleTipoOtro && item.detalleTipoOtro.trim()) {
+      return item.detalleTipoOtro.trim();
+    }
+    // Incidencias anteriores al 2026-11-14: el texto libre quedaba concatenado
+    // dentro de la descripcion porque la columna detalletipootro no existia.
+    if (item.descripcion && item.descripcion.trim()) {
+      return item.descripcion.trim();
+    }
+  }
+  return item.tipoEtiqueta || item.tipo;
+}
+
 /**
  * Sección "Incidencias" (HU06) para DOCENTE y ADMINISTRADOR.
  *
@@ -149,6 +164,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const idsExamenVistos = new Set();
   aulasAsignadas
     .filter((a) => filtroMateria === TODOS || String(a.idAsignatura) === String(filtroMateria))
+    .filter((a) => !(a.cancelado === true))
     .forEach((aula) => {
       if (!idsExamenVistos.has(aula.idExamen)) {
         idsExamenVistos.add(aula.idExamen);
@@ -161,6 +177,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
   // Aulas del examen seleccionado (respeta la materia cuando el examen está en TODOS)
   const aulasDelExamen = aulasAsignadas.filter((a) => {
+    if (a.cancelado === true) return false;
     if (strIdExamen !== TODOS) {
       return String(a.idExamen) === strIdExamen;
     }
@@ -712,13 +729,18 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                         </span>
                       </div>
                       <p className="text-xs font-bold text-[#08264A]">
-                        {item.tipoEtiqueta} ·{" "}
+                        {textoTipo(item)} ·{" "}
                         <span className={item.severidad === "ALTA" ? "text-[#003770]" : item.severidad === "MEDIA" ? "text-[#4A97D3]" : "text-[#83B7E2]"}>
                           {item.severidadEtiqueta}
                         </span>
                       </p>
                       <p className="text-[11px] text-[#7A8BA0] font-semibold">
                         {formatearHora(item.fechaHora)} · {item.aula} · {item.reportadoPor}
+                      </p>
+                      <p className="text-[10px] text-[#7A8BA0] font-bold truncate">
+                        Acción: {item.accion === "OTRO" && item.detalleAccionOtro && item.detalleAccionOtro.trim()
+                          ? item.detalleAccionOtro.trim()
+                          : item.accionEtiqueta || item.accion || "-"}
                       </p>
                       {item.estudianteRetirado && (
                         <p className="text-[10px] font-bold text-[#003770] flex items-center gap-1">
@@ -737,6 +759,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                       <th className="py-3 px-2">Hora</th>
                       <th className="py-3 px-2">Aula</th>
                       <th className="py-3 px-3">Tipo</th>
+                      <th className="py-3 px-3">Acción</th>
                       <th className="py-3 px-2">Severidad</th>
                       <th className="py-3 px-3">Reportado por</th>
                       <th className="py-3 px-2 text-center">Expulsión</th>
@@ -746,13 +769,13 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                   <tbody className="divide-y divide-[#CBD5E1]">
                     {boolCargando ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-[#9AA8BA] font-semibold animate-pulse">
+                        <td colSpan={9} className="py-8 text-center text-[#9AA8BA] font-semibold animate-pulse">
                           Cargando incidencias del servidor...
                         </td>
                       </tr>
                     ) : incidenciasMostradas.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-[#9AA8BA] font-semibold">
+                        <td colSpan={9} className="py-8 text-center text-[#9AA8BA] font-semibold">
                           {boolSoloExpulsiones ? "No se encontraron expulsiones con los filtros seleccionados." : "No hay incidencias con los filtros seleccionados."}
                         </td>
                       </tr>
@@ -781,7 +804,12 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                               {item.aula}
                             </td>
                             <td className="py-3 px-3 font-semibold text-[#08264A]">
-                              {item.tipoEtiqueta || item.tipo}
+                              {textoTipo(item)}
+                            </td>
+                            <td className="py-3 px-3 font-semibold text-[#08264A] truncate max-w-[120px]">
+                              {item.accion === "OTRO" && item.detalleAccionOtro && item.detalleAccionOtro.trim()
+                                ? item.detalleAccionOtro.trim()
+                                : item.accionEtiqueta || item.accion || "-"}
                             </td>
                             <td className="py-3 px-2">
                               <span
@@ -871,7 +899,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                     <div>
                       <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block">Tipo</span>
                       <span className="font-black text-[#08264A]">
-                        {incidenciaSeleccionada.tipoEtiqueta || incidenciaSeleccionada.tipo}
+                        {textoTipo(incidenciaSeleccionada)}
                       </span>
                     </div>
                     <div>

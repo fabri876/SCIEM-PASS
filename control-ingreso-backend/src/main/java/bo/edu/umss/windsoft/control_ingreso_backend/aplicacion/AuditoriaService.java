@@ -78,7 +78,8 @@ public class AuditoriaService {
 
     private void guardarRegistro(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,
                                  String detalles, String ipOrigen) {
-        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen, true);
+        // accion es TEXT desde BUG-030: conservar detalles completos.
+        guardarRegistro(tipoOperacion, usuarioEjecutor, usuarioAfectado, detalles, ipOrigen, false);
     }
 
     private void guardarRegistro(String tipoOperacion, String usuarioEjecutor, String usuarioAfectado,

@@ -6,7 +6,7 @@ import BulkUploadCard from "../admin/components/BulkUploadCard";
 import UsuarioFormFields from "../admin/components/UsuarioFormFields";
 import { obtenerUsuarioActual } from "../../services/authService";
 import { cargarUsuariosMasivo, registrarUsuarioIndividual } from "../../services/usuarioService";
-import { obtenerMisExamenes } from "../../services/examenService";
+import { obtenerMisExamenesResumen } from "../../services/examenService";
 import SeccionIncidencias from "../../components/incidencias/SeccionIncidencias";
 import SeccionMonitoreo from "../../components/monitoreo/SeccionMonitoreo";
 import SeccionReportesAsistencia from "../../components/reportes/SeccionReportesAsistencia";
@@ -99,7 +99,7 @@ export default function HomeDocente() {
         async function cargarExamenesDocente() {
             setBoolCargando(true);
             try {
-                const dataExamenes = await obtenerMisExamenes();
+                const dataExamenes = await obtenerMisExamenesResumen();
                 if (!cancel && Array.isArray(dataExamenes)) {
                     const mapeados = dataExamenes.map((ex) => {
                         const primerAmb = ex.ambientes && ex.ambientes.length > 0 ? ex.ambientes[0] : null;
@@ -143,6 +143,8 @@ export default function HomeDocente() {
                             totalInscritos: total,
                             esExamenReal: true,
                             ambientes: ex.ambientes || [],
+                            cancelado: Boolean(ex.cancelado),
+                            motivoCancelacion: ex.motivoCancelacion || "",
                         };
                     });
                     setExamenes(mapeados);
@@ -204,7 +206,7 @@ export default function HomeDocente() {
     })();
 
     const listExamenesCalendario = examenes
-        .filter((e) => e.esExamenReal !== false && e.fechaExamen)
+        .filter((e) => e.esExamenReal !== false && e.fechaExamen && !e.cancelado)
         .map((e) => ({
             id: e.idExamen,
             fecha: String(e.fechaExamen).slice(0, 10),
@@ -242,14 +244,16 @@ export default function HomeDocente() {
             <div className="flex-1 w-full">
                 <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-6 gap-6">
 
-                    <button
-                        type="button"
-                        onClick={() => setBoolMenuLateralMovil(true)}
-                        aria-expanded={boolMenuLateralMovil}
-                        className="fixed top-[78px] left-4 z-30 inline-flex items-center gap-2 rounded-xl bg-[#003770] px-3.5 py-2 text-xs font-extrabold text-white shadow-md lg:hidden"
-                    >
-                        <span aria-hidden="true">☰</span> Menú
-                    </button>
+                    {!boolMenuLateralMovil && (
+                        <button
+                            type="button"
+                            onClick={() => setBoolMenuLateralMovil(true)}
+                            aria-expanded={boolMenuLateralMovil}
+                            className="fixed top-[88px] left-4 z-[60] inline-flex items-center gap-2 rounded-xl bg-[#003770] px-3.5 py-2 text-xs font-extrabold text-white shadow-md lg:hidden"
+                        >
+                            <span aria-hidden="true">☰</span> Menú
+                        </button>
+                    )}
 
                     {/* SIDEBAR IZQUIERDA */}
                     {boolMenuLateralMovil && (
@@ -393,6 +397,7 @@ export default function HomeDocente() {
                                 TarjetaExamen={TarjetaExamenDocente}
                                 onRegistrar={fnIrARegistrarExamen}
                                 idResaltado={idExamenResaltado}
+                                onCambio={() => setNumRecarga((n) => n + 1)}
                             />
                         ) : strMenuActivo === "registrar-examen" ? (
                             <SeccionRegistrarExamen

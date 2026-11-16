@@ -98,7 +98,12 @@ public class BatchSyncController {
                 ResponseEntity<ResultadoIngresoDTO> respuesta = service.registrarIngreso(
                         dto, usuario, horaMarcacion, item.clientUuid(), ClientIpResolver.resolver(httpRequest));
                 ResultadoIngresoDTO cuerpo = respuesta.getBody();
-                String estado = respuesta.getStatusCode().value() == 403 ? "NO_AUTORIZADO"
+                // El cuerpo contiene rechazos de dominio que no se pueden inferir
+                // del HTTP (por ejemplo, requiere convertir la marca a excepcional).
+                String estadoCuerpo = cuerpo == null ? null : cuerpo.estado();
+                String estado = "REQUIERE_EXCEPCIONAL_ENROLAMIENTO".equals(estadoCuerpo)
+                        ? estadoCuerpo
+                        : respuesta.getStatusCode().value() == 403 ? "NO_AUTORIZADO"
                         : respuesta.getStatusCode().value() == 409 ? "DUPLICADO"
                         : respuesta.getStatusCode().is2xxSuccessful() ? "PROCESADO" : "ERROR";
                 salida.put("estado", estado);

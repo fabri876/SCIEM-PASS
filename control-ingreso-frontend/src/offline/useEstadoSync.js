@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { suscribirSync } from './syncQueueService.js';
 import { asistenciaRepo } from './asistenciaRepo.js';
+import { ingresoExcepcionalRepo } from './ingresoExcepcionalRepo.js';
 import {
   sincronizarAhora,
   reanudarSync,
@@ -23,9 +24,9 @@ export function useEstadoSync() {
   useEffect(() => {
     let montado = true;
 
-    asistenciaRepo
-      .contarPendientes()
-      .then((c) => {
+    Promise.all([asistenciaRepo.contarPendientes(), ingresoExcepcionalRepo.contarPendientes()])
+      .then(([asistencias, excepcionales]) => {
+        const c = asistencias + excepcionales;
         if (montado) setPendientesRestantes(c);
       })
       .catch(() => {});
@@ -36,7 +37,9 @@ export function useEstadoSync() {
         setEstadoSync(info.estado);
       }
       if (typeof info.pendientesRestantes === 'number') {
-        setPendientesRestantes(info.pendientesRestantes);
+        ingresoExcepcionalRepo.contarPendientes()
+          .then((excepcionales) => montado && setPendientesRestantes(info.pendientesRestantes + excepcionales))
+          .catch(() => montado && setPendientesRestantes(info.pendientesRestantes));
       }
     });
 

@@ -3,7 +3,6 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Asignatura;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.DocenteAsignatura;
-import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AsignaturaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.DocenteAsignaturaRepository;
@@ -144,14 +143,6 @@ public class AsignaturaService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        // Cargar exámenes para fallback
-        List<Examen> todosExamenes = examenRepository.findAll();
-        for (Examen ex : todosExamenes) {
-            if (ex.getIdUsuario() != null) {
-                userIds.add(ex.getIdUsuario());
-            }
-        }
-
         // Cargar usuarios en 1 sola consulta
         Map<Integer, Usuario> usuariosMap = userIds.isEmpty() ? Collections.emptyMap() :
                 usuarioRepository.findAllById(userIds).stream()
@@ -175,19 +166,6 @@ public class AsignaturaService {
             List<String> nombresUnicos = entry.getValue().stream().distinct().toList();
             if (!nombresUnicos.isEmpty()) {
                 resultado.put(entry.getKey(), String.join(", ", nombresUnicos));
-            }
-        }
-
-        // Fallback desde exámenes
-        for (Examen ex : todosExamenes) {
-            if (ex.getIdAsignatura() != null && !resultado.containsKey(ex.getIdAsignatura()) && ex.getIdUsuario() != null) {
-                Usuario u = usuariosMap.get(ex.getIdUsuario());
-                if (u != null) {
-                    String nombre = ((u.getNombreusuario() != null ? u.getNombreusuario() : "") + " " + (u.getApellidousuario() != null ? u.getApellidousuario() : "")).trim();
-                    if (!nombre.isEmpty()) {
-                        resultado.put(ex.getIdAsignatura(), nombre);
-                    }
-                }
             }
         }
 

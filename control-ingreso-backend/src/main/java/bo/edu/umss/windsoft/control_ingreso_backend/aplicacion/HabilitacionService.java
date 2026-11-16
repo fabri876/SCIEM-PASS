@@ -29,10 +29,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
 public class HabilitacionService {
+    private static final long CACHE_MS = 15_000L;
+    private final Map<String, EntradaCache> cacheExamenes = new ConcurrentHashMap<>();
+
+    private record EntradaCache(long creado, List<HabilitacionResponseDto> datos) {}
 
     private final HabilitacionRepository habilitacionRepository;
     private final UsuarioRepository usuarioRepository;
@@ -60,6 +65,7 @@ public class HabilitacionService {
     public HabilitacionResponseDto asociarEstudiante(AsociarEstudianteExamenRequest request) {
         var examen = examenRepository.findById(request.idExamen())
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el examen."));
+        validarExamenNoCancelado(examen);
         if (!examen.getIdAsignatura().equals(request.idAsignatura())) {
             throw new IllegalArgumentException("La asignatura no corresponde al examen.");
         }
@@ -114,8 +120,13 @@ public class HabilitacionService {
 
     @Transactional(readOnly = true)
     public List<HabilitacionResponseDto> obtenerPorAsignaturaYExamen(Integer idAsignatura, Integer idExamen) {
+        String clave = idAsignatura + ":" + idExamen;
+        EntradaCache cache = cacheExamenes.get(clave);
+        if (cache != null && System.currentTimeMillis() - cache.creado < CACHE_MS) return cache.datos;
         List<Habilitacion> lista = habilitacionRepository.findHabilitacionesConEstudiante(idAsignatura, idExamen);
-        return mapearADtosBatch(lista);
+        List<HabilitacionResponseDto> datos = mapearADtosBatch(lista);
+        cacheExamenes.put(clave, new EntradaCache(System.currentTimeMillis(), datos));
+        return datos;
     }
 
     @Transactional(readOnly = true)
@@ -130,6 +141,7 @@ public class HabilitacionService {
                                                           String ejecutor, String ip) {
         Habilitacion habilitacion = habilitacionRepository.findById(idHabilitacion)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró la habilitación con ID: " + idHabilitacion));
+        examenRepository.findById(habilitacion.getIdExamen()).ifPresent(this::validarExamenNoCancelado);
 
         Boolean estadoAnterior = habilitacion.getEstadohabilitacion();
         Boolean nuevoEstado = request.resolverEstado();
@@ -157,15 +169,25 @@ public class HabilitacionService {
                 "habilitacion=" + idHabilitacion + ", estudiante=" + guardada.getIdUsuario()
                         + ", examen=" + guardada.getIdExamen() + ", estado_anterior=" + estadoAnterior
                         + ", estado_nuevo=" + guardada.getEstadohabilitacion(), ip);
+        cacheExamenes.remove(guardada.getIdAsignatura() + ":" + guardada.getIdExamen());
         return mapearADto(guardada);
     }
 
     @Transactional
     public void eliminarAsociacion(Integer idHabilitacion) {
-        if (!habilitacionRepository.existsById(idHabilitacion)) {
+        Habilitacion habilitacion = habilitacionRepository.findById(idHabilitacion).orElse(null);
+        if (habilitacion == null) {
             throw new RecursoNoEncontradoException("No se encontró la habilitación con ID: " + idHabilitacion);
         }
+        examenRepository.findById(habilitacion.getIdExamen()).ifPresent(this::validarExamenNoCancelado);
         habilitacionRepository.deleteById(idHabilitacion);
+    }
+
+    private void validarExamenNoCancelado(bo.edu.umss.windsoft.control_ingreso_backend.dominio.Examen examen) {
+        if (Boolean.TRUE.equals(examen.getCancelado())) {
+            throw new bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException(
+                    "No se pueden modificar habilitaciones de un examen cancelado.");
+        }
     }
 
     // BUG-007 (QA): "Exportar lista oficial" era 100% decorativo, no había

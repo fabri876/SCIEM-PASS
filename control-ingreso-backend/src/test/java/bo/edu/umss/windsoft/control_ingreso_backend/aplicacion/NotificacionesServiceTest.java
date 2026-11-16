@@ -9,6 +9,19 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 class NotificacionesServiceTest {
+    @Test void soloAdministradorPuedeFiltrarElCatalogo(){
+        var eventos=mock(NotificacionEventoRepository.class);
+        var servicio=new NotificacionesService(mock(ExamenPublicoRepository.class),mock(CambioExamenRepository.class),eventos,mock(AsignacionAulaService.class));
+        var auth=new UsernamePasswordAuthenticationToken("prueba@example.test",null,List.of(new SimpleGrantedAuthority("ROLE_ESTUDIANTE")));auth.setDetails(42);
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        assertThrows(AccessDeniedException.class,()->servicio.propios(1,2,3));
+        verifyNoInteractions(eventos);
+        auth=new UsernamePasswordAuthenticationToken("prueba@example.test",null,List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")));auth.setDetails(42);
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        when(eventos.propios(42,"ADMINISTRADOR",1,2,3)).thenReturn(List.of());
+        assertTrue(servicio.propios(1,2,3).eventos().isEmpty());
+        verify(eventos).propios(42,"ADMINISTRADOR",1,2,3);
+    }
     @AfterEach void limpiar(){SecurityContextHolder.clearContext();}
     @Test void invitadoNoConsultaDatos(){
         var examenes=mock(ExamenPublicoRepository.class);var cambios=mock(CambioExamenRepository.class);

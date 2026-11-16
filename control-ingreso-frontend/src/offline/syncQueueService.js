@@ -19,7 +19,15 @@ export const URL_SYNC_INGRESOS_EXCEPCIONALES =
 
 // Estados devueltos por el backend en batch-sync que NO deben reintentarse
 // (datos invalidos o peticion no autorizada: reintentar no cambiaria el resultado).
-const ESTADOS_NO_REINTENTABLES = new Set(["NO_AUTORIZADO", "ERROR_VALIDACION"]);
+const ESTADOS_NO_REINTENTABLES = new Set([
+  "NO_AUTORIZADO",
+  "ERROR_VALIDACION",
+  "REQUIERE_EXCEPCIONAL_ENROLAMIENTO",
+]);
+
+// Mensaje que el servidor devuelve cuando el examen de la incidencia/ingreso
+// fue cancelado. No es reintentable: el examen ya no existe para operar.
+const MENSAJE_EXAMEN_CANCELADO = "Examen cancelado";
 
 // Suscriptores desacoplados de React
 const suscriptores = new Set();
@@ -51,7 +59,6 @@ export function calcularBackoffMs(intentos = 0) {
  */
 export async function iniciarSync() {
   await asistenciaRepo.revertirSyncingHuerfanos();
-  await asistenciaRepo.recuperarErrores();
 }
 
 /**
@@ -659,6 +666,7 @@ export async function sincronizarIncidenciasPendientes({
   let procesados = 0;
   let duplicados = 0;
   let errores = 0;
+  const examenesCancelados = new Set();
 
   while (true) {
     const lote = await incidenciaRepo.pendientes(Math.max(1, tamanoLote));
@@ -678,7 +686,13 @@ export async function sincronizarIncidenciasPendientes({
         idAmbiente: item.idAmbiente,
         tipo: item.tipo,
         severidad: item.severidad,
+        // La acción y sus detalles también viajan: antes se perdían al
+        // sincronizar y la incidencia quedaba como "Registro" en el servidor.
+        accion: item.accion || "REGISTRO",
+        puntajeReducir: item.puntajeReducir ?? null,
         descripcion: item.descripcion,
+        detalleTipoOtro: item.detalleTipoOtro || null,
+        detalleAccionOtro: item.detalleAccionOtro || null,
         codSisEstudiante: item.codSisEstudiante || null,
         retirarEstudiante: Boolean(item.retirarEstudiante),
         registradoEn: item.registradoEn,
@@ -804,8 +818,13 @@ export async function sincronizarIncidenciasPendientes({
       } else {
         errores++;
         const intentos = (item.intentos || 0) + 1;
+        const mensajeServidor = resultado?.mensaje || "";
+        const esExamenCancelado = mensajeServidor.includes(MENSAJE_EXAMEN_CANCELADO);
+        if (esExamenCancelado && item.idExamen != null) {
+          examenesCancelados.add(Number(item.idExamen));
+        }
         const reintentable =
-          estado !== "ERROR_VALIDACION" && estado !== "NO_AUTORIZADO";
+          !esExamenCancelado && estado !== "ERROR_VALIDACION" && estado !== "NO_AUTORIZADO";
         await incidenciaRepo.marcarEstado(
           item.clientUuid,
           reintentable ? ESTADO_SYNC.PENDIENTE : ESTADO_SYNC.ERROR,
@@ -815,9 +834,20 @@ export async function sincronizarIncidenciasPendientes({
               ? Date.now() + calcularBackoffMs(intentos)
               : 0,
             ultimoError:
-              resultado?.mensaje || estado || "ITEM_NO_DEVUELTO_POR_SERVIDOR",
+              esExamenCancelado
+                ? MENSAJE_EXAMEN_CANCELADO
+                : resultado?.mensaje || estado || "ITEM_NO_DEVUELTO_POR_SERVIDOR",
           },
         );
+      }
+    }
+
+    // Descartar todas las pendientes de exámenes detectados como cancelados.
+    for (const idExamen of examenesCancelados) {
+      try {
+        await incidenciaRepo.descartarPorExamenCancelado(idExamen);
+      } catch (errDescartar) {
+        console.warn("[sync] Error descartando incidencias de examen cancelado:", errDescartar);
       }
     }
 
@@ -945,6 +975,7 @@ export async function sincronizarEvidenciasPendientes({
   // Una evidencia por incidencia: la función de subida ya recorre todas las
   // evidencias de la incidencia, así que no hay que repetirla por cada una.
   const incidenciasVistas = new Set();
+  const examenesCancelados = new Set();
   for (const ev of lote) {
     if (incidenciasVistas.has(ev.incidenciaClientUuid)) continue;
     incidenciasVistas.add(ev.incidenciaClientUuid);
@@ -952,13 +983,43 @@ export async function sincronizarEvidenciasPendientes({
       ev.incidenciaClientUuid,
     );
     const idIncidencia = incidencia?.idIncidencia;
-    if (!idIncidencia) continue; // Aún no sincronizó la incidencia: se reintenta luego.
+    if (!idIncidencia) {
+      // Si la incidencia fue descartada por examen cancelado, descartar también
+      // su evidencia para que no quede "sin enviar" para siempre.
+      if (
+        incidencia &&
+        incidencia.syncStatus === ESTADO_SYNC.ERROR &&
+        incidencia.ultimoError?.includes(MENSAJE_EXAMEN_CANCELADO) &&
+        incidencia.idExamen != null
+      ) {
+        examenesCancelados.add(Number(incidencia.idExamen));
+        await evidenciaRepo.marcarEstado(
+          ev.clientUuid,
+          ESTADO_SYNC.ERROR,
+          {
+            ultimoError: MENSAJE_EXAMEN_CANCELADO,
+            sincronizadoEn: Date.now(),
+          },
+        );
+        errores++;
+      }
+      continue;
+    }
     const res = await subirEvidenciasDeIncidencia(
       ev.incidenciaClientUuid,
       idIncidencia,
     );
     subidas += res.subidas;
     errores += res.errores;
+  }
+
+  // Descartar evidencias de exámenes detectados como cancelados.
+  for (const idExamen of examenesCancelados) {
+    try {
+      await incidenciaRepo.descartarPorExamenCancelado(idExamen);
+    } catch (errDescartar) {
+      console.warn("[sync] Error descartando evidencias de examen cancelado:", errDescartar);
+    }
   }
 
   return {
@@ -979,6 +1040,7 @@ export async function sincronizarIngresosExcepcionalesPendientes({
   let procesados = 0;
   let duplicados = 0;
   let errores = 0;
+  const examenesCancelados = new Set();
 
   for (const item of lote) {
     await ingresoExcepcionalRepo.marcarEstado(
@@ -1003,16 +1065,19 @@ export async function sincronizarIngresosExcepcionalesPendientes({
     let respuesta = null;
     try {
       const token = obtenerToken();
-      const resp = await fetch(
-        `${strApiBaseUrl}${URL_SYNC_INGRESOS_EXCEPCIONALES}`,
-        {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      let resp;
+      try {
+        resp = await fetch(`${strApiBaseUrl}${URL_SYNC_INGRESOS_EXCEPCIONALES}`, {
           method: "POST",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           body: formData,
-        },
-      );
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
       if (!resp.ok) {
         const error = new Error(
           `Error ${resp.status} al sincronizar el ingreso excepcional.`,
@@ -1024,20 +1089,22 @@ export async function sincronizarIngresosExcepcionalesPendientes({
     } catch (error) {
       errores++;
       const intentos = (item.intentos || 0) + 1;
-      const reintentable =
-        error.status !== 400 && error.status !== 401 && error.status !== 403;
+      // Sesión vencida no invalida el ingreso: queda pendiente hasta iniciar
+      // sesión de nuevo. Los 400/403 sí son errores funcionales terminales.
+      const esAuth = error.status === 401;
+      const reintentable = esAuth || (error.status !== 400 && error.status !== 403);
       await ingresoExcepcionalRepo.marcarEstado(
         item.clientUuid,
         reintentable ? ESTADO_SYNC.PENDIENTE : ESTADO_SYNC.ERROR,
         {
           intentos,
           nextRetryAt: reintentable
-            ? Date.now() + calcularBackoffMs(intentos)
+            ? (esAuth ? 0 : Date.now() + calcularBackoffMs(intentos))
             : 0,
           ultimoError: error.message || "FALLO_CONEXION",
         },
       );
-      if (error.status === 401) {
+      if (esAuth) {
         notificar({
           estado: "auth",
           pendientesRestantes: await ingresoExcepcionalRepo.contarPendientes(),
@@ -1064,8 +1131,13 @@ export async function sincronizarIngresosExcepcionalesPendientes({
     } else {
       errores++;
       const intentos = (item.intentos || 0) + 1;
+      const mensajeServidor = respuesta?.mensaje || "";
+      const esExamenCancelado = mensajeServidor.includes(MENSAJE_EXAMEN_CANCELADO);
+      if (esExamenCancelado && item.idExamen != null) {
+        examenesCancelados.add(Number(item.idExamen));
+      }
       const reintentable =
-        estado !== "ERROR_VALIDACION" && estado !== "NO_AUTORIZADO";
+        !esExamenCancelado && estado !== "ERROR_VALIDACION" && estado !== "NO_AUTORIZADO";
       await ingresoExcepcionalRepo.marcarEstado(
         item.clientUuid,
         reintentable ? ESTADO_SYNC.PENDIENTE : ESTADO_SYNC.ERROR,
@@ -1075,9 +1147,20 @@ export async function sincronizarIngresosExcepcionalesPendientes({
             ? Date.now() + calcularBackoffMs(intentos)
             : 0,
           ultimoError:
-            respuesta?.mensaje || estado || "ITEM_NO_DEVUELTO_POR_SERVIDOR",
+            esExamenCancelado
+              ? MENSAJE_EXAMEN_CANCELADO
+              : respuesta?.mensaje || estado || "ITEM_NO_DEVUELTO_POR_SERVIDOR",
         },
       );
+    }
+  }
+
+  // Descartar todos los pendientes de exámenes detectados como cancelados.
+  for (const idExamen of examenesCancelados) {
+    try {
+      await ingresoExcepcionalRepo.descartarPorExamenCancelado(idExamen);
+    } catch (errDescartar) {
+      console.warn("[sync] Error descartando ingresos excepcionales de examen cancelado:", errDescartar);
     }
   }
 
@@ -1103,6 +1186,7 @@ export async function sincronizarRevocacionesPendientes({
   const deviceId = await obtenerDeviceId();
   let procesados = 0;
   let errores = 0;
+  const examenesCancelados = new Set();
 
   while (true) {
     const lote = await revocacionRepo.pendientes(Math.max(1, tamanoLote));
@@ -1158,16 +1242,24 @@ export async function sincronizarRevocacionesPendientes({
       } catch (error) {
         errores++;
         const intentos = (item.intentos || 0) + 1;
+        const mensajeServidor = error.message || "";
+        const esExamenCancelado = mensajeServidor.includes(MENSAJE_EXAMEN_CANCELADO);
+        if (esExamenCancelado && item.idExamen != null) {
+          examenesCancelados.add(Number(item.idExamen));
+        }
         await revocacionRepo.marcarEstado(
           item.clientUuid,
-          ESTADO_SYNC.PENDIENTE,
+          esExamenCancelado ? ESTADO_SYNC.ERROR : ESTADO_SYNC.PENDIENTE,
           {
             intentos,
-            nextRetryAt:
-              error.status === 401
+            nextRetryAt: esExamenCancelado
+              ? 0
+              : error.status === 401
                 ? 0
                 : Date.now() + calcularBackoffMs(intentos),
-            ultimoError: error.message || "FALLO_CONEXION",
+            ultimoError: esExamenCancelado
+              ? MENSAJE_EXAMEN_CANCELADO
+              : error.message || "FALLO_CONEXION",
           },
         );
         if (error.status === 401) {
@@ -1186,6 +1278,15 @@ export async function sincronizarRevocacionesPendientes({
           });
           break;
         }
+      }
+    }
+
+    // Descartar todas las revocaciones pendientes de exámenes detectados como cancelados.
+    for (const idExamen of examenesCancelados) {
+      try {
+        await revocacionRepo.descartarPorExamenCancelado(idExamen);
+      } catch (errDescartar) {
+        console.warn("[sync] Error descartando revocaciones de examen cancelado:", errDescartar);
       }
     }
   }

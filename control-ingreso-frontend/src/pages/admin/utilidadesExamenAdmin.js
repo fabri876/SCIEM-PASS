@@ -4,6 +4,7 @@
 import {
   estadoExamen,
   rangoExamen,
+  puedeCancelarExamen,
   MINUTOS_ANTES_CONTROL_INGRESO,
 } from "../docente/utilidadesExamenDocente";
 import { textoGrupoExamen } from "../../components/examenes/textoGrupoExamen";
@@ -20,6 +21,7 @@ export const ESTILOS_ESTADO = {
   PROXIMO: { texto: "Próximo", clase: "bg-[#EFF6FF] text-[#003770] border-[#BFDBFE]" },
   EN_CURSO: { texto: "En curso", clase: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]" },
   FINALIZADO: { texto: "Finalizado", clase: "bg-[#F1F5F9] text-[#475569] border-[#CBD5E1]" },
+  CANCELADO: { texto: "Cancelado", clase: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]" },
 };
 
 function aFecha(strFecha) {
@@ -44,8 +46,9 @@ export function tiempoDeExamen(ex) {
   };
 }
 
-// "PROXIMO" | "EN_CURSO" | "FINALIZADO"
+// "PROXIMO" | "EN_CURSO" | "FINALIZADO" | "CANCELADO"
 export function estadoDeExamen(ex, ahora = new Date()) {
+  if (ex?.cancelado) return "CANCELADO";
   const e = estadoExamen(tiempoDeExamen(ex), ahora);
   return e === "SIN_FECHA" ? "PROXIMO" : e;
 }
@@ -99,6 +102,11 @@ export function controlDisponible(ex, ahora = new Date()) {
   const { inicio } = rangoExamen(tiempoDeExamen(ex));
   if (!inicio) return true;
   return ahora >= new Date(inicio.getTime() - MINUTOS_ANTES_CONTROL_INGRESO * 60000);
+}
+
+// true si el examen aún se puede cancelar (hasta 15 min antes del inicio)
+export function sePuedeCancelar(ex, ahora = new Date()) {
+  return puedeCancelarExamen({ ...tiempoDeExamen(ex), cancelado: ex?.cancelado }, ahora);
 }
 
 // strOrden: "proximos" → primero lo que aún no terminó (el más cercano arriba) y

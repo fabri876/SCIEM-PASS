@@ -22,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import java.util.List;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenDetalleDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CancelarExamenRequest;
 
 @RestController
 @RequestMapping("/api/examenes")
@@ -47,6 +48,20 @@ public class ExamenController {
         return ResponseEntity.ok(examenService.actualizarExamen(id, request, ClientIpResolver.resolver(httpRequest)));
     }
 
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<ExamenRespuestaDto> cancelarExamen(
+            @PathVariable Integer id, @RequestBody CancelarExamenRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(examenService.cancelarExamen(id,
+                request == null ? null : request.motivo(), ClientIpResolver.resolver(httpRequest)));
+    }
+
+    @PostMapping("/{id}/reactivar")
+    public ResponseEntity<ExamenRespuestaDto> reactivarExamen(
+            @PathVariable Integer id, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(examenService.reactivarExamen(id, ClientIpResolver.resolver(httpRequest)));
+    }
+
     @GetMapping("/horarios-regulares")
     public ResponseEntity<List<HorarioRegular>> obtenerHorariosRegulares(
             @RequestParam Integer idUsuario,
@@ -63,9 +78,15 @@ public class ExamenController {
         return ResponseEntity.ok(examenService.obtenerDetalleExamenPorAsignatura(idAsignatura));
     }
 
+
     @GetMapping
     public ResponseEntity<List<ExamenRespuestaDto>> obtenerExamenes() {
         return ResponseEntity.ok(examenService.obtenerExamenesEnriquecidos());
+    }
+
+    @GetMapping("/resumen")
+    public ResponseEntity<List<ExamenRespuestaDto>> obtenerExamenesResumen() {
+        return ResponseEntity.ok(examenService.obtenerExamenesResumen());
     }
 
     // FIX #3: examen individual también enriquecido
@@ -85,6 +106,13 @@ public class ExamenController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Integer idUsuarioAutenticado = (Integer) auth.getDetails();
         return ResponseEntity.ok(examenService.obtenerMisExamenesEnriquecidos(idUsuarioAutenticado));
+    }
+
+    @GetMapping("/mis-examenes-resumen")
+    @PreAuthorize("hasRole('DOCENTE')")
+    public ResponseEntity<List<ExamenRespuestaDto>> obtenerMisExamenesResumen() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return ResponseEntity.ok(examenService.obtenerMisExamenesResumen((Integer) auth.getDetails()));
     }
 
     /** Consulta acotada para reportes del administrador; evita cargar todos los exámenes. */

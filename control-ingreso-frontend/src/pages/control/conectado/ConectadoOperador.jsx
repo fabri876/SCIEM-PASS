@@ -2,7 +2,8 @@
 // Sin examen elegido: banner (igual al de los otros paneles), "Mis exámenes de hoy" (con el conmutador
 // Online/Offline de Yuri en su encabezado), calendario y próximo examen.
 // Con examen elegido: pantalla de registro de ingreso (verificación, resultado y últimos ingresos)
-// y el botón de lista: con internet "Lista oficial" (toda su aula); sin internet "Mi lista" (solo su rango).
+// y el botón de lista: con internet "Lista oficial del examen" (todo el examen, igual que el docente);
+// sin internet "Mi lista" (solo su aula y su rango).
 // En la pantalla de registro se oculta el menú lateral y, sin internet, "Mis últimos ingresos"
 // muestra los registros guardados en este equipo.
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,7 +17,7 @@ import { useLayoutAyudante } from "../layoutAyudanteContexto";
 import SeccionControlIngreso from "../ingreso/SeccionControlIngreso";
 import EncabezadoControl from "../ingreso/componentes/EncabezadoControl";
 import PanelMiLista from "../ingreso/componentes/PanelMiLista";
-import SelectorConexion from "../components/SelectorConexion";
+import PanelListaOficial from "../ingreso/componentes/PanelListaOficial";
 import TarjetaHoyAyudante from "../inicio/TarjetaHoyAyudante";
 import CalendarioExamenes from "../../credencial/componentes/CalendarioExamenes";
 import ProximoExamenDocente from "../../docente/components/ProximoExamenDocente";
@@ -78,7 +79,6 @@ export default function ConectadoOperador() {
   if (ctrl.idExamen != null) {
     return (
       <div className="space-y-5">
-        <SelectorConexion />
         <EncabezadoControl
           net={estadoRed.net}
           pend={estadoRed.pend}
@@ -95,20 +95,30 @@ export default function ConectadoOperador() {
               onClick={() => setBoolMiListaAbierta(true)}
               className="min-h-10 px-4 rounded-lg bg-white text-[#003770] text-[14px] font-bold inline-flex items-center justify-center gap-2 hover:bg-[#F0F6FC] cursor-pointer max-md:w-full"
             >
-              <ListChecks className="w-4 h-4" /> {boolSinRed ? "Mi lista" : "Lista oficial"}
+              <ListChecks className="w-4 h-4" /> {boolSinRed ? "Mi lista" : "Lista oficial del examen"}
             </button>
           }
         />
-        <PanelMiLista
-          boolAbierto={boolMiListaAbierta}
-          onCerrar={fnCerrarMiLista}
-          examen={ctrl.examenActual}
-          boolSinRed={boolSinRed}
-          numVersion={ctrl.numVersion}
-          numPendientes={estadoRed.pend}
-          strUltimoRegistrado={ctrl.strUltimoRegistrado}
-          strNominaDescargadaEn={ctrl.objNomina?.descargadaEn}
-        />
+        {boolSinRed ? (
+          <PanelMiLista
+            boolAbierto={boolMiListaAbierta}
+            onCerrar={fnCerrarMiLista}
+            examen={ctrl.examenActual}
+            boolSinRed={boolSinRed}
+            numVersion={ctrl.numVersion}
+            numPendientes={estadoRed.pend}
+            strUltimoRegistrado={ctrl.strUltimoRegistrado}
+            strNominaDescargadaEn={ctrl.objNomina?.descargadaEn}
+          />
+        ) : (
+          <PanelListaOficial
+            boolAbierto={boolMiListaAbierta}
+            onCerrar={fnCerrarMiLista}
+            idExamen={ctrl.examenActual?.idexamen ?? null}
+            numVersion={ctrl.numVersion}
+            strUltimoRegistrado={ctrl.strUltimoRegistrado}
+          />
+        )}
         <ModalIngresoExcepcional
           boolAbierto={Boolean(excepcionFacial)}
           onCerrar={() => {
@@ -172,7 +182,6 @@ export default function ConectadoOperador() {
                 <h3 className="text-base font-black text-[#08264A]">Mis exámenes de hoy</h3>
                 <p className="text-xs font-bold text-slate-500 mt-0.5">{fechaDeHoy()}</p>
               </div>
-              <SelectorConexion />
             </div>
             <div className="px-5 py-4 space-y-2.5">
               {ctrl.boolCargandoExamenes && listHoy.length === 0 ? (

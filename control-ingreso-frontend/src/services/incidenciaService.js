@@ -182,6 +182,10 @@ export async function registrarIncidencia({
   idAmbiente,
   tipo,
   severidad,
+  accion,
+  detalleTipoOtro,
+  detalleAccionOtro,
+  puntajeReducir,
   descripcion,
   codSisEstudiante = null,
   retirarEstudiante = false,
@@ -192,6 +196,16 @@ export async function registrarIncidencia({
   formData.append("idAmbiente", idAmbiente);
   formData.append("tipo", tipo);
   formData.append("severidad", severidad);
+  formData.append("accion", accion);
+  if (detalleTipoOtro != null) {
+    formData.append("detalleTipoOtro", detalleTipoOtro);
+  }
+  if (detalleAccionOtro != null) {
+    formData.append("detalleAccionOtro", detalleAccionOtro);
+  }
+  if (puntajeReducir != null) {
+    formData.append("puntajeReducir", String(puntajeReducir));
+  }
   formData.append("descripcion", descripcion);
   formData.append("retirarEstudiante", Boolean(retirarEstudiante));
 

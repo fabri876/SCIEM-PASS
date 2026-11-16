@@ -16,7 +16,8 @@ import {
 import VentanaEmergente from "../../../components/common/VentanaEmergente";
 import ExamenFormAdmin from "./ExamenFormAdmin";
 import DetalleExamenAdmin from "./DetalleExamenAdmin";
-import MenuIngresoExamen from "./MenuIngresoExamen";
+import MenuAccionesExamen from "./MenuAccionesExamen";
+import ModalCancelarExamen from "../../../components/examenes/ModalCancelarExamen";
 import AsignarOperadoresDocente from "../../docente/operadores/AsignarOperadoresDocente";
 import PanelIngresosExamen from "../../control/ingreso/componentes/PanelIngresosExamen";
 // "Seguridad de Sistemas · Primer Parcial · 24 oct" para el panel de ingresos
@@ -37,6 +38,7 @@ import {
     nombreGrupo,
     horaAperturaControl,
     controlDisponible,
+    sePuedeCancelar,
     ordenarPorFecha,
     sinAcentos,
 } from "../utilidadesExamenAdmin";
@@ -59,6 +61,7 @@ const CHIPS_ESTADO = [
     { valor: "PROXIMO", etiqueta: "Próximos" },
     { valor: "EN_CURSO", etiqueta: "En curso" },
     { valor: "FINALIZADO", etiqueta: "Finalizados" },
+    { valor: "CANCELADO", etiqueta: "Cancelados" },
 ];
 
 function IconoMas() {
@@ -213,6 +216,7 @@ export default function SeccionRegistroExamenes() {
     // Acciones del botón "Ingreso"
     const [examenOperadores, setExamenOperadores] = useState(null);
     const [examenLista, setExamenLista] = useState(null);
+    const [examenACancelar, setExamenACancelar] = useState(null);
 
     // Filtros, orden y paginación
     const [strBusqueda, setStrBusqueda] = useState("");
@@ -243,10 +247,8 @@ export default function SeccionRegistroExamenes() {
             obtenerExamenes(),
             obtenerTiposExamen(),
             obtenerDocentesAdmin(),
-            obtenerNormasGenerales(),
-            obtenerNormasParticularesAdmin(),
         ])
-            .then(([examenes, tipos, docentes, normasGenerales, normasParticulares]) => {
+            .then(([examenes, tipos, docentes]) => {
                 setArrExamenes(examenes || []);
                 setIntPaginaActual(1);
 
@@ -257,8 +259,13 @@ export default function SeccionRegistroExamenes() {
                 setMapTiposExamen(objMapTipo);
 
                 setArrDocentes(docentes || []);
-                setArrNormasGenerales(normasGenerales || []);
-                setArrNormasParticulares(normasParticulares || []);
+                // Las normas no bloquean la tabla de exámenes; se cargan en segundo plano.
+                Promise.all([obtenerNormasGenerales(), obtenerNormasParticularesAdmin()])
+                    .then(([normasGenerales, normasParticulares]) => {
+                        setArrNormasGenerales(normasGenerales || []);
+                        setArrNormasParticulares(normasParticulares || []);
+                    })
+                    .catch(() => {});
             })
             .catch(() => {
                 setArrExamenes([]);
@@ -337,7 +344,7 @@ export default function SeccionRegistroExamenes() {
     }, [arrExamenesCalculados, strBusqueda, strDocenteFiltro, strAsignaturaFiltro]);
 
     const objConteos = useMemo(() => {
-        const c = { TODOS: arrBaseFiltrada.length, PROXIMO: 0, EN_CURSO: 0, FINALIZADO: 0 };
+        const c = { TODOS: arrBaseFiltrada.length, PROXIMO: 0, EN_CURSO: 0, FINALIZADO: 0, CANCELADO: 0 };
         arrBaseFiltrada.forEach((ex) => { c[ex._estado] += 1; });
         return c;
     }, [arrBaseFiltrada]);
@@ -726,8 +733,9 @@ export default function SeccionRegistroExamenes() {
                                                     <th className="pb-3 pr-3">Tipo</th>
                                                     <th className="pb-3 pr-3">Docente</th>
                                                     <th className="pb-3 pr-3">Fecha y hora</th>
-                                                    <th className="pb-3 pr-3">Estado</th>
-                                                    <th className="pb-3">Acciones</th>
+                                                    {/* En "Cancelados" todos tienen el mismo estado: su lugar lo toma el motivo */}
+                                                    <th className="pb-3 pr-3">{strEstadoFiltro === "CANCELADO" ? "Motivo" : "Estado"}</th>
+                                                    <th className="pb-3 w-10" aria-label="Opciones" />
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -748,25 +756,34 @@ export default function SeccionRegistroExamenes() {
                                                             <td className="py-3.5 pr-3 whitespace-nowrap">{ex._tipo}</td>
                                                             <td className="py-3.5 pr-3">{ex._docente}</td>
                                                             <td className="py-3.5 pr-3 whitespace-nowrap">{fechaCorta(ex)}</td>
-                                                            <td className="py-3.5 pr-3"><PildoraEstado strEstado={ex._estado} /></td>
-                                                            <td className="py-3.5">
-                                                                <div className="flex items-center gap-3.5">
-                                                                    <button type="button" title="Ver detalles" onClick={() => handleVerDetalle(ex)} className="text-[#5E71A0] hover:text-[#163F79] cursor-pointer">
+                                                            <td className="py-3.5 pr-3">
+                                                                {strEstadoFiltro === "CANCELADO" ? (
+                                                                    <span className="block max-w-[280px] text-[12.5px] text-slate-600 break-words">{ex.motivoCancelacion || "-"}</span>
+                                                                ) : (
+                                                                    <PildoraEstado strEstado={ex._estado} />
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3.5 text-center">
+                                                                {ex._estado === "CANCELADO" ? (
+                                                                    // Cancelado: solo se puede ver el detalle (con el motivo)
+                                                                    <button type="button" title="Ver detalle" aria-label="Ver detalle" onClick={() => handleVerDetalle(ex)} className="w-8 h-8 rounded-full inline-flex items-center justify-center text-[#475569] hover:bg-[#EEF2F7] hover:text-[#003770] cursor-pointer">
                                                                         <IconoOjo />
                                                                     </button>
-                                                                    <button type="button" title="Editar" onClick={() => handleEditar(ex)} className="text-[#5E71A0] hover:text-[#163F79] cursor-pointer">
-                                                                        <IconoLapiz />
-                                                                    </button>
-                                                                    <MenuIngresoExamen
+                                                                ) : (
+                                                                    <MenuAccionesExamen
                                                                         boolSoloLectura={ex._estado !== "PROXIMO"}
                                                                         boolFinalizado={ex._estado === "FINALIZADO"}
                                                                         boolControlDisponible={controlDisponible(ex, dateAhora)}
                                                                         strDisponibleDesde={horaAperturaControl(ex)}
+                                                                        boolPuedeCancelar={sePuedeCancelar(ex, dateAhora)}
                                                                         onAsignar={() => setExamenOperadores(ex)}
                                                                         onVerLista={() => setExamenLista(ex)}
                                                                         onAbrirControl={() => handleAbrirControl(ex)}
+                                                                        onVerDetalle={() => handleVerDetalle(ex)}
+                                                                        onEditar={() => handleEditar(ex)}
+                                                                        onCancelar={() => setExamenACancelar(ex)}
                                                                     />
-                                                                </div>
+                                                                )}
                                                             </td>
                                                         </tr>
                                                     );
@@ -997,6 +1014,12 @@ export default function SeccionRegistroExamenes() {
                     />
                 )}
             </VentanaEmergente>
+
+            <ModalCancelarExamen
+                examen={examenACancelar}
+                onCerrar={() => setExamenACancelar(null)}
+                onCancelado={() => { setExamenACancelar(null); cargarTodo(); }}
+            />
 
             {/* "Ver ingresos": todos los estudiantes con su estado, hora y quién registró (solo lectura) */}
             <PanelIngresosExamen

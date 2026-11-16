@@ -36,6 +36,18 @@ const ETIQUETAS_TIPO = {
 
 const ETIQUETAS_SEVERIDAD = { ALTA: "Alta", MEDIA: "Media", BAJA: "Baja" };
 
+const ETIQUETAS_ACCIONES = {
+  REGISTRO: "Registro de la incidencia",
+  ADVERTENCIA_VERBAL: "Advertencia verbal",
+  ADVERTENCIA_ESCRITA: "Advertencia escrita",
+  CAMBIO_ASIENTO: "Cambio de asiento",
+  RETIRO_MATERIAL: "Retiro del material/dispositivo",
+  DESCUENTO_PUNTAJE: "Descuento de puntos",
+  ANULACION_PREGUNTA: "Anulación de pregunta/sección",
+  ANULACION_EXAMEN: "Anulación del examen",
+  OTRO: "Otro",
+};
+
 const ESTILO_SEVERIDAD = {
   ALTA: {
     barra: "bg-[#B91C1C]",
@@ -61,13 +73,26 @@ const ESTILO_ESTADO = {
 };
 
 function textoTipo(item) {
-  // Cuando el tipo es "Otro", el texto descriptivo escrito por el usuario va en
-  // el campo descripcion (p.ej. "no trabajo barbijo"). Mostrar ese texto en vez
-  // de la etiqueta genérica "Otro" (BUG-050 / TC-214).
-  if (item.tipo === "OTRO" && item.descripcion && item.descripcion.trim()) {
-    return item.descripcion.trim();
+  // Cuando el tipo es "Otro", mostrar el texto escrito en vez de "Otro"
+  if (item.tipo === "OTRO") {
+    if (item.detalleTipoOtro && item.detalleTipoOtro.trim()) {
+      return item.detalleTipoOtro.trim();
+    }
+    // Incidencias anteriores al 2026-11-14: el texto libre quedaba concatenado
+    // dentro de la descripcion porque la columna detalletipootro no existia.
+    if (item.descripcion && item.descripcion.trim()) {
+      return item.descripcion.trim();
+    }
   }
   return item.tipoEtiqueta || ETIQUETAS_TIPO[item.tipo] || item.tipo || "Incidencia";
+}
+
+function textoAccion(item) {
+  // Cuando la acción es "Otro", mostrar el texto escrito en vez de "Otro"
+  if (item.accion === "OTRO" && item.detalleAccionOtro && item.detalleAccionOtro.trim()) {
+    return item.detalleAccionOtro.trim();
+  }
+  return item.accionEtiqueta || ETIQUETAS_ACCIONES[item.accion] || item.accion || "-";
 }
 
 function textoSeveridad(item) {
@@ -130,9 +155,13 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
           estado: esError ? "ERROR_SYNC" : "PENDIENTE_SYNC",
           estadoEtiqueta: esError ? "Rechazada por el servidor" : "Pendiente de envío",
           tipo: p.tipo,
-          tipoEtiqueta: p.tipo === "OTRO" && p.descripcion && p.descripcion.trim()
-            ? p.descripcion.trim()
-            : ETIQUETAS_TIPO[p.tipo] || p.tipo,
+          tipoEtiqueta: ETIQUETAS_TIPO[p.tipo] || p.tipo,
+          // El texto libre se conserva tal cual: textoTipo/textoAccion lo usan
+          // para mostrar lo que escribio el docente cuando el tipo/accion es OTRO.
+          detalleTipoOtro: p.detalleTipoOtro || null,
+          accion: p.accion,
+          accionEtiqueta: ETIQUETAS_ACCIONES[p.accion] || p.accion,
+          detalleAccionOtro: p.detalleAccionOtro || null,
           severidad: p.severidad,
           severidadEtiqueta: ETIQUETAS_SEVERIDAD[p.severidad] || p.severidad,
           descripcion: p.descripcion,
@@ -517,12 +546,16 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
                         )}
                       </div>
 
-                      <h4 className="mt-1.5 flex items-center gap-2 flex-wrap text-sm font-black text-[#08264A]">
-                        {textoTipo(it)}
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-[9.5px] font-black uppercase tracking-wider ${estiloSeveridad.insignia}`}>
-                          {textoSeveridad(it)}
-                        </span>
-                      </h4>
+                      <div className="mt-1.5 flex flex-col gap-1">
+                        <div className="flex items-start gap-2 text-sm font-black text-[#08264A]">
+                          <span className="text-[#B91C1C] font-bold text-[10px]">TIPO:</span>
+                          <span>{textoTipo(it)}</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-sm font-black text-[#08264A]">
+                          <span className="text-[#B91C1C] font-bold text-[10px]">ACCION:</span>
+                          <span>{textoAccion(it)}</span>
+                        </div>
+                      </div>
 
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-[#7A8BA0]">
                         {it.estudiante && (
@@ -554,7 +587,11 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
                       {esError && it.ultimoError && (
                         <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-[#FEE2E2] bg-[#FEF2F2] px-2.5 py-1.5 text-[10.5px] font-bold text-[#B91C1C]">
                           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
-                          <span>Motivo del rechazo: {it.ultimoError}</span>
+                          <span>
+                            {it.ultimoError.includes("Examen cancelado")
+                              ? "Examen cancelado · no se registró"
+                              : "Motivo del rechazo: " + it.ultimoError}
+                          </span>
                         </div>
                       )}
 

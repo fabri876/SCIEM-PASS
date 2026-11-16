@@ -14,6 +14,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceIntento
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerificacionEstudianteRequestDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.FaceVerificacionEstudianteResponseDto;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ClientIpResolver;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -53,9 +55,15 @@ public class FaceController {
                                                             @RequestParam String embedding,
                                                             @RequestParam String modelVersion,
                                                             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-                                                            LocalDateTime consentimientoAt) {
+                                                            LocalDateTime consentimientoAt, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(enrollmentService.enrolar(file, embedding, modelVersion, consentimientoAt));
+                .body(enrollmentService.enrolar(file, embedding, modelVersion, consentimientoAt, ClientIpResolver.resolver(request)));
+    }
+
+    @PostMapping("/enrollment/consentimiento")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public ResponseEntity<FaceEnrollmentStatusDto> registrarConsentimiento(HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(enrollmentService.registrarConsentimiento(ClientIpResolver.resolver(request)));
     }
 
     @PostMapping(value = "/enrollment/{idUsuario}/override", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -65,9 +73,9 @@ public class FaceController {
                                                                                  @RequestParam String embedding,
                                                                                  @RequestParam String modelVersion,
                                                                                  @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-                                                                                 LocalDateTime consentimientoAt) {
+                                                                                 LocalDateTime consentimientoAt, HttpServletRequest request) {
         return ResponseEntity.ok(enrollmentService.reenrolarComoAdministrador(
-                idUsuario, file, embedding, modelVersion, consentimientoAt));
+                idUsuario, file, embedding, modelVersion, consentimientoAt, ClientIpResolver.resolver(request)));
     }
 
     @GetMapping("/enrollment/status")
@@ -79,16 +87,16 @@ public class FaceController {
     @PostMapping("/verificar-estudiante")
     @PreAuthorize("hasRole('ESTUDIANTE')")
     public ResponseEntity<FaceVerificacionEstudianteResponseDto> verificarEstudiante(
-            @Valid @RequestBody FaceVerificacionEstudianteRequestDto solicitud) {
+            @Valid @RequestBody FaceVerificacionEstudianteRequestDto solicitud, HttpServletRequest request) {
         return ResponseEntity.ok(enrollmentService.verificarEstudiante(
-                solicitud.embedding(), solicitud.livenessScore(), solicitud.idExamen()));
+                solicitud.embedding(), solicitud.livenessScore(), solicitud.idExamen(), ClientIpResolver.resolver(request)));
     }
 
     @PatchMapping("/enrollment/{idEnrollment}/status")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public FaceEnrollmentStatusDto cambiarEstado(@PathVariable Integer idEnrollment,
-                                                  @Valid @RequestBody FaceEnrollmentStatusRequestDto solicitud) {
-        return enrollmentService.cambiarEstado(idEnrollment, solicitud.estado());
+                                                  @Valid @RequestBody FaceEnrollmentStatusRequestDto solicitud, HttpServletRequest request) {
+        return enrollmentService.cambiarEstado(idEnrollment, solicitud.estado(), ClientIpResolver.resolver(request));
     }
 
     @GetMapping("/examenes/{idExamen}/paquete")
@@ -99,16 +107,20 @@ public class FaceController {
 
     @PostMapping("/sync")
     @PreAuthorize("hasAnyRole('OPERADOR','DOCENTE','ADMINISTRADOR')")
-    public FaceSyncResponseDto sincronizar(@RequestBody FaceSyncRequestDto solicitud) {
-        return syncService.sincronizar(solicitud);
+    public FaceSyncResponseDto sincronizar(@RequestBody FaceSyncRequestDto solicitud, HttpServletRequest request) {
+        return syncService.sincronizar(solicitud, ClientIpResolver.resolver(request));
     }
 
     @GetMapping(value = "/enrollment/{idUsuario}/foto", produces = MediaType.IMAGE_JPEG_VALUE)
     @PreAuthorize("hasAnyRole('ESTUDIANTE','OPERADOR','DOCENTE','ADMINISTRADOR')")
-    public ResponseEntity<byte[]> obtenerFotoEnrolamiento(@PathVariable Integer idUsuario) {
-        byte[] bytes = enrollmentService.obtenerFotoBytes(idUsuario);
+    public ResponseEntity<byte[]> obtenerFotoEnrolamiento(@PathVariable Integer idUsuario,
+                                                            @RequestParam(required = false) Integer idExamen,
+                                                            HttpServletRequest request) {
+        byte[] bytes = enrollmentService.obtenerFotoBytes(idUsuario, idExamen, ClientIpResolver.resolver(request));
         return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "max-age=3600, private")
+                // Una foto biometrica puede ser reemplazada o eliminada: nunca
+                // servir una version anterior desde la cache del navegador.
+                .header(HttpHeaders.CACHE_CONTROL, "no-store, private")
                 .body(bytes);
     }
 

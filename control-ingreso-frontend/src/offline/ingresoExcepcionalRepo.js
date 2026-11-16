@@ -81,6 +81,50 @@ export const ingresoExcepcionalRepo = {
       .count();
   },
 
+  async contarPorEstado() {
+    const conteo = { pendiente: 0, syncing: 0, sincronizado: 0, duplicado: 0, error: 0 };
+    const todos = await db.ingresos_excepcionales_pendientes.toArray();
+    for (const item of todos) {
+      if (item.syncStatus === ESTADO_SYNC.PENDIENTE) conteo.pendiente++;
+      else if (item.syncStatus === ESTADO_SYNC.SYNCING) conteo.syncing++;
+      else if (item.syncStatus === ESTADO_SYNC.SINCRONIZADO) conteo.sincronizado++;
+      else if (item.syncStatus === ESTADO_SYNC.DUPLICADO) conteo.duplicado++;
+      else if (item.syncStatus === ESTADO_SYNC.ERROR) conteo.error++;
+    }
+    return conteo;
+  },
+
+  async pendienteParaEstudiante(idExamen, codSis) {
+    const exId = Number(idExamen);
+    const sis = Number(normalizarCodigo(codSis));
+    if (!Number.isInteger(exId) || !Number.isInteger(sis)) return null;
+    return await db.ingresos_excepcionales_pendientes
+      .where('[idExamen+codSis]')
+      .equals([exId, sis])
+      .and((item) => [ESTADO_SYNC.PENDIENTE, ESTADO_SYNC.SYNCING, ESTADO_SYNC.ERROR].includes(item.syncStatus))
+      .first();
+  },
+
+  async descartarYRevertirMarca(clientUuid) {
+    return await db.transaction('rw', [db.ingresos_excepcionales_pendientes, db.nominas], async () => {
+      const item = await db.ingresos_excepcionales_pendientes.get(clientUuid);
+      if (!item) return false;
+      await db.ingresos_excepcionales_pendientes.update(clientUuid, {
+        syncStatus: ESTADO_SYNC.REEMPLAZADO,
+        nextRetryAt: 0,
+        ultimoError: 'Descartado manualmente para corrección.',
+      });
+      if (item.idExamen != null && item.codSis != null) {
+        await db.nominas.update([Number(item.idExamen), normalizarCodigo(item.codSis)], {
+          marcadoLocal: 0,
+          marcadoEn: null,
+          marcadoPor: null,
+        });
+      }
+      return true;
+    });
+  },
+
   /** Registros locales aún no confirmados (pendientes, en envío o con error). */
   async listarLocales({ idExamen = null, idAmbiente = null } = {}) {
     const todos = await db.ingresos_excepcionales_pendientes.toArray();
@@ -104,5 +148,28 @@ export const ingresoExcepcionalRepo = {
       .where('syncStatus')
       .equals(ESTADO_SYNC.SYNCING)
       .modify({ syncStatus: ESTADO_SYNC.PENDIENTE, nextRetryAt: 0 });
+  },
+
+  /**
+   * Descarta los ingresos excepcionales pendientes de un examen que se detectó
+   * como cancelado al volver el internet. Se marcan como ERROR con el motivo
+   * "Examen cancelado" y no se reintentan.
+   */
+  async descartarPorExamenCancelado(idExamen) {
+    const exId = Number(idExamen);
+    const items = await db.ingresos_excepcionales_pendientes
+      .filter((i) => Number(i.idExamen) === exId && i.syncStatus !== ESTADO_SYNC.SINCRONIZADO)
+      .toArray();
+    await db.transaction("rw", db.ingresos_excepcionales_pendientes, async () => {
+      for (const item of items) {
+        await db.ingresos_excepcionales_pendientes.update(item.clientUuid, {
+          syncStatus: ESTADO_SYNC.ERROR,
+          nextRetryAt: 0,
+          ultimoError: "Examen cancelado",
+          sincronizadoEn: Date.now(),
+        });
+      }
+    });
+    return items.length;
   },
 };

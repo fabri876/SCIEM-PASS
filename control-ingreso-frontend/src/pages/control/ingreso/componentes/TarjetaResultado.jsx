@@ -77,6 +77,13 @@ function configurar(r, strRol) {
       };
     case "YA_REGISTRADO":
       return { strTono: "gris", Icono: RotateCcw, strTitulo: "YA REGISTRADO", strSub: "YA MARCÓ SU INGRESO A ESTE EXAMEN" };
+    case "EXCEPCIONAL_LOCAL_PENDIENTE":
+      return {
+        strTono: "bad", Icono: AlertTriangle,
+        strTitulo: "INGRESO EXCEPCIONAL PENDIENTE",
+        strSub: "NO SE PUEDE REGISTRAR UN INGRESO NORMAL TODAVÍA",
+        nota: <Nota>Existe un ingreso excepcional local sin confirmar. Sincronízalo o revísalo antes de intentar registrar nuevamente.</Nota>,
+      };
     case "RETIRADO":
       return {
         strTono: "bad", Icono: Ban, strTitulo: "ESTUDIANTE EXPULSADO", strSub: "NO PUEDE VOLVER A INGRESAR A ESTE EXAMEN",
@@ -179,6 +186,11 @@ function configurar(r, strRol) {
         strQuien: "Sin coincidencias en la nómina",
         nota: <Nota>No se encontró {r.metodo === "QR" ? "el código QR" : <>el dato «{r.valor ?? ""}»</>} en la nómina descargada de este examen. No se puede confirmar si está registrado en el sistema ni su examen correspondiente; verifica con conexión o consulta al docente. El intento no fue registrado en auditoría.</Nota>,
       };
+    case "REQUIERE_EXCEPCIONAL_ENROLAMIENTO":
+      return {
+        strTono: "advertencia", Icono: AlertTriangle, strTitulo: "INGRESO EXCEPCIONAL REQUERIDO",
+        strSub: "EL ESTADO FACIAL NO PERMITE UN INGRESO NORMAL",
+      };
     case "NO_ENCONTRADO":
       return {
         strTono: "bad", Icono: SearchX, strTitulo: "ESTUDIANTE NO ENCONTRADO", strSub: "EL DATO NO EXISTE EN EL SISTEMA",
@@ -196,11 +208,12 @@ function configurar(r, strRol) {
 const COLOR_BANDA = { ok: "bg-[#003770]", gris: "bg-[#475569]", bad: "bg-[#B91C1C]" };
 
 // Espacio de la foto: muestra la foto si el backend la envía; si no, las iniciales
-function Foto({ idUsuario, codigoSis, strNombre }) {
+function Foto({ idUsuario, codigoSis, idExamen, strNombre }) {
   return (
     <AvatarConFoto
       idUsuario={idUsuario}
       codigoSis={codigoSis}
+      idExamen={idExamen}
       className="w-24 h-[116px] max-md:w-20 max-md:h-24 rounded-xl border border-[#CBD5E1] bg-gradient-to-b from-[#E2E8F0] to-[#CBD5E1] flex flex-col items-center justify-center shrink-0 overflow-hidden"
       fallback={
         <>
@@ -212,7 +225,17 @@ function Foto({ idUsuario, codigoSis, strNombre }) {
   );
 }
 
-export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIncidencia, strRol = "operador" }) {
+// "CI" / "C.I." / "SIS" / "QR" / "Lista" → texto para "Identificado por …"
+function textoMetodoIdentificacion(strMetodo) {
+  const str = String(strMetodo || "").toUpperCase().replace(/\./g, "");
+  if (str === "QR") return "código QR";
+  if (str === "SIS") return "código SIS";
+  if (str === "CI") return "C.I.";
+  if (str === "LISTA") return "lista";
+  return strMetodo;
+}
+
+export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIncidencia, strRol = "operador", idExamen }) {
   const refTarjeta = useRef(null);
 
   useEffect(() => {
@@ -267,13 +290,14 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
 
       {/* Foto + datos del estudiante */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 px-4 sm:px-5 py-4 sm:py-[18px]">
-        <Foto idUsuario={e?.idusuario} codigoSis={e?.sis} strNombre={strNombre} />
+        <Foto idUsuario={e?.idusuario} codigoSis={e?.sis} idExamen={idExamen} strNombre={strNombre} />
         <div className="min-w-0">
           <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{strNombre}</div>
+          {/* Cómo se identificó al estudiante (no es un dato del estudiante) */}
           {objResultado.metodo && (
-            <span className="mt-1.5 inline-flex items-center rounded-full bg-[#F0F6FC] border border-[#D9E8F7] px-2.5 py-0.5 text-[11px] font-bold text-[#124B83]">
-              {objResultado.metodo}
-              {objResultado.conFacial != null && ` · ${objResultado.conFacial ? "con facial" : "sin facial"}`}
+            <span className="mt-1 block text-[12px] font-semibold text-[#64748B]">
+              Identificado por {textoMetodoIdentificacion(objResultado.metodo)}
+              {objResultado.conFacial != null && ` · ${objResultado.conFacial ? "con verificación facial" : "sin verificación facial"}`}
               {objResultado.modoRapido && " · modo rápido"}
             </span>
           )}

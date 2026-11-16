@@ -24,6 +24,11 @@ const OPCIONES = [
 export default function HomeEstudiante() {
   const [usuario, setUsuario] = useState(null);
   const [strMenuActivo, setStrMenuActivo] = useState("inicio");
+  const [boolMenuLateralMovil, setBoolMenuLateralMovil] = useState(false);
+
+  useEffect(() => {
+    setBoolMenuLateralMovil(false);
+  }, [strMenuActivo]);
 
   // Exámenes del estudiante y su credencial QR
   const [listExamenes, setListExamenes] = useState([]);
@@ -108,11 +113,35 @@ export default function HomeEstudiante() {
       <div className="flex-1 w-full">
         <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-4 sm:px-6 gap-6">
 
+          {!boolMenuLateralMovil && (
+            <button
+              type="button"
+              onClick={() => setBoolMenuLateralMovil(true)}
+              aria-label="Abrir menú lateral"
+              className="fixed top-[88px] left-4 z-[60] inline-flex items-center gap-2 rounded-xl bg-[#003770] px-3.5 py-2 text-xs font-extrabold text-white shadow-md lg:hidden"
+            >
+              <span aria-hidden="true">☰</span> Menú
+            </button>
+          )}
+
+          {boolMenuLateralMovil && (
+            <button
+              type="button"
+              aria-label="Cerrar menú lateral"
+              onClick={() => setBoolMenuLateralMovil(false)}
+              className="fixed inset-0 z-40 bg-slate-950/45 lg:hidden cursor-default"
+            />
+          )}
+
           {/* BARRA IZQUIERDA */}
-          <aside className="w-[280px] shrink-0 hidden lg:block space-y-6">
+          <aside className={`w-[280px] shrink-0 space-y-6 lg:block lg:static lg:z-auto lg:translate-x-0 ${boolMenuLateralMovil ? "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto translate-x-0 bg-[#F8FAFC] p-4 pt-6 shadow-2xl" : "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto -translate-x-full bg-[#F8FAFC] p-4 pt-6 shadow-2xl lg:translate-x-0"}`}>
+            <div className="flex justify-end lg:hidden mb-1">
+              <button type="button" onClick={() => setBoolMenuLateralMovil(false)} aria-label="Cerrar menú" className="text-slate-500 text-xl px-2 cursor-pointer">×</button>
+            </div>
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center text-center">
               <AvatarConFoto
                 idUsuario={usuario?.idUsuario}
+                codigoSis={usuario?.codigoSis}
                 className="w-16 h-16 rounded-2xl overflow-hidden bg-[#1A365D] shadow-md mb-3 flex items-center justify-center shrink-0"
                 fallback={<span className="text-white font-black text-xl">{strIniciales}</span>}
               />
@@ -147,21 +176,6 @@ export default function HomeEstudiante() {
 
           {/* CONTENIDO */}
           <main className="flex-1 min-w-0 space-y-6">
-            {/* Menú en pestañas para el celular */}
-            <nav aria-label="Menú del estudiante" className="lg:hidden flex gap-1 p-1 bg-white rounded-2xl border border-slate-200 shadow-xs">
-              {OPCIONES.map(({ strClave, strTexto, Icono }) => (
-                <button
-                  key={strClave}
-                  type="button"
-                  onClick={() => fnSeleccionarMenu(strClave)}
-                  className={"flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap cursor-pointer " +
-                    (strMenuActivo === strClave ? "bg-[#1A365D] text-white" : "text-slate-700")}
-                >
-                  <Icono className="w-4 h-4" /> {strTexto}
-                </button>
-              ))}
-            </nav>
-
             {examenQr ? (
               <VistaCredencialQr examen={examenQr} usuario={usuario} onVolver={() => setIdExamenQr(null)} />
             ) : strMenuActivo === "mis-examenes" ? (

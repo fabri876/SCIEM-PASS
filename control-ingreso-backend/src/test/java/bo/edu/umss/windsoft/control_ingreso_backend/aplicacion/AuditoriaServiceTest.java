@@ -100,7 +100,7 @@ class AuditoriaServiceTest {
 
         org.mockito.ArgumentCaptor<Auditoria> captor = org.mockito.ArgumentCaptor.forClass(Auditoria.class);
         verify(auditoriaRepository).save(captor.capture());
-        org.junit.jupiter.api.Assertions.assertTrue(captor.getValue().getAccion().length() <= 255);
+        org.junit.jupiter.api.Assertions.assertTrue(captor.getValue().getAccion().length() > 255);
         verify(transactionManager).commit(any());
     }
 }

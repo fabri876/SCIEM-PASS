@@ -31,3 +31,23 @@ storage:
     # Ruta fuera de src/main/resources y del directorio público. En producción
     # debe sobrescribirse mediante application-local.yaml o variable de entorno.
     path: ./storage/biometrics
+
+backup:
+  enabled: ${BACKUP_ENABLED:false}
+  run-once: ${BACKUP_RUN_ONCE:false}
+  db:
+    host: ${BACKUP_DB_HOST:}
+    port: ${BACKUP_DB_PORT:5432}
+    user: ${BACKUP_DB_USER:}
+    name: ${BACKUP_DB_NAME:postgres}
+    password: ${BACKUP_DB_PASSWORD:}
+  storage:
+    url: ${SUPABASE_URL:}
+    service-key: ${SUPABASE_SERVICE_KEY:}
+    bucket: ${BACKUP_BUCKET:backups}
+  retention:
+    max: ${BACKUP_MAX:10}
+  auto:
+    interval-days: ${BACKUP_INTERVAL_DAYS:3}
+    enabled: ${BACKUP_AUTO_ENABLED:false}
+    
