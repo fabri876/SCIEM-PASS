@@ -7,7 +7,7 @@ import { useOperador } from "./operadorContexto";
 import ModalCierreSesion from "./components/ModalCierreSesion";
 import ToastOperador from "./components/ToastOperador";
 import ToastSyncConfirmacion from "./components/ToastSyncConfirmacion";
-import BarraLateralAyudante, { PestanasAyudante } from "./components/BarraLateralAyudante";
+import BarraLateralAyudante from "./components/BarraLateralAyudante";
 import { LayoutAyudanteContexto } from "./layoutAyudanteContexto";
 
 // Panel del ayudante: perfil y menú a la izquierda (como el docente) y la sección elegida a la derecha.
@@ -25,7 +25,6 @@ function ContenidoOperador() {
     sesionCerradaVisible, resumenSesion,
   } = useOperador();
 
-  const fnCerrarMenuAlNavegar = () => setBoolMenuLateralMovil(false);
   useEffect(() => {
     setBoolMenuLateralMovil(false);
   }, [location.pathname]);
@@ -38,16 +37,10 @@ function ContenidoOperador() {
 
       <div className="flex-1 w-full">
         {/* Pantalla de registro: mismo ancho que el registro de ingreso del docente (1200px) */}
-        <div className={`flex pt-[115px] pb-10 ${boolPantallaCompleta ? "max-w-[1200px]" : "max-w-[1440px]"} mx-auto px-4 sm:px-6 gap-6`}>
-          {!boolPantallaCompleta && boolMenuLateralMovil && (
-            <button type="button" aria-label="Cerrar menú lateral" onClick={fnCerrarMenuAlNavegar} className="fixed inset-0 z-40 bg-slate-950/45 lg:hidden cursor-default" />
-          )}
-          {!boolPantallaCompleta && (
-            <button type="button" onClick={() => setBoolMenuLateralMovil(true)} className="fixed top-[78px] left-4 z-30 inline-flex items-center gap-2 rounded-xl bg-[#003770] px-3.5 py-2 text-xs font-extrabold text-white shadow-md lg:hidden">
-              <span aria-hidden="true">☰</span> Menú
-            </button>
-          )}
-          {!boolPantallaCompleta && <BarraLateralAyudante boolMovilAbierto={boolMenuLateralMovil} onCerrarMovil={fnCerrarMenuAlNavegar} />}
+        <div className={`flex flex-col lg:flex-row pt-[115px] pb-10 ${boolPantallaCompleta ? "max-w-[1200px]" : "max-w-[1440px]"} mx-auto px-4 sm:px-6 gap-6`}>
+
+
+          {!boolPantallaCompleta && <BarraLateralAyudante boolMovilAbierto={boolMenuLateralMovil} onCambiarMovil={setBoolMenuLateralMovil} />}
           <main className="flex-1 min-w-0 space-y-5">
             <LayoutAyudanteContexto.Provider value={{ setBoolPantallaCompleta }}>
               <Outlet />
