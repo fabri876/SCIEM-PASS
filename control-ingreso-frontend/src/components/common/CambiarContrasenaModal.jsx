@@ -21,7 +21,7 @@ const VALORES_INICIALES = { contrasenaActual: "", contrasenaNueva: "", confirmar
  * BUG-043-EXP: cada campo tiene su propio estado de visibilidad y su propio
  * ojo, y se oculta el ojo nativo del navegador (Edge) para que no se duplique.
  */
-export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito }) {
+export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito, usuario }) {
   const [objFormData, setObjFormData] = useState(VALORES_INICIALES);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strError, setStrError] = useState("");
@@ -68,6 +68,16 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito 
       setStrError("Tu nueva contraseña debe llegar al nivel 8 (Segura) para poder guardarla.");
       return;
     }
+    if (usuario?.rol === "ADMINISTRADOR") {
+      const clave = objFormData.contrasenaNueva.toLowerCase();
+      const ci = (usuario.ci || "").trim().toLowerCase();
+      const correo = (usuario.correo || "").trim().split("@")[0].toLowerCase();
+      if (objFormData.contrasenaNueva.length > 256 || ["password", "contrasena", "contraseña", "qwerty", "admin"].some((p) => clave.includes(p))
+          || (ci && clave.includes(ci)) || (correo.length >= 4 && clave.includes(correo))) {
+        setStrError("Para administrador, evita patrones comunes, tu CI y el nombre de tu correo; usa hasta 256 caracteres.");
+        return;
+      }
+    }
     if (objFormData.contrasenaNueva !== objFormData.confirmarContrasena) {
       setStrError("La confirmación no coincide con la nueva contraseña.");
       return;
@@ -91,8 +101,9 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito 
       <div className="p-6">
         <h2 className="text-base font-black text-[#1A365D] mb-1">Cambiar contraseña</h2>
         <p className="text-xs text-slate-500 font-medium mb-5">
-          Ingresa tu contraseña actual y luego la nueva. Debe alcanzar el nivel 8 de seguridad.
+          Ingresa tu contraseña actual y luego la nueva. Debe alcanzar el nivel 8 de seguridad. Después deberás iniciar sesión nuevamente.
         </p>
+        {usuario?.rol === "ADMINISTRADOR" && <p className="text-xs text-slate-500 mb-4">No incluyas patrones comunes, tu CI ni el nombre de tu correo.</p>}
 
         {strError && (
           <p className="mb-4 text-xs font-semibold text-rose-600" role="alert">

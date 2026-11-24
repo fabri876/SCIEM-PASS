@@ -73,7 +73,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches("Password123*", "encodedPassword"))
                 .thenReturn(true);
         when(tipoUsuarioResolver.resolver(1)).thenReturn("ADMINISTRADOR");
-        when(jwtTokenProvider.generarToken("admin@umss.edu", "ADMINISTRADOR", 1, "Juan"))
+        when(jwtTokenProvider.generarToken("admin@umss.edu", "ADMINISTRADOR", 1, "Juan", "encodedPassword"))
                 .thenReturn("mock.jwt.token");
         when(jwtTokenProvider.getExpiration()).thenReturn(1800000L);
 
@@ -93,6 +93,7 @@ class AuthServiceTest {
 
         verify(usuarioRepository).save(usuarioActivo);
         verify(auditoriaService).registrarEnTransaccion(eq("LOGIN_EXITOSO"), anyString(), anyString(), anyString(), anyString());
+        assertTrue(usuarioActivo.getDebeCambiarContrasena(), "Un administrador con clave debil debe cambiarla");
     }
 
     @Test
@@ -103,6 +104,27 @@ class AuthServiceTest {
                 .registrarEnTransaccion(eq("LOGIN_EXITOSO"), anyString(), anyString(), anyString(), anyString());
         assertThrows(IllegalStateException.class, () -> authService.login("admin@umss.edu", "Password123*", "127.0.0.1"));
         verifyNoInteractions(jwtTokenProvider);
+    }
+
+    @Test
+    void administradorConClaveQueCumplePoliticaNoEsForzadoACambiarla() {
+        when(usuarioRepository.findByCorreousuario("admin@umss.edu")).thenReturn(Optional.of(usuarioActivo));
+        when(passwordEncoder.matches("Vela$8Nube!49", "encodedPassword")).thenReturn(true);
+        when(tipoUsuarioResolver.resolver(1)).thenReturn("ADMINISTRADOR");
+        authService.login("admin@umss.edu", "Vela$8Nube!49", "127.0.0.1");
+        assertFalse(usuarioActivo.getDebeCambiarContrasena());
+        verify(jwtTokenProvider).generarToken("admin@umss.edu", "ADMINISTRADOR", 1, "Juan", "encodedPassword");
+    }
+
+    @Test
+    void administradorNoPuedeCambiarAClaveConNombreDeCorreo() {
+        when(usuarioRepository.findByCorreousuario("admin@umss.edu")).thenReturn(Optional.of(usuarioActivo));
+        when(passwordEncoder.matches("clave-anterior", "encodedPassword")).thenReturn(true);
+        when(tipoUsuarioResolver.resolver(1)).thenReturn("ADMINISTRADOR");
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
+                () -> authService.cambiarContrasena("admin@umss.edu", "clave-anterior", "Admin!Luna2026", "local"));
+        verify(passwordEncoder, never()).encode(any());
+        verify(usuarioRepository, never()).save(any());
     }
 
     @Test

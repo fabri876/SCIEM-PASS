@@ -69,6 +69,15 @@ class RegistroUsuarioServiceTest {
         return solicitud;
     }
 
+    @Test void registroGenericoNoCreaAdministradores() {
+        var solicitud = solicitudEstudiante("prueba@example.invalid", "Vela$8Nube!49", "9800901");
+        solicitud.setRoles(List.of("admin"));
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ValidacionNegocioException.class,
+                () -> registroUsuarioService.registrarUsuario(solicitud));
+        verify(usuarioRepository, never()).save(any(Usuario.class));
+        verifyNoInteractions(adminRepository);
+    }
+
     @Test
     @DisplayName("C17 - La contraseña se guarda cifrada (hash), nunca en texto plano")
     void registrarUsuario_guardaContrasenaConHash() {

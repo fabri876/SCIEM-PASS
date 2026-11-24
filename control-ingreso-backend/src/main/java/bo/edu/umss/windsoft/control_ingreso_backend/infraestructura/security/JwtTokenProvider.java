@@ -8,7 +8,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.Date;
 
 @Component
@@ -33,7 +38,7 @@ public class JwtTokenProvider {
      * @param nombre    Nombre completo o de pila del usuario.
      * @return Cadena del token JWT.
      */
-    public String generarToken(String correo, String rol, Integer idUsuario, String nombre) {
+    public String generarToken(String correo, String rol, Integer idUsuario, String nombre, String hashContrasena) {
         Date ahora = new Date();
         Date fechaExpiracion = new Date(ahora.getTime() + expiration);
 
@@ -42,10 +47,38 @@ public class JwtTokenProvider {
                 .claim("rol", rol)
                 .claim("idUsuario", idUsuario)
                 .claim("nombre", nombre)
+                .claim("versionCredencial", versionCredencial(idUsuario, hashContrasena))
                 .issuedAt(ahora)
                 .expiration(fechaExpiracion)
                 .signWith(secretKey)
                 .compact();
+    }
+
+    /** No expone el hash de la contraseña; cambia al actualizarla o migrar su hash. */
+    private String versionCredencial(Integer idUsuario, String hashContrasena) {
+        if (idUsuario == null || hashContrasena == null || hashContrasena.isBlank()) {
+            throw new IllegalArgumentException("Credencial de cuenta no disponible");
+        }
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secretKey.getEncoded(), "HmacSHA256"));
+            byte[] datos = ("SCIEM-SESSION-V1|" + idUsuario + "|" + hashContrasena).getBytes(StandardCharsets.UTF_8);
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(datos));
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("No se pudo comprobar la credencial de sesion", e);
+        }
+    }
+
+    public boolean credencialVigente(String token, Integer idUsuario, String hashContrasena) {
+        if (idUsuario == null || hashContrasena == null || hashContrasena.isBlank()) return false;
+        try {
+            String version = obtenerClaims(token).get("versionCredencial", String.class);
+            if (version == null) return false;
+            return MessageDigest.isEqual(version.getBytes(StandardCharsets.UTF_8),
+                    versionCredencial(idUsuario, hashContrasena).getBytes(StandardCharsets.UTF_8));
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /**
