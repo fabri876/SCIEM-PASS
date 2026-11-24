@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRegisterBackHandler } from "../../../hooks/useAndroidBackButton";
 import { Lock, Timer } from "lucide-react";
@@ -173,7 +174,7 @@ export default function ModalPin({ visible, mensaje, fnConfirmar, fnCancelar }) 
         )}
 
         {strMensajeError && (
-          <p className="text-[11px] font-semibold text-[#B91C1C] text-center">{strMensajeError}</p>
+          <p className="text-[11px] font-semibold text-[#B91C1C] text-center">{textoInterfaz(strMensajeError)}</p>
         )}
 
         <div className="flex gap-2">

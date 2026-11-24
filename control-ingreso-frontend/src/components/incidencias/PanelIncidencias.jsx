@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
@@ -178,7 +179,7 @@ export default function PanelIncidencias({
           >
             <X className="w-5 h-5" />
           </button>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-[10px] font-black uppercase tracking-wider mb-2">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-[10px] font-black tracking-wider mb-2">
             <AlertTriangle className="w-3 h-3" />
             <span>Incidencias</span>
           </div>
@@ -186,11 +187,11 @@ export default function PanelIncidencias({
             {aulaIncidenciaActual?.asignatura || "Examen actual"}
           </h3>
           <p className="text-xs text-white/90 font-medium mt-0.5">
-            {aulaIncidenciaActual ? etiquetaAula(aulaIncidenciaActual) : "Aula asignada"}
+            {textoInterfaz(aulaIncidenciaActual ? etiquetaAula(aulaIncidenciaActual) : "Aula asignada")}
           </p>
           <div className="mt-3 flex items-center gap-2 flex-wrap">
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider ${
                 boolOffline ? "bg-[#B91C1C] text-white" : "bg-white/20 text-white border border-white/30"
               }`}
             >
@@ -198,7 +199,7 @@ export default function PanelIncidencias({
               <span>{boolOffline ? "Sin conexión" : "Con conexión"}</span>
             </span>
             {!boolExamenActivo && (
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#FEF9E7] text-[#92400E] text-[10px] font-black uppercase tracking-wider">
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#FEF9E7] text-[#92400E] text-[10px] font-black tracking-wider">
                 Examen fuera de horario
               </span>
             )}
@@ -233,20 +234,20 @@ export default function PanelIncidencias({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-black text-[#003770]">{opcion.titulo}</span>
+                    <span className="text-sm font-black text-[#003770]">{textoInterfaz(opcion.titulo)}</span>
                     {opcion.pendientes > 0 && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEE2E2] text-[#B91C1C] text-[10px] font-black uppercase tracking-wider">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEE2E2] text-[#B91C1C] text-[10px] font-black tracking-wider">
                         {opcion.pendientes} sin enviar
                       </span>
                     )}
                     {opcion.errores > 0 && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEF9E7] text-[#92400E] text-[10px] font-black uppercase tracking-wider">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEF9E7] text-[#92400E] text-[10px] font-black tracking-wider">
                         {opcion.errores} con error
                       </span>
                     )}
                   </span>
                   <span className="block text-[11px] text-[#7A8BA0] font-semibold mt-0.5">
-                    {opcion.descripcion}
+                    {textoInterfaz(opcion.descripcion)}
                   </span>
                 </span>
                 <ChevronRight className="w-4 h-4 text-[#9AA8BA] group-hover:text-[#4A97D3] shrink-0" />

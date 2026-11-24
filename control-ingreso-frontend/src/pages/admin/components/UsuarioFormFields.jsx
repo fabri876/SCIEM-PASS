@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
 import FormField from "../../../components/common/FormField";
 import { obtenerVinculaciones, obtenerCatalogoGrupos } from "../../../services/grupoService";
@@ -229,14 +230,14 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
         {boolEsEdicion ? "Editar usuario" : "Nuevo usuario"}
       </h2>
       <p className="text-secondary text-text-body/70 mb-5">
-        {boolEsEdicion
+        {textoInterfaz(boolEsEdicion
           ? "Actualiza sus datos y corrige las materias y grupos asignados."
-          : "Se crea con estado ACTIVO de inmediato."}
+          : "Se crea con estado ACTIVO de inmediato.")}
       </p>
 
       {strError && (
         <p className="mb-4 text-secondary font-semibold text-accent-red" role="alert">
-          {strError}
+          {textoInterfaz(strError)}
         </p>
       )}
 
@@ -458,13 +459,13 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
                   checked={objFormData.rol === opcion.valor}
                   onChange={() => { setObjFormData((prev) => ({ ...prev, rol: opcion.valor, idGrupo: null })); setGruposAcademicos([]); }}
                 />
-                {opcion.etiqueta}
+                {textoInterfaz(opcion.etiqueta)}
               </label>
             ))}
           </div>
           {boolEsEdicion && strRolOriginal && objFormData.rol !== strRolOriginal && (
             <p className="mt-2 text-badge font-semibold text-accent-gold">
-              Al guardar, se moverá la cuenta de {strRolOriginal} a {objFormData.rol} y quedará registrado en auditoría.
+              Al guardar, se moverá la cuenta de {strRolOriginal} a {textoInterfaz(objFormData.rol)} y quedará registrado en auditoría.
             </p>
           )}
         </div>

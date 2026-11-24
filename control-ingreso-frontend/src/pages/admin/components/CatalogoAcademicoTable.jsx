@@ -1,3 +1,5 @@
+import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import React, { useCallback, useEffect, useState } from "react";
 import { obtenerAsignaturas, obtenerCatalogoGrupos, obtenerVinculaciones, quitarVinculacion, invalidarCatalogo, clasificarAsignatura } from "../../../services/grupoService";
 import { RefreshCw, BookOpen } from "lucide-react";
@@ -57,10 +59,10 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
       <h3 className="font-bold text-primary-navy">Pendientes de asignación</h3>
       <p className="text-secondary text-sm">Estos pendientes son independientes del estado activo o inactivo. Asigne docentes desde el formulario de gestión académica.</p>
       <div className="flex flex-wrap gap-2">
-        {[["todos", "Todo el catálogo"], ["asignaturas", `${asignaturasPendientes.length} asignaturas sin docente`], ["grupos", `${gruposPendientes.length} grupos sin docente`]].map(([valor, etiqueta]) => <button key={valor} type="button" aria-pressed={pendiente === valor} onClick={() => setPendiente(valor)} className={`rounded-lg border px-3 py-2 text-sm font-bold ${pendiente === valor ? "bg-primary-navy text-white" : "border-border text-primary-navy"}`}>{etiqueta}</button>)}
+        {[["todos", "Todo el catálogo"], ["asignaturas", `${asignaturasPendientes.length} asignaturas sin docente`], ["grupos", `${gruposPendientes.length} grupos sin docente`]].map(([valor, etiqueta]) => <button key={valor} type="button" aria-pressed={pendiente === valor} onClick={() => setPendiente(valor)} className={`rounded-lg border px-3 py-2 text-sm font-bold ${pendiente === valor ? "bg-primary-navy text-white" : "border-border text-primary-navy"}`}>{textoInterfaz(etiqueta)}</button>)}
       </div>
       <details><summary className="cursor-pointer font-bold text-primary-navy">{docentesPendientes.length} docentes sin grupos asignados</summary>
-        <ul className="mt-2 max-h-48 overflow-auto space-y-2 text-secondary">{docentesPendientes.map(d => <li key={d.idUsuario}>{d.nombre} {d.apellido} · {d.estado ? "Activo" : "Inactivo"}</li>)}</ul>
+        <ul className="mt-2 max-h-48 overflow-auto space-y-2 text-secondary">{docentesPendientes.map(d => <li key={d.idUsuario}>{textoInterfaz(d.nombre)} {d.apellido} · {textoInterfaz(d.estado ? "Activo" : "Inactivo")}</li>)}</ul>
         {!docentesPendientes.length && <p className="text-secondary">Todos los docentes tienen grupos asignados.</p>}
       </details>
     </aside>}
@@ -73,15 +75,15 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
     {cargando ? <p role="status">Cargando asignaturas y grupos…</p> : <div className="max-h-[650px] overflow-auto space-y-3">
       {!visibles.length && <p className="text-secondary">No hay asignaturas para mostrar.</p>}
       {visibles.map(a => <details key={a.idAsignatura} className="rounded-xl border border-border bg-bg-app/50">
-        <summary className="p-4 cursor-pointer text-primary-navy font-bold">{a.nombreAsignatura} <span className="font-normal text-secondary">· Código {a.codigoOficial || a.idAsignatura} · ID {a.idAsignatura} · {grupos.filter(g => g.idAsignatura === a.idAsignatura).length} grupos</span></summary>
-        <div className="px-4 pb-4 overflow-x-auto"><table className="w-full text-left text-secondary">
+        <summary className="p-4 cursor-pointer text-primary-navy font-bold">{textoInterfaz(a.nombreAsignatura)} <span className="font-normal text-secondary">· Código {a.codigoOficial || a.idAsignatura} · ID {a.idAsignatura} · {grupos.filter(g => g.idAsignatura === a.idAsignatura).length} grupos</span></summary>
+        <div className="px-4 pb-4 overflow-x-auto"><TablaConReporte titulo="Grupos y docentes por asignatura">{(_paraReporte) => (<table className="w-full text-left text-secondary">
           <thead><tr className="text-primary-navy"><th className="py-2 pr-3">Grupo</th><th className="py-2 pr-3">Estado</th><th className="py-2">Docentes</th></tr></thead>
-          <tbody>{grupos.filter(g => g.idAsignatura === a.idAsignatura && (pendiente !== "grupos" || !gruposAsignados.has(g.idGrupo))).map(g => <tr key={g.idGrupo} className="border-t border-border"><td className="py-2 pr-3">{g.nombreGrupo}</td><td className="py-2 pr-3">{g.estadoGrupo ? "Activo" : "Inactivo"}</td><td className="py-2">{nombresDocentes(g.idGrupo) || "Sin docente asignado"}</td></tr>)}</tbody>
-        </table>
+          <tbody>{grupos.filter(g => g.idAsignatura === a.idAsignatura && (pendiente !== "grupos" || !gruposAsignados.has(g.idGrupo))).map(g => <tr key={g.idGrupo} className="border-t border-border"><td className="py-2 pr-3">{g.nombreGrupo}</td><td className="py-2 pr-3">{textoInterfaz(g.estadoGrupo ? "Activo" : "Inactivo")}</td><td className="py-2">{nombresDocentes(g.idGrupo) || "Sin docente asignado"}</td></tr>)}</tbody>
+        </table>)}</TablaConReporte>
           <button type="button" onClick={()=>{setClasificando(a);setDatosClasificacion(null);setError("");}} className="mt-3 rounded-lg border border-border px-3 py-2 font-bold text-primary-navy">Añadir a carrera y nivel</button>
           <details className="mt-3"><summary className="cursor-pointer font-bold text-primary-navy">Personas asignadas · corregir asignaciones</summary>
             <div className="mt-2 max-h-64 overflow-auto space-y-2">{vinculaciones.filter(v => v.idAsignatura === a.idAsignatura).map(v => <div key={`${v.rol}-${v.idUsuario}-${v.idGrupo}`} className="flex flex-wrap items-center justify-between gap-2 border-t border-border py-2 text-secondary">
-              <span>{nombreUsuario(v)} · {v.rol === "OPERADOR" ? "Ayudante" : v.rol === "DOCENTE" ? "Docente" : "Estudiante"} · Grupo {v.nombreGrupo}</span>
+              <span>{nombreUsuario(v)} · {textoInterfaz(v.rol === "OPERADOR" ? "Ayudante" : v.rol === "DOCENTE" ? "Docente" : "Estudiante")} · Grupo {v.nombreGrupo}</span>
               <button type="button" onClick={() => { setError(""); setSeleccion(v); }} className="rounded-lg border border-accent-red px-3 py-2 text-accent-red font-bold">Quitar del grupo</button>
             </div>)}{!vinculaciones.some(v => v.idAsignatura === a.idAsignatura) && <p>No hay personas asignadas.</p>}</div>
           </details>{!grupos.some(g => g.idAsignatura === a.idAsignatura) && <p className="text-secondary">Esta asignatura todavía no tiene grupos.</p>}</div>
@@ -93,7 +95,7 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
       catch(e){setError(e.message);}finally{setGuardandoClasificacion(false);}
     }}>
       <h3 id="clasificar-titulo" className="font-bold text-primary-navy">Clasificar asignatura existente</h3>
-      <p>{clasificando.nombreAsignatura} · Código {clasificando.codigoOficial||clasificando.idAsignatura}</p>
+      <p>{textoInterfaz(clasificando.nombreAsignatura)} · Código {clasificando.codigoOficial||clasificando.idAsignatura}</p>
       <SelectorAsignatura soloClasificacion required disabled={guardandoClasificacion} onClasificacion={setDatosClasificacion} />
       {error&&<p role="alert" className="text-accent-red">{error}</p>}
       <div className="flex justify-end gap-3"><button type="button" disabled={guardandoClasificacion} onClick={()=>setClasificando(null)} className="rounded-xl border border-border px-4 py-2">Cancelar</button>
@@ -101,7 +103,7 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
     </form></div>}
     {seleccion && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div role="dialog" aria-modal="true" aria-labelledby="quitar-asignacion-titulo" className="w-full max-w-lg rounded-2xl bg-bg-card p-6 shadow-xl space-y-4">
       <h3 id="quitar-asignacion-titulo" className="font-bold text-primary-navy">¿Quitar esta asignación?</h3>
-      <p className="text-secondary">{nombreUsuario(seleccion)} · {asignaturas.find(a => a.idAsignatura === seleccion.idAsignatura)?.nombreAsignatura} · Grupo {seleccion.nombreGrupo}.</p>
+      <p className="text-secondary">{nombreUsuario(seleccion)} · {textoInterfaz(asignaturas.find(a => a.idAsignatura === seleccion.idAsignatura)?.nombreAsignatura)} · Grupo {seleccion.nombreGrupo}.</p>
       <p className="text-secondary">Se conservan la cuenta y los registros de exámenes. Si esta es su última asignación, quedará sin grupos.</p>
       {error && <p role="alert" className="text-accent-red">{error}</p>}
       <div className="flex justify-end gap-3"><button type="button" disabled={quitando} onClick={() => setSeleccion(null)} className="rounded-xl border border-border px-4 py-2">Cancelar</button><button type="button" disabled={quitando} onClick={quitar} className="rounded-xl bg-accent-red text-white px-4 py-2 font-bold">{quitando ? "Quitando…" : "Confirmar"}</button></div>

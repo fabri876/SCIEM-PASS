@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import BadgeEstado from './BadgeEstado';
 import Icono from './Icono';
 
@@ -15,11 +16,11 @@ export default function TarjetaEstudiante({ est, numeroFila, onGestionar, onElim
             </div>
             <div className="grid grid-cols-2 gap-2 text-[13.5px] mb-3">
                 <div className="min-w-0">
-                    <span className="block text-[#64748B] font-extrabold uppercase text-[11px] tracking-[.6px]">C.I.</span>
+                    <span className="block text-[#64748B] font-extrabold text-[11px] tracking-[.6px]">C.I.</span>
                     <span className="text-slate-600 font-mono">{est.ciEstudiante}</span>
                 </div>
                 <div className="min-w-0">
-                    <span className="block text-[#64748B] font-extrabold uppercase text-[11px] tracking-[.6px]">Código SIS</span>
+                    <span className="block text-[#64748B] font-extrabold text-[11px] tracking-[.6px]">Código SIS</span>
                     <span className="text-slate-600 font-mono">{est.codSisEstudiante}</span>
                 </div>
             </div>
@@ -28,8 +29,8 @@ export default function TarjetaEstudiante({ est, numeroFila, onGestionar, onElim
             </div>
             {!est.estadoHabilitacion && (
                 <p className="text-[13.5px] text-slate-600 mb-3 leading-relaxed">
-                    <span className="font-extrabold text-[#64748B] uppercase text-[11px] tracking-[.6px] block">Motivo</span>
-                    {boolSinMotivo ? 'Sin motivo especificado' : est.nombreMotivo}
+                    <span className="font-extrabold text-[#64748B] text-[11px] tracking-[.6px] block">Motivo</span>
+                    {textoInterfaz(boolSinMotivo ? 'Sin motivo especificado' : est.nombreMotivo)}
                 </p>
             )}
             <div className="flex gap-2">

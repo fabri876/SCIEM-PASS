@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React from "react";
 import { Users, UserCheck, Clock, Ban, MapPinOff, AlertOctagon, UserPlus, AlertTriangle } from "lucide-react";
 
@@ -10,11 +11,11 @@ function Kpi({ Icono, titulo, valor, detalle, tono = "navy", children }) {
     };
     return (
         <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-1.5 min-w-0">
-            <div className="flex items-center gap-2 text-[11px] font-extrabold text-slate-500 uppercase tracking-wide">
+            <div className="flex items-center gap-2 text-[11px] font-extrabold text-slate-500 tracking-wide">
                 <Icono className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{titulo}</span>
             </div>
-            <span className={`text-2xl sm:text-3xl font-black tabular-nums leading-none ${colores[tono]}`}>{valor}</span>
+            <span className={`text-2xl sm:text-3xl font-black tabular-nums leading-none ${colores[tono]}`}>{textoInterfaz(valor)}</span>
             {children}
             {detalle && <span className="text-[11px] font-semibold text-slate-500">{detalle}</span>}
         </div>

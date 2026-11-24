@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useEffect } from "react";
 import { X } from "lucide-react";
 import ComparadorAulas from "./ComparadorAulas";
@@ -38,7 +39,7 @@ export default function ModalReubicacion({ alerta, boolGuardando, strError, onCo
                 </p>
 
                 {strError && (
-                    <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-700 p-2.5 rounded-xl text-xs font-bold">✕ {strError}</div>
+                    <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-700 p-2.5 rounded-xl text-xs font-bold">✕ {textoInterfaz(strError)}</div>
                 )}
 
                 <div className="flex gap-2">

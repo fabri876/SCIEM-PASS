@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React from "react";
 import { NIVEL_REQUERIDO } from "../../utils/passwordStrength";
 
@@ -34,7 +35,7 @@ export default function IndicadorSeguridadContrasena({ objEvaluacion }) {
 
             <div className="mt-1.5 flex items-center justify-between text-[11px] font-bold">
                 <span className={intNivel > 0 ? CLASES_TEXTO[strColor] : "text-slate-400"}>
-                    {strEtiqueta || "Escribe tu nueva contraseña"}
+                    {textoInterfaz(strEtiqueta || "Escribe tu nueva contraseña")}
                 </span>
                 <span className="text-slate-400">Nivel {intNivel}/{NIVEL_REQUERIDO}</span>
             </div>
@@ -47,7 +48,7 @@ export default function IndicadorSeguridadContrasena({ objEvaluacion }) {
                             }`}
                     >
                         <span aria-hidden="true">{objCriterio.boolCumple ? "✓" : "○"}</span>
-                        <span>{objCriterio.strTexto}</span>
+                        <span>{textoInterfaz(objCriterio.strTexto)}</span>
                     </li>
                 ))}
             </ul>

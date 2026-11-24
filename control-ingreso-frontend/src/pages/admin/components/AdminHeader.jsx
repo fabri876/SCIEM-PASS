@@ -43,7 +43,7 @@ export default function AdminHeader() {
 
                 <div className="flex items-center gap-3 cursor-pointer">
                     <div className="w-9 h-9 rounded-full bg-primary-navy text-bg-card font-bold text-secondary flex items-center justify-center">
-                        PR
+                        Pr
                     </div>
                     <div className="text-left hidden sm:block leading-tight">
                         <p className="text-secondary font-bold text-primary-navy">Patricia Rodríguez</p>

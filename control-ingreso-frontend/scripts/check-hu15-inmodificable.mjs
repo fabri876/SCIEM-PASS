@@ -151,8 +151,8 @@ try {
   );
   assert.ok(html.includes("auditoria-fecha-inicio") && html.includes("auditoria-fecha-fin"));
   assert.ok(
-    html.includes("Aplicar Filtros Forenses"),
-    "Debe contener el botón Aplicar Filtros Forenses"
+    html.includes("Aplicar filtros"),
+    "Debe contener el botón Aplicar filtros en formato oración"
   );
   assert.ok(
     html.toUpperCase().includes("REGISTRO DE EVENTOS Y BLOQUES CRIPTOGRÁFICOS"),

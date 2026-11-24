@@ -1,3 +1,5 @@
+import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useEffect, useMemo, useState } from "react";
 import { Check, MapPin, Clock } from "lucide-react";
 import { obtenerHabilitaciones } from "../../../services/habilitacionService";
@@ -459,7 +461,7 @@ export default function AsignarOperadoresDocente({
             {soloLectura && (
                 <div className="bg-[#F0F6FC] border border-[#D9E8F7] rounded-xl px-4 py-2.5 text-xs text-slate-700 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-[#003770] shrink-0" />
-                    La asignación está bloqueada porque el examen ya {estadoExamen(examen) === "FINALIZADO" ? "finalizó" : "empezó"}.
+                    La asignación está bloqueada porque el examen ya {textoInterfaz(estadoExamen(examen) === "FINALIZADO" ? "finalizó" : "empezó")}.
                 </div>
             )}
 
@@ -491,7 +493,7 @@ export default function AsignarOperadoresDocente({
                     {aulas.map((aula, idx) => (
                         <div key={aula.idAmbiente} className="flex items-center gap-3 px-4 py-2.5 border-t border-[#E2E8F0]">
                             <IconoAula />
-                            <span className="flex-1 min-w-0 text-sm font-bold truncate">{aula.nombre}</span>
+                            <span className="flex-1 min-w-0 text-sm font-bold truncate">{textoInterfaz(aula.nombre)}</span>
                             <input
                                 type="number"
                                 min="0"
@@ -511,7 +513,7 @@ export default function AsignarOperadoresDocente({
                     ))}
                     <div className="bg-slate-50 border-t border-[#E2E8F0] px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
                         <span className={`text-xs ${validacion.ok ? "text-slate-500" : "text-[#B91C1C] font-bold"}`}>
-                            {validacion.ok ? `${estudiantes.length} de ${estudiantes.length} ubicados` : validacion.mensaje}
+                            {textoInterfaz(validacion.ok ? `${estudiantes.length} de ${estudiantes.length} ubicados` : validacion.mensaje)}
                         </span>
                         <BotonPrincipal disabled={!validacion.ok} onClick={irAPaso2}>Siguiente →</BotonPrincipal>
                     </div>
@@ -550,7 +552,7 @@ export default function AsignarOperadoresDocente({
                                 <div key={aula.idAmbiente} className={`px-4 py-3 ${idx === aulas.findIndex((_, k) => cantidades[k]) ? "" : "border-t border-[#E2E8F0]"}`}>
                                     <div className="flex items-center gap-2.5">
                                         <IconoAula />
-                                        <span className="flex-1 min-w-0 text-sm font-extrabold truncate">{aula.nombre}</span>
+                                        <span className="flex-1 min-w-0 text-sm font-extrabold truncate">{textoInterfaz(aula.nombre)}</span>
                                         {lista.length > 1 && (
                                             <button
                                                 type="button"
@@ -573,7 +575,7 @@ export default function AsignarOperadoresDocente({
                                             return (
                                                 <div key={`${r.rol}-${r.idUsuario}`} className={`flex items-center gap-2.5 py-1.5 ${i === 0 ? "" : "border-t border-[#EEF2F7]"}`}>
                                                     <span className={`w-[26px] h-[26px] shrink-0 rounded-full text-white font-extrabold text-[10px] flex items-center justify-center ${r.rol === "DOCENTE" ? "bg-[#B91C1C]" : "bg-[#003770]"}`}>
-                                                        {iniciales(r.nombre)}
+                                                        {textoInterfaz(iniciales(r.nombre))}
                                                     </span>
                                                     <span className="flex-1 min-w-0 text-[13px] font-bold truncate">{nombreDe(r)}</span>
                                                     {ajustando && !ultimo ? (
@@ -616,7 +618,7 @@ export default function AsignarOperadoresDocente({
                                         className="mt-2 w-full h-9 px-3 rounded-lg border-[1.5px] border-dashed border-[#94A3B8] bg-white font-extrabold text-xs text-[#003770] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <option value="">{boolVistaAdmin ? "+ Agregar ayudante o al docente" : "+ Agregar ayudante o agregarme"}</option>
-                                        {!docenteYaEsta && <option value="DOCENTE">{boolVistaAdmin ? `${docente.nombre} · Docente` : "Yo (docente)"}</option>}
+                                        {!docenteYaEsta && <option value="DOCENTE">{textoInterfaz(boolVistaAdmin ? `${docente.nombre} · Docente` : "Yo (docente)")}</option>}
                                         {disponibles.map((o) => <option key={o.idUsuario} value={String(o.idUsuario)}>{nombreCompleto(o)} · Ayudante</option>)}
                                     </select>
                                 </div>
@@ -644,13 +646,13 @@ export default function AsignarOperadoresDocente({
                         <div className="px-4 py-4 text-xs text-slate-600">No se asignaron ayudantes: el docente estuvo a cargo del ingreso de todas las aulas.</div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-[13px] min-w-[480px]">
+                            <TablaConReporte titulo="Asignación de ayudantes">{(_paraReporte) => (<table className="w-full text-[13px] min-w-[480px]">
                                 <thead>
                                     <tr className="bg-[#E8F1FB] text-[10.5px] font-extrabold text-[#124B83] tracking-[.5px] text-left">
-                                        <th className="px-4 py-2">AULA</th>
-                                        <th className="px-3 py-2">RESPONSABLE</th>
-                                        <th className="px-3 py-2">APELLIDOS</th>
-                                        <th className="px-4 py-2 text-right">ESTUDIANTES</th>
+                                        <th className="px-4 py-2">Aula</th>
+                                        <th className="px-3 py-2">Responsable</th>
+                                        <th className="px-3 py-2">Apellidos</th>
+                                        <th className="px-4 py-2 text-right">Estudiantes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -658,14 +660,14 @@ export default function AsignarOperadoresDocente({
                                         <tr key={i} className={i % 2 === 1 ? "bg-slate-50" : "bg-white"}>
                                             <td className="px-4 py-2 border-t border-[#E2E8F0] font-extrabold">{f.aula}</td>
                                             <td className="px-3 py-2 border-t border-[#E2E8F0]">
-                                                {f.responsable.rol === "DOCENTE" ? (boolVistaAdmin ? `${f.responsable.nombre} (docente)` : "Yo (docente)") : f.responsable.nombre}
+                                                {textoInterfaz(f.responsable.rol === "DOCENTE" ? (boolVistaAdmin ? `${f.responsable.nombre} (docente)` : "Yo (docente)") : f.responsable.nombre)}
                                             </td>
                                             <td className="px-3 py-2 border-t border-[#E2E8F0]">{f.rango}</td>
                                             <td className="px-4 py-2 border-t border-[#E2E8F0] text-right">{f.cantidad}</td>
                                         </tr>
                                     ))}
                                 </tbody>
-                            </table>
+                            </table>)}</TablaConReporte>
                         </div>
                     )}
                     {errorGuardar && <div className="px-4 py-2.5 border-t border-[#E2E8F0] text-xs font-bold text-[#B91C1C]">{errorGuardar}</div>}

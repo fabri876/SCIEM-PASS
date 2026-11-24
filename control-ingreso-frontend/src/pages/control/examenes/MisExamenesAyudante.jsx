@@ -1,3 +1,5 @@
+import ReporteLista from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // "Mis exámenes" del ayudante: todos los exámenes donde registra el ingreso (como "Mis exámenes" del docente).
 // Botones por estado:
 // - En curso (o desde 15 min antes): "Registrar ingreso".
@@ -62,12 +64,12 @@ function TarjetaExamenAyudante({ examen, strEstado, dateAhora, onRegistrar }) {
 
       <div className="flex-1 min-w-[200px]">
         <div className="flex items-center gap-2 flex-wrap">
-          <h4 className="m-0 font-black text-sm text-[#08264A] uppercase">{examen.materia}</h4>
-          <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{objBadge.strTexto}</span>
+          <h4 className="m-0 font-black text-sm text-[#08264A] ">{textoInterfaz(examen.materia)}</h4>
+          <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{textoInterfaz(objBadge.strTexto)}</span>
         </div>
         <p className="mt-0.5 text-xs font-bold text-[#64748B]">
-          {examen.tipo && <span className="text-[#124B83]">{examen.tipo}</span>}
-          {examen.tipo && strDetalle ? " · " : ""}
+          {examen.tipo && <span className="text-[#124B83]">{textoInterfaz(examen.tipo)}</span>}
+          {textoInterfaz(examen.tipo && strDetalle ? " · " : "")}
           {strDetalle}
         </p>
         {boolAviso && (
@@ -170,15 +172,18 @@ export default function MisExamenesAyudante() {
               ? "bg-[#003770] text-white border-[#003770]"
               : "bg-white text-[#1A365D] border-slate-300 hover:bg-slate-50"}`}
           >
-            {f.etiqueta}
+            {textoInterfaz(f.etiqueta)}
           </button>
         ))}
       </div>
 
-      {strError && <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>}
+      {strError && <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(strError)}</div>}
 
       <div className="space-y-3">
-        {boolCargando ? (
+        <ReporteLista titulo="Exámenes asignados" contenido={() => <>{listVisibles.map(({ e, strEstado }) => (
+            <TarjetaExamenAyudante key={e.id} examen={e} strEstado={strEstado} dateAhora={dateAhora} onRegistrar={fnRegistrar} />
+          ))}</>} />
+{boolCargando ? (
           <div className="text-center py-10 text-slate-500 text-xs font-semibold animate-pulse bg-white rounded-2xl border border-slate-200">Cargando exámenes…</div>
         ) : listVisibles.length === 0 ? (
           <div className="text-center py-10 text-slate-500 text-xs font-semibold bg-white rounded-2xl border border-slate-200">

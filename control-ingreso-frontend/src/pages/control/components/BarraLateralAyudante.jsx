@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Perfil y menú del ayudante (mismo estilo que el panel del docente).
 // En pantallas grandes va a la izquierda; en el celular el menú se muestra como pestañas arriba.
 import { NavLink } from "react-router-dom";
@@ -26,7 +27,7 @@ export function PestanasAyudante() {
             (isActive ? "bg-[#1A365D] text-white" : "text-slate-700")
           }
         >
-          <Icono className="w-4 h-4" /> {strTexto}
+          <Icono className="w-4 h-4" /> {textoInterfaz(strTexto)}
         </NavLink>
       ))}
     </nav>
@@ -48,10 +49,10 @@ export default function BarraLateralAyudante({ boolMovilAbierto = false, onCerra
         <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-md mb-3">
           {strIniciales}
         </div>
-        <h3 className="font-extrabold text-[#1A365D] text-sm uppercase">{strNombre} {strApellido}</h3>
-        <span className="text-[11px] text-[#1A365D] font-bold mb-4">AYUDANTE</span>
+        <h3 className="font-extrabold text-[#1A365D] text-sm ">{textoInterfaz(strNombre)} {strApellido}</h3>
+        <span className="text-[11px] text-[#1A365D] font-bold mb-4">Ayudante</span>
         <div className="w-full border-t border-slate-100 pt-3 text-left text-xs">
-          <p className="text-slate-600"><span className="font-bold text-[#1A365D]">C.I.:</span> {usuario?.ci || "-"}</p>
+          <p className="text-slate-600"><span className="font-bold text-[#1A365D]">C.i.:</span> {usuario?.ci || "-"}</p>
         </div>
       </div>
 
@@ -61,7 +62,7 @@ export default function BarraLateralAyudante({ boolMovilAbierto = false, onCerra
             {({ isActive }) => (
               <>
                 <Icono className={`w-4 h-4 ${isActive ? "text-white" : "text-[#1A365D]"}`} />
-                {strTexto}
+                {textoInterfaz(strTexto)}
               </>
             )}
           </NavLink>

@@ -1,3 +1,5 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
+import ReporteLista from '../../../components/common/ReporteLista.jsx';
 import React, { useState } from "react";
 import {
     Layers,
@@ -85,7 +87,7 @@ function MensajeEstado({ mensaje }) {
                 className={`text-badge font-semibold leading-snug ${esExito ? "text-emerald-700" : "text-accent-red"
                     }`}
             >
-                {mensaje.texto}
+                {textoInterfaz(mensaje.texto)}
             </p>
         </div>
     );
@@ -333,7 +335,7 @@ export default function GestionGruposAsignaturaCard({
                 PARTE 1: CREAR GRUPOS
                 ========================================================= */}
             <div className="space-y-3">
-                <p className="text-badge font-extrabold text-primary-blue uppercase tracking-wider">
+                <p className="text-badge font-extrabold text-primary-blue tracking-wider">
                     1. Grupos de la asignatura
                 </p>
 
@@ -396,7 +398,7 @@ export default function GestionGruposAsignaturaCard({
                             <option value="">Selecciona una asignatura</option>
                             {asignaturas.map((a) => (
                                 <option key={a.idAsignatura} value={a.idAsignatura}>
-                                    {a.nombreAsignatura}
+                                    {textoInterfaz(a.nombreAsignatura)}
                                 </option>
                             ))}
                         </CampoSelect>
@@ -460,7 +462,7 @@ export default function GestionGruposAsignaturaCard({
                 PARTE 2: ASIGNAR DOCENTE A GRUPOS
                 ========================================================= */}
             <div className="space-y-3">
-                <p className="text-badge font-extrabold text-primary-blue uppercase tracking-wider">
+                <p className="text-badge font-extrabold text-primary-blue tracking-wider">
                     2. Asignación de docentes
                 </p>
 
@@ -517,9 +519,14 @@ export default function GestionGruposAsignaturaCard({
                                 ? "Primero crea grupos para una asignatura"
                                 : "Selecciona una asignatura"}
                         </option>
-                        {asignaturasConGrupos.map((a) => (
+                        <ReporteLista titulo="Grupos por asignatura" contenido={() => <>{asignaturasConGrupos.map((a) => (
                             <option key={a.idAsignatura} value={a.idAsignatura}>
-                                {a.nombreAsignatura} ({a.cantidadGrupos} {a.cantidadGrupos === 1 ? "grupo" : "grupos"})
+                                {textoInterfaz(a.nombreAsignatura)} ({a.cantidadGrupos} {a.cantidadGrupos === 1 ? "grupo" : "grupos"})
+                            </option>
+                        ))}</>} />
+{asignaturasConGrupos.map((a) => (
+                            <option key={a.idAsignatura} value={a.idAsignatura}>
+                                {textoInterfaz(a.nombreAsignatura)} ({a.cantidadGrupos} {a.cantidadGrupos === 1 ? "grupo" : "grupos"})
                             </option>
                         ))}
                     </CampoSelect>

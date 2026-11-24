@@ -1,3 +1,5 @@
+import ReporteLista from '../common/ReporteLista.jsx';
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
@@ -413,7 +415,7 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
               <History className="w-5 h-5" />
             </span>
             <div className="min-w-0">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-[10px] font-black uppercase tracking-wider mb-1.5">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-[10px] font-black tracking-wider mb-1.5">
                 <ClipboardList className="w-3 h-3" />
                 <span>Incidencias</span>
               </div>
@@ -437,14 +439,14 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
                     onClick={() => setFiltroChip(chip.clave)}
                     aria-pressed={activo}
                     title={activo ? "Quitar el filtro" : `Ver solo ${chip.etiqueta.toLowerCase()}`}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black tracking-wider transition cursor-pointer ${
                       activo
                         ? "ring-2 ring-white/70 shadow-sm"
                         : "opacity-90 hover:opacity-100 hover:brightness-105"
                     } ${chip.clase}`}
                   >
                     <span className="text-[12px] leading-none">{chip.valor}</span>
-                    <span className="opacity-90">{chip.etiqueta}</span>
+                    <span className="opacity-90">{textoInterfaz(chip.etiqueta)}</span>
                   </button>
                 );
               })}
@@ -457,13 +459,13 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
           {strError && (
             <div className="bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] p-3 rounded-2xl text-xs font-bold flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{strError}</span>
+              <span>{textoInterfaz(strError)}</span>
             </div>
           )}
           {strMensaje && (
             <div className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] p-3 rounded-2xl text-xs font-bold flex items-start gap-2">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{strMensaje}</span>
+              <span>{textoInterfaz(strMensaje)}</span>
             </div>
           )}
 
@@ -488,7 +490,7 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
                 <Filter className="w-7 h-7" />
               </span>
               <p className="text-sm font-black text-[#003770]">
-                No hay incidencias {resumenChips.find((c) => c.clave === filtroChip)?.etiqueta.toLowerCase() || ""}
+                No hay incidencias {textoInterfaz(resumenChips.find((c) => c.clave === filtroChip)?.etiqueta.toLowerCase() || "")}
               </p>
               <p className="text-[11.5px] font-semibold text-[#7A8BA0] max-w-xs">
                 Pulsa "Total" para verlas todas.
@@ -496,7 +498,7 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
             </div>
           ) : (
             <div className="space-y-2.5">
-              {incidenciasFiltradas.map((it) => {
+              <ReporteLista titulo="Historial de incidencias" contenido={() => <>{incidenciasFiltradas.map((it) => {
                 const claveItem = it.local ? it.clientUuid : (it.idExpulsion || it.idIncidencia);
                 const estiloSeveridad = ESTILO_SEVERIDAD[it.severidad] || ESTILO_SEVERIDAD.BAJA;
                 const claseEstado = ESTILO_ESTADO[it.estado] || "bg-[#F1F5F9] text-[#64748B]";
@@ -519,11 +521,11 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
                       <div className="flex items-start justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-mono text-[10px] font-black tracking-wider text-[#124B83] bg-[#F0F6FC] border border-[#B6D3EE] rounded-md px-1.5 py-0.5">
-                            {it.local ? "SIN SINCRONIZAR" : it.codigo}
+                            {textoInterfaz(it.local ? "SIN SINCRONIZAR" : it.codigo)}
                           </span>
                           <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-black ${claseEstado}`}>
                             <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                            {textoEstado(it)}
+                            {textoInterfaz(textoEstado(it))}
                           </span>
                           {tieneExpulsion && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-[#FEE2E2] text-[#B91C1C] px-2 py-0.5 text-[10px] font-black">
@@ -548,11 +550,11 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
 
                       <div className="mt-1.5 flex flex-col gap-1">
                         <div className="flex items-start gap-2 text-sm font-black text-[#08264A]">
-                          <span className="text-[#B91C1C] font-bold text-[10px]">TIPO:</span>
+                          <span className="text-[#B91C1C] font-bold text-[10px]">Tipo:</span>
                           <span>{textoTipo(it)}</span>
                         </div>
                         <div className="flex items-start gap-2 text-sm font-black text-[#08264A]">
-                          <span className="text-[#B91C1C] font-bold text-[10px]">ACCION:</span>
+                          <span className="text-[#B91C1C] font-bold text-[10px]">Accion:</span>
                           <span>{textoAccion(it)}</span>
                         </div>
                       </div>
@@ -580,7 +582,119 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
 
                       {it.descripcion && (
                         <p className="mt-1.5 text-[11px] leading-snug text-[#64748B] line-clamp-2">
-                          {it.descripcion}
+                          {textoInterfaz(it.descripcion)}
+                        </p>
+                      )}
+
+                      {esError && it.ultimoError && (
+                        <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-[#FEE2E2] bg-[#FEF2F2] px-2.5 py-1.5 text-[10.5px] font-bold text-[#B91C1C]">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+                          <span>Motivo del rechazo: {it.ultimoError}</span>
+                        </div>
+                      )}
+
+                      {rol === "DOCENTE" && !revocada && it.estado !== "REVOCADA" && (
+                        <div className="mt-2.5 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => fnAbrirRevocar(it)}
+                            disabled={idRevocando === claveItem}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#FCA5A5] bg-white px-2.5 py-1 text-[11px] font-black text-[#B91C1C] hover:bg-[#FEF2F2] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            {idRevocando === claveItem ? "Revocando…" : "Revocar"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}</>} />
+{incidenciasFiltradas.map((it) => {
+                const claveItem = it.local ? it.clientUuid : (it.idExpulsion || it.idIncidencia);
+                const estiloSeveridad = ESTILO_SEVERIDAD[it.severidad] || ESTILO_SEVERIDAD.BAJA;
+                const claseEstado = ESTILO_ESTADO[it.estado] || "bg-[#F1F5F9] text-[#64748B]";
+                const esError = ESTADOS_CON_ERROR.has(it.estado);
+                const tieneExpulsion = Boolean(it.idExpulsion) || it.estudianteRetirado;
+                const revocada = it.esRevocada;
+                const borde = esError
+                  ? "border-[#FCA5A5]"
+                  : it.local
+                    ? "border-[#FDE68A]"
+                    : "border-[#E2E8F0]";
+                return (
+                  <article
+                    key={claveItem}
+                    className={`group relative overflow-hidden rounded-2xl border bg-white transition-shadow hover:shadow-md ${borde}`}
+                  >
+                    <span className={`absolute inset-y-0 left-0 w-1.5 ${estiloSeveridad.barra}`} />
+
+                    <div className="pl-4 pr-3.5 py-3">
+                      <div className="flex items-start justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-[10px] font-black tracking-wider text-[#124B83] bg-[#F0F6FC] border border-[#B6D3EE] rounded-md px-1.5 py-0.5">
+                            {textoInterfaz(it.local ? "SIN SINCRONIZAR" : it.codigo)}
+                          </span>
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-black ${claseEstado}`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                            {textoInterfaz(textoEstado(it))}
+                          </span>
+                          {tieneExpulsion && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#FEE2E2] text-[#B91C1C] px-2 py-0.5 text-[10px] font-black">
+                              <UserMinus className="w-3 h-3" />
+                              {revocada ? "Expulsión revocada" : "Estudiante retirado"}
+                            </span>
+                          )}
+                          {it.evidenciaPendiente && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#F0F6FC] text-[#124B83] border border-[#B6D3EE] px-2 py-0.5 text-[10px] font-black">
+                              <CloudUpload className="w-3 h-3" />
+                              Foto pendiente
+                            </span>
+                          )}
+                        </div>
+                        {it.fechaHora && (
+                          <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-[#9AA8BA] shrink-0">
+                            <Clock className="w-3 h-3" />
+                            {formatearFecha(it.fechaHora)} · {formatearHora(it.fechaHora)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-1.5 flex flex-col gap-1">
+                        <div className="flex items-start gap-2 text-sm font-black text-[#08264A]">
+                          <span className="text-[#B91C1C] font-bold text-[10px]">Tipo:</span>
+                          <span>{textoTipo(it)}</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-sm font-black text-[#08264A]">
+                          <span className="text-[#B91C1C] font-bold text-[10px]">Accion:</span>
+                          <span>{textoAccion(it)}</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-[#7A8BA0]">
+                        {it.estudiante && (
+                          <span className="inline-flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {it.estudiante}
+                          </span>
+                        )}
+                        {it.aula && (
+                          <span className="inline-flex items-center gap-1">
+                            <Building2 className="w-3 h-3" />
+                            {it.aula}
+                          </span>
+                        )}
+                        {it.reportadoPor && (
+                          <span className="inline-flex items-center gap-1">
+                            <ClipboardList className="w-3 h-3" />
+                            {it.reportadoPor}
+                          </span>
+                        )}
+                      </div>
+
+                      {it.descripcion && (
+                        <p className="mt-1.5 text-[11px] leading-snug text-[#64748B] line-clamp-2">
+                          {textoInterfaz(it.descripcion)}
                         </p>
                       )}
 

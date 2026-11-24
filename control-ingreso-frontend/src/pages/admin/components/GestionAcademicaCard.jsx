@@ -1,3 +1,5 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
+import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
 import SelectorAsignatura from "../../../components/common/SelectorAsignatura";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { obtenerAsignaturas, crearAsignatura, crearGrupo,
@@ -74,10 +76,10 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
     {mensaje && <p role="status" className="text-green-700 font-semibold">{mensaje}</p>}
     {resultadoHorario && <div className="rounded-xl border border-border p-4 space-y-3">
       <details><summary className="font-bold cursor-pointer">Asignaturas que ya existían ({resultadoHorario.asignaturasExistentes})</summary>
-        <ul className="max-h-52 overflow-auto mt-2 text-sm space-y-1">{resultadoHorario.detalleAsignaturasExistentes?.map(a=><li key={a.codigoOficial}>Código {a.codigoOficial} · {a.nombreAsignatura}</li>)}</ul>
+        <ul className="max-h-52 overflow-auto mt-2 text-sm space-y-1">{resultadoHorario.detalleAsignaturasExistentes?.map(a=><li key={a.codigoOficial}>Código {a.codigoOficial} · {textoInterfaz(a.nombreAsignatura)}</li>)}</ul>
       </details>
       <details><summary className="font-bold cursor-pointer">Grupos que ya existían ({resultadoHorario.gruposExistentes})</summary>
-        <ul className="max-h-52 overflow-auto mt-2 text-sm space-y-1">{resultadoHorario.detalleGruposExistentes?.map(g=><li key={`${g.codigoOficial}-${g.nombreGrupo}`}>Código {g.codigoOficial} · {g.nombreAsignatura} · Grupo {g.nombreGrupo}</li>)}</ul>
+        <ul className="max-h-52 overflow-auto mt-2 text-sm space-y-1">{resultadoHorario.detalleGruposExistentes?.map(g=><li key={`${g.codigoOficial}-${g.nombreGrupo}`}>Código {g.codigoOficial} · {textoInterfaz(g.nombreAsignatura)} · Grupo {g.nombreGrupo}</li>)}</ul>
       </details>
     </div>}
     {cargando && <p>Cargando catálogo académico…</p>}
@@ -99,18 +101,18 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
       <div className="p-5 sm:p-7 space-y-4" role="dialog" aria-modal="true" aria-labelledby="titulo-horario">
         <div className="flex items-center justify-between gap-3"><h2 id="titulo-horario" className="text-card-title font-extrabold text-primary-navy">Vista previa del horario</h2>
           <button autoFocus type="button" disabled={ocupado} onClick={quitarArchivo} className="px-3 py-2 rounded-xl text-primary-navy hover:bg-bg-app">Cerrar</button></div>
-        {preview.carrera && <p className="font-bold text-primary-navy">{preview.carrera} · Gestión {preview.gestion}</p>}
+        {preview.carrera && <p className="font-bold text-primary-navy">{textoInterfaz(preview.carrera)} · Gestión {preview.gestion}</p>}
         <p className="text-secondary">{preview.filas.length} grupos de {new Set(preview.filas.map(f => f.codigoAsignatura)).size} asignaturas. Los grupos repetidos se muestran una sola vez por materia.</p>
         {error && <p role="alert" className="text-accent-red font-bold">{error}</p>}
         <p className="text-secondary">Después podrá registrar docentes con sus asignaturas y grupos, individualmente o mediante Excel.</p>
-        <div className="overflow-auto max-h-[55vh] border border-border rounded-xl"><table className="w-full text-sm text-left">
+        <div className="overflow-auto max-h-[55vh] border border-border rounded-xl"><TablaConReporte titulo="Asignaturas y grupos importados">{(_paraReporte) => (<table className="w-full text-sm text-left">
           <thead className="sticky top-0 bg-bg-app text-primary-navy"><tr><th className="p-3">Código</th><th className="p-3">Asignatura</th><th className="p-3">Grupo</th><th className="p-3">Asignatura en catálogo</th></tr></thead>
           <tbody>{preview.filas.map(f => <tr key={`${f.codigoAsignatura}-${f.nombreGrupo}`} className="border-t border-border">
             <td className="p-3">{f.codigoAsignatura}</td>
-            <td className="p-3 font-semibold text-primary-navy">{f.nombreAsignatura}</td>
+            <td className="p-3 font-semibold text-primary-navy">{textoInterfaz(f.nombreAsignatura)}</td>
             <td className="p-3 whitespace-nowrap">{f.nombreGrupo}</td><td className="p-3">{f.idAsignaturaDestino ? "Ya existe" : "Nueva"}</td>
           </tr>)}</tbody>
-        </table></div>
+        </table>)}</TablaConReporte></div>
         {ocupado && <p role="status" className="text-secondary text-primary-blue font-bold">Guardando asignaturas y grupos… La ventana se cerrará al terminar.</p>}
         <div className="flex flex-wrap justify-end gap-3"><button type="button" disabled={ocupado} onClick={quitarArchivo} className="px-4 py-2 rounded-xl border border-border text-primary-navy">Volver y quitar archivo</button>
           <button className={boton} disabled={ocupado} onClick={importar}>{ocupado && <Loader2 className="animate-spin" size={16} />}Confirmar y guardar horario</button></div>
@@ -147,7 +149,7 @@ export default function GestionAcademicaCard({ docentes = [], onCatalogChange })
       <p className="text-secondary">Para nuevos grupos o cambios posteriores al registro del docente.</p>
       <label className="block text-secondary font-bold">Docente<select required disabled={ocupado} value={idDocente} onChange={e => setIdDocente(e.target.value)} className={input}>
         <option value="">Seleccione un docente</option>
-        {docentes.filter(d => d.estado !== false).map(d => <option key={d.idUsuario} value={d.idUsuario}>{d.nombre} {d.apellido} · SIS {d.codigoSis}</option>)}
+        {docentes.filter(d => d.estado !== false).map(d => <option key={d.idUsuario} value={d.idUsuario}>{textoInterfaz(d.nombre)} {d.apellido} · SIS {d.codigoSis}</option>)}
       </select></label>
       <SeleccionGrupoLote value={grupoDocente} onChange={setGrupoDocente} disabled={ocupado} revision={versionCatalogo} />
       <button type="submit" disabled={ocupado || !idDocente || !grupoDocente} className={boton}>Asignar docente</button>

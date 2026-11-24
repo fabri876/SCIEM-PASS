@@ -1,3 +1,5 @@
+import ReporteLista from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // "Mis exámenes" del estudiante: lista completa con filtros por estado y por asignatura
 // (misma línea que "Mis exámenes" del docente). Los finalizados van sin botón.
 import { useMemo, useState } from "react";
@@ -51,12 +53,12 @@ function TarjetaExamenLista({ examen, strEstado, dateAhora, onVerQr }) {
 
             <div className="flex-1 min-w-[200px]">
                 <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="m-0 font-black text-sm text-[#08264A] uppercase">{examen.materia}</h4>
-                    {objBadge && <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{objBadge.strTexto}</span>}
+                    <h4 className="m-0 font-black text-sm text-[#08264A] ">{textoInterfaz(examen.materia)}</h4>
+                    {objBadge && <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{textoInterfaz(objBadge.strTexto)}</span>}
                 </div>
                 <p className="mt-0.5 text-xs font-bold text-[#64748B]">
-                    {examen.tipo && <span className="text-[#124B83]">{examen.tipo}</span>}
-                    {examen.tipo && strDetalle ? " · " : ""}
+                    {examen.tipo && <span className="text-[#124B83]">{textoInterfaz(examen.tipo)}</span>}
+                    {textoInterfaz(examen.tipo && strDetalle ? " · " : "")}
                     {strDetalle}
                 </p>
                 {!boolFinalizado && <div className="mt-1.5"><EtiquetaQr objEstado={objEstado} /></div>}
@@ -102,7 +104,7 @@ export default function SeccionMisExamenesEstudiante({ examenes = [], boolCargan
                             ? "bg-[#003770] text-white border-[#003770]"
                             : "bg-white text-[#1A365D] border-slate-300 hover:bg-slate-50"}`}
                     >
-                        {f.etiqueta}
+                        {textoInterfaz(f.etiqueta)}
                     </button>
                 ))}
                 <select
@@ -117,11 +119,14 @@ export default function SeccionMisExamenesEstudiante({ examenes = [], boolCargan
             </div>
 
             {strError && (
-                <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
+                <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(strError)}</div>
             )}
 
             <div className="space-y-3">
-                {boolCargando ? (
+                <ReporteLista titulo="Mis exámenes" contenido={() => <>{listVisibles.map(({ e, strEstado }) => (
+                        <TarjetaExamenLista key={e.id} examen={e} strEstado={strEstado} dateAhora={dateAhora} onVerQr={onVerQr} />
+                    ))}</>} />
+{boolCargando ? (
                     <div className="text-center py-10 text-slate-500 text-xs font-semibold animate-pulse bg-white rounded-2xl border border-slate-200">
                         Cargando exámenes…
                     </div>

@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from "../../components/layout/Header";
@@ -272,8 +273,8 @@ export default function HomeDocente() {
                             <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-md mb-3">
                                 {strIniciales}
                             </div>
-                            <h3 className="font-extrabold text-[#1A365D] text-sm">{strNombre} {strApellido}</h3>
-                            <span className="text-[11px] text-[#1A365D] font-bold mb-4">DOCENTE UMSS</span>
+                            <h3 className="font-extrabold text-[#1A365D] text-sm">{textoInterfaz(strNombre)} {strApellido}</h3>
+                            <span className="text-[11px] text-[#1A365D] font-bold mb-4">Docente UMSS</span>
                             <div className="w-full border-t border-slate-100 pt-3 text-left space-y-2 text-xs">
                                 <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Facultad:</span> Cs. y Tecnología</p>
                                 <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Código Docente:</span> {usuario?.codigoSis || "-"}</p>
@@ -432,8 +433,8 @@ export default function HomeDocente() {
                         ) : (
                             <>
                                 <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>
-                                    <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
-                                        ¡HOLA, {strNombre.toUpperCase()}!
+                                    <span className="text-xs font-bold tracking-wider opacity-90 mb-1">
+                                        ¡Hola, {textoInterfaz(strNombre)}!
                                     </span>
                                     <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
                                         Te damos la bienvenida a SCIEM-PASS

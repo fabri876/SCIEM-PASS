@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Tarjeta de un examen de HOY en el Inicio del ayudante (mismo diseño que el Inicio del docente).
 // - Hora de inicio en grande a la izquierda.
 // - "Registrar ingreso" desde 15 minutos antes del inicio hasta el fin; antes, "Registro desde las HH:MM".
@@ -28,12 +29,12 @@ export default function TarjetaHoyAyudante({ examen, dateAhora, onElegir, boolSi
 
         <div className="flex-1 min-w-[180px]">
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="m-0 font-black text-sm text-[#08264A] uppercase">{examen.materia}</h4>
+            <h4 className="m-0 font-black text-sm text-[#08264A] ">{textoInterfaz(examen.materia)}</h4>
             {boolEnCurso && <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#003770] text-white">● En curso</span>}
           </div>
           <p className="mt-0.5 text-xs font-bold text-[#64748B]">
-            {examen.tipo && <span className="text-[#124B83]">{examen.tipo}</span>}
-            {examen.tipo && strDetalle ? " · " : ""}
+            {examen.tipo && <span className="text-[#124B83]">{textoInterfaz(examen.tipo)}</span>}
+            {textoInterfaz(examen.tipo && strDetalle ? " · " : "")}
             {strDetalle}
           </p>
         </div>

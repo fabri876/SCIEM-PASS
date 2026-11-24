@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 // Ventana para cancelar un examen (la usan el docente y el administrador).
 // Solo pide el motivo (obligatorio, hasta 200 letras). Se cierra con la ✕.
 // El botón "Confirmar" queda apagado hasta que se escriba el motivo.
@@ -70,12 +71,12 @@ export default function ModalCancelarExamen({ examen, onCerrar, onCancelado }) {
                         className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-[13px] text-[#0F2340] resize-none focus:outline-none focus:border-[#003770] focus:ring-[3px] focus:ring-[#E6EEF8]"
                     />
                     <p className="text-right text-[10.5px] text-slate-400 mt-1">
-                        {strMotivo.length} / {MAX_MOTIVO_CANCELACION}
+                        {textoInterfaz(strMotivo.length)} / {textoInterfaz(MAX_MOTIVO_CANCELACION)}
                     </p>
 
                     {strError && (
                         <p role="alert" className="mt-2 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-[#B91C1C] text-xs font-semibold px-3 py-2">
-                            {strError}
+                            {textoInterfaz(strError)}
                         </p>
                     )}
 
