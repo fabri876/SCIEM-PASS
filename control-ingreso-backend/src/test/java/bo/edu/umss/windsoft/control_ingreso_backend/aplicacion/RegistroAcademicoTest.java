@@ -56,6 +56,30 @@ class RegistroAcademicoTest {
         servicio.crear(dto,"admin@example.test","127.0.0.1");
         verify(passwords).encode("12345671N");
     }
+    @Test void administradorNoPuedeCrearseConCiNiClaveDebil() {
+        var dto = solicitud("ADMINISTRADOR");
+        for (String clave : new String[]{"", "1234567", "corta"}) {
+            dto.setContrasena(clave);
+            assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
+                    () -> servicio.crear(dto, "admin@example.test", "local"));
+        }
+        verify(usuarios, never()).save(any());
+        verifyNoInteractions(passwords);
+    }
+    @Test void noSeHabilitaCreacionDeAdministradorConClaveValida() {
+        var dto = solicitud("ADMINISTRADOR"); dto.setContrasena("Vela$8Nube!49");
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
+                () -> servicio.crear(dto, "admin@example.test", "local"));
+        verify(usuarios, never()).save(any());
+    }
+    @Test void ascensoAAdministradorSigueRestringido() {
+        Usuario u = persona(4, "persona@example.test");
+        when(usuarios.findById(4)).thenReturn(Optional.of(u));
+        when(roles.resolver(4)).thenReturn("DOCENTE");
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
+                () -> servicio.cambiarRol(4, "ADMINISTRADOR", null, "admin@example.test", "local"));
+        verify(usuarios, never()).save(any());
+    }
     @Test void registroEstudianteVinculaVariosGrupos() {
         when(passwords.encode(any())).thenReturn("hash");
         when(usuarios.save(any())).thenAnswer(i -> { Usuario u = i.getArgument(0); u.setIdusuario(5); return u; });

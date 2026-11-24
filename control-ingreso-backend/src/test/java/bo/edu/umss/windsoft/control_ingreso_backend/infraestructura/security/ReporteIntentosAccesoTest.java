@@ -53,9 +53,13 @@ class ReporteIntentosAccesoTest {
     static class Config {
         @Bean ObjectMapper objectMapper() { return new ObjectMapper(); }
         @Bean JwtTokenProvider tokenProvider() { return mock(JwtTokenProvider.class); }
+        @Bean ClientVersionFilter clientVersionFilter() { return new ClientVersionFilter(0); }
         @Bean UsuarioRepository usuarios() { return mock(UsuarioRepository.class); }
         @Bean AuditoriaService auditoria() { return mock(AuditoriaService.class); }
-        @Bean JwtAuthenticationFilter filtro(JwtTokenProvider token, UsuarioRepository usuarios) { return new JwtAuthenticationFilter(token, usuarios); }
+        @Bean JwtAuthenticationFilter filtro(JwtTokenProvider token, UsuarioRepository usuarios) {
+            return new JwtAuthenticationFilter(token, usuarios,
+                    mock(bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.TipoUsuarioResolver.class));
+        }
         @Bean CambioContrasenaObligatorioFilter cambioContrasena(UsuarioRepository usuarios) { return new CambioContrasenaObligatorioFilter(usuarios); }
         @Bean JwtAuthenticationEntryPoint entryPoint(ObjectMapper mapper) { return new JwtAuthenticationEntryPoint(mapper); }
         @Bean JwtAccessDeniedHandler denied(ObjectMapper mapper, AuditoriaService auditoria) { return new JwtAccessDeniedHandler(mapper, auditoria); }
