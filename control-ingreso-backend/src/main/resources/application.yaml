@@ -12,25 +12,33 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
     properties:
       hibernate:
-        format_sql: true
+        format_sql: ${SPRING_JPA_FORMAT_SQL:false}
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 11MB
 
 server:
+  shutdown: graceful
   tomcat:
     max-swallow-size: 12MB
-  port: 8080
+  port: ${PORT:8080}
+
+spring.lifecycle:
+  timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
 
 storage:
   biometric:
     # Ruta fuera de src/main/resources y del directorio público. En producción
     # debe sobrescribirse mediante application-local.yaml o variable de entorno.
-    path: ./storage/biometrics
+    path: ${STORAGE_BIOMETRIC_PATH:./storage/biometrics}
+    require-existing: ${STORAGE_BIOMETRIC_REQUIRE_EXISTING:false}
+
+client:
+  min-version: ${CLIENT_MIN_VERSION:0}
 
 backup:
   enabled: ${BACKUP_ENABLED:false}

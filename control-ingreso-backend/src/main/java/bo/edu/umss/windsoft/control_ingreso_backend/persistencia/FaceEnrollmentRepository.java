@@ -25,6 +25,8 @@ public interface FaceEnrollmentRepository extends JpaRepository<FaceEnrollment, 
 
     List<FaceEnrollment> findByIdUsuarioInAndEstado(Iterable<Integer> idsUsuario, String estado);
 
+    List<FaceEnrollment> findByIdUsuarioIn(Iterable<Integer> idsUsuario);
+
     List<FaceEnrollment> findAllByOrderByFechaRegistroDesc();
 
     List<FaceEnrollment> findByEstadoOrderByFechaRegistroDesc(String estado);

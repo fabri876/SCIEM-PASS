@@ -470,11 +470,23 @@ public class ExamenService {
         return enriquecerLote(examenRepository.findAll());
     }
 
+    /** Resumen para listados administrativos; omite normas y contadores pesados. */
+    public List<ExamenRespuestaDto> obtenerExamenesResumen() {
+        return enriquecerLote(examenRepository.findAll(), false);
+    }
+
     public List<ExamenRespuestaDto> obtenerMisExamenesEnriquecidos(Integer idUsuarioAutenticado) {
         Docente docente = docenteRepository.findByIdusuario(idUsuarioAutenticado)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "No se encontró un docente para el usuario autenticado."));
         return obtenerExamenesDocenteEnriquecidos(idUsuarioAutenticado, docente.getCodsisdocente());
+    }
+
+    /** Resumen liviano para la pantalla de inicio docente. */
+    public List<ExamenRespuestaDto> obtenerMisExamenesResumen(Integer idUsuarioAutenticado) {
+        Docente docente = docenteRepository.findByIdusuario(idUsuarioAutenticado)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró un docente para el usuario autenticado."));
+        return enriquecerLote(examenRepository.findByIdUsuarioAndCodsisDocente(idUsuarioAutenticado, docente.getCodsisdocente()), false);
     }
 
     /** Exámenes enriquecidos de un docente solicitado por el administrador. */
@@ -581,7 +593,7 @@ public class ExamenService {
         // --- FIN NUEVO ---
 
         // Grupos por asignatura
-        Map<Integer, List<Grupo>> gruposPorAsignatura = asignaturasPorId.keySet().isEmpty()
+        Map<Integer, List<Grupo>> gruposPorAsignatura = !incluirResumen || asignaturasPorId.keySet().isEmpty()
                 ? Map.of()
                 : grupoRepository.findByIdAsignaturaIn(idsAsignatura)
                         .stream()

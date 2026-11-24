@@ -4,6 +4,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.Jwt
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.JwtAuthenticationEntryPoint;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.JwtAuthenticationFilter;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.CambioContrasenaObligatorioFilter;
+import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security.ClientVersionFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,15 +23,18 @@ public class SecurityConfig {
     private final CambioContrasenaObligatorioFilter cambioContrasenaObligatorioFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
+    private final ClientVersionFilter clientVersionFilter;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                            CambioContrasenaObligatorioFilter cambioContrasenaObligatorioFilter,
                            JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
-                           JwtAccessDeniedHandler jwtAccessDeniedHandler) {
+                           JwtAccessDeniedHandler jwtAccessDeniedHandler,
+                           ClientVersionFilter clientVersionFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.cambioContrasenaObligatorioFilter = cambioContrasenaObligatorioFilter;
         this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
         this.jwtAccessDeniedHandler = jwtAccessDeniedHandler;
+        this.clientVersionFilter = clientVersionFilter;
     }
 
     @Bean
@@ -123,7 +127,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/usuarios/**").hasAnyRole("ADMINISTRADOR", "DOCENTE")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(cambioContrasenaObligatorioFilter, JwtAuthenticationFilter.class);
+                .addFilterAfter(cambioContrasenaObligatorioFilter, JwtAuthenticationFilter.class)
+                .addFilterAfter(clientVersionFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

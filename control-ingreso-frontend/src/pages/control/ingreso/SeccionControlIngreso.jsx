@@ -19,16 +19,10 @@ import { obtenerUsuarioActual } from "../../../services/authService";
 import { rangoExamen, aperturaControl } from "../../docente/utilidadesExamenDocente";
 
 // Franja de estado debajo del encabezado del examen.
-// Con internet: solo "En línea". Sin internet: el tramo de apellidos que registra este ayudante.
+// Con internet no se muestra: el encabezado azul ya indica "En vivo".
+// Sin internet: el tramo de apellidos que registra este ayudante.
 function FranjaEstado({ boolSinRed, objFila }) {
-  if (!boolSinRed) {
-    return (
-      <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-[#F0F6FC] border border-[#D9E8F7] text-sm font-semibold text-[#124B83]">
-        <i className="w-2.5 h-2.5 rounded-full bg-[#1860A3] shrink-0 shadow-[0_0_0_4px_rgba(24,96,163,.18)] animate-pulse" />
-        En línea
-      </div>
-    );
-  }
+  if (!boolSinRed) return null;
   const numTotal = objFila?.total;
   return (
     <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-[#FEF2F2] border border-[#FEE2E2] text-sm text-[#B91C1C]">
@@ -46,7 +40,7 @@ function FranjaEstado({ boolSinRed, objFila }) {
   );
 }
 
-// nodoAcciones: botones dentro del encabezado azul (por ejemplo "Lista oficial del aula")
+// nodoAcciones: botones dentro del encabezado azul (por ejemplo "Lista oficial del examen")
 // listAvisos: chips extra en el encabezado (por ejemplo "Registro desde las 19:15")
 // objFilaSinRed: tramo de apellidos guardado en el equipo (por ejemplo, el docente que también controla el ingreso)
 export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolPermitirVolver = true, nodoAcciones = null, listAvisos = [], objFilaSinRed = null, onExcepcional = null }) {
@@ -64,7 +58,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
   }, []);
   const {
     listExamenes, boolCargandoExamenes, sinRespaldoOffline, examenActual, idExamen, objContador, listUltimos, objResultado, objNomina,
-    boolValidando, strError, strUltimoRegistrado, objIdentificacion, fnIdentificar, fnRegistrarConFacial, fnRegistrarSinFacial,
+    boolValidando, strError, strUltimoRegistrado, objIdentificacion, fnIdentificar, fnRegistrarConFacial,
     fnLimpiarIdentificacion, fnCerrarResultado, fnElegirExamen, fnVolverALista, fnDescargarNomina,
     objModoRapido, fnActivarModoRapido, fnDesactivarModoRapido, fnConfirmarIngresoRapido,
   } = ctrl;
@@ -136,18 +130,14 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     ? fnIdentificar
     : (strValor, strMetodo, objOpciones = {}) => fnIdentificar(strValor, strMetodo, { ...objOpciones, ignorarFila: true });
 
-  // Sin enrolamiento, paquete/cámara caídos o 3 fallos: online se autoriza
-  // como excepcional (docente/operador); offline se registra normal sin facial
-  // para no detener la fila.
+  // Ningún fallback biométrico registra normal: tanto online como offline usa
+  // el modal excepcional, que deja su propia cola idempotente si no hay red.
   const fnFallbackFacial = (strMotivo) => {
     const objIdent = ctrl.objIdentificacion;
     if (!objIdent) return;
-    if (objIdent.offline) {
-      fnRegistrarSinFacial();
-      return;
-    }
     const e = objIdent.estudiante;
-    onExcepcional?.({
+    if (!onExcepcional) return;
+    onExcepcional({
       motivo: strMotivo,
       idAmbiente,
       estudiante: {
@@ -158,6 +148,18 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     });
   };
 
+  const fnConfirmarRapidoSeguro = () => {
+    const ident = ctrl.objIdentificacion;
+    const estado = ident?.estudiante?.estadoEnrolamientoFacial;
+    if (estado && estado !== "ACTIVO") {
+      fnFallbackFacial("SIN_ENROLAMIENTO_FACIAL");
+      return;
+    }
+    fnConfirmarIngresoRapido();
+  };
+
+  // El estado llega desde IDENTIFICADO, aun cuando no se descargó nómina.
+  // Se resuelve antes de montar la cámara o de ofrecer modo rápido.
   return (
     <div className="flex flex-col gap-7 max-md:gap-[22px] text-[#08264A]">
       <div className="flex flex-col gap-2.5">
@@ -312,7 +314,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               onFalloFacial={() => fnFallbackFacial("FALLO_FACIAL")}
               onCancelarFacial={fnLimpiarIdentificacion}
               boolModoRapido={Boolean(objModoRapido)}
-              onConfirmarRapido={fnConfirmarIngresoRapido}
+              onConfirmarRapido={fnConfirmarRapidoSeguro}
             />
             {strError && (
               <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(strError)}</div>

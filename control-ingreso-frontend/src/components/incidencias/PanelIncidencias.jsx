@@ -48,6 +48,7 @@ export default function PanelIncidencias({
     revocaciones: 0,
     excepcionales: 0,
     excepcionalesConError: 0,
+    incidenciasCanceladas: 0,
   });
   const [modalIncidencia, setModalIncidencia] = useState(false);
   const [modalHistorial, setModalHistorial] = useState(false);
@@ -70,8 +71,13 @@ export default function PanelIncidencias({
             .equals(ESTADO_SYNC.ERROR)
             .count(),
         ]);
+      // Incidencias descartadas por examen cancelado (no se reintentan).
+      const incidenciasCanceladas = (await db.incidencias_pendientes
+        .where("syncStatus")
+        .equals(ESTADO_SYNC.ERROR)
+        .toArray()).filter((i) => String(i.ultimoError || "").includes("Examen cancelado")).length;
       setBoolOffline(offline);
-      setContadores({ incidencias, evidencias, revocaciones, excepcionales, excepcionalesConError });
+      setContadores({ incidencias, evidencias, revocaciones, excepcionales, excepcionalesConError, incidenciasCanceladas });
     } catch {
       // Sin datos locales se muestran los contadores en cero.
     }
@@ -151,6 +157,14 @@ export default function PanelIncidencias({
       errores: contadores.excepcionalesConError,
       onClick: () => setModalExcepcional(true),
     },
+    {
+      clave: "canceladas",
+      icono: AlertTriangle,
+      titulo: "Exámenes cancelados",
+      descripcion: "Incidencias que no se registraron porque el examen fue cancelado.",
+      pendientes: contadores.incidenciasCanceladas,
+      onClick: () => setModalHistorial(true),
+    },
   ];
 
   return (
@@ -205,6 +219,7 @@ export default function PanelIncidencias({
 
           {opciones
             .filter((opcion) => !(opcion.clave === "incidencia" && rol !== "DOCENTE"))
+            .filter((opcion) => !(opcion.clave === "canceladas" && contadores.incidenciasCanceladas === 0))
             .map((opcion) => {
             const Icono = opcion.icono;
             return (

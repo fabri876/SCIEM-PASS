@@ -304,11 +304,21 @@ export default function ModalIngresoExcepcional({
         onCerrar();
       }, 1200);
     } catch (err) {
-      if (err?.offline || /conectar|conexi[oó]n|Failed to fetch|timeout/i.test(err?.message || "")) {
+      const mensajeServidor = err.message || "";
+      const esExamenCancelado = mensajeServidor.includes("Examen cancelado")
+        || mensajeServidor.includes("Este examen fue cancelado");
+      if (err?.offline || /conectar|conexi[oó]n|Failed to fetch|timeout/i.test(mensajeServidor)) {
         await guardarOffline();
         return;
+      } else if (esExamenCancelado) {
+        setStrErrorGuardado(mensajeServidor);
+        setBoolGuardando(false);
+        setTimeout(() => {
+          onCerrar();
+        }, 600);
+        return;
       }
-      setStrErrorGuardado(err.message || "No se pudo autorizar el ingreso.");
+      setStrErrorGuardado(mensajeServidor || "No se pudo autorizar el ingreso.");
       setBoolGuardando(false);
     }
   };

@@ -26,6 +26,7 @@ public class ReporteAsistenciaController {
         String f = "xlsx".equalsIgnoreCase(formato) ? "xlsx" : "pdf";
         byte[] archivo = service.generar(idExamen, f, seleccionadas, contexto.actual());
         MediaType tipo = "xlsx".equals(f) ? MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") : MediaType.APPLICATION_PDF;
-        return ResponseEntity.ok().contentType(tipo).header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"reporte-asistencia-" + idExamen + "." + f + "\"").body(archivo);
+        String nombreArchivo = service.nombreArchivo(idExamen, f);
+        return ResponseEntity.ok().contentType(tipo).header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nombreArchivo + "\"").body(archivo);
     }
 }

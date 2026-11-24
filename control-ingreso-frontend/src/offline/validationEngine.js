@@ -1,6 +1,7 @@
 import { db } from './db.js';
 import { nominaRepo } from './nominaRepo.js';
 import { asistenciaRepo } from './asistenciaRepo.js';
+import { ingresoExcepcionalRepo } from './ingresoExcepcionalRepo.js';
 import { estaExpulsadoLocal } from './incidenciaOffline.js';
 import { normalizarCi, extraerQr } from './normalize.js';
 import { RESULTADO_VALIDACION, ERROR_ASISTENCIA } from './constantes.js';
@@ -14,7 +15,8 @@ function mapearEstudiante(e) {
     carrera: e.carrera || '',
     apellidoPaterno: e.apellidoPaterno || '',
     aulaAsignada: e.aulaAsignada || null,
-    normaParticular: e.normaParticular || null
+    normaParticular: e.normaParticular || null,
+    estadoEnrolamientoFacial: e.estadoEnrolamientoFacial ?? "DESCONOCIDO"
   };
 }
 
@@ -549,6 +551,33 @@ export async function validarIngreso({
       fueraDeRango,
       aulaAsignada: estudiante.aulaAsignada,
       normaParticular: estudiante.normaParticular,
+      tiempoMs: calcularTiempo()
+    };
+  }
+
+  const excepcionalPendiente = await ingresoExcepcionalRepo.pendienteParaEstudiante(exId, estudiante.codigoSis);
+  if (excepcionalPendiente) {
+    return {
+      ...respuestaBase,
+      resultado: RESULTADO_VALIDACION.EXCEPCIONAL_LOCAL_PENDIENTE,
+      estudiante: estudiantePayload,
+      motivo: excepcionalPendiente.ultimoError || 'Existe un ingreso excepcional local sin confirmar.',
+      metodo: metodoUsado,
+      tiempoMs: calcularTiempo(),
+    };
+  }
+
+  // Esta es la misma barrera que aplica el servidor: el motor local nunca
+  // encola una asistencia normal si no puede demostrar enrolamiento activo.
+  if (registrar && estudiantePayload.estadoEnrolamientoFacial !== 'ACTIVO') {
+    return {
+      ...respuestaBase,
+      resultado: RESULTADO_VALIDACION.REQUIERE_EXCEPCIONAL_ENROLAMIENTO,
+      estudiante: estudiantePayload,
+      motivo: estudiantePayload.estadoEnrolamientoFacial,
+      metodo: metodoUsado,
+      coincidenciaParcial,
+      fueraDeRango,
       tiempoMs: calcularTiempo()
     };
   }

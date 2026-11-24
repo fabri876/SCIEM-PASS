@@ -166,6 +166,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
   const idsExamenVistos = new Set();
   aulasAsignadas
     .filter((a) => filtroMateria === TODOS || String(a.idAsignatura) === String(filtroMateria))
+    .filter((a) => !(a.cancelado === true))
     .forEach((aula) => {
       if (!idsExamenVistos.has(aula.idExamen)) {
         idsExamenVistos.add(aula.idExamen);
@@ -178,6 +179,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
   // Aulas del examen seleccionado (respeta la materia cuando el examen está en TODOS)
   const aulasDelExamen = aulasAsignadas.filter((a) => {
+    if (a.cancelado === true) return false;
     if (strIdExamen !== TODOS) {
       return String(a.idExamen) === strIdExamen;
     }

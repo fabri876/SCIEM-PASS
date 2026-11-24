@@ -51,4 +51,27 @@ export const revocacionRepo = {
       .equals(ESTADO_SYNC.SYNCING)
       .modify({ syncStatus: ESTADO_SYNC.PENDIENTE, nextRetryAt: 0 });
   },
+
+  /**
+   * Descarta las revocaciones pendientes de un examen que se detectó como
+   * cancelado al volver el internet. Se marcan como ERROR con el motivo
+   * "Examen cancelado" y no se reintentan.
+   */
+  async descartarPorExamenCancelado(idExamen) {
+    const exId = Number(idExamen);
+    const items = await db.revocaciones_pendientes
+      .filter((i) => Number(i.idExamen) === exId && i.syncStatus !== ESTADO_SYNC.SINCRONIZADO)
+      .toArray();
+    await db.transaction("rw", db.revocaciones_pendientes, async () => {
+      for (const item of items) {
+        await db.revocaciones_pendientes.update(item.clientUuid, {
+          syncStatus: ESTADO_SYNC.ERROR,
+          nextRetryAt: 0,
+          ultimoError: "Examen cancelado",
+          sincronizadoEn: Date.now(),
+        });
+      }
+    });
+    return items.length;
+  },
 };

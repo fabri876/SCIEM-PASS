@@ -251,6 +251,8 @@ export const nominaRepo = {
           apellidoPaterno: apePaterno || '',
           nombre: nombreCompleto,
           carrera: remoto.carrera || '',
+          // Ausente significa copia previa al contrato; no se inventa ACTIVO.
+          estadoEnrolamientoFacial: remoto.estadoEnrolamientoFacial ?? previo?.estadoEnrolamientoFacial ?? 'DESCONOCIDO',
           habilitado,
           motivoBloqueo: motivoBloqueoFinal,
           expulsado,

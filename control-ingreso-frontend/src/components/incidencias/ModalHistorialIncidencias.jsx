@@ -701,7 +701,11 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
                       {esError && it.ultimoError && (
                         <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-[#FEE2E2] bg-[#FEF2F2] px-2.5 py-1.5 text-[10.5px] font-bold text-[#B91C1C]">
                           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
-                          <span>Motivo del rechazo: {it.ultimoError}</span>
+                          <span>
+                            {it.ultimoError.includes("Examen cancelado")
+                              ? "Examen cancelado · no se registró"
+                              : "Motivo del rechazo: " + it.ultimoError}
+                          </span>
                         </div>
                       )}
 

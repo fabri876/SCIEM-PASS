@@ -190,6 +190,7 @@ public class AmbienteExamenService {
 
         return describir(visibles).values().stream()
                 .filter(info -> dia.equals(info.fechaExamen()))
+                .filter(this::examenNoCancelado)
                 .sorted(Comparator.comparing((AmbienteInfo i) -> i.ambiente().getHoraInicio(),
                                 Comparator.nullsLast(Comparator.naturalOrder()))
                         .thenComparing(AmbienteInfo::aula, Comparator.nullsLast(Comparator.naturalOrder())))
@@ -210,6 +211,7 @@ public class AmbienteExamenService {
 
         return describir(visibles).values().stream()
                 .filter(info -> info.fechaExamen() == null || !info.fechaExamen().isAfter(hoy))
+                .filter(this::examenNoCancelado)
                 .sorted(Comparator.comparing(AmbienteInfo::fechaExamen, Comparator.nullsLast(Comparator.reverseOrder()))
                         .thenComparing(i -> i.ambiente().getHoraInicio(), Comparator.nullsLast(Comparator.naturalOrder()))
                         .thenComparing(AmbienteInfo::aula, Comparator.nullsLast(Comparator.naturalOrder())))
@@ -222,6 +224,20 @@ public class AmbienteExamenService {
         if (info.fechaExamen() != null && info.fechaExamen().isAfter(HoraOficial.hoy())) {
             throw new ConflictoEstadoException("El examen es el " + info.fechaExamen().format(FORMATO_FECHA)
                     + "; todavía no se pueden registrar incidencias.");
+        }
+    }
+
+    /**
+     * Valida que el examen del ambiente no esté cancelado. Si lo está, se
+     * impide registrar cualquier incidencia, ingreso excepcional o expulsión.
+     */
+    public void verificarExamenNoCancelado(AmbienteInfo info) {
+        Ambiente ambiente = info.ambiente();
+        Examen examen = examenRepository.findById(ambiente.getIdExamen())
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe el examen con ID " + ambiente.getIdExamen() + "."));
+        if (Boolean.TRUE.equals(examen.getCancelado())) {
+            throw new ConflictoEstadoException("Este examen fue cancelado.");
         }
     }
 
@@ -274,6 +290,17 @@ public class AmbienteExamenService {
             throw new ConflictoEstadoException(
                     "El registro offline tiene una fecha futura: revisa la hora y la fecha del dispositivo.");
         }
+    }
+
+    /**
+     * true si el examen del ambiente no está cancelado (incluye nulo/desconocido
+     * como "no cancelado" para no bloquear exámenes sin registro de cancelación).
+     */
+    private boolean examenNoCancelado(AmbienteInfo info) {
+        Ambiente ambiente = info.ambiente();
+        Examen examen = examenRepository.findById(ambiente.getIdExamen())
+                .orElse(null);
+        return examen == null || !Boolean.TRUE.equals(examen.getCancelado());
     }
 
     private AmbienteControlDto aDto(AmbienteInfo info) {

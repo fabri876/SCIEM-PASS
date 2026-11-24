@@ -16,6 +16,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoExamen;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.TipoIngreso;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Expulsion;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.FaceEnrollment;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AsignacionNoActivaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AmbienteRepository;
@@ -61,6 +62,11 @@ import java.util.Locale;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -263,9 +269,26 @@ public class ControlIngresoAyudanteService {
                 : ingresoRepository.findTop10ByIdAsignaturaAndIdExamenAndIdAmbienteOrderByHoraIngresoDesc(
                         idAsignatura, idExamen, idAmbiente);
 
+        // Batch-load related entities to avoid N+1 queries
+        Set<Integer> studentUserIds = lista.stream()
+                .map(Ingreso::getIdUsuarioEstudiante)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<Integer> operatorUserIds = lista.stream()
+                .map(Ingreso::getIdUsuarioRegistra)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Integer, Usuario> studentUserMap = usuarioRepository.findAllById(studentUserIds).stream()
+                .collect(Collectors.toMap(Usuario::getIdusuario, Function.identity()));
+        Map<Integer, Usuario> operatorUserMap = usuarioRepository.findAllById(operatorUserIds).stream()
+                .collect(Collectors.toMap(Usuario::getIdusuario, Function.identity()));
+        Map<Integer, FaceEnrollment> faceEnrollmentMap = faceEnrollmentRepository.findByIdUsuarioInAndEstado(studentUserIds, "activo").stream()
+                .collect(Collectors.toMap(FaceEnrollment::getIdUsuario, Function.identity()));
+
         var resultado = new java.util.ArrayList<>(lista.stream()
                 .map(ing -> {
-                    Usuario user = usuarioRepository.findById(ing.getIdUsuarioEstudiante()).orElse(null);
+                    Usuario user = studentUserMap.get(ing.getIdUsuarioEstudiante());
                     Estudiante est = estudianteRepository.findByCodsisestudiante(ing.getCodsisEstudiante())
                             .orElse(null);
 
@@ -281,13 +304,13 @@ public class ControlIngresoAyudanteService {
                             ci,
                             nombreCompleto,
                             carreraDelEstudiante(ing.getIdUsuarioEstudiante(), codsis),
-                            resolverFotoUrl(ing.getIdUsuarioEstudiante()));
+                            faceEnrollmentMap.containsKey(ing.getIdUsuarioEstudiante())
+                                    ? "/api/face/enrollment/" + ing.getIdUsuarioEstudiante() + "/foto"
+                                    : null);
 
                     String metodo = ing.getMetodoIngreso() != null ? ing.getMetodoIngreso().name() : "MANUAL";
 
-                    Usuario operador = ing.getIdUsuarioRegistra() != null
-                            ? usuarioRepository.findById(ing.getIdUsuarioRegistra()).orElse(null)
-                            : null;
+                    Usuario operador = operatorUserMap.get(ing.getIdUsuarioRegistra());
                     String registradoPor = operador != null
                             ? (operador.getNombreusuario() + " " + operador.getApellidousuario()).trim()
                             : null;
@@ -543,7 +566,8 @@ public class ControlIngresoAyudanteService {
                 usuario.getCiusuario(),
                 usuario.getNombreusuario() + " " + usuario.getApellidousuario(),
                 carreras.isEmpty() ? null : String.join(", ", carreras),
-                resolverFotoUrl(usuario.getIdusuario()));
+                resolverFotoUrl(usuario.getIdusuario()),
+                estadoEnrolamientoFacial(usuario.getIdusuario()));
 
         // En línea todos los operadores asignados al aula pueden registrar
         // cualquier estudiante habilitado. La subdivisión por apellidos se
@@ -676,6 +700,23 @@ public class ControlIngresoAyudanteService {
                     null, null, false, Boolean.TRUE.equals(dto.modoRapido())));
         }
 
+        // Defensa de servidor: una app vieja o una cola offline no puede crear
+        // un NORMAL sin evidencia biometrica para un enrolamiento no activo.
+        String estadoEnrolamiento = estudianteResumen.estadoEnrolamientoFacial();
+        boolean tieneEvidenciaFacial = dto.scoreFacial() != null && dto.livenessScore() != null;
+        if (!"ACTIVO".equals(estadoEnrolamiento) && !tieneEvidenciaFacial) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(new ResultadoIngresoDTO(
+                    "REQUIERE_EXCEPCIONAL_ENROLAMIENTO",
+                    "El estado facial requiere registrar un ingreso excepcional.",
+                    estudianteResumen, null, null, estadoEnrolamiento));
+        }
+        if (Boolean.TRUE.equals(dto.modoRapido()) && !"ACTIVO".equals(estadoEnrolamiento)) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(new ResultadoIngresoDTO(
+                    "REQUIERE_EXCEPCIONAL_ENROLAMIENTO",
+                    "El modo rapido solo esta disponible con enrolamiento facial activo.",
+                    estudianteResumen, null, null, estadoEnrolamiento));
+        }
+
         // 4.3 Verificación facial: si llegan scores deben ser consistentes.
         validarScoresFaciales(dto);
 
@@ -753,6 +794,20 @@ public class ControlIngresoAyudanteService {
         if (motivo.length() < OBSERVACION_MODO_RAPIDO_MIN || motivo.length() > OBSERVACION_MODO_RAPIDO_MAX) {
             throw new SolicitudInvalidaException("El motivo del modo rápido debe tener entre 20 y 500 caracteres.");
         }
+    }
+
+    /** Estado compacto y determinista para el contrato de identificacion. */
+    private String estadoEnrolamientoFacial(Integer idUsuario) {
+        if (idUsuario == null) return "SIN_ENROLAMIENTO";
+        return faceEnrollmentRepository.findByIdUsuarioOrderByFechaRegistroDesc(idUsuario).stream().findFirst()
+                .map(e -> {
+                    String estado = e.getEstado() == null ? "" : e.getEstado().trim().toLowerCase(Locale.ROOT);
+                    if ("bloqueado".equals(estado)) return "BLOQUEADO";
+                    if ("pendiente_reenrolamiento".equals(estado)) return "PENDIENTE_REENROLAMIENTO";
+                    if ("activo".equals(estado) && e.getPhotoPath() != null && !e.getPhotoPath().isBlank()
+                            && e.getEmbedding() != null && !e.getEmbedding().isBlank()) return "ACTIVO";
+                    return "SIN_ENROLAMIENTO";
+                }).orElse("SIN_ENROLAMIENTO");
     }
 
     /**

@@ -104,6 +104,8 @@ public class IngresoExcepcionalService {
                 "Consultar estudiante", ip);
 
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
+        // Impedir consultar/autorizar sobre un examen cancelado.
+        ambienteExamenService.verificarExamenNoCancelado(info);
         EstadoIngresoAula estadoAula = ambienteExamenService.estadoIngreso(info);
         AforoDto aforo = ambienteExamenService.aforo(idAmbiente);
         // Consulta desde el formulario de ingreso excepcional (no desde incidencias):
@@ -216,6 +218,8 @@ public class IngresoExcepcionalService {
         contextoUsuarioService.verificarAccesoAmbiente(usuario, ambiente, true,
                 "Autorizar ingreso excepcional", ip);
         AmbienteInfo info = ambienteExamenService.describir(ambiente);
+        // Impedir autorizar sobre un examen cancelado.
+        ambienteExamenService.verificarExamenNoCancelado(info);
         boolean desdeSincronizacion = registradoEn != null;
         LocalDateTime horaEvento = desdeSincronizacion
                 ? registradoEn.atZoneSameInstant(HoraOficial.ZONA).toLocalDateTime()

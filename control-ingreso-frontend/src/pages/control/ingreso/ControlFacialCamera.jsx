@@ -202,9 +202,9 @@ export default function ControlFacialCamera({
     }
 
     if (!estudiante) {
-      refFallback.current = "sin_enrolamiento";
-      setEstado("El estudiante no figura en el paquete facial (sin enrolamiento).");
-      onSinEnrolamiento?.();
+      refFallback.current = "paquete_estudiante";
+      setEstado("El estudiante no está disponible en el paquete facial.");
+      onFalloFacial?.("paquete_estudiante_no_disponible");
       return;
     }
 

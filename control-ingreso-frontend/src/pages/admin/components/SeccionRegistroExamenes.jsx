@@ -250,10 +250,8 @@ export default function SeccionRegistroExamenes() {
             obtenerExamenes(),
             obtenerTiposExamen(),
             obtenerDocentesAdmin(),
-            obtenerNormasGenerales(),
-            obtenerNormasParticularesAdmin(),
         ])
-            .then(([examenes, tipos, docentes, normasGenerales, normasParticulares]) => {
+            .then(([examenes, tipos, docentes]) => {
                 setArrExamenes(examenes || []);
                 setIntPaginaActual(1);
 
@@ -264,8 +262,13 @@ export default function SeccionRegistroExamenes() {
                 setMapTiposExamen(objMapTipo);
 
                 setArrDocentes(docentes || []);
-                setArrNormasGenerales(normasGenerales || []);
-                setArrNormasParticulares(normasParticulares || []);
+                // Las normas no bloquean la tabla de exámenes; se cargan en segundo plano.
+                Promise.all([obtenerNormasGenerales(), obtenerNormasParticularesAdmin()])
+                    .then(([normasGenerales, normasParticulares]) => {
+                        setArrNormasGenerales(normasGenerales || []);
+                        setArrNormasParticulares(normasParticulares || []);
+                    })
+                    .catch(() => {});
             })
             .catch(() => {
                 setArrExamenes([]);

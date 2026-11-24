@@ -143,7 +143,7 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
           {boolHabilitaciones && (
             <button
               type="button"
-              onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`)}
+              onClick={() => navigate(`/home/docente/examenes/${examen.idExamen}/habilitaciones`, { state: { examen } })}
               className={BOTON_SECUNDARIO}
             >
               Habilitaciones

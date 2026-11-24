@@ -138,6 +138,16 @@ function PanelQR({ onValidar, boolValidando }) {
 }
 
 /* ---------------- Ingreso manual ---------------- */
+// Acepta el código SIS (9 dígitos) o el C.I. (solo números o con complemento alfanumérico,
+// por ejemplo 8765432-1E). Se envía igual que se guarda en el registro de usuarios:
+// sin puntos, guiones ni espacios y en mayúsculas ("87654321E").
+const REGEX_SOLO_NUMEROS = /^\d{6,9}$/;
+const REGEX_CI_COMPLEMENTO = /^\d{5,10}[0-9A-Z]{0,2}[A-Z]$/;
+
+function normalizarDocumento(str) {
+  return String(str || "").replace(/[.\-\s]/g, "").toUpperCase();
+}
+
 function PanelManual({ onValidar, boolValidando }) {
   const [strValor, setStrValor] = useState("");
   const [strAvisoTecla, setStrAvisoTecla] = useState("");
@@ -145,31 +155,34 @@ function PanelManual({ onValidar, boolValidando }) {
 
   useEffect(() => { refInput.current?.focus(); }, []);
 
-  const numLargo = strValor.length;
-  const boolValido = numLargo >= 6 && numLargo <= 9;
+  const strNormalizado = normalizarDocumento(strValor);
+  const boolTieneLetras = /[A-Z]/.test(strNormalizado);
+  const boolValido = REGEX_SOLO_NUMEROS.test(strNormalizado) || REGEX_CI_COMPLEMENTO.test(strNormalizado);
 
-  let strAyuda = "Solo números · de 6 a 9 dígitos";
+  let strAyuda = "C.I. (con complemento si tiene, ej. 8765432-1E) o código SIS";
   let strColorAyuda = "text-[#64748B]";
   if (strAvisoTecla) { strAyuda = strAvisoTecla; strColorAyuda = "text-[#B91C1C]"; }
-  else if (numLargo && boolValido) { strAyuda = `${numLargo} dígitos · formato válido`; strColorAyuda = "text-[#1860A3]"; }
-  else if (numLargo) { strAyuda = `${numLargo} dígitos · mínimo 6`; strColorAyuda = "text-[#B91C1C]"; }
+  else if (strNormalizado && boolValido) { strAyuda = "Formato válido"; strColorAyuda = "text-[#1860A3]"; }
+  else if (strNormalizado && boolTieneLetras) { strAyuda = "El complemento va después de los números (ej. 8765432-1E)"; strColorAyuda = "text-[#B91C1C]"; }
+  else if (strNormalizado) { strAyuda = `${strNormalizado.length} dígitos · de 6 a 9 dígitos`; strColorAyuda = "text-[#B91C1C]"; }
 
   const fnCambiar = (e) => {
     setStrAvisoTecla("");
-    setStrValor(e.target.value.replace(/\D/g, "").slice(0, 9));
+    // Solo números, letras, guion y espacio; las letras en mayúscula
+    setStrValor(e.target.value.toUpperCase().replace(/[^0-9A-Z\-\s]/g, "").slice(0, 16));
   };
 
   const fnTecla = (e) => {
-    if (e.key.length === 1 && /\D/.test(e.key) && !e.ctrlKey && !e.metaKey) {
+    if (e.key.length === 1 && /[^0-9A-Za-z\-\s]/.test(e.key) && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
-      setStrAvisoTecla("Ingresa solo números (sin letras ni símbolos)");
+      setStrAvisoTecla("Ingresa solo números y, si el C.I. tiene complemento, letras (sin otros símbolos)");
     }
   };
 
   const fnEnviar = async (e) => {
     e.preventDefault();
     if (!boolValido || boolValidando) return;
-    await onValidar(strValor, "MANUAL");
+    await onValidar(strNormalizado, "MANUAL");
     setStrValor("");
     refInput.current?.focus();
   };
@@ -186,12 +199,11 @@ function PanelManual({ onValidar, boolValidando }) {
           value={strValor}
           onChange={fnCambiar}
           onKeyDown={fnTecla}
-          inputMode="numeric"
-          // El límite visible no puede ser 9: el navegador cuenta espacios
-          // antes de ejecutar onChange y truncaría códigos pegados como
-          // "2023 012 45". onChange normaliza y limita a 9 dígitos.
+          inputMode="text"
+          autoCapitalize="characters"
+          spellCheck={false}
           maxLength={32}
-          placeholder="Ej. 8765432 o 202301245"
+          placeholder="Ej. 8765432, 8765432-1E o 202301245"
           aria-describedby="ci-ayuda"
           className={
             "flex-1 basis-[320px] min-w-0 h-[62px] px-5 rounded-[10px] border-[1.5px] border-[#CBD5E1] bg-white outline-none " +

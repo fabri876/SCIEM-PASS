@@ -311,12 +311,13 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
     const totalEstudiantes = estudiantes.length;
     const totalHabilitados = estudiantes.filter((e) => e.estadoHabilitacion).length;
     const totalInhabilitados = estudiantes.filter((e) => !e.estadoHabilitacion).length;
+    const boolCargandoDatos = !boolExamenesListos || cargando;
     const porcentaje = (n) => (totalEstudiantes > 0 ? Math.round((n / totalEstudiantes) * 100) : 0);
 
     const metricas = [
-        { titulo: 'TOTAL ESTUDIANTES', valor: totalEstudiantes, detalle: 'registrados', claseNumero: 'text-[#003770]' },
-        { titulo: 'HABILITADOS', valor: totalHabilitados, detalle: 'estudiantes', porcentaje: `${porcentaje(totalHabilitados)} % del total`, claseNumero: 'text-[#003770]', clasePorcentaje: 'bg-[#E8F1FB] text-[#003770]' },
-        { titulo: 'INHABILITADOS', valor: totalInhabilitados, detalle: 'estudiantes', porcentaje: `${porcentaje(totalInhabilitados)} % del total`, claseNumero: 'text-[#B91C1C]', clasePorcentaje: 'bg-[#FEF2F2] text-[#B91C1C]' },
+        { titulo: 'TOTAL ESTUDIANTES', valor: boolCargandoDatos ? '—' : totalEstudiantes, detalle: boolCargandoDatos ? 'Cargando...' : 'registrados', claseNumero: 'text-[#003770]' },
+        { titulo: 'HABILITADOS', valor: boolCargandoDatos ? '—' : totalHabilitados, detalle: 'estudiantes', porcentaje: boolCargandoDatos ? '—' : `${porcentaje(totalHabilitados)} % del total`, claseNumero: 'text-[#003770]', clasePorcentaje: 'bg-[#E8F1FB] text-[#003770]' },
+        { titulo: 'INHABILITADOS', valor: boolCargandoDatos ? '—' : totalInhabilitados, detalle: 'estudiantes', porcentaje: boolCargandoDatos ? '—' : `${porcentaje(totalInhabilitados)} % del total`, claseNumero: 'text-[#B91C1C]', clasePorcentaje: 'bg-[#FEF2F2] text-[#B91C1C]' },
     ];
 
     // Fila de datos: igual que en el docente, más el docente de la materia
@@ -324,10 +325,10 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
     const filasExamen = [
         { etiqueta: 'EXAMEN', valor: [materia?.nombre, infoExamen.nombreExamen !== '---' ? infoExamen.nombreExamen : ''].filter(Boolean).join(' · ') || '---', boolSelector: listExamenes.length > 0 },
         { etiqueta: 'DOCENTE', valor: strDocente || '---' },
-        { etiqueta: 'FECHA', valor: infoExamen.fecha },
-        { etiqueta: 'HORA', valor: infoExamen.hora },
-        { etiqueta: 'DURACIÓN', valor: calcularDuracion(infoExamen.duracion, infoExamen.hora) },
-        { etiqueta: 'AMBIENTE', valor: infoExamen.ambiente },
+        { etiqueta: 'FECHA', valor: boolCargandoDatos ? 'Cargando...' : infoExamen.fecha },
+        { etiqueta: 'HORA', valor: boolCargandoDatos ? 'Cargando...' : infoExamen.hora },
+        { etiqueta: 'DURACIÓN', valor: boolCargandoDatos ? 'Cargando...' : calcularDuracion(infoExamen.duracion, infoExamen.hora) },
+        { etiqueta: 'AMBIENTE', valor: boolCargandoDatos ? 'Cargando...' : infoExamen.ambiente },
     ];
 
     const textoMotivoConfirmacion = useMemo(() => {
@@ -339,9 +340,9 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
     }, [estudianteSeleccionado, motivoSelectValue, motivoPersonalizado]);
 
     const filtros = [
-        { key: 'todos', label: `Todos (${totalEstudiantes})` },
-        { key: 'habilitado', label: `Habilitados (${totalHabilitados})` },
-        { key: 'inhabilitado', label: `Inhabilitados (${totalInhabilitados})` },
+        { key: 'todos', label: `Todos (${boolCargandoDatos ? '—' : totalEstudiantes})` },
+        { key: 'habilitado', label: `Habilitados (${boolCargandoDatos ? '—' : totalHabilitados})` },
+        { key: 'inhabilitado', label: `Inhabilitados (${boolCargandoDatos ? '—' : totalInhabilitados})` },
     ];
 
     const cambiarPagina = (p) => setPaginaActual(Math.min(Math.max(p, 1), totalPaginas));
@@ -442,7 +443,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                     </div>
                 </div>
 
-                {cargando ? (
+                {boolCargandoDatos ? (
                     <div className="p-12 text-center text-[13.5px] font-semibold text-slate-500 border-t border-[#E2E8F0]">Cargando estudiantes...</div>
                 ) : estudiantesFiltrados.length === 0 ? (
                     <div className="p-12 text-center text-[13.5px] font-semibold text-slate-500 border-t border-[#E2E8F0]">No se encontraron estudiantes con ese criterio de búsqueda.</div>

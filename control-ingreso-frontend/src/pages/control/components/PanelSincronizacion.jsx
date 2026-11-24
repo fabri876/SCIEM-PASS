@@ -5,6 +5,8 @@ import {
   usePendientesCount,
   asistenciaRepo
 } from '../../../offline';
+import { ingresoExcepcionalRepo } from '../../../offline/ingresoExcepcionalRepo';
+import { db } from '../../../offline/db';
 
 /**
  * Panel de sincronización forzada con contadores detallados.
@@ -29,12 +31,19 @@ export default function PanelSincronizacion() {
     duplicado: 0
   });
   const [forzando, setForzando] = useState(false);
+  const [avisoRecuperacion, setAvisoRecuperacion] = useState(false);
 
   // Cargar conteo detallado desde IndexedDB
   const cargarConteo = useCallback(async () => {
     try {
-      const c = await asistenciaRepo.contarPorEstado();
-      setConteo(c);
+      const [asistencias, excepcionales] = await Promise.all([
+        asistenciaRepo.contarPorEstado(),
+        ingresoExcepcionalRepo.contarPorEstado(),
+      ]);
+      setConteo(Object.keys(asistencias).reduce((total, key) => ({
+        ...total,
+        [key]: (asistencias[key] || 0) + (excepcionales[key] || 0),
+      }), {}));
     } catch (err) {
       console.warn('[PanelSincronizacion] Error al leer conteo:', err.message);
     }
@@ -43,6 +52,12 @@ export default function PanelSincronizacion() {
   useEffect(() => {
     cargarConteo();
   }, [cargarConteo, pendientesRestantes, ultimoResultado]);
+
+  useEffect(() => {
+    db.meta.get("excepcionalesPerdidosPosible")
+      .then((meta) => setAvisoRecuperacion(Boolean(meta?.valor)))
+      .catch(() => setAvisoRecuperacion(false));
+  }, []);
 
   const hayPendientes = pendientesTotales > 0;
   const hayErrores = conteo.error > 0;
@@ -55,20 +70,6 @@ export default function PanelSincronizacion() {
       await fnSincronizarAhora();
     } catch (err) {
       console.warn('[PanelSincronizacion] Error al sincronizar:', err.message);
-    } finally {
-      setForzando(false);
-      await cargarConteo();
-    }
-  };
-
-  const handleReintentarErrores = async () => {
-    if (forzando || !hayErrores) return;
-    setForzando(true);
-    try {
-      await asistenciaRepo.recuperarErrores();
-      await fnSincronizarAhora();
-    } catch (err) {
-      console.warn('[PanelSincronizacion] Error al reintentar errores:', err.message);
     } finally {
       setForzando(false);
       await cargarConteo();
@@ -131,21 +132,7 @@ export default function PanelSincronizacion() {
           {forzando ? 'Sincronizando…' : hayPendientes ? 'Sincronizar ahora' : 'Sin pendientes'}
         </button>
 
-        {hayErrores && (
-          <button
-            type="button"
-            onClick={handleReintentarErrores}
-            disabled={forzando}
-            className={`inline-flex items-center gap-1.5 min-h-7 px-2.5 rounded-lg text-[11px] font-semibold cursor-pointer disabled:cursor-not-allowed ${
-              forzando
-                ? 'bg-[#9AA8BA] text-white disabled:hover:bg-[#9AA8BA]'
-                : 'bg-[#B91C1C] hover:bg-[#B91C1C] text-white'
-            }`}
-          >
-            <AlertCircle className="w-3.5 h-3.5" />
-            {forzando ? 'Reintentando…' : 'Reintentar errores'}
-          </button>
-        )}
+        {hayErrores && <span className="text-[11px] font-semibold text-[#B91C1C]">Revisar errores antes de volver a registrar.</span>}
       </div>
 
       {/* Resumen del último intento */}
@@ -182,6 +169,11 @@ export default function PanelSincronizacion() {
         <div className="basis-full flex justify-end items-center gap-2 px-3 py-1 rounded-lg bg-[#D9E8F7] text-[#124B83] text-[11px]">
           <Clock className="w-3 h-3 animate-spin" />
           Sincronizando en segundo plano…
+        </div>
+      )}
+      {avisoRecuperacion && (
+        <div className="basis-full text-right text-[11px] text-[#92400E]">
+          Se reparó la cola excepcional local. Los registros perdidos por una versión anterior no pueden recuperarse.
         </div>
       )}
     </section>
