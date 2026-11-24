@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import imgLogoUmss from "../../assets/images/logo-umss.png";
@@ -92,7 +93,7 @@ export default function LoginForm() {
 
         {strErrorEnvio && (
           <p className="mb-4 text-sm font-semibold text-accent-red" role="alert">
-            {strErrorEnvio}
+            {textoInterfaz(strErrorEnvio)}
           </p>
         )}
 

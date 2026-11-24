@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useEffect, useRef, useState } from "react";
 
 import { obtenerUsuarioActual, obtenerToken } from "../../services/authService";
@@ -181,7 +182,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
               setCarrera(e.target.value); setNivel(""); setAsignatura(""); setNiveles([]); setAsignaturas([]);
             }} className="block w-full mt-1 rounded-lg border border-[#E2E8F0] p-2 bg-white">
               <option value="">Todas las carreras</option>
-              {carreras.map(c => <option key={c.idCarrera} value={c.idCarrera}>{c.nombre} ({c.codigo})</option>)}
+              {carreras.map(c => <option key={c.idCarrera} value={c.idCarrera}>{textoInterfaz(c.nombre)} ({c.codigo})</option>)}
             </select>
           </label>
           <label>Nivel
@@ -189,14 +190,14 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
               setNivel(e.target.value); setAsignatura(""); setAsignaturas([]);
             }} className="block w-full mt-1 rounded-lg border border-[#E2E8F0] p-2 bg-white disabled:bg-slate-100">
               <option value="">Todos los niveles</option>
-              {niveles.map(n => <option key={n.idNivel} value={n.idNivel}>{n.nombre}</option>)}
+              {niveles.map(n => <option key={n.idNivel} value={n.idNivel}>{textoInterfaz(n.nombre)}</option>)}
             </select>
           </label>
           <label>Asignatura
             <select aria-label="Asignatura de notificaciones" value={asignatura} disabled={!nivel} onChange={e => setAsignatura(e.target.value)}
               className="block w-full mt-1 rounded-lg border border-[#E2E8F0] p-2 bg-white disabled:bg-slate-100">
               <option value="">Todas las asignaturas</option>
-              {asignaturas.map(a => <option key={a.idAsignatura} value={a.idAsignatura}>{a.nombreAsignatura} ({a.codigoOficial})</option>)}
+              {asignaturas.map(a => <option key={a.idAsignatura} value={a.idAsignatura}>{textoInterfaz(a.nombreAsignatura)} ({a.codigoOficial})</option>)}
             </select>
           </label>
         </div>
@@ -224,7 +225,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-[13px] font-extrabold text-[#0A2C66]">{notif.strTitulo}</p>
+                  <p className="text-[13px] font-extrabold text-[#0A2C66]">{textoInterfaz(notif.strTitulo)}</p>
                   {boolNueva && (
                     <span
                       className="mt-1 w-2 h-2 shrink-0 rounded-full bg-[#2563EB]"

@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Inicio del ayudante.
 // Sin examen elegido: banner (igual al de los otros paneles), "Mis exámenes de hoy" (con el conmutador
 // Online/Offline de Yuri en su encabezado), calendario y próximo examen.
@@ -151,8 +152,8 @@ export default function ConectadoOperador() {
         className="w-full text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]"
         style={{ backgroundImage: "linear-gradient(to right, #1A365D, #2563EB, #DC2626)" }}
       >
-        <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
-          ¡HOLA{strNombre ? `, ${strNombre.toUpperCase()}` : ""}!
+        <span className="text-xs font-bold tracking-wider opacity-90 mb-1">
+          ¡Hola{textoInterfaz(strNombre ? `, ${strNombre}` : "")}!
         </span>
         <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">Te damos la bienvenida a SCIEM-PASS</h1>
         <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
@@ -169,7 +170,7 @@ export default function ConectadoOperador() {
       />
 
       {ctrl.strError && (
-        <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{ctrl.strError}</div>
+        <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(ctrl.strError)}</div>
       )}
 
       <div className="flex flex-col xl:flex-row gap-6 items-start">

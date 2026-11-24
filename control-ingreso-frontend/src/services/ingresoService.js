@@ -1,7 +1,7 @@
 // Servicio de control de ingreso
 // ÚNICO archivo que habla con el backend.
 
-import { strApiBaseUrl } from "./apiConfig";
+import { strApiBaseUrl, encabezadoVersionCliente } from "./apiConfig";
 import {
   obtenerToken,
   obtenerUsuarioActual,
@@ -21,6 +21,7 @@ async function pedir(strRuta, objOpciones = {}) {
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
+        ...encabezadoVersionCliente(),
         ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
         ...(objOpciones.headers || {}),
       },
@@ -255,6 +256,7 @@ const MAPA_ESTADOS = {
   QR_INVALIDO: "QR_INVALIDO",
   FUERA_DE_FILA: "FUERA_DE_FILA",
   OTRA_FILA: "FUERA_DE_FILA",
+  REQUIERE_EXCEPCIONAL_ENROLAMIENTO: "REQUIERE_EXCEPCIONAL_ENROLAMIENTO",
 };
 
 export async function validarIngreso(
@@ -273,6 +275,7 @@ export async function validarIngreso(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...encabezadoVersionCliente(),
         ...(strToken ? { Authorization: `Bearer ${strToken}` } : {}),
       },
       body: JSON.stringify({
@@ -331,21 +334,23 @@ export async function validarIngreso(
   const strSis = est ? est.codsisestudiante || est.sis : null;
   const estudianteMapeado = est
     ? {
-      idusuario: est.idusuario,
-      ci: est.ci,
-      sis: strSis,
-      nombres: est.nombreCompleto || est.nombres || "",
-      apellidos: est.nombreCompleto ? "" : est.apellidos || "",
-      carrera: est.carrera || "Carrera no disponible",
-      fotoUrl: est.fotoUrl,
-      // HU10: en "aula diferente" el aula ASIGNADA viene en primerIngreso.nombreAmbiente
-      aulaAsignada:
-        (strResultado === "OTRA_AULA" &&
-          objData.primerIngreso?.nombreAmbiente) ||
-        est.nombreAmbiente ||
-        objExamen.aula,
-      normaParticular: est.normaParticular || null,
-    }
+        idusuario: est.idusuario,
+        ci: est.ci,
+        sis: strSis,
+        nombres: est.nombreCompleto || est.nombres || "",
+        apellidos: est.nombreCompleto ? "" : est.apellidos || "",
+        carrera: est.carrera || "Carrera no disponible",
+        fotoUrl: est.fotoUrl,
+        // HU10: en "aula diferente" el aula ASIGNADA viene en primerIngreso.nombreAmbiente
+        aulaAsignada:
+          (strResultado === "OTRA_AULA" &&
+            objData.primerIngreso?.nombreAmbiente) ||
+          est.nombreAmbiente ||
+          objExamen.aula,
+        normaParticular: est.normaParticular || null,
+        // Necesario para decidir ingreso normal vs. excepcional en todos los modos.
+        estadoEnrolamientoFacial: est.estadoEnrolamientoFacial ?? "DESCONOCIDO",
+      }
     : null;
 
   let strMetodoTexto = "C.I.";

@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useOperador } from "../operadorContexto";
 
 export default function ToastOperador() {
@@ -10,7 +11,7 @@ export default function ToastOperador() {
       role="status"
       aria-live="polite"
     >
-      {objToast.mensaje}
+      {textoInterfaz(objToast.mensaje)}
     </div>
   );
 }

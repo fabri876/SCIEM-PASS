@@ -104,7 +104,7 @@ public class MonitoreoService {
     // -------------------------------------------------------------------------
 
     /** Exámenes que el usuario puede monitorear: hoy primero, luego los próximos y al final los pasados. */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ExamenMonitoreoDto> listarExamenes(String ip) {
         UsuarioActual usuario = contextoUsuarioService.actual();
         List<Ambiente> ambientes = ambienteExamenService.ambientesVisibles(usuario, null, null, false,
@@ -128,7 +128,7 @@ public class MonitoreoService {
                     primera.asignatura(), primera.fechaExamen(), inicio, fin, aulas.size(), enCurso);
         }).sorted(ordenExamenes(hoy)).toList();
 
-        auditoriaService.registrar("MONITOREO_ACCESO", usuario.correo(), usuario.correo(),
+        auditoriaService.registrarEnTransaccion("MONITOREO_ACCESO", usuario.correo(), usuario.correo(),
                 "Abrió el dashboard de monitoreo · " + examenes.size() + " examen(es) visibles", ip);
         return examenes;
     }
@@ -358,7 +358,7 @@ public class MonitoreoService {
     }
 
     /** CSV de la lista del aula (abre bien en Excel). Queda en auditoría. */
-    @Transactional(readOnly = true)
+    @Transactional
     public byte[] asistentesCsv(Integer idAmbiente, String ip) {
         AsistentesAulaDto lista = asistentes(idAmbiente, ip);
         StringBuilder csv = new StringBuilder("\uFEFF");
@@ -373,7 +373,7 @@ public class MonitoreoService {
                     .append(celda(a.observacion())).append("\r\n");
         }
         UsuarioActual usuario = contextoUsuarioService.actual();
-        auditoriaService.registrar("EXPORTACION_ASISTENCIA", usuario.correo(), usuario.correo(),
+        auditoriaService.registrarEnTransaccion("EXPORTACION_ASISTENCIA", usuario.correo(), usuario.correo(),
                 "Exportó la lista del " + lista.aula() + " · examen " + lista.idExamen() + " · "
                         + lista.asistentes().size() + " estudiante(s)", ip);
         return csv.toString().getBytes(StandardCharsets.UTF_8);

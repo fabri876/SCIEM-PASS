@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 /**
  * ExamenesEstados.jsx
  *
@@ -41,7 +42,7 @@ export function ExamenesError({ strMensaje, fnReintentar }) {
         </svg>
       </div>
       <h3 className="mt-4 text-base font-extrabold text-[#123F7B]">No pudimos cargar los exámenes</h3>
-      <p className="mt-1 text-sm text-[#64748B] max-w-sm">{strMensaje}</p>
+      <p className="mt-1 text-sm text-[#64748B] max-w-sm">{textoInterfaz(strMensaje)}</p>
       <button
         type="button"
         onClick={fnReintentar}
@@ -62,7 +63,7 @@ export function ExamenesVacio({ strTitulo, strDescripcion }) {
           <path d="M8 3v4M16 3v4M4 10h16" />
         </svg>
       </div>
-      <h3 className="mt-4 text-base font-extrabold text-[#123F7B]">{strTitulo}</h3>
+      <h3 className="mt-4 text-base font-extrabold text-[#123F7B]">{textoInterfaz(strTitulo)}</h3>
       <p className="mt-1 text-sm text-[#64748B] max-w-sm">{strDescripcion}</p>
     </div>
   );

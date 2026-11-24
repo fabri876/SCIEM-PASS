@@ -19,10 +19,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository usuarios;
+    private final bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.TipoUsuarioResolver roles;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository usuarios) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository usuarios,
+                                   bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.TipoUsuarioResolver roles) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.usuarios = usuarios;
+        this.roles = roles;
     }
 
     @Override
@@ -36,8 +39,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String rol = jwtTokenProvider.obtenerRol(token);
 
             var usuario = usuarios.findById(jwtTokenProvider.obtenerIdUsuario(token));
-            if (rol != null && usuario.isPresent() && Boolean.TRUE.equals(usuario.get().getEstadousuario())
-                    && correo.equalsIgnoreCase(usuario.get().getCorreousuario())) {
+            if (rol != null && correo != null && usuario.isPresent() && Boolean.TRUE.equals(usuario.get().getEstadousuario())
+                    && correo.equalsIgnoreCase(usuario.get().getCorreousuario())
+                    && rol.equals(roles.resolver(usuario.get().getIdusuario()))
+                    && jwtTokenProvider.credencialVigente(token, usuario.get().getIdusuario(), usuario.get().getContraseniausuario())) {
                 String authorityName = rol.startsWith("ROLE_") ? rol : "ROLE_" + rol;
                 SimpleGrantedAuthority authority = new SimpleGrantedAuthority(authorityName);
 

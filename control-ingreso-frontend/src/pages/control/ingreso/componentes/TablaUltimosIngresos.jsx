@@ -1,3 +1,5 @@
+import ReporteLista from '../../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Historial en vivo de los últimos ingresos (se actualiza solo cada pocos segundos)
 // Ayudante: "Mis últimos ingresos", sin la columna "Registró" (todos son suyos).
 // Docente / administrador: "Últimos ingresos", con quién registró cada ingreso y el total del aula.
@@ -44,7 +46,7 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
       {/* Encabezado */}
       <div className="flex items-center justify-between gap-3 px-5 py-3.5 bg-[#003770] text-white max-md:px-4">
         <h2 id="ci-t-ultimos" className="m-0 text-[15px] font-bold">
-          {strTitulo}
+          {textoInterfaz(strTitulo)}
           {boolMostrarTotal && <span className="ml-2 text-xs font-semibold text-white/80">· {numRegistrados} ingresos permitidos</span>}
         </h2>
         {boolSinRed ? (
@@ -60,7 +62,7 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
 
       <ul className="m-0 p-0 list-none">
         {/* Títulos de columnas */}
-        <li className={FILA + "py-2.5 bg-[#E8F1FB] text-[11px] font-extrabold uppercase tracking-[.5px] text-[#124B83]"}>
+        <li className={FILA + "py-2.5 bg-[#E8F1FB] text-[11px] font-extrabold tracking-[.5px] text-[#124B83]"}>
           <span>Hora</span>
           <span>Estudiante</span>
           <span className="max-md:hidden">Método</span>
@@ -73,7 +75,7 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
           </li>
         )}
 
-        {listUltimos.map((r, i) => {
+        <ReporteLista titulo="Últimos registros" contenido={() => <>{listUltimos.map((r, i) => {
           const e = r.estudiante;
           const boolNuevo = i === 0 || (strUltimoRegistrado && e.ci === strUltimoRegistrado);
           const strDatos = [e.sis && `SIS ${e.sis}`, e.ci && `C.I. ${e.ci}`].filter(Boolean).join(" · ");
@@ -91,7 +93,7 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
                   {nombreNormal(`${e.nombres} ${e.apellidos || ""}`)}
                   {r.estado && r.estado !== "PERMITIDO" && (
                     <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-800">
-                      {r.estado.replaceAll("_", " ")}
+                      {textoInterfaz(r.estado.replaceAll("_", " "))}
                     </span>
                   )}
                   {r.sinSincronizar && (
@@ -101,7 +103,49 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
                 {strDatos && <div className="text-xs text-[#64748B]">{strDatos}</div>}
               </div>
               <span className="text-[13px] text-[#334155] max-md:col-start-2 max-md:text-xs">
-                <span className="md:hidden text-[#64748B]">Método: </span>{r.metodo}
+                <span className="md:hidden text-[#64748B]">Método: </span>{textoInterfaz(r.metodo)}
+                {r.conFacial != null && (
+                  <span className="text-[#64748B]"> · {r.conFacial ? "con facial" : "sin facial"}</span>
+                )}
+                {r.modoRapido && <span className="text-[#1860A3]"> · modo rápido</span>}
+              </span>
+              {boolRegistro && (
+                <span className="min-w-0 truncate text-[13px] text-[#334155] max-md:col-start-2 max-md:text-xs" title={textoRegistro(r.registradoPor) || ""}>
+                  <span className="md:hidden text-[#64748B]">Registró: </span>{textoRegistro(r.registradoPor) || "—"}
+                </span>
+              )}
+            </li>
+          );
+        })}</>} as="li" />
+{listUltimos.map((r, i) => {
+          const e = r.estudiante;
+          const boolNuevo = i === 0 || (strUltimoRegistrado && e.ci === strUltimoRegistrado);
+          const strDatos = [e.sis && `SIS ${e.sis}`, e.ci && `C.I. ${e.ci}`].filter(Boolean).join(" · ");
+          return (
+            <li
+              key={r.idRegistro || (e.ci || e.sis) + r.hora}
+              className={
+                FILA + "py-3 border-t border-[#E2E8F0] " +
+                (boolNuevo ? "bg-[#F0F6FC] shadow-[inset_4px_0_0_#003770]" : i % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white")
+              }
+            >
+              <span className="font-mono text-[13px] font-bold text-[#003770]">{r.hora}</span>
+              <div className="min-w-0">
+                <div className="text-sm font-bold text-[#08264A] truncate">
+                  {nombreNormal(`${e.nombres} ${e.apellidos || ""}`)}
+                  {r.estado && r.estado !== "PERMITIDO" && (
+                    <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-800">
+                      {textoInterfaz(r.estado.replaceAll("_", " "))}
+                    </span>
+                  )}
+                  {r.sinSincronizar && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEF3C7] text-[#92400E]">sin sincronizar</span>
+                  )}
+                </div>
+                {strDatos && <div className="text-xs text-[#64748B]">{strDatos}</div>}
+              </div>
+              <span className="text-[13px] text-[#334155] max-md:col-start-2 max-md:text-xs">
+                <span className="md:hidden text-[#64748B]">Método: </span>{textoInterfaz(r.metodo)}
                 {r.conFacial != null && (
                   <span className="text-[#64748B]"> · {r.conFacial ? "con facial" : "sin facial"}</span>
                 )}

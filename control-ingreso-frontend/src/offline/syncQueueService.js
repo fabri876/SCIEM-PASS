@@ -9,7 +9,7 @@ import { configRepo } from "./configRepo.js";
 import { obtenerDeviceId } from "./deviceId.js";
 import { generarUuid } from "./uuid.js";
 import { ESTADO_SYNC, STATUS_ITEM_SYNC } from "./constantes.js";
-import { strApiBaseUrl } from "../services/apiConfig.js";
+import { strApiBaseUrl, encabezadoVersionCliente } from "../services/apiConfig.js";
 import { obtenerToken } from "../services/authService.js";
 
 export const URL_BATCH_SYNC = "/api/v1/asistencias/batch-sync";
@@ -19,7 +19,11 @@ export const URL_SYNC_INGRESOS_EXCEPCIONALES =
 
 // Estados devueltos por el backend en batch-sync que NO deben reintentarse
 // (datos invalidos o peticion no autorizada: reintentar no cambiaria el resultado).
-const ESTADOS_NO_REINTENTABLES = new Set(["NO_AUTORIZADO", "ERROR_VALIDACION"]);
+const ESTADOS_NO_REINTENTABLES = new Set([
+  "NO_AUTORIZADO",
+  "ERROR_VALIDACION",
+  "REQUIERE_EXCEPCIONAL_ENROLAMIENTO",
+]);
 
 // Mensaje que el servidor devuelve cuando el examen de la incidencia/ingreso
 // fue cancelado. No es reintentable: el examen ya no existe para operar.
@@ -55,7 +59,6 @@ export function calcularBackoffMs(intentos = 0) {
  */
 export async function iniciarSync() {
   await asistenciaRepo.revertirSyncingHuerfanos();
-  await asistenciaRepo.recuperarErrores();
 }
 
 /**
@@ -98,6 +101,7 @@ export async function enviarLoteHttp(payload, timeoutMs = 20000) {
   const headers = {
     "Content-Type": "application/json",
     "Idempotency-Key": payload.batchId,
+    ...encabezadoVersionCliente(),
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
@@ -1062,16 +1066,19 @@ export async function sincronizarIngresosExcepcionalesPendientes({
     let respuesta = null;
     try {
       const token = obtenerToken();
-      const resp = await fetch(
-        `${strApiBaseUrl}${URL_SYNC_INGRESOS_EXCEPCIONALES}`,
-        {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      let resp;
+      try {
+        resp = await fetch(`${strApiBaseUrl}${URL_SYNC_INGRESOS_EXCEPCIONALES}`, {
           method: "POST",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: { ...encabezadoVersionCliente(), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           body: formData,
-        },
-      );
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
       if (!resp.ok) {
         const error = new Error(
           `Error ${resp.status} al sincronizar el ingreso excepcional.`,
@@ -1083,20 +1090,22 @@ export async function sincronizarIngresosExcepcionalesPendientes({
     } catch (error) {
       errores++;
       const intentos = (item.intentos || 0) + 1;
-      const reintentable =
-        error.status !== 400 && error.status !== 401 && error.status !== 403;
+      // Sesión vencida no invalida el ingreso: queda pendiente hasta iniciar
+      // sesión de nuevo. Los 400/403 sí son errores funcionales terminales.
+      const esAuth = error.status === 401;
+      const reintentable = esAuth || (error.status !== 400 && error.status !== 403);
       await ingresoExcepcionalRepo.marcarEstado(
         item.clientUuid,
         reintentable ? ESTADO_SYNC.PENDIENTE : ESTADO_SYNC.ERROR,
         {
           intentos,
           nextRetryAt: reintentable
-            ? Date.now() + calcularBackoffMs(intentos)
+            ? (esAuth ? 0 : Date.now() + calcularBackoffMs(intentos))
             : 0,
           ultimoError: error.message || "FALLO_CONEXION",
         },
       );
-      if (error.status === 401) {
+      if (esAuth) {
         notificar({
           estado: "auth",
           pendientesRestantes: await ingresoExcepcionalRepo.contarPendientes(),

@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Tarjeta de un examen de HOY en el Inicio del estudiante (mismo estilo que el Inicio del docente).
 // Hora en grande a la izquierda, datos del examen, estado del QR y "Ver mi QR".
 import { estadoExamenEstudiante, textoAula } from "../utilidadesEstudiante";
@@ -20,12 +21,12 @@ export default function TarjetaHoyEstudiante({ examen, dateAhora = new Date(), o
 
                 <div className="flex-1 min-w-[180px]">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="m-0 font-black text-sm text-[#08264A] uppercase">{examen.materia}</h4>
+                        <h4 className="m-0 font-black text-sm text-[#08264A] ">{textoInterfaz(examen.materia)}</h4>
                         {boolEnCurso && <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#003770] text-white">● En curso</span>}
                     </div>
                     <p className="mt-0.5 text-xs font-bold text-[#64748B]">
-                        {examen.tipo && <span className="text-[#124B83]">{examen.tipo}</span>}
-                        {examen.tipo ? " · " : ""}
+                        {examen.tipo && <span className="text-[#124B83]">{textoInterfaz(examen.tipo)}</span>}
+                        {textoInterfaz(examen.tipo ? " · " : "")}
                         {strDetalle}
                     </p>
                     <div className="mt-1.5"><EtiquetaQr objEstado={objEstado} /></div>

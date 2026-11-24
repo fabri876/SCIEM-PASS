@@ -1,3 +1,5 @@
+import MenuSeccionesResponsive from "../../components/layout/MenuSeccionesResponsive";
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from "../../components/layout/Header";
@@ -242,45 +244,27 @@ export default function HomeDocente() {
 
             {/* CONTENEDOR PRINCIPAL */}
             <div className="flex-1 w-full">
-                <div className="flex pt-[115px] pb-10 max-w-[1440px] mx-auto px-6 gap-6">
+                <div className="flex flex-col lg:flex-row pt-[115px] pb-10 max-w-[1440px] mx-auto px-4 sm:px-6 gap-6">
 
-                    {!boolMenuLateralMovil && (
-                        <button
-                            type="button"
-                            onClick={() => setBoolMenuLateralMovil(true)}
-                            aria-expanded={boolMenuLateralMovil}
-                            className="fixed top-[88px] left-4 z-[60] inline-flex items-center gap-2 rounded-xl bg-[#003770] px-3.5 py-2 text-xs font-extrabold text-white shadow-md lg:hidden"
-                        >
-                            <span aria-hidden="true">☰</span> Menú
-                        </button>
-                    )}
+
 
                     {/* SIDEBAR IZQUIERDA */}
-                    {boolMenuLateralMovil && (
-                        <button
-                            type="button"
-                            aria-label="Cerrar menú lateral"
-                            onClick={() => setBoolMenuLateralMovil(false)}
-                            className="fixed inset-0 z-40 bg-slate-950/45 lg:hidden cursor-default"
-                        />
-                    )}
-                    <aside className={`w-[280px] shrink-0 space-y-6 lg:block lg:static lg:z-auto lg:translate-x-0 ${boolMenuLateralMovil ? "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto translate-x-0 bg-[#F8FAFC] p-4 pt-6 shadow-2xl" : "fixed left-0 top-0 bottom-0 z-50 overflow-y-auto -translate-x-full bg-[#F8FAFC] p-4 pt-6 shadow-2xl lg:translate-x-0"}`}>
-                        <div className="flex justify-end lg:hidden mb-1">
-                            <button type="button" onClick={() => setBoolMenuLateralMovil(false)} aria-label="Cerrar menú" className="rounded-lg px-3 py-1.5 text-sm font-bold text-[#003770] hover:bg-white">Cerrar ×</button>
-                        </div>
+
+                    <MenuSeccionesResponsive id="menu-docente-secciones" etiqueta="Menú del docente" abierto={boolMenuLateralMovil} onCambiar={setBoolMenuLateralMovil}>
+
                         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center text-center">
                             <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-md mb-3">
                                 {strIniciales}
                             </div>
-                            <h3 className="font-extrabold text-[#1A365D] text-sm">{strNombre} {strApellido}</h3>
-                            <span className="text-[11px] text-[#1A365D] font-bold mb-4">DOCENTE UMSS</span>
+                            <h3 className="font-extrabold text-[#1A365D] text-sm">{textoInterfaz(strNombre)} {strApellido}</h3>
+                            <span className="text-[11px] text-[#1A365D] font-bold mb-4">Docente UMSS</span>
                             <div className="w-full border-t border-slate-100 pt-3 text-left space-y-2 text-xs">
                                 <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Facultad:</span> Cs. y Tecnología</p>
                                 <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Código Docente:</span> {usuario?.codigoSis || "-"}</p>
                             </div>
                         </div>
 
-                        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                        <nav aria-label="Apartados del docente" className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-1">
                             <button
                                 onClick={() => setStrMenuActivo("inicio")}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition cursor-pointer ${strMenuActivo === "inicio"
@@ -377,8 +361,8 @@ export default function HomeDocente() {
                                 <svg className="w-4 h-4 shrink-0 text-[#1A365D]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-7a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
                                 Registrar Estudiante/Ayudante
                             </button>
-                        </div>
-                    </aside>
+                        </nav>
+                    </MenuSeccionesResponsive>
 
                     {/* CONTENIDO CENTRAL */}
                     <main className="flex-1 min-w-0 space-y-6">
@@ -432,8 +416,8 @@ export default function HomeDocente() {
                         ) : (
                             <>
                                 <div className="w-full bg-[image:var(--gradient-button)] text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]" style={{ backgroundImage: 'linear-gradient(to right, #1A365D, #2563EB, #DC2626)' }}>
-                                    <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
-                                        ¡HOLA, {strNombre.toUpperCase()}!
+                                    <span className="text-xs font-bold tracking-wider opacity-90 mb-1">
+                                        ¡Hola, {textoInterfaz(strNombre)}!
                                     </span>
                                     <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">
                                         Te damos la bienvenida a SCIEM-PASS

@@ -1,3 +1,5 @@
+import ReporteLista from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import React from "react";
 // El backend identifica este rol como OPERADOR (no se cambia: lo usan login,
 // rutas y permisos); en pantalla se muestra como AYUDANTE.
@@ -23,7 +25,7 @@ export default function RolesTable({ roles, boolCargando, strError }) {
 
       {strError && (
         <p className="mb-4 text-sm font-semibold text-rose-600" role="alert">
-          {strError}
+          {textoInterfaz(strError)}
         </p>
       )}
 
@@ -31,9 +33,24 @@ export default function RolesTable({ roles, boolCargando, strError }) {
         <p className="py-8 text-center text-xs text-slate-400">Cargando roles…</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {listaSegura.map((rol) => (
+          <ReporteLista titulo="Roles y permisos" contenido={() => <>{listaSegura.map((rol) => (
             <div key={rol.idRol} className="rounded-xl border border-slate-200 p-4">
-              <h3 className="text-sm font-extrabold text-[#021B3B] mb-1">{ETIQUETAS_ROL[rol.nombre] || rol.nombre}</h3>              <p className="text-xs text-slate-500 mb-3">{rol.descripcion}</p>
+              <h3 className="text-sm font-extrabold text-[#021B3B] mb-1">{textoInterfaz(ETIQUETAS_ROL[rol.nombre] || rol.nombre)}</h3>              <p className="text-xs text-slate-500 mb-3">{textoInterfaz(rol.descripcion)}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(rol.permisos || []).map((permiso) => (
+                  <span
+                    key={permiso}
+                    className="bg-slate-50 border border-slate-200 px-2 py-1 rounded-lg font-semibold text-[10px] text-slate-600"
+                  >
+                    {permiso}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}</>} />
+{listaSegura.map((rol) => (
+            <div key={rol.idRol} className="rounded-xl border border-slate-200 p-4">
+              <h3 className="text-sm font-extrabold text-[#021B3B] mb-1">{textoInterfaz(ETIQUETAS_ROL[rol.nombre] || rol.nombre)}</h3>              <p className="text-xs text-slate-500 mb-3">{textoInterfaz(rol.descripcion)}</p>
               <div className="flex flex-wrap gap-1.5">
                 {(rol.permisos || []).map((permiso) => (
                   <span

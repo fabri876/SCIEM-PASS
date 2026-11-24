@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import Header from "../../components/layout/Header";
@@ -182,7 +183,7 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     <div className="flex justify-between items-start">
                         <div>
                             <h1 className="text-xl lg:text-h2 font-extrabold text-primary-navy tracking-tight leading-none">
-                                Hola, {usuarioSesion?.nombre || "Administrador"}
+                                Hola, {textoInterfaz(usuarioSesion?.nombre || "Administrador")}
                             </h1>
 
                             <p className="text-secondary text-primary-blue font-semibold mt-1">

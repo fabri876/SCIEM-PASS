@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // "Tu próximo examen": el examen más cercano destacado arriba (el QR se ve en "Ver detalle")
 import { useEffect, useState } from "react";
 import { Clock, MapPin, ChevronRight, QrCode } from "lucide-react";
@@ -22,14 +23,14 @@ export default function ProximoExamen({ examen, onVerDetalle }) {
       <div className="flex flex-wrap items-center justify-between gap-5 p-6 max-md:p-4">
         <div className="flex flex-col gap-2.5 min-w-0 flex-1 basis-[420px] max-md:basis-full">
           <div className="flex flex-wrap items-center gap-2">
-            <span id="cq-t-proximo" className="text-xs font-semibold uppercase tracking-[.5px] text-[#B6D3EE]">Tu próximo examen</span>
+            <span id="cq-t-proximo" className="text-xs font-semibold tracking-[.5px] text-[#B6D3EE]">Tu próximo examen</span>
             {strFalta && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 text-xs font-semibold">
                 <i className="w-[7px] h-[7px] rounded-full bg-[#83B7E2] animate-pulse" /> {strFalta}
               </span>
             )}
           </div>
-          <h2 className="m-0 text-[22px] max-md:text-xl font-bold leading-snug">{examen.tipo} · {examen.materia}</h2>
+          <h2 className="m-0 text-[22px] max-md:text-xl font-bold leading-snug">{textoInterfaz(examen.tipo)} · {textoInterfaz(examen.materia)}</h2>
           <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-[#D9E8F7]">
             <span className="inline-flex items-center gap-1.5"><Clock className="w-4 h-4" /> {fechaCorta(examen.fecha)} · {examen.horaInicio}{examen.horaFin ? ` – ${examen.horaFin}` : ""}</span>
             <span className="inline-flex items-center gap-1.5"><MapPin className="w-4 h-4" /> Aula {examen.aula}{examen.edificio ? ` · ${examen.edificio}` : ""}</span>

@@ -7,10 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "build:apk": "vite build --mode capacitor && npx cap sync android",
+    "build:apk:prod": "vite build --mode apk-prod && npx cap sync android",
     "lint": "oxlint",
     "check:admin": "node scripts/check-admin-render.mjs",
     "check:hu15": "node scripts/check-hu15-inmodificable.mjs",
     "check:hu13": "node scripts/check-hu13-intentos.mjs",
+    "check:interfaz": "node scripts/check-revision-interfaz.mjs",
+    "check:responsive": "node scripts/check-responsive-roles.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -49,6 +49,28 @@ public final class PoliticaContrasena {
         return Optional.empty();
     }
 
+    /** Reglas adicionales para credenciales privilegiadas; nunca devuelve la clave. */
+    public static Optional<String> validarAdministrador(String contrasena, String ci, String correo) {
+        Optional<String> nivel = validarNivelOcho(contrasena);
+        if (nivel.isPresent()) return nivel;
+        if (contrasena.length() > 256) return Optional.of("La contraseña no puede superar 256 caracteres.");
+        String valor = contrasena.toLowerCase(Locale.ROOT);
+        for (String patron : new String[]{"password", "contrasena", "contraseña", "qwerty", "admin"}) {
+            if (valor.contains(patron)) {
+                return Optional.of("La contraseña de administrador contiene un patrón demasiado común.");
+            }
+        }
+        String carnet = ci == null ? "" : ci.trim().toLowerCase(Locale.ROOT);
+        if (!carnet.isEmpty() && valor.contains(carnet)) {
+            return Optional.of("La contraseña no puede contener el carnet de identidad.");
+        }
+        String nombreCorreo = correo == null ? "" : correo.trim().split("@", 2)[0].toLowerCase(Locale.ROOT);
+        if (nombreCorreo.length() >= 4 && valor.contains(nombreCorreo)) {
+            return Optional.of("La contraseña no puede contener el nombre del correo.");
+        }
+        return Optional.empty();
+    }
+
     private static boolean contieneSecuencia(String contrasena) {
         String valor = contrasena.toLowerCase(Locale.ROOT);
         for (int i = 0; i <= valor.length() - 3; i++) {

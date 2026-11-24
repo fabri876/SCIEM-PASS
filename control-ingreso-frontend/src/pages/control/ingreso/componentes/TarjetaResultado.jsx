@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Tarjeta con el resultado de la verificación (se puede cerrar con la X).
 // Muestra solo los datos del estudiante: la hora, el método y quién registró ya están en el historial en vivo.
 import { useEffect, useRef } from "react";
@@ -77,6 +78,13 @@ function configurar(r, strRol) {
       };
     case "YA_REGISTRADO":
       return { strTono: "gris", Icono: RotateCcw, strTitulo: "YA REGISTRADO", strSub: "YA MARCÓ SU INGRESO A ESTE EXAMEN" };
+    case "EXCEPCIONAL_LOCAL_PENDIENTE":
+      return {
+        strTono: "bad", Icono: AlertTriangle,
+        strTitulo: "INGRESO EXCEPCIONAL PENDIENTE",
+        strSub: "NO SE PUEDE REGISTRAR UN INGRESO NORMAL TODAVÍA",
+        nota: <Nota>Existe un ingreso excepcional local sin confirmar. Sincronízalo o revísalo antes de intentar registrar nuevamente.</Nota>,
+      };
     case "RETIRADO":
       return {
         strTono: "bad", Icono: Ban, strTitulo: "ESTUDIANTE EXPULSADO", strSub: "NO PUEDE VOLVER A INGRESAR A ESTE EXAMEN",
@@ -129,11 +137,11 @@ function configurar(r, strRol) {
         strSub: r.estadoSync === "sincronizado" ? "SINCRONIZADO · INTENTO REGISTRADO EN AUDITORÍA"
           : r.estadoSync === "revision" ? "PENDIENTE DE REVISIÓN · AUDITORÍA NO CONFIRMADA"
             : "GUARDADO EN EL DISPOSITIVO · PENDIENTE DE SINCRONIZAR",
-        nota: <Nota Icono={MapPin}><b className="block font-bold">ORIENTACIÓN SEGÚN DATOS DESCARGADOS</b>
+        nota: <Nota Icono={MapPin}><b className="block font-bold">Orientación según datos descargados</b>
           {r.otroExamen ? [r.otroExamen.asignatura, r.otroExamen.aula && textoAula(r.otroExamen.aula), r.otroExamen.edificio].filter(Boolean).join(" · ") : r.mensaje}
-          <span className="block">{r.estadoSync === "sincronizado"
+          <span className="block">{textoInterfaz(r.estadoSync === "sincronizado"
             ? "El servidor confirmó el registro y la auditoría."
-            : "Confirma el destino con el docente. La sincronización y la auditoría están sujetas a validación del servidor."}</span></Nota>,
+            : "Confirma el destino con el docente. La sincronización y la auditoría están sujetas a validación del servidor.")}</span></Nota>,
       };
     case "AMBIGUO_OFFLINE":
       return {
@@ -146,7 +154,7 @@ function configurar(r, strRol) {
         strSub: r.intentoRegistrado ? "INTENTO REGISTRADO EN AUDITORÍA" : "NO SE CONFIRMÓ EL REGISTRO",
         nota: (
           <Nota Icono={MapPin}>
-            <b className="block font-bold">ORIENTACIÓN DE REUBICACIÓN AL ESTUDIANTE</b>
+            <b className="block font-bold">Orientación de reubicación al estudiante</b>
             {r.otroExamen ? (
               <span>{[r.otroExamen.asignatura, r.otroExamen.nombre,
               r.otroExamen.grupo && `Grupo ${r.otroExamen.grupo}`,
@@ -154,7 +162,7 @@ function configurar(r, strRol) {
               r.otroExamen.hora].filter(Boolean).join(" · ")}
                 {!r.otroExamen.aula && " · Aula asignada no disponible"}
               </span>
-            ) : <span>{r.mensaje || "No se encontró un examen correspondiente para este horario."}</span>}
+            ) : <span>{textoInterfaz(r.mensaje || "No se encontró un examen correspondiente para este horario.")}</span>}
           </Nota>
         ),
       };
@@ -163,7 +171,7 @@ function configurar(r, strRol) {
         strTono: "bad", Icono: UserX, strTitulo: "NO INSCRITO EN ESTE EXAMEN", strSub: "PERTENECE A OTRO EXAMEN",
         nota: r.otroExamen ? (
           <Nota>
-            <b className="font-bold">Está inscrito en {r.otroExamen.asignatura}</b> · {r.otroExamen.nombre} · {textoAula(r.otroExamen.aula)} · {r.otroExamen.hora}
+            <b className="font-bold">Está inscrito en {r.otroExamen.asignatura}</b> · {textoInterfaz(r.otroExamen.nombre)} · {textoAula(r.otroExamen.aula)} · {r.otroExamen.hora}
           </Nota>
         ) : null,
       };
@@ -171,13 +179,18 @@ function configurar(r, strRol) {
       return {
         strTono: "bad", Icono: Ban, strTitulo: "QR INVÁLIDO", strSub: "EL CÓDIGO QR NO ES VÁLIDO",
         strQuien: "Credencial rechazada",
-        nota: <Nota>{r.mensaje || "El QR no existe, fue anulado o ya expiró. Indica al estudiante que contacte a su docente."}</Nota>,
+        nota: <Nota>{textoInterfaz(r.mensaje || "El QR no existe, fue anulado o ya expiró. Indica al estudiante que contacte a su docente.")}</Nota>,
       };
     case "NO_EN_NOMINA_OFFLINE":
       return {
         strTono: "bad", Icono: SearchX, strTitulo: "NO ENCONTRADO EN LA NÓMINA", strSub: "VERIFICACIÓN SIN CONEXIÓN",
         strQuien: "Sin coincidencias en la nómina",
         nota: <Nota>No se encontró {r.metodo === "QR" ? "el código QR" : <>el dato «{r.valor ?? ""}»</>} en la nómina descargada de este examen. No se puede confirmar si está registrado en el sistema ni su examen correspondiente; verifica con conexión o consulta al docente. El intento no fue registrado en auditoría.</Nota>,
+      };
+    case "REQUIERE_EXCEPCIONAL_ENROLAMIENTO":
+      return {
+        strTono: "advertencia", Icono: AlertTriangle, strTitulo: "INGRESO EXCEPCIONAL REQUERIDO",
+        strSub: "EL ESTADO FACIAL NO PERMITE UN INGRESO NORMAL",
       };
     case "NO_ENCONTRADO":
       return {
@@ -188,7 +201,7 @@ function configurar(r, strRol) {
     default: // estado que el frontend todavía no conoce: se muestra el mensaje del backend
       return {
         strTono: "bad", Icono: X, strTitulo: "INGRESO DENEGADO", strSub: String(r.resultado || "").replaceAll("_", " "),
-        nota: r.mensaje ? <Nota>{r.mensaje}</Nota> : null,
+        nota: r.mensaje ? <Nota>{textoInterfaz(r.mensaje)}</Nota> : null,
       };
   }
 }
@@ -205,8 +218,8 @@ function Foto({ idUsuario, codigoSis, idExamen, strNombre }) {
       className="w-24 h-[116px] max-md:w-20 max-md:h-24 rounded-xl border border-[#CBD5E1] bg-gradient-to-b from-[#E2E8F0] to-[#CBD5E1] flex flex-col items-center justify-center shrink-0 overflow-hidden"
       fallback={
         <>
-          <span className="text-[28px] max-md:text-2xl font-extrabold text-[#475569] leading-none">{iniciales(strNombre)}</span>
-          <span className="mt-1.5 text-[10px] font-bold tracking-[.4px] text-[#64748B]">FOTO</span>
+          <span className="text-[28px] max-md:text-2xl font-extrabold text-[#475569] leading-none">{textoInterfaz(iniciales(strNombre))}</span>
+          <span className="mt-1.5 text-[10px] font-bold tracking-[.4px] text-[#64748B]">Foto</span>
         </>
       }
     />
@@ -241,7 +254,7 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
           <IdCard className="w-[26px] h-[26px]" strokeWidth={1.8} />
         </span>
         <div>
-          <div className="text-xs font-bold tracking-[.4px] text-[#64748B]">ESPERANDO VERIFICACIÓN</div>
+          <div className="text-xs font-bold tracking-[.4px] text-[#64748B]">Esperando verificación</div>
           <div className="mt-0.5 text-sm text-[#64748B]">
             Aquí aparecerá el resultado de la verificación. Si el estudiante está habilitado, su ingreso se registra
             automáticamente con la fecha y hora.
@@ -268,8 +281,8 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
           <c.Icono className="w-5 h-5" strokeWidth={2.6} />
         </span>
         <div className="flex-1 min-w-0">
-          <b className="block text-[16px] max-md:text-[15px] font-bold tracking-[.4px]">{c.strTitulo}</b>
-          <span className="block text-xs max-md:text-[11px] font-semibold tracking-[.3px] opacity-85">{c.strSub}</span>
+          <b className="block text-[16px] max-md:text-[15px] font-bold tracking-[.4px]">{textoInterfaz(c.strTitulo)}</b>
+          <span className="block text-xs max-md:text-[11px] font-semibold tracking-[.3px] opacity-85">{textoInterfaz(c.strSub)}</span>
         </div>
         <button type="button" onClick={onCerrar} aria-label="Cerrar tarjeta" className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0 hover:bg-white/15 cursor-pointer">
           <X className="w-5 h-5" />
@@ -278,13 +291,13 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
 
       {/* Foto + datos del estudiante */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 px-4 sm:px-5 py-4 sm:py-[18px]">
-        <Foto idUsuario={e?.idusuario} codigoSis={e?.sis} idExamen={idExamen} strNombre={strNombre} />
+        <Foto idUsuario={e?.idusuario} codigoSis={e?.sis} idExamen={idExamen} strNombre={textoInterfaz(strNombre)} />
         <div className="min-w-0">
-          <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{strNombre}</div>
+          <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{textoInterfaz(strNombre)}</div>
           {/* Cómo se identificó al estudiante (no es un dato del estudiante) */}
           {objResultado.metodo && (
             <span className="mt-1 block text-[12px] font-semibold text-[#64748B]">
-              Identificado por {textoMetodoIdentificacion(objResultado.metodo)}
+              Identificado por {textoInterfaz(textoMetodoIdentificacion(objResultado.metodo))}
               {objResultado.conFacial != null && ` · ${objResultado.conFacial ? "con verificación facial" : "sin verificación facial"}`}
               {objResultado.modoRapido && " · modo rápido"}
             </span>
@@ -293,19 +306,19 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
             <div className="mt-2.5 flex flex-wrap gap-x-5 sm:gap-x-7 gap-y-2">
               {e.ci && (
                 <div>
-                  <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">C.I.</span>
+                  <span className="block text-[11px] font-bold tracking-[.4px] text-[#64748B]">C.I.</span>
                   <strong className="block text-[14px] sm:text-[15px] font-bold text-[#08264A]">{e.ci}</strong>
                 </div>
               )}
               {e.sis && (
                 <div>
-                  <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">Código SIS</span>
+                  <span className="block text-[11px] font-bold tracking-[.4px] text-[#64748B]">Código SIS</span>
                   <strong className="block text-[14px] sm:text-[15px] font-bold text-[#08264A]">{e.sis}</strong>
                 </div>
               )}
               <div>
-                <span className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B]">Carrera</span>
-                <strong className="block text-[14px] sm:text-[15px] font-bold text-[#08264A]">{e.carrera || "No disponible"}</strong>
+                <span className="block text-[11px] font-bold tracking-[.4px] text-[#64748B]">Carrera</span>
+                <strong className="block text-[14px] sm:text-[15px] font-bold text-[#08264A]">{textoInterfaz(e.carrera || "No disponible")}</strong>
               </div>
             </div>
           )}

@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
 import {
   obtenerAsignaturas,
@@ -127,7 +128,7 @@ export default function SeleccionAsignaturaGrupo({
         </h4>
       )}
 
-      {strError && <p className="text-sm font-semibold text-accent-red">{strError}</p>}
+      {strError && <p className="text-sm font-semibold text-accent-red">{textoInterfaz(strError)}</p>}
 
       {/* 1º Desplegable: Asignatura */}
       <div>
@@ -144,7 +145,7 @@ export default function SeleccionAsignaturaGrupo({
           {listAsignaturas.map((a) => (
             <option key={a.idAsignatura} value={a.idAsignatura}>
               {a.siglaAsignatura ? `[${a.siglaAsignatura}] ` : ""}
-              {a.nombreAsignatura}
+              {textoInterfaz(a.nombreAsignatura)}
             </option>
           ))}
         </select>

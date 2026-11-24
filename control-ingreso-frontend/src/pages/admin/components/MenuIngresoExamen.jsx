@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, UserPlus, ListChecks, ScanLine } from "lucide-react";
 
@@ -17,7 +18,7 @@ function Opcion({ Icono, strTexto, strAyuda, boolDeshabilitada, onClick }) {
         >
             <Icono className="w-4 h-4 mt-0.5 shrink-0" />
             <span>
-                <span className="block text-[12.5px] font-bold leading-tight">{strTexto}</span>
+                <span className="block text-[12.5px] font-bold leading-tight">{textoInterfaz(strTexto)}</span>
                 {strAyuda && <span className="block text-[10.5px] text-slate-400 mt-0.5">{strAyuda}</span>}
             </span>
         </button>

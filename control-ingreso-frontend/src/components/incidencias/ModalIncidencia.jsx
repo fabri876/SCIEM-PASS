@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
@@ -541,7 +542,7 @@ export default function ModalIncidencia({
 
           {/* Aula del examen (solo las asignadas) */}
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1.5">
+            <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B] mb-1.5">
               Examen y aula <span className="text-[#B91C1C]">*</span>
             </label>
             {aulasDisponiblesFiltradas.length === 0 ? (
@@ -553,8 +554,8 @@ export default function ModalIncidencia({
             ) : boolAulaFija ? (
               <div className="flex items-center gap-2 bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl px-3 py-2 text-xs font-bold text-[#08264A]">
                 <Building className="w-3.5 h-3.5 text-[#9AA8BA] shrink-0" />
-                <span className="min-w-0">{etiquetaAula(aulaSeleccionada)}</span>
-                <span className="ml-auto shrink-0 text-[9.5px] uppercase tracking-wider text-[#9AA8BA]">
+                <span className="min-w-0">{textoInterfaz(etiquetaAula(aulaSeleccionada))}</span>
+                <span className="ml-auto shrink-0 text-[9.5px] tracking-wider text-[#9AA8BA]">
                   Examen actual
                 </span>
               </div>
@@ -566,7 +567,7 @@ export default function ModalIncidencia({
               >
                 {aulasDisponiblesFiltradas.map((aula) => (
                   <option key={aula.idAmbiente} value={aula.idAmbiente}>
-                    {etiquetaAula(aula)}
+                    {textoInterfaz(etiquetaAula(aula))}
                   </option>
                 ))}
               </select>
@@ -575,7 +576,7 @@ export default function ModalIncidencia({
 
           {/* Tipo */}
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1.5">
+            <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B] mb-1.5">
               Tipo <span className="text-[#B91C1C]">*</span>
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -592,14 +593,14 @@ export default function ModalIncidencia({
                         : "bg-white border-[#CBD5E1] text-[#475569] hover:bg-[#F1F5F9]"
                     }`}
                   >
-                    {tipo.etiqueta}
+                    {textoInterfaz(tipo.etiqueta)}
                   </button>
                 );
               })}
             </div>
             {tipoSeleccionado === "OTRO" && (
               <div className="mt-2 rounded-xl border border-[#B6D3EE] bg-[#F0F6FC] p-3 animate-in fade-in slide-in-from-top-1 duration-150">
-                <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#003770]">
+                <label className="flex items-center gap-1.5 text-[11px] font-extrabold tracking-wider text-[#003770]">
                   <FileText className="w-3.5 h-3.5" />
                   Especifica el tipo <span className="text-[#B91C1C]">*</span>
                 </label>
@@ -617,7 +618,7 @@ export default function ModalIncidencia({
 
           {/* Estudiante involucrado (opcional) */}
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1">
+            <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B] mb-1">
               Estudiante involucrado <span className="text-[#9AA8BA] font-normal">(opcional)</span>
             </label>
             <div className="flex gap-2">
@@ -645,7 +646,7 @@ export default function ModalIncidencia({
             </div>
 
             {strErrorBusquedaEstudiante && (
-              <p className="text-[11px] text-[#B91C1C] font-bold mt-1">{strErrorBusquedaEstudiante}</p>
+              <p className="text-[11px] text-[#B91C1C] font-bold mt-1">{textoInterfaz(strErrorBusquedaEstudiante)}</p>
             )}
             {strAvisoBusqueda && (
               <p className="text-[10.5px] text-[#124B83] font-bold mt-1">{strAvisoBusqueda}</p>
@@ -657,13 +658,13 @@ export default function ModalIncidencia({
                   <CheckCircle2 className="w-4 h-4 text-[#4A97D3] shrink-0" />
                   <span className="text-xs font-bold text-[#003770]">
                     {estudianteInvolucrado.nombreCompleto}
-                    {estudianteInvolucrado.estado === "DESCONOCIDO"
+                    {textoInterfaz(estudianteInvolucrado.estado === "DESCONOCIDO"
                       ? " · estado de ingreso no comprobado"
                       : estudianteInvolucrado.estado === "RETIRADO"
                       ? " · ya fue expulsado de este examen"
                       : estudianteInvolucrado.horaIngresoPrevio
                       ? ` · ingresó ${formatearHora(estudianteInvolucrado.horaIngresoPrevio)}`
-                      : " · no ingresó a este examen"}
+                      : " · no ingresó a este examen")}
                   </span>
                 </div>
                 <button
@@ -758,7 +759,7 @@ export default function ModalIncidencia({
 
           {/* Severidad */}
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1.5">
+            <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B] mb-1.5">
               Severidad <span className="text-[#B91C1C]">*</span>
             </label>
             <div className="grid grid-cols-3 border border-[#CBD5E1] rounded-xl overflow-hidden bg-[#F1F5F9] p-1 gap-1">
@@ -773,7 +774,7 @@ export default function ModalIncidencia({
                       isSelected ? sev.color + " shadow-xs" : "text-[#64748B] hover:text-[#08264A]"
                     }`}
                   >
-                    {sev.etiqueta}
+                    {textoInterfaz(sev.etiqueta)}
                   </button>
                 );
               })}
@@ -782,7 +783,7 @@ export default function ModalIncidencia({
 
           {/* Acción */}
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1.5">
+            <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B] mb-1.5">
               Acción <span className="text-[#B91C1C]">*</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -799,14 +800,14 @@ export default function ModalIncidencia({
                         : "bg-white border-[#CBD5E1] text-[#475569] hover:bg-[#F1F5F9]"
                     }`}
                   >
-                    {acc.etiqueta}
+                    {textoInterfaz(acc.etiqueta)}
                   </button>
                 );
               })}
             </div>
             {accionSeleccionada === "DESCUENTO_PUNTAJE" && (
               <div className="mt-2 rounded-xl border border-[#B6D3EE] bg-[#F0F6FC] p-3 animate-in fade-in slide-in-from-top-1 duration-150">
-                <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#003770]">
+                <label className="flex items-center gap-1.5 text-[11px] font-extrabold tracking-wider text-[#003770]">
                   <BarChart2 className="w-3.5 h-3.5" />
                   Puntaje a reducir <span className="text-[#B91C1C]">*</span>
                 </label>
@@ -826,7 +827,7 @@ export default function ModalIncidencia({
             )}
             {accionSeleccionada === "OTRO" && (
               <div className="mt-2 rounded-xl border border-[#B6D3EE] bg-[#F0F6FC] p-3 animate-in fade-in slide-in-from-top-1 duration-150">
-                <label className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#003770]">
+                <label className="flex items-center gap-1.5 text-[11px] font-extrabold tracking-wider text-[#003770]">
                   <FileText className="w-3.5 h-3.5" />
                   Especifica la acción <span className="text-[#B91C1C]">*</span>
                 </label>
@@ -845,7 +846,7 @@ export default function ModalIncidencia({
           {/* Descripción */}
           <div>
             <div className="flex justify-between items-center mb-1 gap-2">
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B]">
+              <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B]">
                 Descripción <span className="text-[#B91C1C]">*</span>
               </label>
               <span className={`text-[10px] font-mono font-bold ${descripcionValida ? "text-[#9AA8BA]" : "text-[#B91C1C]"}`}>
@@ -864,7 +865,7 @@ export default function ModalIncidencia({
 
           {/* Foto de evidencia */}
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1">
+            <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B] mb-1">
               Foto de evidencia <span className="text-[#9AA8BA] font-normal">(opcional · JPG o PNG, hasta 5 MB)</span>
             </label>
             {strFotoPreview ? (
@@ -893,7 +894,7 @@ export default function ModalIncidencia({
           </div>
 
           {strError && (
-            <div className="bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] p-2.5 rounded-xl text-xs font-bold">✕ {strError}</div>
+            <div className="bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] p-2.5 rounded-xl text-xs font-bold">✕ {textoInterfaz(strError)}</div>
           )}
           {strExito && (
             <div className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] p-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5">

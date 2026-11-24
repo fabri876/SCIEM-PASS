@@ -8,9 +8,9 @@ export default function ProximoExamenDocente({ examen, onVerDetalle }) {
   return (
     <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="font-black text-xs text-[#1A365D] uppercase tracking-wider">Próximo Examen</h4>
+        <h4 className="font-black text-xs text-[#1A365D] tracking-wider">Próximo Examen</h4>
         {strFalta && (
-          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] uppercase">
+          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] ">
             {strFalta}
           </span>
         )}

@@ -161,6 +161,10 @@ public class CargaMasivaService {
             // Normalizar rol
             rolFila = normalizarRol(rolFila);
 
+            if (TipoUsuarioResolver.ADMINISTRADOR.equals(rolFila)) {
+                erroresFila.add("No se admite crear administradores mediante carga masiva.");
+            }
+
             // Validar restricción de docente
             if (TipoUsuarioResolver.DOCENTE.equals(rolEjecutor) && !TipoUsuarioResolver.ESTUDIANTE.equals(rolFila)) {
                 erroresFila.add("Permiso insuficiente: Un docente solo puede registrar Estudiantes.");

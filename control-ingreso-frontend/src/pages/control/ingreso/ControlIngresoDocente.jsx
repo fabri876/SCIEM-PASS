@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Página del DOCENTE (y del ADMINISTRADOR): mismo control de ingreso + lista oficial del examen (solo lectura)
 // Con internet la lista muestra a todo el examen; sin internet, solo el aula (y el tramo, si lo tiene).
 // Sin internet: si el docente se asignó un tramo de apellidos, ve su tramo en la franja y "Mi lista";
@@ -156,7 +157,7 @@ export default function ControlIngresoDocente() {
       )}
       {ctrl.strError && (
         <div className="max-w-[1200px] mx-auto px-4 py-4 bg-[#FEF2F2] text-[#B91C1C] rounded-xl">
-          Error: {ctrl.strError}
+          Error: {textoInterfaz(ctrl.strError)}
         </div>
       )}
 

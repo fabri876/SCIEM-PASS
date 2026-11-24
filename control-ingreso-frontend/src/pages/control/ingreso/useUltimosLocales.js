@@ -2,6 +2,7 @@
 // se arma con los registros que el usuario guardó en este equipo.
 // Solo LEE la base local (asistencias_pendientes + nominas); no cambia nada del modo sin conexión.
 import { useEffect, useState } from "react";
+import { liveQuery } from "dexie";
 import { db } from "../../../offline/db.js";
 import { ESTADO_SYNC } from "../../../offline/constantes.js";
 import { obtenerUsuarioActual } from "../../../services/authService";
@@ -33,8 +34,7 @@ export default function useUltimosLocales(idExamen, boolActivo, numVersion, numP
     if (!boolActivo || !Number.isInteger(exId) || exId <= 0) return undefined;
     let boolVivo = true;
 
-    (async () => {
-      try {
+    const sub = liveQuery(async () => {
         const usuario = obtenerUsuarioActual();
         const strYo = String(usuario?.idUsuario ?? usuario?.idusuario ?? usuario?.id ?? usuario?.correo ?? "");
         // Nombre de quien registró: sin internet solo están los registros propios
@@ -45,10 +45,11 @@ export default function useUltimosLocales(idExamen, boolActivo, numVersion, numP
           .slice(0, LIMITE);
 
         const listNomina = await db.nominas.bulkGet(listMarcas.map((a) => [exId, a.codigoSis]));
-        const list = listMarcas.map((a, i) => {
+        const normales = listMarcas.map((a, i) => {
           const r = listNomina[i];
           return {
             hora: new Date(a.timestampLocal).toLocaleTimeString("es-BO", { hour12: false }),
+            fechaOrden: a.timestampLocal,
             metodo: textoMetodo(a.metodo),
             // El facial no es un método: se deriva de score_facial y se muestra
             // como sufijo ("QR · con facial" / "C.I. · sin facial").
@@ -59,13 +60,27 @@ export default function useUltimosLocales(idExamen, boolActivo, numVersion, numP
             estudiante: { ...separarNombre(r), sis: a.codigoSis || "", ci: r?.ci || "" },
           };
         });
-        if (boolVivo) setListUltimos(list);
-      } catch {
-        if (boolVivo) setListUltimos([]);
-      }
-    })();
+        const excepcionales = (await db.ingresos_excepcionales_pendientes.where("idExamen").equals(exId).toArray())
+          .filter((a) => !strYo || String(a.autorizadoPor) === strYo)
+          .map((a) => ({
+            hora: new Date(a.registradoEn).toLocaleTimeString("es-BO", { hour12: false }),
+            fechaOrden: a.registradoEn,
+            metodo: "Manual · excepcional",
+            conFacial: false,
+            registradoPor: strMiNombre,
+            sinSincronizar: [ESTADO_SYNC.PENDIENTE, ESTADO_SYNC.SYNCING].includes(a.syncStatus),
+            estado: a.syncStatus === ESTADO_SYNC.ERROR ? "ERROR" : null,
+            estudiante: { nombres: a.nombreEstudiante || "Estudiante", apellidos: "", sis: a.codSis || "", ci: "" },
+          }));
+        return [...normales, ...excepcionales]
+          .sort((a, b) => String(b.fechaOrden || b.hora).localeCompare(String(a.fechaOrden || a.hora)))
+          .slice(0, LIMITE);
+    }).subscribe({
+      next: (list) => { if (boolVivo) setListUltimos(list); },
+      error: () => { if (boolVivo) setListUltimos([]); },
+    });
 
-    return () => { boolVivo = false; };
+    return () => { boolVivo = false; sub.unsubscribe(); };
   }, [idExamen, boolActivo, numVersion, numPendientes]);
 
   return listUltimos;

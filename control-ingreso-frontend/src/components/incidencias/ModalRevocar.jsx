@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 
@@ -47,7 +48,7 @@ export default function ModalRevocar({ boolAbierto, onCerrar, onConfirmar, boolG
           </button>
         </div>
         <form onSubmit={fnEnviar} className="p-5 space-y-3">
-          <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B]">
+          <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B]">
             Motivo de la revocación <span className="text-[#B91C1C]">*</span>
           </label>
           <div className="relative">
@@ -60,10 +61,10 @@ export default function ModalRevocar({ boolAbierto, onCerrar, onConfirmar, boolG
               className="w-full bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl p-3 text-xs font-medium text-[#08264A] placeholder-[#9AA8BA] focus:outline-none focus:border-[#4A97D3] transition"
             />
             <span className={`absolute bottom-2 right-3 text-[10px] font-mono font-bold ${strMotivo.trim().length >= 15 ? "text-[#9AA8BA]" : "text-[#B91C1C]"}`}>
-              {strMotivo.length}/{MOTIVO_MAX} (mín. 15)
+              {textoInterfaz(strMotivo.length)}/{textoInterfaz(MOTIVO_MAX)} (mín. 15)
             </span>
           </div>
-          {strError && <p className="text-[11px] text-[#B91C1C] font-bold">{strError}</p>}
+          {strError && <p className="text-[11px] text-[#B91C1C] font-bold">{textoInterfaz(strError)}</p>}
           {error && (
             <p className="rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-3 py-2 text-[11px] font-bold text-[#B91C1C] leading-snug">
               {error}

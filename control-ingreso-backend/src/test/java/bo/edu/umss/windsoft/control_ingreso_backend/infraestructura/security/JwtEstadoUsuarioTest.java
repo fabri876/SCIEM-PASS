@@ -1,6 +1,7 @@
 package bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.security;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
+import bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.TipoUsuarioResolver;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.*;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class JwtEstadoUsuarioTest {
     @Mock JwtTokenProvider tokens;
     @Mock UsuarioRepository usuarios;
+    @Mock TipoUsuarioResolver roles;
     @Mock FilterChain cadena;
     @InjectMocks JwtAuthenticationFilter filtro;
     @AfterEach void limpiar() { SecurityContextHolder.clearContext(); }
@@ -27,8 +29,12 @@ class JwtEstadoUsuarioTest {
         when(tokens.obtenerRol("token")).thenReturn("ESTUDIANTE");
         when(tokens.obtenerIdUsuario("token")).thenReturn(4);
         if (estado != null) {
-            Usuario u = new Usuario(); u.setIdusuario(4); u.setCorreousuario("persona@example.test"); u.setEstadousuario(estado);
+            Usuario u = new Usuario(); u.setIdusuario(4); u.setCorreousuario("persona@example.test"); u.setEstadousuario(estado); u.setContraseniausuario("hash");
             when(usuarios.findById(4)).thenReturn(Optional.of(u));
+            if (Boolean.TRUE.equals(estado)) {
+                when(roles.resolver(4)).thenReturn("ESTUDIANTE");
+                when(tokens.credencialVigente("token", 4, "hash")).thenReturn(true);
+            }
         } else when(usuarios.findById(4)).thenReturn(Optional.empty());
         MockHttpServletRequest request = new MockHttpServletRequest(); request.addHeader("Authorization", "Bearer token");
         filtro.doFilter(request, new MockHttpServletResponse(), cadena);

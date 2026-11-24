@@ -10,7 +10,7 @@ import {
   ERROR_NOMINA,
   ERROR_ASISTENCIA
 } from './constantes.js';
-import { strApiBaseUrl } from '../services/apiConfig.js';
+import { strApiBaseUrl, encabezadoVersionCliente } from '../services/apiConfig.js';
 import { obtenerToken } from '../services/authService.js';
 import { obtenerClockOffsetMs } from './connectivityService.js';
 
@@ -64,7 +64,7 @@ export async function fetchPaginaPorDefecto({ url, signal }) {
     : `${strApiBaseUrl}${url}`;
 
   const token = obtenerToken();
-  const headers = { Accept: 'application/json' };
+  const headers = { Accept: 'application/json', ...encabezadoVersionCliente() };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
@@ -487,6 +487,7 @@ export async function descargarNomina({
       descargadaEn: new Date().toISOString(),
       totalEstudiantes: totalLocalFinal,
       descargaCompleta: true,
+      versionNomina: 2,
       fotosDescargadas: fotosTotalesEnBd,
       fotosDescargadasEn: incluirFotos && fotosDisponibles ? new Date().toISOString() : (metaActualizado.fotosDescargadasEn || null),
       fotosDisponibles,
@@ -551,6 +552,7 @@ export async function obtenerEstadoNomina(examenId) {
   const descargadaEn = meta?.descargadaEn || null;
   const descargaCompleta = Boolean(meta?.descargaCompleta);
   const lista = descargaCompleta && totalLocal > 0;
+  const versionCompatible = Number(meta?.versionNomina || 0) >= 2;
 
   let desactualizada = false;
   if (descargadaEn) {
@@ -561,7 +563,7 @@ export async function obtenerEstadoNomina(examenId) {
   }
 
   return {
-    lista,
+    lista: lista && versionCompatible,
     descargadaEn,
     totalLocal,
     fotosLocales,
@@ -569,6 +571,7 @@ export async function obtenerEstadoNomina(examenId) {
     fotosDisponibles: meta?.fotosDisponibles ?? null,
     fotosError: meta?.fotosError || null,
     descargaCompleta,
+    versionCompatible,
     desactualizada
   };
 }

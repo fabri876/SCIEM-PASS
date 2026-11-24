@@ -1,3 +1,5 @@
+import ReporteLista from '../../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // "Mis exámenes": los 3 más relevantes como tarjetas + "Ver todos" con la lista completa
 import { useMemo, useState } from "react";
 import { GraduationCap, Clock, ArrowLeft, Search, Download, RefreshCw, CheckCircle } from "lucide-react";
@@ -42,7 +44,7 @@ function ordenarPorRelevancia(list) {
 function Chip({ strClase, numValor, strEtiqueta }) {
   return (
     <span className={"inline-flex items-baseline gap-[7px] px-3 py-1.5 rounded-lg text-xs font-medium max-md:flex-col max-md:items-start max-md:gap-0 max-md:px-2.5 max-md:text-[11px] " + strClase}>
-      <b className="text-base font-bold">{numValor}</b>{strEtiqueta}
+      <b className="text-base font-bold">{numValor}</b>{textoInterfaz(strEtiqueta)}
     </span>
   );
 }
@@ -229,10 +231,10 @@ function TarjetaExamenHoy({ examen, onElegir, boolSinRed }) {
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h3 className="m-0 text-base font-bold text-[#08264A] leading-snug">{examen.tipo} · {examen.materia}</h3>
+              <h3 className="m-0 text-base font-bold text-[#08264A] leading-snug">{textoInterfaz(examen.tipo)} · {textoInterfaz(examen.materia)}</h3>
               <span className={"inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold " + objEstado.strClase}>
                 <i className={"w-[7px] h-[7px] rounded-full " + objEstado.strPunto} />
-                {objEstado.strTexto}
+                {textoInterfaz(objEstado.strTexto)}
               </span>
             </div>
             <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-[#64748B]">
@@ -313,11 +315,11 @@ function FilaExamen({ examen, onElegir }) {
         <div className="text-xs text-[#64748B]">{examen.horaInicio} – {examen.horaFin}</div>
       </div>
       <div className="min-w-0">
-        <div className="text-sm font-semibold text-[#08264A] truncate">{examen.tipo} · {examen.materia}</div>
+        <div className="text-sm font-semibold text-[#08264A] truncate">{textoInterfaz(examen.tipo)} · {textoInterfaz(examen.materia)}</div>
         <div className="mt-px text-xs text-[#64748B] truncate">
           Aula {String(examen.aula || "").replace(/^aula\s*/i, "")}{textoGrupoExamen(examen.grupo) ? ` · ${textoGrupoExamen(examen.grupo)}` : ""}{examen.fila ? ` · Sin internet: apellidos ${examen.fila.desde} – ${examen.fila.hasta}` : ""}
           <span className={"ml-2 inline-flex items-center gap-1 px-2 py-px rounded-full text-[11px] font-semibold " + objEstado.strClase}>
-            <i className={"w-[6px] h-[6px] rounded-full " + objEstado.strPunto} />{objEstado.strTexto}
+            <i className={"w-[6px] h-[6px] rounded-full " + objEstado.strPunto} />{textoInterfaz(objEstado.strTexto)}
           </span>
         </div>
       </div>
@@ -344,8 +346,8 @@ function GrupoFilas({ strTitulo, list, onElegir }) {
   if (!list.length) return null;
   return (
     <div>
-      <h3 className="m-0 mb-2 text-[13px] font-semibold uppercase tracking-[.4px] text-[#64748B]">
-        {strTitulo} <span className="font-normal">({list.length})</span>
+      <h3 className="m-0 mb-2 text-[13px] font-semibold tracking-[.4px] text-[#64748B]">
+        {textoInterfaz(strTitulo)} <span className="font-normal">({list.length})</span>
       </h3>
       <ul className="m-0 p-0 list-none bg-white border border-[#CBD5E1] rounded-xl overflow-hidden">
         {list.map((ex) => <FilaExamen key={ex.id} examen={ex} onElegir={onElegir} />)}
@@ -449,7 +451,15 @@ export default function ListaExamenesHoy({ listExamenes, boolCargando, sinRespal
 
       {listDestacados.length > 0 && (
         <div className="flex flex-col gap-3">
-          {listDestacados.map((ex) => (
+          <ReporteLista titulo="Exámenes de hoy" contenido={() => <>{objOrden.todos.map((ex) => (
+            <TarjetaExamenHoy
+              key={ex.id}
+              examen={ex}
+              onElegir={onElegir}
+              boolSinRed={boolSinRedReal}
+            />
+          ))}</>} />
+{listDestacados.map((ex) => (
             <TarjetaExamenHoy
               key={ex.id}
               examen={ex}

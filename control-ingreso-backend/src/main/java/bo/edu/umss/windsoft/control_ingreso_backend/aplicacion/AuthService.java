@@ -109,14 +109,18 @@ public class AuthService {
         if (passwordEncoder.upgradeEncoding(usuario.getContraseniausuario())) {
             usuario.setContraseniausuario(passwordEncoder.encode(contrasena));
         }
+        String rol = tipoUsuarioResolver.resolver(usuario.getIdusuario());
+        if (TipoUsuarioResolver.ADMINISTRADOR.equals(rol)
+                && PoliticaContrasena.validarAdministrador(contrasena, usuario.getCiusuario(), usuario.getCorreousuario()).isPresent()) {
+            usuario.setDebeCambiarContrasena(true);
+        }
         usuario.reiniciarIntentosFallidos();
         usuarioRepository.save(usuario);
 
         auditoriaService.registrarEnTransaccion("LOGIN_EXITOSO", correo, correo, "Inicio de sesión exitoso.", ip);
 
-        String rol = tipoUsuarioResolver.resolver(usuario.getIdusuario());
         String token = jwtTokenProvider.generarToken(usuario.getCorreousuario(), rol,
-                usuario.getIdusuario(), usuario.getNombreusuario());
+                usuario.getIdusuario(), usuario.getNombreusuario(), usuario.getContraseniausuario());
 
         UsuarioRespuestaDto usuarioDto = usuarioRespuestaMapper.mapear(usuario);
         return new LoginResponseDto(token, jwtTokenProvider.getExpiration(), usuarioDto);
@@ -168,6 +172,10 @@ public class AuthService {
 
         PoliticaContrasena.validarCambio(contrasenaActual, nuevaContrasena)
                 .ifPresent(mensaje -> { throw new SolicitudInvalidaException(mensaje); });
+        if (TipoUsuarioResolver.ADMINISTRADOR.equals(tipoUsuarioResolver.resolver(usuario.getIdusuario()))) {
+            PoliticaContrasena.validarAdministrador(nuevaContrasena, usuario.getCiusuario(), usuario.getCorreousuario())
+                    .ifPresent(mensaje -> { throw new SolicitudInvalidaException(mensaje); });
+        }
 
         usuario.setContraseniausuario(passwordEncoder.encode(nuevaContrasena));
         usuario.setDebeCambiarContrasena(false);

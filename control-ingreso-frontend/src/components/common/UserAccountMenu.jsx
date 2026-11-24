@@ -1,9 +1,11 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import VentanaEmergente from "./VentanaEmergente";
 import CambiarContrasenaModal from "./CambiarContrasenaModal";
 import AvisoCambioContrasena from "./AvisoCambioContrasena";
 import { fnDebeCambiarContrasena, fnLimpiarPrimerIngreso } from "../../utils/primerIngreso";
+import { cerrarSesion } from "../../services/authService";
 
 /**
  * Menú de cuenta compartido por los 4 paneles (admin, docente, ayudante,
@@ -23,7 +25,6 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [boolAvisoPendiente, setBoolAvisoPendiente] = useState(() => fnDebeCambiarContrasena());
   const refMenu = useRef(null);
-  const refRecargarTrasCambioObligatorio = useRef(false);
 
   useEffect(() => {
     if (!boolMenuAbierto) return;
@@ -37,19 +38,15 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
   }, [boolMenuAbierto]);
 
   const fnContrasenaCambiada = () => {
-    refRecargarTrasCambioObligatorio.current = boolAvisoPendiente;
     fnLimpiarPrimerIngreso();
     setBoolAvisoPendiente(false);
+    cerrarSesion(); // Conserva los datos offline pendientes.
+    sessionStorage.setItem("mensajeSesion", "Contraseña actualizada. Inicia sesión nuevamente.");
+    window.location.href = "/login";
   };
 
   const fnCerrarModalContrasena = () => {
     setBoolModalContrasenaAbierto(false);
-    if (refRecargarTrasCambioObligatorio.current) {
-      // Las consultas iniciales pudieron recibir 403 antes del cambio obligatorio.
-      // Remontar el panel vuelve a consultar foto, exámenes y demás datos del rol.
-      refRecargarTrasCambioObligatorio.current = false;
-      window.location.reload();
-    }
   };
 
   const strNombre = usuario?.nombre || "Usuario";
@@ -68,10 +65,10 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
         </div>
         <div className="min-w-0 max-w-40 lg:max-w-48 flex flex-col text-left">
           <span className="text-xs font-bold text-slate-800 leading-tight truncate">
-            {strNombre} {strApellido}
+            {textoInterfaz(strNombre)} {strApellido}
           </span>
           <span className="text-[11px] text-primary-blue font-semibold leading-tight truncate">
-            {usuario?.rol === "OPERADOR" ? "AYUDANTE" : (usuario?.rol || "")}
+            {textoInterfaz(usuario?.rol === "OPERADOR" ? "AYUDANTE" : (usuario?.rol || ""))}
           </span>
         </div>
         <svg className="w-3.5 h-3.5 text-slate-400 ml-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -82,7 +79,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
       {boolMenuAbierto && (
         <div className="relative md:absolute md:right-0 md:top-full mt-2 w-full md:w-64 bg-white rounded-2xl border border-slate-200 shadow-lg z-50 overflow-hidden">
           <div className="p-4 border-b border-slate-100">
-            <p className="font-bold text-sm text-slate-800 truncate">{strNombre} {strApellido}</p>
+            <p className="font-bold text-sm text-slate-800 truncate">{textoInterfaz(strNombre)} {strApellido}</p>
             <p className="text-xs text-slate-500 truncate mt-0.5">{usuario?.correo || ""}</p>
           </div>
 
@@ -108,7 +105,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
         </div>
       )}
 
-      {cuentaAbierta && createPortal(<VentanaEmergente boolAbierto onCerrar={() => setCuentaAbierta(false)}><section role="dialog" aria-label="Mi Cuenta" className="p-6 space-y-4"><h2 className="font-bold text-xl">Mi Cuenta</h2><dl><dt>Nombre</dt><dd>{strNombre} {strApellido}</dd><dt>Correo</dt><dd className="break-all">{usuario?.correo}</dd><dt>Rol</dt><dd>{usuario?.rol === "OPERADOR" ? "AYUDANTE" : usuario?.rol}</dd></dl><p>Para corregir sus datos personales, contacte al administrador.</p><button type="button" onClick={() => { setCuentaAbierta(false); setBoolModalContrasenaAbierto(true); }}>Cambiar contraseña</button><button type="button" onClick={() => setCuentaAbierta(false)} className="ml-4">Cerrar</button></section></VentanaEmergente>, document.body)}
+      {cuentaAbierta && createPortal(<VentanaEmergente boolAbierto onCerrar={() => setCuentaAbierta(false)}><section role="dialog" aria-label="Mi Cuenta" className="p-6 space-y-4"><h2 className="font-bold text-xl">Mi Cuenta</h2><dl><dt>Nombre</dt><dd>{textoInterfaz(strNombre)} {strApellido}</dd><dt>Correo</dt><dd className="break-all">{usuario?.correo}</dd><dt>Rol</dt><dd>{textoInterfaz(usuario?.rol === "OPERADOR" ? "AYUDANTE" : usuario?.rol)}</dd></dl><p>Para corregir sus datos personales, contacte al administrador.</p><button type="button" onClick={() => { setCuentaAbierta(false); setBoolModalContrasenaAbierto(true); }}>Cambiar contraseña</button><button type="button" onClick={() => setCuentaAbierta(false)} className="ml-4">Cerrar</button></section></VentanaEmergente>, document.body)}
 
       {/* El aviso se oculta mientras el modal de contraseña está abierto y vuelve si lo cancelan */}
       <AvisoCambioContrasena
@@ -119,6 +116,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, strClaseAvata
 
       <CambiarContrasenaModal
         boolAbierto={boolModalContrasenaAbierto}
+        usuario={usuario}
         onCerrar={fnCerrarModalContrasena}
         onExito={fnContrasenaCambiada}
       />

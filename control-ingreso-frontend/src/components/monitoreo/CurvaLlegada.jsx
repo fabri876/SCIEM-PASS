@@ -1,3 +1,5 @@
+import { TablaConReporte } from '../common/ReporteLista.jsx';
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useMemo, useState } from "react";
 import { horaCorta } from "./utilidadesMonitoreo";
 
@@ -45,7 +47,7 @@ export default function CurvaLlegada({ estado, datos, strHoraInicio, boolEnCurso
             <div className="flex items-start justify-between gap-2 flex-wrap">
                 <div>
                     <h4 className="text-sm font-black text-[#003770]">Curva de llegada</h4>
-                    <p className="text-[11px] font-semibold text-slate-500">Ingresos cada 5 minutos{estado === "ok" && datos.length > 0 ? ` · ${intTotal} en total` : ""}</p>
+                    <p className="text-[11px] font-semibold text-slate-500">Ingresos cada 5 minutos{textoInterfaz(estado === "ok" && datos.length > 0 ? ` · ${intTotal} en total` : "")}</p>
                 </div>
                 {estado === "ok" && datos.length > 0 && (
                     <button type="button" onClick={() => setBoolTabla((v) => !v)} className="text-[11px] font-bold text-[#2563EB] hover:underline cursor-pointer">
@@ -66,15 +68,15 @@ export default function CurvaLlegada({ estado, datos, strHoraInicio, boolEnCurso
             {estado === "ok" && datos.length > 0 && boolTabla && (
                 <div className="max-h-56 overflow-y-auto pr-4 [scrollbar-gutter:stable]">
 
-                    <table className="w-full text-xs">
+                    <TablaConReporte titulo="Curva de llegada">{(_paraReporte) => (<table className="w-full text-xs">
                         <thead><tr className="text-left text-slate-500"><th className="py-1 pr-3 font-bold">Hora</th><th className="py-1 pr-3 font-bold text-right">Ingresos</th></tr></thead>
 
                         <tbody>
                             {datos.map((d) => (
-                                <tr key={d.etiqueta} className="border-t border-slate-100"><td className="py-1 pr-3 tabular-nums">{d.etiqueta}</td><td className="py-1 pr-3 text-right tabular-nums font-bold">{d.cantidad}</td></tr>
+                                <tr key={d.etiqueta} className="border-t border-slate-100"><td className="py-1 pr-3 tabular-nums">{textoInterfaz(d.etiqueta)}</td><td className="py-1 pr-3 text-right tabular-nums font-bold">{d.cantidad}</td></tr>
                             ))}
                         </tbody>
-                    </table>
+                    </table>)}</TablaConReporte>
                 </div>
             )}
 
@@ -101,7 +103,7 @@ export default function CurvaLlegada({ estado, datos, strHoraInicio, boolEnCurso
                                         />
                                     )}
                                     {i % g.intCadaN === 0 && (
-                                        <text x={g.xCentro(i)} y={ALTO - 8} textAnchor="middle" fontSize="10" fill="#64748B">{d.etiqueta}</text>
+                                        <text x={g.xCentro(i)} y={ALTO - 8} textAnchor="middle" fontSize="10" fill="#64748B">{textoInterfaz(d.etiqueta)}</text>
                                     )}
                                     <rect
                                         x={M.izq + g.banda * i} y={M.arr} width={g.banda} height={g.h} fill="transparent"
@@ -126,7 +128,7 @@ export default function CurvaLlegada({ estado, datos, strHoraInicio, boolEnCurso
                             style={{ left: `${(g.xCentro(intHover) / ANCHO) * 100}%`, top: 0 }}
                             role="tooltip"
                         >
-                            {datos[intHover].etiqueta} · {datos[intHover].cantidad} ingreso(s)
+                            {textoInterfaz(datos[intHover].etiqueta)} · {datos[intHover].cantidad} ingreso(s)
                         </div>
                     )}
                 </div>

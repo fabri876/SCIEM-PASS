@@ -28,6 +28,8 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.CredencialRepos
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HabilitacionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.FaceEnrollmentRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.FaceEnrollment;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.EstudianteListaOficialDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -82,6 +84,7 @@ public class AsignacionIngresoService {
         private final CredencialRepository credencialRepository;
         private final AsignacionAulaService asignacionAulaService;
         private final ResponsableExamenRepository responsableExamenRepository;
+        private final FaceEnrollmentRepository faceEnrollmentRepository;
 
         public AsignacionIngresoService(ExamenRepository examenRepository,
                         AmbienteRepository ambienteRepository,
@@ -94,7 +97,8 @@ public class AsignacionIngresoService {
                         IngresoRepository ingresoRepository,
                         CredencialRepository credencialRepository,
                         AsignacionAulaService asignacionAulaService,
-                        ResponsableExamenRepository responsableExamenRepository) {
+                        ResponsableExamenRepository responsableExamenRepository,
+                        FaceEnrollmentRepository faceEnrollmentRepository) {
                 this.examenRepository = examenRepository;
                 this.ambienteRepository = ambienteRepository;
                 this.aulaRepository = aulaRepository;
@@ -107,6 +111,7 @@ public class AsignacionIngresoService {
                 this.credencialRepository = credencialRepository;
                 this.asignacionAulaService = asignacionAulaService;
                 this.responsableExamenRepository = responsableExamenRepository;
+                this.faceEnrollmentRepository = faceEnrollmentRepository;
         }
 
         // -----------------------------------------------------------------------
@@ -408,6 +413,9 @@ public class AsignacionIngresoService {
                                 .collect(Collectors.toSet());
                 Map<Integer, Usuario> usuariosMap = usuarioRepository.findAllById(idsUsuario).stream()
                                 .collect(Collectors.toMap(Usuario::getIdusuario, Function.identity(), (u1, u2) -> u1));
+                Map<Integer, FaceEnrollment> enrolamientos = faceEnrollmentRepository
+                                .findByIdUsuarioIn(idsUsuario).stream()
+                                .collect(Collectors.toMap(FaceEnrollment::getIdUsuario, Function.identity(), (a, b) -> a));
 
                 // 3. Reparto de aulas para conocer qué aula tiene asignada cada estudiante
                 AsignacionAulaService.Reparto reparto = asignacionAulaService.repartir(idAsignatura, idExamen);
@@ -475,6 +483,15 @@ public class AsignacionIngresoService {
                         dto.setNombres(nombres);
                         dto.setApellidos(apellidos);
                         dto.setNombre(nombreCompleto);
+                        FaceEnrollment enrolamiento = enrolamientos.get(est.getIdusuario());
+                        String estadoFacial = enrolamiento == null ? "SIN_ENROLAMIENTO"
+                                        : "bloqueado".equalsIgnoreCase(enrolamiento.getEstado()) ? "BLOQUEADO"
+                                        : "pendiente_reenrolamiento".equalsIgnoreCase(enrolamiento.getEstado()) ? "PENDIENTE_REENROLAMIENTO"
+                                        : "activo".equalsIgnoreCase(enrolamiento.getEstado())
+                                                && enrolamiento.getPhotoPath() != null && !enrolamiento.getPhotoPath().isBlank()
+                                                && enrolamiento.getEmbedding() != null && !enrolamiento.getEmbedding().isBlank()
+                                                        ? "ACTIVO" : "SIN_ENROLAMIENTO";
+                        dto.setEstadoEnrolamientoFacial(estadoFacial);
 
                         boolean estaHabilitado = Boolean.TRUE.equals(h.getEstadohabilitacion());
                         dto.setHabilitado(estaHabilitado);

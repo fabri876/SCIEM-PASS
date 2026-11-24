@@ -1,3 +1,5 @@
+import ReporteLista from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { obtenerTodasAsignaturas } from '../../../services/asignaturaService';
 
@@ -134,8 +136,8 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <span className="text-primary-blue text-sm">🎓</span>
-                        <span className="text-[11px] font-black tracking-wider text-primary-blue uppercase">
-                            GESTIÓN ACADÉMICA OFICIAL
+                        <span className="text-[11px] font-black tracking-wider text-primary-blue ">
+                            Gestión académica oficial
                         </span>
                     </div>
                     <h1 className="text-2xl md:text-3xl font-black text-[#1A365D] tracking-tight">
@@ -230,7 +232,7 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                 </div>
             ) : modoVista === 'grid' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    {materiasFiltradas.map((mat, index) => {
+                    <ReporteLista titulo="Asignaturas" contenido={() => <>{materiasFiltradas.map((mat, index) => {
                         const esDestacada = materiaDestacada === mat.id;
                         const tema = TEMAS_PALETA[index % TEMAS_PALETA.length];
                         const inicial = (mat.nombre || 'A').charAt(0).toUpperCase();
@@ -246,17 +248,90 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                             >
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <span className={`px-3 py-1 rounded-xl ${tema.accentIconBg} ${tema.accentIconText} text-xs font-black tracking-wider uppercase shadow-xs`}>
+                                        <span className={`px-3 py-1 rounded-xl ${tema.accentIconBg} ${tema.accentIconText} text-xs font-black tracking-wider shadow-xs`}>
                                             {mat.codigo}
                                         </span>
                                         <span className="bg-emerald-50 text-emerald-600 font-bold px-3 py-0.5 rounded-full text-[11px] border border-emerald-200/60">
-                                            {mat.estado}
+                                            {textoInterfaz(mat.estado)}
                                         </span>
                                     </div>
 
                                     <div>
                                         <h3 className="font-extrabold text-sm text-[#1A365D] leading-snug line-clamp-2">
-                                            {mat.nombre}
+                                            {textoInterfaz(mat.nombre)}
+                                        </h3>
+                                        <p className="text-xs text-slate-500 font-medium mt-1 truncate">
+                                            Docente: <span className="font-semibold text-slate-700">{mat.docente}</span>
+                                        </p>
+                                    </div>
+
+                                    <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5 pt-1">
+                                        <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                        </svg>
+                                        <span>{mat.estudiantesInscritos} estudiantes registrados</span>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                                        <span className="bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 border border-emerald-100">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                            {mat.habilitados} Habilitados
+                                        </span>
+                                        <span className="bg-rose-50 text-rose-600 text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 border border-rose-100">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                                            {mat.inhabilitados} Inhabilitados
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 mt-4 border-t border-slate-100/80">
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSeleccionarMateria(mat);
+                                        }}
+                                        className={`w-full ${tema.btnBg} font-bold text-xs py-2.5 px-4 rounded-xl transition duration-200 flex items-center justify-between cursor-pointer group shadow-xs`}
+                                    >
+                                        <span className="flex items-center gap-1.5">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                            </svg>
+                                            Gestionar Habilitacion
+                                        </span>
+                                        <span className="transform group-hover:translate-x-1 transition duration-200">→</span>
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}</>} />
+{materiasFiltradas.map((mat, index) => {
+                        const esDestacada = materiaDestacada === mat.id;
+                        const tema = TEMAS_PALETA[index % TEMAS_PALETA.length];
+                        const inicial = (mat.nombre || 'A').charAt(0).toUpperCase();
+
+                        return (
+                            <div
+                                key={mat.id}
+                                onClick={() => setMateriaDestacada(mat.id)}
+                                className={`${tema.bg} ${tema.border} rounded-3xl p-5 shadow-xs transition duration-200 flex flex-col justify-between border cursor-pointer min-h-[220px] ${esDestacada
+                                    ? 'ring-2 ring-blue-500/30 shadow-md scale-[1.01]'
+                                    : 'hover:shadow-md hover:scale-[1.005]'
+                                    }`}
+                            >
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className={`px-3 py-1 rounded-xl ${tema.accentIconBg} ${tema.accentIconText} text-xs font-black tracking-wider shadow-xs`}>
+                                            {mat.codigo}
+                                        </span>
+                                        <span className="bg-emerald-50 text-emerald-600 font-bold px-3 py-0.5 rounded-full text-[11px] border border-emerald-200/60">
+                                            {textoInterfaz(mat.estado)}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="font-extrabold text-sm text-[#1A365D] leading-snug line-clamp-2">
+                                            {textoInterfaz(mat.nombre)}
                                         </h3>
                                         <p className="text-xs text-slate-500 font-medium mt-1 truncate">
                                             Docente: <span className="font-semibold text-slate-700">{mat.docente}</span>
@@ -307,7 +382,7 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
             ) : (
                 <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
                     <div className="divide-y divide-slate-100">
-                        {materiasFiltradas.map((mat) => (
+                        <ReporteLista titulo="Asignaturas" contenido={() => <>{materiasFiltradas.map((mat) => (
                             <div
                                 key={mat.id}
                                 className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#F8FAFC] transition"
@@ -315,12 +390,55 @@ export default function GestionMateriasAdmin({ onSeleccionarMateria }) {
                                 <div className="flex items-center gap-4 min-w-0">
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-black text-primary-blue bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                                            <span className="text-[10px] font-black text-primary-blue bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md tracking-wider">
                                                 {mat.codigo}
                                             </span>
-                                            <h3 className="font-extrabold text-sm text-[#1A365D]">{mat.nombre}</h3>
+                                            <h3 className="font-extrabold text-sm text-[#1A365D]">{textoInterfaz(mat.nombre)}</h3>
                                             <span className="bg-emerald-50 text-emerald-600 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-emerald-200">
-                                                {mat.estado}
+                                                {textoInterfaz(mat.estado)}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                            Docente: {mat.docente} &bull; {mat.estudiantesInscritos} estudiantes registrados
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 self-end sm:self-center">
+                                    <div className="flex items-center gap-2">
+                                        <span className="bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-full border border-emerald-100">
+                                            {mat.habilitados} Hab.
+                                        </span>
+                                        <span className="bg-rose-50 text-rose-600 text-[11px] font-bold px-2.5 py-1 rounded-full border border-rose-100">
+                                            {mat.inhabilitados} Inhab.
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => onSeleccionarMateria(mat)}
+                                        className="bg-primary-blue hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                                    >
+                                        <span>Gestionar Habilitacion</span>
+                                        <span>→</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}</>} />
+{materiasFiltradas.map((mat) => (
+                            <div
+                                key={mat.id}
+                                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#F8FAFC] transition"
+                            >
+                                <div className="flex items-center gap-4 min-w-0">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-primary-blue bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md tracking-wider">
+                                                {mat.codigo}
+                                            </span>
+                                            <h3 className="font-extrabold text-sm text-[#1A365D]">{textoInterfaz(mat.nombre)}</h3>
+                                            <span className="bg-emerald-50 text-emerald-600 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-emerald-200">
+                                                {textoInterfaz(mat.estado)}
                                             </span>
                                         </div>
                                         <p className="text-xs text-slate-500 font-medium mt-0.5">
