@@ -1,3 +1,6 @@
+import ReporteLista from '../../../components/common/ReporteLista.jsx';
+import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -193,7 +196,7 @@ function PildoraEstado({ strEstado }) {
     const e = ESTILOS_ESTADO[strEstado] || ESTILOS_ESTADO.PROXIMO;
     return (
         <span className={`inline-block rounded-full border text-[11.5px] font-bold px-3 py-[3px] whitespace-nowrap ${e.clase}`}>
-            {e.texto}
+            {textoInterfaz(e.texto)}
         </span>
     );
 }
@@ -687,7 +690,7 @@ export default function SeccionRegistroExamenes() {
                                                     : "bg-white border-[#D5DEEC] text-slate-600 hover:bg-slate-50"
                                                     }`}
                                             >
-                                                {chip.etiqueta}
+                                                {textoInterfaz(chip.etiqueta)}
                                                 <span className={`min-w-[20px] text-center px-1.5 py-px rounded-full text-[11px] ${boolActivo ? "bg-white/20" : "bg-[#EEF2F8]"}`}>
                                                     {objConteos[chip.valor]}
                                                 </span>
@@ -703,7 +706,7 @@ export default function SeccionRegistroExamenes() {
                                         className={CLASE_SELECT + " h-[30px] text-[12px]"}
                                     >
                                         {OPCIONES_ORDEN.map((o) => (
-                                            <option key={o.valor} value={o.valor}>{o.etiqueta}</option>
+                                            <option key={o.valor} value={o.valor}>{textoInterfaz(o.etiqueta)}</option>
                                         ))}
                                     </select>
                                 </label>
@@ -723,26 +726,26 @@ export default function SeccionRegistroExamenes() {
                             ) : (
                                 <>
                                     <div className="overflow-x-auto">
-                                        <table className="w-full text-left">
+                                        <TablaConReporte titulo="Exámenes y normas">{(paraReporte) => (<table className="w-full text-left">
                                             <thead>
-                                                <tr className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                                                <tr className="text-[11px] font-bold text-slate-400 tracking-wide">
                                                     <th className="pb-3 pr-3">Asignatura</th>
                                                     <th className="pb-3 pr-3">Tipo</th>
                                                     <th className="pb-3 pr-3">Docente</th>
                                                     <th className="pb-3 pr-3">Fecha y hora</th>
                                                     {/* En "Cancelados" todos tienen el mismo estado: su lugar lo toma el motivo */}
-                                                    <th className="pb-3 pr-3">{strEstadoFiltro === "CANCELADO" ? "Motivo" : "Estado"}</th>
+                                                    <th className="pb-3 pr-3">{textoInterfaz(strEstadoFiltro === "CANCELADO" ? "Motivo" : "Estado")}</th>
                                                     <th className="pb-3 w-10" aria-label="Opciones" />
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {arrExamenesPagina.map((ex) => {
+                                                {(paraReporte ? arrExamenesOrdenados : arrExamenesPagina).map((ex) => {
                                                     const strGrupo = nombreGrupo(ex);
                                                     return (
                                                         <tr key={ex.idExamen} className="border-t border-[#EEF1F8] text-[13px] text-[#10294D]">
                                                             <td className="py-3.5 pr-3 font-bold">
                                                                 <span className="inline-flex items-center gap-2">
-                                                                    {ex.nombreAsignatura || `Asignatura #${ex.idAsignatura}`}
+                                                                    {textoInterfaz(ex.nombreAsignatura || `Asignatura #${ex.idAsignatura}`)}
                                                                     {strGrupo && (
                                                                         <span className="bg-[#E8F0FB] text-[#003770] border border-[#BFD3F2] rounded-full text-[11px] font-bold px-2.5 py-px whitespace-nowrap">
                                                                             {strGrupo}
@@ -755,7 +758,7 @@ export default function SeccionRegistroExamenes() {
                                                             <td className="py-3.5 pr-3 whitespace-nowrap">{fechaCorta(ex)}</td>
                                                             <td className="py-3.5 pr-3">
                                                                 {strEstadoFiltro === "CANCELADO" ? (
-                                                                    <span className="block max-w-[280px] text-[12.5px] text-slate-600 break-words">{ex.motivoCancelacion || "-"}</span>
+                                                                    <span className="block max-w-[280px] text-[12.5px] text-slate-600 break-words">{textoInterfaz(ex.motivoCancelacion || "-")}</span>
                                                                 ) : (
                                                                     <PildoraEstado strEstado={ex._estado} />
                                                                 )}
@@ -786,7 +789,7 @@ export default function SeccionRegistroExamenes() {
                                                     );
                                                 })}
                                             </tbody>
-                                        </table>
+                                        </table>)}</TablaConReporte>
                                     </div>
 
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-4 pt-4 border-t border-[#EEF1F8] gap-3">
@@ -849,7 +852,7 @@ export default function SeccionRegistroExamenes() {
                     )}
 
                     {strMensajeNormas && (
-                        <p className="text-[12.5px] text-red-600 font-semibold mb-3">{strMensajeNormas}</p>
+                        <p className="text-[12.5px] text-red-600 font-semibold mb-3">{textoInterfaz(strMensajeNormas)}</p>
                     )}
 
                     {arrNormasGenerales.length === 0 ? (
@@ -858,7 +861,69 @@ export default function SeccionRegistroExamenes() {
                         </p>
                     ) : (
                         <div>
-                            {arrNormasGenerales.map((norma, index) => (
+                            <ReporteLista titulo="Normas generales" contenido={() => <>{arrNormasGenerales.map((norma, index) => (
+                                <div
+                                    key={norma.idNormaGeneral}
+                                    className={`flex items-start gap-3.5 py-3.5 ${index > 0 ? "border-t border-[#EEF1F8]" : ""}`}
+                                >
+                                    <div className="flex-shrink-0 w-[26px] h-[26px] rounded-md bg-[#EEF1F8] text-[#5E6B8A] text-[11px] font-extrabold flex items-center justify-center mt-0.5">
+                                        {String(index + 1).padStart(2, "0")}
+                                    </div>
+                                    <div className="flex-1">
+                                        {idNormaGeneralEnEdicion === norma.idNormaGeneral ? (
+                                            <div className="flex flex-col sm:flex-row gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={strTextoEdicionGeneral}
+                                                    onChange={(e) => setStrTextoEdicionGeneral(e.target.value)}
+                                                    maxLength={100}
+                                                    className="h-[36px] flex-1 border border-[#2B6CB0] rounded-md px-3 text-[13px]"
+                                                    autoFocus
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleGuardarEdicionGeneral(norma.idNormaGeneral)}
+                                                    className="h-[36px] px-3 rounded-md bg-[#163F79] text-white font-semibold text-[12px]"
+                                                >
+                                                    Guardar
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleCancelarEdicionGeneral}
+                                                    className="h-[36px] px-3 rounded-md border border-[#C8D6E8] text-[#163F79] font-semibold text-[12px]"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="text-[13.5px] font-semibold text-[#22304F]">
+                                                {norma.descripcionNorma}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {idNormaGeneralEnEdicion !== norma.idNormaGeneral && (
+                                        <div className="flex items-center gap-2.5 flex-shrink-0">
+                                            <button
+                                                type="button"
+                                                title="Editar"
+                                                onClick={() => handleEmpezarEdicionGeneral(norma)}
+                                                className="text-[#5E71A0] hover:text-[#163F79]"
+                                            >
+                                                <IconoLapiz />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                title="Eliminar"
+                                                onClick={() => handleEliminarNormaGeneral(norma)}
+                                                className="text-[#5E71A0] hover:text-red-600"
+                                            >
+                                                <IconoBasurero />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}</>} />
+{arrNormasGenerales.map((norma, index) => (
                                 <div
                                     key={norma.idNormaGeneral}
                                     className={`flex items-start gap-3.5 py-3.5 ${index > 0 ? "border-t border-[#EEF1F8]" : ""}`}
@@ -929,16 +994,16 @@ export default function SeccionRegistroExamenes() {
             {!boolCargando && strTabActiva === "particulares" && (
                 <div className="overflow-x-auto">
                     {strMensajeNormas && (
-                        <p className="text-[12.5px] text-red-600 font-semibold mb-3">{strMensajeNormas}</p>
+                        <p className="text-[12.5px] text-red-600 font-semibold mb-3">{textoInterfaz(strMensajeNormas)}</p>
                     )}
                     {arrParticularesConColor.length === 0 ? (
                         <p className="text-[13px] text-gray-500 py-6 text-center">
                             Todavía no se registraron normas particulares.
                         </p>
                     ) : (
-                        <table className="w-full text-left">
+                        <TablaConReporte titulo="Exámenes y normas">{(_paraReporte) => (<table className="w-full text-left">
                             <thead>
-                                <tr className="text-[11.5px] font-bold text-gray-400 uppercase tracking-wide">
+                                <tr className="text-[11.5px] font-bold text-gray-400 tracking-wide">
                                     <th className="pb-3 pr-3">Norma particular</th>
                                     <th className="pb-3 pr-3">Docente / Asignatura</th>
                                     <th className="pb-3">Acción</th>
@@ -978,7 +1043,7 @@ export default function SeccionRegistroExamenes() {
                                     </tr>
                                 ))}
                             </tbody>
-                        </table>
+                        </table>)}</TablaConReporte>
                     )}
                 </div>
             )}

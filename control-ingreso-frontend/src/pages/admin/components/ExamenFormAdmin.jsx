@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useState, useEffect } from "react";
 import {
     registrarExamen,
@@ -656,7 +657,7 @@ export default function ExamenFormAdmin({
             </div>
 
             <div className="px-6 pt-3 pb-2">
-                <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
+                <label className="block text-[11.5px] font-extrabold tracking-[.5px] text-[#475569] mb-1.5">
                     ¿Para qué docente es este examen? <span className="text-red-600">*</span>
                 </label>
                 <select
@@ -668,7 +669,7 @@ export default function ExamenFormAdmin({
                     <option value="" disabled>Seleccione un docente</option>
                     {arrDocentes.map((docente) => (
                         <option key={docente.idUsuario} value={docente.idUsuario}>
-                            {docente.nombre} {docente.apellido}
+                            {textoInterfaz(docente.nombre)} {docente.apellido}
                         </option>
                     ))}
                 </select>
@@ -686,7 +687,7 @@ export default function ExamenFormAdmin({
                 <div className="px-6 pt-3 pb-6 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
-                            <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
+                            <label className="block text-[11.5px] font-extrabold tracking-[.5px] text-[#475569] mb-1.5">
                                 Asignatura <span className="text-red-600">*</span>
                             </label>
                             <select
@@ -699,13 +700,13 @@ export default function ExamenFormAdmin({
                                 <option value="" disabled>Seleccione una asignatura</option>
                                 {arrAsignaturas.map((a) => (
                                     <option key={a.idAsignatura} value={a.idAsignatura}>
-                                        {a.nombreAsignatura}
+                                        {textoInterfaz(a.nombreAsignatura)}
                                     </option>
                                 ))}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
+                            <label className="block text-[11.5px] font-extrabold tracking-[.5px] text-[#475569] mb-1.5">
                                 Grupo {boolPideGrupo && <span className="text-red-600">*</span>}
                             </label>
                             <select
@@ -737,7 +738,7 @@ export default function ExamenFormAdmin({
 
                     <div>
                         <div>
-                            <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
+                            <label className="block text-[11.5px] font-extrabold tracking-[.5px] text-[#475569] mb-1.5">
                                 Tipo de Examen <span className="text-red-600">*</span>
                             </label>
                             <select
@@ -777,7 +778,7 @@ export default function ExamenFormAdmin({
 
                     {boolRequiereDescripcion && (
                         <div>
-                            <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
+                            <label className="block text-[11.5px] font-extrabold tracking-[.5px] text-[#475569] mb-1.5">
                                 Especifique tipo de examen <span className="text-red-600">*</span>
                             </label>
                             <input
@@ -797,7 +798,7 @@ export default function ExamenFormAdmin({
                     )}
 
                     <div>
-                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold tracking-[.5px] text-[#475569] mb-1.5">
                             Horario y ambiente <span className="text-red-600">*</span>
                         </label>
 
@@ -855,7 +856,7 @@ export default function ExamenFormAdmin({
 
                         {strTipoHorario === "REGULAR" && idHorarioRegularSeleccionado && (
                             <div className="relative mt-3">
-                                <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">
+                                <label className="block text-[11px] font-bold tracking-[.4px] text-[#64748B] mb-1">
                                     Ambiente(s)
                                 </label>
                                 {objHorarioSeleccionado && (
@@ -936,7 +937,7 @@ export default function ExamenFormAdmin({
                                         )}
                                     </div>
                                 )}
-                                <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">
+                                <label className="block text-[11px] font-bold tracking-[.4px] text-[#64748B] mb-1">
                                     Agregar aula(s) adicional(es) <span className="text-gray-400">(opcional)</span>
                                 </label>
                                 <div className="relative">
@@ -1002,7 +1003,7 @@ export default function ExamenFormAdmin({
                         {strTipoHorario === "EVENTUAL" && (
                             <div className="space-y-3">
                                 <div className="relative">
-                                    <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">Aula(s)</label>
+                                    <label className="block text-[11px] font-bold tracking-[.4px] text-[#64748B] mb-1">Aula(s)</label>
                                     <div className="relative">
                                         <span className="absolute left-3 top-[13px] text-gray-400">⌕</span>
                                         <input
@@ -1064,7 +1065,7 @@ export default function ExamenFormAdmin({
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">Hora inicio</label>
+                                        <label className="block text-[11px] font-bold tracking-[.4px] text-[#64748B] mb-1">Hora inicio</label>
                                         <input
                                             type="time"
                                             name="horaInicio"
@@ -1077,7 +1078,7 @@ export default function ExamenFormAdmin({
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-[11px] font-bold uppercase tracking-[.4px] text-[#64748B] mb-1">Hora fin</label>
+                                        <label className="block text-[11px] font-bold tracking-[.4px] text-[#64748B] mb-1">Hora fin</label>
                                         <input
                                             type="time"
                                             name="horaFin"
@@ -1104,7 +1105,7 @@ export default function ExamenFormAdmin({
                     </div>
 
                     <div>
-                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold tracking-[.5px] text-[#475569] mb-1.5">
                             Fecha del Examen <span className="text-red-600">*</span>
                         </label>
                         <input
@@ -1132,7 +1133,7 @@ export default function ExamenFormAdmin({
 
                 <div className="px-6 pt-3 pb-6 space-y-4">
                     <div>
-                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-2">
+                        <label className="block text-[11.5px] font-extrabold tracking-[.5px] text-[#475569] mb-2">
                             Normas generales
                         </label>
                         <div className="flex flex-col gap-2">
@@ -1151,7 +1152,7 @@ export default function ExamenFormAdmin({
                     </div>
 
                     <div>
-                        <label className="block text-[11.5px] font-extrabold uppercase tracking-[.5px] text-[#475569] mb-1.5">
+                        <label className="block text-[11.5px] font-extrabold tracking-[.5px] text-[#475569] mb-1.5">
                             Normas particulares
                         </label>
                         <div className="flex gap-2 mb-2">
@@ -1197,7 +1198,7 @@ export default function ExamenFormAdmin({
                     className={`px-6 text-[12.5px] font-semibold ${strTipoMensaje === "error" ? "text-red-600" : "text-[#1C8A4C]"
                         }`}
                 >
-                    {strMensaje}
+                    {textoInterfaz(strMensaje)}
                 </p>
             )}
 

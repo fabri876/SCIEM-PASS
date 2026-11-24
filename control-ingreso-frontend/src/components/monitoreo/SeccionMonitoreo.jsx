@@ -1,3 +1,5 @@
+import ReporteLista from '../common/ReporteLista.jsx';
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { RefreshCw, WifiOff, CheckCircle2, ShieldAlert } from "lucide-react";
 import {
@@ -198,7 +200,7 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
         <div className="min-w-0">
           <h3 className="text-base font-black text-[#003770]">Monitoreo de asistencia</h3>
           <p className="text-xs text-slate-500 font-semibold">
-            {rol === "DOCENTE" ? "Tus exámenes asignados" : "Todos los exámenes"} · se actualiza solo cada 15 segundos
+            {textoInterfaz(rol === "DOCENTE" ? "Tus exámenes asignados" : "Todos los exámenes")} · se actualiza solo cada 15 segundos
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -224,7 +226,7 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
               <option key={ex.idExamen} value={ex.idExamen}>
                 {ex.asignatura} · {formatearFecha(ex.fechaExamen)}
                 {ex.horaInicio ? ` · ${horaCorta(ex.horaInicio)}–${horaCorta(ex.horaFin)}` : ""}
-                {ex.enCurso ? " · EN CURSO" : ""}
+                {textoInterfaz(ex.enCurso ? " · EN CURSO" : "")}
               </option>
             ))}
           </select>
@@ -245,13 +247,13 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
       {boolSinPermiso ? (
         <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-2xl text-xs font-bold flex items-start gap-2">
           <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>{strError || "No tienes permiso para monitorear este examen."} El intento quedó registrado en auditoría.</span>
+          <span>{textoInterfaz(strError || "No tienes permiso para monitorear este examen.")} El intento quedó registrado en auditoría.</span>
         </div>
       ) : (
         strError &&
         !tablero && (
           <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-2xl text-xs font-bold flex items-center justify-between gap-3 flex-wrap">
-            <span>✕ {strError}</span>
+            <span>✕ {textoInterfaz(strError)}</span>
             {idExamen && (
               <button type="button" onClick={fnActualizar} className="underline cursor-pointer">Reintentar</button>
             )}
@@ -266,7 +268,7 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
       )}
       {boolSinExamenes && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-2xl text-xs font-bold">
-          {rol === "DOCENTE" ? "No tienes exámenes asignados para monitorear." : "No hay exámenes registrados para monitorear."}
+          {textoInterfaz(rol === "DOCENTE" ? "No tienes exámenes asignados para monitorear." : "No hay exámenes registrados para monitorear.")}
         </div>
       )}
       {boolCargandoExamenes && (
@@ -303,7 +305,16 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
                 <p className="text-xs text-slate-400 font-semibold py-6 text-center">El examen no tiene aulas asignadas.</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {tablero.aulas.map((aula) => (
+                  <ReporteLista titulo="Ocupación de aulas" contenido={() => <>{tablero.aulas.map((aula) => (
+                    <TarjetaAula
+                      key={aula.idAmbiente}
+                      aula={aula}
+                      incidencias={extras.incidencias ? extras.incidencias.porAula[aula.idAmbiente] || null : undefined}
+                      boolCerrada={Boolean(extras.cierres[aula.idAmbiente]?.cerrado)}
+                      onAbrir={setAulaDetalle}
+                    />
+                  ))}</>} />
+{tablero.aulas.map((aula) => (
                     <TarjetaAula
                       key={aula.idAmbiente}
                       aula={aula}

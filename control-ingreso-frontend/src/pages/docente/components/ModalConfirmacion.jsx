@@ -28,11 +28,11 @@ export default function ModalConfirmacion({ mostrar, estudiante, motivoTexto, gu
                     del modal en pantallas angostas. */}
                 <div className="bg-[#F8FAFC] border border-slate-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-[13px]">
                     <div className="min-w-0">
-                        <span className="block text-[13px] font-bold text-slate-400 uppercase">ESTUDIANTE</span>
+                        <span className="block text-[13px] font-bold text-slate-400 ">Estudiante</span>
                         <span className="font-extrabold text-[#003770] block truncate" title={nombre}>{nombre}</span>
                     </div>
                     <div className="text-right shrink-0">
-                        <span className="block text-[13px] font-bold text-slate-400 uppercase">NUEVO ESTADO</span>
+                        <span className="block text-[13px] font-bold text-slate-400 ">Nuevo estado</span>
                         <span className={`font-black ${habilitado ? 'text-[#003770]' : 'text-rose-600'}`}>{habilitado ? 'Habilitado' : 'Inhabilitado'}</span>
                     </div>
                 </div>

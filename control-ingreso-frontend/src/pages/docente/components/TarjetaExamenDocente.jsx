@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Tarjeta de un examen en "Mis exámenes" del docente.
 // - "Registrar ingreso": desde 15 minutos antes del inicio hasta que termina el examen.
 // - "Habilitaciones": solo antes de que empiece el examen (después ya no se pueden editar).
@@ -105,15 +106,15 @@ export default function TarjetaExamenDocente({ examen, boolResaltado = false, da
       <div className="flex-1 min-w-[200px]">
         <div className="flex items-center gap-2 flex-wrap">
           <h4 className={"m-0 font-black text-sm " + (boolCancelado ? "text-[#64748B] line-through" : "text-[#08264A]")}>{examen.nombreExamen}</h4>
-          {objBadge && <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{objBadge.strTexto}</span>}
+          {objBadge && <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{textoInterfaz(objBadge.strTexto)}</span>}
         </div>
         <p className="mt-0.5 text-xs font-bold text-[#64748B]">
-          {examen.tipoExamen && <span className="text-[#124B83]">{examen.tipoExamen}</span>}
-          {examen.tipoExamen && strDetalle ? " · " : ""}
+          {examen.tipoExamen && <span className="text-[#124B83]">{textoInterfaz(examen.tipoExamen)}</span>}
+          {textoInterfaz(examen.tipoExamen && strDetalle ? " · " : "")}
           {strDetalle}
         </p>
         {boolCancelado && examen.motivoCancelacion && (
-          <p className="mt-1 text-[11px] font-semibold text-[#B91C1C] break-words">Motivo: {examen.motivoCancelacion}</p>
+          <p className="mt-1 text-[11px] font-semibold text-[#B91C1C] break-words">Motivo: {textoInterfaz(examen.motivoCancelacion)}</p>
         )}
         {boolAvisoApertura && (
           <p className="mt-1 text-[11px] font-semibold text-[#64748B]">El registro de ingreso se habilita a las {horaCorta(dateApertura)}</p>

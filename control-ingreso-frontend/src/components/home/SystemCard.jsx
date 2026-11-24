@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 /**
  * SystemCard.jsx
  *
@@ -38,7 +39,7 @@ export default function SystemCard({
         >
           {svgIcono}
         </svg>
-        {strNombre}
+        {textoInterfaz(strNombre)}
       </a>
 
       <p className="flex-1 text-[14px] leading-[1.6] text-text-body text-center sm:text-left sm:pt-1.5">

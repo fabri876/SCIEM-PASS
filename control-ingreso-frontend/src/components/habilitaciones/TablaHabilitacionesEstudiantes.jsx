@@ -1,3 +1,5 @@
+import { TablaConReporte } from '../common/ReporteLista.jsx';
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 // Habilitaciones del ADMINISTRADOR (por materia), con el mismo diseño que la pantalla del docente:
 // "Volver a Materias", cabecera con Exportar, fila de datos del examen, métricas, búsqueda,
 // filtros en píldora, tabla (tarjetas en móvil) y cajón lateral para modificar el estado.
@@ -368,7 +370,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                     <div key={f.etiqueta} className="min-w-0 sm:px-4 first:pl-0 lg:border-l lg:border-[#E2E8F0] first:lg:border-l-0">
                         {f.boolSelector ? (
                             <>
-                                <label htmlFor="adm-hab-examen" className="text-[11px] font-extrabold uppercase tracking-[.6px] text-[#64748B] block mb-1">{f.etiqueta}</label>
+                                <label htmlFor="adm-hab-examen" className="text-[11px] font-extrabold tracking-[.6px] text-[#64748B] block mb-1">{textoInterfaz(f.etiqueta)}</label>
                                 <select
                                     id="adm-hab-examen"
                                     value={idExamenSel ?? ''}
@@ -382,7 +384,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                             </>
                         ) : (
                             <>
-                                <span className="text-[11px] font-extrabold uppercase tracking-[.6px] text-[#64748B] block">{f.etiqueta}</span>
+                                <span className="text-[11px] font-extrabold tracking-[.6px] text-[#64748B] block">{textoInterfaz(f.etiqueta)}</span>
                                 <p className="mt-0.5 text-[14.5px] font-extrabold text-[#08264A] break-words line-clamp-2" title={f.valor}>{f.valor || '---'}</p>
                             </>
                         )}
@@ -434,7 +436,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                                     ? 'bg-[#003770] text-white border-[#003770]'
                                     : 'bg-white text-[#1A365D] border-[#CBD5E1] hover:bg-slate-50'}`}
                             >
-                                {f.label}
+                                {textoInterfaz(f.label)}
                             </button>
                         ))}
                     </div>
@@ -448,9 +450,9 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                     <>
                         {/* Tabla: visible desde md hacia arriba */}
                         <div className="hidden md:block overflow-x-auto">
-                            <table className="w-full min-w-[760px] text-left text-[14px]">
+                            <TablaConReporte titulo="Habilitaciones de estudiantes">{(paraReporte) => (<table className="w-full min-w-[760px] text-left text-[14px]">
                                 <thead>
-                                    <tr className="text-[#124B83] border-y border-[#CBD5E1] font-extrabold uppercase text-[11px] tracking-[.6px] bg-[#E8F1FB]">
+                                    <tr className="text-[#124B83] border-y border-[#CBD5E1] font-extrabold text-[11px] tracking-[.6px] bg-[#E8F1FB]">
                                         <th className="py-3.5 px-3 sm:px-6">N°</th>
                                         <th className="py-3.5 px-3 sm:px-6">Estudiante</th>
                                         <th className="py-3.5 px-3 sm:px-6">C.I.</th>
@@ -461,7 +463,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#E2E8F0]">
-                                    {estudiantesPaginados.map((est, index) => (
+                                    {(paraReporte ? estudiantesFiltrados : estudiantesPaginados).map((est, index) => (
                                         <FilaEstudiante
                                             key={est.idHabilitacion}
                                             est={est}
@@ -470,7 +472,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                                         />
                                     ))}
                                 </tbody>
-                            </table>
+                            </table>)}</TablaConReporte>
                         </div>
 
                         {/* Tarjetas: visibles solo en móvil (menos de md) */}
@@ -500,7 +502,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                         <div>
                             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-5">
                                 <div>
-                                    <span className="text-[11px] font-extrabold uppercase text-[#64748B] tracking-[.6px] block">MODIFICAR ESTADO</span>
+                                    <span className="text-[11px] font-extrabold text-[#64748B] tracking-[.6px] block">Modificar estado</span>
                                     <h3 className="font-black text-[17px] text-[#1A365D]">Detalle de habilitación</h3>
                                 </div>
                                 <button onClick={() => setEstudianteSeleccionado(null)} className="text-slate-400 hover:text-[#003770] font-bold p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">✕</button>
@@ -515,12 +517,12 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                                     {estudianteSeleccionado.carreraEstudiante && (
                                         <p className="text-[13px] text-[#003770] font-semibold">{estudianteSeleccionado.carreraEstudiante}</p>
                                     )}
-                                    <p className="text-[12.5px] text-slate-500 font-medium mt-0.5">SIS {estudianteSeleccionado.codSisEstudiante} &middot; C.I. {estudianteSeleccionado.ciEstudiante}</p>
+                                    <p className="text-[12.5px] text-slate-500 font-medium mt-0.5">SIS {estudianteSeleccionado.codSisEstudiante} · C.i. {estudianteSeleccionado.ciEstudiante}</p>
                                 </div>
                             </div>
 
                             <div className="mb-5">
-                                <label className="block text-[11px] font-extrabold text-[#64748B] uppercase tracking-[.6px] mb-2">ESTADO DE HABILITACIÓN</label>
+                                <label className="block text-[11px] font-extrabold text-[#64748B] tracking-[.6px] mb-2">Estado de habilitación</label>
                                 <SelectorEstado
                                     habilitado={estudianteSeleccionado.estadoHabilitacion}
                                     onHabilitar={() => { setEstudianteSeleccionado({ ...estudianteSeleccionado, estadoHabilitacion: true, nombreMotivo: '-' }); setMotivoSelectValue(''); setMotivoPersonalizado(''); }}

@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Bloque completo del control de ingreso.
 // Sin examen elegido → "Mis exámenes". Con examen elegido → verificación.
 import "./controlIngreso.css";
@@ -91,7 +92,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
     return (
       <div className="text-[#08264A]">
         {strError && (
-          <div role="alert" className="mb-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
+          <div role="alert" className="mb-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(strError)}</div>
         )}
         <ListaExamenesHoy
           listExamenes={listExamenes}
@@ -314,7 +315,7 @@ export default function SeccionControlIngreso({ ctrl, strRol = "operador", boolP
               onConfirmarRapido={fnConfirmarIngresoRapido}
             />
             {strError && (
-              <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
+              <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(strError)}</div>
             )}
             <TarjetaResultado objResultado={objResultado} onCerrar={fnCerrarResultado} strRol={strRol}
               idExamen={examenActual?.idexamen ?? idExamen}

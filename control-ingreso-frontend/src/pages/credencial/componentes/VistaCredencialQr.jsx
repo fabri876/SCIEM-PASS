@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Credencial QR de un examen: el código grande + datos del examen y del estudiante
 import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
@@ -9,7 +10,7 @@ import ModalVerificacionFacialEstudiante from "../../../pages/estudiante/compone
 function Dato({ strEtiqueta, children, boolMono = false }) {
   return (
     <div>
-      <span className="block text-[11px] font-semibold uppercase tracking-[.4px] text-[#64748B]">{strEtiqueta}</span>
+      <span className="block text-[11px] font-semibold tracking-[.4px] text-[#64748B]">{textoInterfaz(strEtiqueta)}</span>
       <strong className={"block mt-0.5 text-sm font-semibold text-[#08264A] " + (boolMono ? "font-mono" : "")}>{children}</strong>
     </div>
   );
@@ -38,8 +39,8 @@ function SinQr({ objQr, boolInhabilitado }) {
   return (
     <div className="w-[240px] h-[240px] max-md:w-[210px] max-md:h-[210px] rounded-xl border-2 border-dashed border-[#CBD5E1] bg-[#F1F5F9] flex flex-col items-center justify-center text-center px-5 gap-2">
       <Clock className="w-8 h-8 text-[#9AA8BA]" />
-      <b className="text-sm font-bold text-[#08264A]">{strTitulo}</b>
-      <span className="text-xs text-[#64748B]">{strTexto}</span>
+      <b className="text-sm font-bold text-[#08264A]">{textoInterfaz(strTitulo)}</b>
+      <span className="text-xs text-[#64748B]">{textoInterfaz(strTexto)}</span>
     </div>
   );
 }
@@ -147,12 +148,12 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
         {/* Banda superior */}
         <div className={"flex flex-wrap items-center justify-between gap-2 px-[22px] py-3.5 text-white max-md:px-4 " + strColorBanda}>
           <div>
-            <b className="block text-[15px] font-bold tracking-[.3px]">CREDENCIAL DE INGRESO</b>
-            <span className="text-xs font-semibold tracking-[.5px] opacity-90">{examen.tipo.toUpperCase()} · {examen.materia.toUpperCase()}</span>
+            <b className="block text-[15px] font-bold tracking-[.3px]">Credencial de ingreso</b>
+            <span className="text-xs font-semibold tracking-[.5px] opacity-90">{textoInterfaz(examen.tipo.toUpperCase())} · {textoInterfaz(examen.materia)}</span>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-xs font-semibold">
             <i className={"w-[7px] h-[7px] rounded-full " + (boolDisponible ? "bg-[#83B7E2]" : "bg-[#CBD5E1]")} />
-            {boolDisponible ? "Válido" : boolInhabilitado ? "No habilitado" : objQr?.estado === "PENDIENTE" ? "Aún no disponible" : "No disponible"}
+            {textoInterfaz(boolDisponible ? "Válido" : boolInhabilitado ? "No habilitado" : objQr?.estado === "PENDIENTE" ? "Aún no disponible" : "No disponible")}
           </span>
         </div>
 
@@ -162,7 +163,7 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
             {boolCargando ? (
               <div className="w-[240px] h-[240px] max-md:w-[210px] max-md:h-[210px] rounded-xl bg-[#F1F5F9] animate-pulse" />
             ) : strError ? (
-              <div className="w-[240px] h-[240px] rounded-xl bg-[#FEF2F2] text-[#B91C1C] text-sm flex items-center justify-center text-center px-5">{strError}</div>
+              <div className="w-[240px] h-[240px] rounded-xl bg-[#FEF2F2] text-[#B91C1C] text-sm flex items-center justify-center text-center px-5">{textoInterfaz(strError)}</div>
             ) : boolDisponible ? (
               <div ref={refQr} className="p-3 rounded-xl border border-[#CBD5E1] bg-white">
                 <QRCodeSVG value={objQr.contenidoQr} size={216} level="M" fgColor="#08264A" bgColor="#FFFFFF" />
@@ -173,7 +174,7 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
             {boolDisponible && (
               <>
                 <div className="w-full max-w-[240px] rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] px-3 py-2 text-center">
-                  <span className="block text-[10px] font-semibold uppercase tracking-[.4px] text-[#64748B]">Código de credencial</span>
+                  <span className="block text-[10px] font-semibold tracking-[.4px] text-[#64748B]">Código de credencial</span>
                   <strong className="block mt-1 break-all font-mono text-xs text-[#08264A]">{objQr.contenidoQr}</strong>
                 </div>
                 <span className="text-xs text-[#64748B] text-center">
@@ -196,7 +197,7 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
               <div className="flex items-start gap-2.5 px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">
                 <Ban className="w-[18px] h-[18px] shrink-0 mt-px" />
                 <div>
-                  <b className="font-semibold">Motivo:</b> {examen.motivo || objQr?.mensaje || "sin detalle."}
+                  <b className="font-semibold">Motivo:</b> {textoInterfaz(examen.motivo || objQr?.mensaje || "sin detalle.")}
                   <div className="mt-1 text-[13px] text-[#B91C1C]/90">Si crees que es un error, consulta con tu docente antes del examen.</div>
                 </div>
               </div>
@@ -209,7 +210,7 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
 
             <div className="pt-4 border-t border-[#F1F5F9] grid grid-cols-3 max-md:grid-cols-2 gap-x-[18px] gap-y-3">
               <div className="col-span-3 max-md:col-span-2">
-                <Dato strEtiqueta="Estudiante">{strNombre || "—"}</Dato>
+                <Dato strEtiqueta="Estudiante">{textoInterfaz(strNombre || "—")}</Dato>
               </div>
               <Dato strEtiqueta="C.I." boolMono>{usuario?.ci || "—"}</Dato>
               <Dato strEtiqueta="Código SIS" boolMono>{usuario?.codigoSis || "—"}</Dato>

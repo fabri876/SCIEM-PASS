@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "../common/Logo";
@@ -91,7 +92,7 @@ function NavItem({ strTexto, strRuta, svgIcono, boolActivo = false, fnAlHacerCli
       >
         {svgIcono}
       </svg>
-      {strTexto}
+      {textoInterfaz(strTexto)}
       {boolActivo && !boolVersionMobile && (
         <span className="absolute bottom-[26px] left-0 right-0 h-1 rounded-[5px] bg-[linear-gradient(90deg,#2563EB,#D93856)]" />
       )}

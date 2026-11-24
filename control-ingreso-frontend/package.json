@@ -11,6 +11,7 @@
     "check:admin": "node scripts/check-admin-render.mjs",
     "check:hu15": "node scripts/check-hu15-inmodificable.mjs",
     "check:hu13": "node scripts/check-hu13-intentos.mjs",
+    "check:interfaz": "node scripts/check-revision-interfaz.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

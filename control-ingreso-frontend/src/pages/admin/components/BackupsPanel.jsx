@@ -1,3 +1,5 @@
+import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useState, useEffect, useCallback } from "react";
 import { Database, Download, RotateCcw, AlertTriangle } from "lucide-react";
 import {
@@ -129,14 +131,14 @@ export default function BackupsPanel({ onRestaurado }) {
                             objMensaje.tipo === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
                         }`}
                     >
-                        {objMensaje.texto}
+                        {textoInterfaz(objMensaje.texto)}
                     </div>
                 )}
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-secondary">
+                    <TablaConReporte titulo="Respaldos y bitácora">{(_paraReporte) => (<table className="w-full text-left text-secondary">
                         <thead>
-                            <tr className="bg-bg-app text-primary-navy text-badge font-black uppercase tracking-wider">
+                            <tr className="bg-bg-app text-primary-navy text-badge font-black tracking-wider">
                                 <th className="p-3">Archivo</th>
                                 <th className="p-3">Fecha</th>
                                 <th className="p-3">Tamaño</th>
@@ -156,7 +158,7 @@ export default function BackupsPanel({ onRestaurado }) {
                             )}
                             {arrBackups.map((backup) => (
                                 <tr key={backup.nombre} className="border-t border-border/40">
-                                    <td className="p-3 font-semibold text-primary-navy">{backup.nombre}</td>
+                                    <td className="p-3 font-semibold text-primary-navy">{textoInterfaz(backup.nombre)}</td>
                                     <td className="p-3">{fnFormatearFecha(backup.fecha)}</td>
                                     <td className="p-3">{fnFormatearTamano(backup.tamano)}</td>
                                     <td className="p-3">
@@ -184,7 +186,7 @@ export default function BackupsPanel({ onRestaurado }) {
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
+                    </table>)}</TablaConReporte>
                 </div>
             </section>
 
@@ -198,9 +200,9 @@ export default function BackupsPanel({ onRestaurado }) {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-secondary">
+                    <TablaConReporte titulo="Respaldos y bitácora">{(_paraReporte) => (<table className="w-full text-left text-secondary">
                         <thead>
-                            <tr className="bg-bg-app text-primary-navy text-badge font-black uppercase tracking-wider">
+                            <tr className="bg-bg-app text-primary-navy text-badge font-black tracking-wider">
                                 <th className="p-3">Fecha</th>
                                 <th className="p-3">Acción</th>
                                 <th className="p-3">Archivo</th>
@@ -219,11 +221,11 @@ export default function BackupsPanel({ onRestaurado }) {
                                 <tr key={registro.id} className="border-t border-border/40 align-top">
                                     <td className="p-3 whitespace-nowrap">{fnFormatearFecha(registro.fecha)}</td>
                                     <td className="p-3 font-semibold text-primary-navy">
-                                        {ETIQUETAS_ACCION[registro.accion] || registro.accion}
+                                        {textoInterfaz(ETIQUETAS_ACCION[registro.accion] || registro.accion)}
                                     </td>
                                     <td className="p-3">{registro.archivo_nombre || "-"}</td>
                                     <td className="p-3">
-                                        {registro.admin_id === ID_SISTEMA ? "SISTEMA" : registro.admin_id}
+                                        {textoInterfaz(registro.admin_id === ID_SISTEMA ? "SISTEMA" : registro.admin_id)}
                                     </td>
                                     <td className="p-3">
                                         <span
@@ -233,14 +235,14 @@ export default function BackupsPanel({ onRestaurado }) {
                                                     : "bg-rose-100 text-rose-700"
                                             }`}
                                         >
-                                            {registro.estado}
+                                            {textoInterfaz(registro.estado)}
                                         </span>
                                     </td>
                                     <td className="p-3 max-w-xs break-words">{registro.detalles}</td>
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
+                    </table>)}</TablaConReporte>
                 </div>
             </section>
 
@@ -265,7 +267,7 @@ export default function BackupsPanel({ onRestaurado }) {
                             automáticamente una copia del estado actual.
                         </p>
                         <p className="text-secondary text-text-body">
-                            Escribe <b>RESTAURAR</b> para confirmar:
+                            Escribe <b>Restaurar</b> para confirmar:
                         </p>
                         <input
                             type="text"

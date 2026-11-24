@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Encabezado del examen que se está controlando (bloque azul):
 // tipo de examen, materia, fecha · horario · aula, botón de acciones y contadores
 import { textoGrupoExamen } from "../../../../components/examenes/textoGrupoExamen";
@@ -31,7 +32,7 @@ function Contador({ numValor, strEtiqueta, boolRojo = false }) {
   return (
     <div className={"min-w-[104px] max-md:min-w-0 rounded-xl px-4 py-3 max-md:px-3 " + (boolRojo ? "bg-[#B91C1C]" : "bg-white/10")}>
       <b className="block text-[22px] max-md:text-[18px] leading-none font-bold text-white">{numValor}</b>
-      <span className={"block mt-1.5 text-[12px] max-md:text-xs " + (boolRojo ? "text-white" : "text-white/80")}>{strEtiqueta}</span>
+      <span className={"block mt-1.5 text-[12px] max-md:text-xs " + (boolRojo ? "text-white" : "text-white/80")}>{textoInterfaz(strEtiqueta)}</span>
     </div>
   );
 }
@@ -60,10 +61,10 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
     <section aria-label="Examen en control" className="bg-[#003770] rounded-2xl px-7 py-6 max-md:px-4 max-md:py-5 text-white">
       <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-5 items-start">
         <div className="min-w-0 w-full flex-shrink-0">
-          <span className="block text-xs font-bold uppercase tracking-[.8px] text-white/75">
-            Control de ingreso · {examen.tipo}{strGrupo ? ` · ${strGrupo}` : ""}
+          <span className="block text-xs font-bold tracking-[.8px] text-white/75">
+            Control de ingreso · {textoInterfaz(examen.tipo)}{strGrupo ? ` · ${strGrupo}` : ""}
           </span>
-          <h1 className="m-0 mt-1 text-[28px] max-md:text-[22px] font-bold leading-tight">{examen.materia}</h1>
+          <h1 className="m-0 mt-1 text-[28px] max-md:text-[22px] font-bold leading-tight">{textoInterfaz(examen.materia)}</h1>
           <div className="mt-3.5 flex flex-wrap gap-2">
             <Chip>{textoFecha(examen.fecha)}</Chip>
             {strHorario && <Chip>{strHorario}</Chip>}

@@ -1,3 +1,5 @@
+import ReporteLista from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Sección "Mis exámenes": lista completa del docente con filtros por estado y por asignatura.
 // Orden: primero en curso, luego los próximos (el más cercano primero) y al final los finalizados (el más reciente primero).
 import { useEffect, useMemo, useState } from "react";
@@ -80,7 +82,7 @@ export default function SeccionMisExamenes({
               ? "bg-[#003770] text-white border-[#003770]"
               : "bg-white text-[#1A365D] border-slate-300 hover:bg-slate-50"}`}
           >
-            {f.etiqueta}
+            {textoInterfaz(f.etiqueta)}
           </button>
         ))}
         <select
@@ -95,7 +97,16 @@ export default function SeccionMisExamenes({
       </div>
 
       <div className="space-y-3">
-        {boolCargando ? (
+        <ReporteLista titulo="Mis exámenes" contenido={() => <>{listVisibles.map((examen) => (
+            <TarjetaExamen
+              key={examen.idExamen}
+              examen={examen}
+              dateAhora={dateAhora}
+              boolResaltado={String(examen.idExamen) === String(idResaltado)}
+              onCambio={onCambio}
+            />
+          ))}</>} />
+{boolCargando ? (
           <div className="text-center py-10 text-slate-500 text-xs font-semibold animate-pulse bg-white rounded-2xl border border-slate-200">
             Cargando exámenes del docente...
           </div>

@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 /**
  * ExamenCard.jsx
  *
@@ -114,7 +115,7 @@ export default function ExamenCard({
           </div>
 
           <h3 className="mt-1.5 text-[17px] font-extrabold text-[#123F7B] break-words">
-            {examen.strNombre}
+            {textoInterfaz(examen.strNombre)}
           </h3>
 
           <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:gap-x-5 text-[13px] text-[#64748B]">
@@ -139,7 +140,7 @@ export default function ExamenCard({
         <div className="flex-1 md:flex-none md:w-[170px] px-3.5 py-3 text-center rounded-xl bg-[#F3F6FD] border border-[#E3E9F5]">
           <span className="flex items-center justify-center gap-1.5 text-[10px] font-bold tracking-[0.06em] text-[#8A9BB8]">
             <IconoReloj />
-            HORARIO DE INGRESO
+            Horario de ingreso
           </span>
           <span className="block mt-1.5 font-mono text-sm font-bold text-[#123F7B]">
             {examen.strHoraInicio && examen.strHoraFin ? `${examen.strHoraInicio} - ${examen.strHoraFin}` : "Horario por confirmar"}

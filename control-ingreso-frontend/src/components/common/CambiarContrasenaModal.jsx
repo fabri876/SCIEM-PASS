@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
 import VentanaEmergente from "./VentanaEmergente";
 import FormField from "./FormField";
@@ -95,7 +96,7 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito 
 
         {strError && (
           <p className="mb-4 text-xs font-semibold text-rose-600" role="alert">
-            {strError}
+            {textoInterfaz(strError)}
           </p>
         )}
 

@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useEffect, useRef, useState } from "react";
 import { MoreVertical, UserPlus, ListChecks, ScanLine, Eye, Pencil, Ban } from "lucide-react";
 
@@ -19,7 +20,7 @@ function Opcion({ Icono, strTexto, strAyuda, boolDeshabilitada, boolPeligro, onC
         >
             <Icono className="w-4 h-4 mt-0.5 shrink-0" />
             <span>
-                <span className="block text-[12.5px] font-bold leading-tight">{strTexto}</span>
+                <span className="block text-[12.5px] font-bold leading-tight">{textoInterfaz(strTexto)}</span>
                 {strAyuda && <span className="block text-[10.5px] text-slate-400 mt-0.5">{strAyuda}</span>}
             </span>
         </button>
@@ -116,7 +117,7 @@ export default function MenuAccionesExamen({
                     style={{ position: "fixed", top: objPos.top, left: objPos.left, width: ANCHO_MENU }}
                     className="z-50 bg-white border border-[#D5DEEC] rounded-xl shadow-[0_12px_30px_rgba(0,30,80,0.18)] p-1.5"
                 >
-                    <Titulo>INGRESO</Titulo>
+                    <Titulo>Ingreso</Titulo>
                     <Opcion
                         Icono={UserPlus}
                         strTexto={boolSoloLectura ? "Ver ayudantes" : "Asignar ayudantes"}
@@ -136,7 +137,7 @@ export default function MenuAccionesExamen({
                     />
 
                     <div className="my-1 mx-2 border-t border-slate-100" />
-                    <Titulo>EXAMEN</Titulo>
+                    <Titulo>Examen</Titulo>
                     <Opcion Icono={Eye} strTexto="Ver detalle" onClick={() => elegir(onVerDetalle)} />
                     <Opcion Icono={Pencil} strTexto="Editar" onClick={() => elegir(onEditar)} />
                     {boolPuedeCancelar && (

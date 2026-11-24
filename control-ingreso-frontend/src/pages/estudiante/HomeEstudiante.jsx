@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 // Panel del estudiante (mismas medidas que los paneles de docente y ayudante):
 // - Izquierda (280 px): perfil (C.I., SIS, carrera) y menú Inicio / Mis exámenes.
 // - Inicio: banner, "Mis exámenes de hoy" y a la derecha (256 px) el calendario y el próximo examen.
@@ -117,12 +118,12 @@ export default function HomeEstudiante() {
                 className="w-16 h-16 rounded-2xl overflow-hidden bg-[#1A365D] shadow-md mb-3 flex items-center justify-center shrink-0"
                 fallback={<span className="text-white font-black text-xl">{strIniciales}</span>}
               />
-              <h3 className="font-extrabold text-[#1A365D] text-sm uppercase">{strNombre} {strApellido}</h3>
-              <span className="text-[11px] text-[#1A365D] font-bold mb-4">ESTUDIANTE</span>
+              <h3 className="font-extrabold text-[#1A365D] text-sm ">{textoInterfaz(strNombre)} {strApellido}</h3>
+              <span className="text-[11px] text-[#1A365D] font-bold mb-4">Estudiante</span>
               <div className="w-full border-t border-slate-100 pt-3 text-left space-y-2 text-xs">
-                <p className="flex justify-between text-slate-600"><span className="font-bold text-[#1A365D]">C.I.:</span> {usuario?.ci || "-"}</p>
+                <p className="flex justify-between text-slate-600"><span className="font-bold text-[#1A365D]">C.i.:</span> {usuario?.ci || "-"}</p>
                 <p className="flex justify-between text-slate-600"><span className="font-bold text-[#1A365D]">Código SIS:</span> {usuario?.codigoSis || "-"}</p>
-                <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Carrera:</span> {usuario?.carrera || "-"}</p>
+                <p className="text-slate-600"><span className="font-bold text-[#1A365D]">Carrera:</span> {textoInterfaz(usuario?.carrera || "-")}</p>
               </div>
             </div>
 
@@ -139,7 +140,7 @@ export default function HomeEstudiante() {
                       (boolActivo ? "bg-[#1A365D] text-white shadow-xs" : "text-slate-700 hover:bg-slate-50")}
                   >
                     <Icono className={`w-4 h-4 ${boolActivo ? "text-white" : "text-[#1A365D]"}`} />
-                    {strTexto}
+                    {textoInterfaz(strTexto)}
                   </button>
                 );
               })}
@@ -158,7 +159,7 @@ export default function HomeEstudiante() {
                   className={"flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap cursor-pointer " +
                     (strMenuActivo === strClave ? "bg-[#1A365D] text-white" : "text-slate-700")}
                 >
-                  <Icono className="w-4 h-4" /> {strTexto}
+                  <Icono className="w-4 h-4" /> {textoInterfaz(strTexto)}
                 </button>
               ))}
             </nav>
@@ -180,8 +181,8 @@ export default function HomeEstudiante() {
                   className="w-full text-white p-6 md:p-8 rounded-3xl shadow-md relative overflow-hidden flex flex-col justify-center min-h-[130px]"
                   style={{ backgroundImage: "linear-gradient(to right, #1A365D, #2563EB, #DC2626)" }}
                 >
-                  <span className="text-xs font-bold uppercase tracking-wider opacity-90 mb-1">
-                    ¡HOLA, {strNombre.split(" ")[0].toUpperCase()}!
+                  <span className="text-xs font-bold tracking-wider opacity-90 mb-1">
+                    ¡Hola, {textoInterfaz(strNombre.split(" ")[0])}!
                   </span>
                   <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">Te damos la bienvenida a SCIEM-PASS</h1>
                   <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">
@@ -190,7 +191,7 @@ export default function HomeEstudiante() {
                 </div>
 
                 {strError && (
-                  <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>
+                  <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(strError)}</div>
                 )}
 
                 <div className="flex flex-col xl:flex-row gap-6 items-start">

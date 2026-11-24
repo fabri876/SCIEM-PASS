@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { obtenerAsignacionIngreso } from "../../../services/asignacionOperadoresService";
@@ -16,7 +17,7 @@ function formatearFechaRegistro(strFechaIso) {
 function Tarjeta({ strTitulo, children }) {
     return (
         <section className="border border-[#E3EAF5] bg-[#F9FBFE] rounded-2xl px-4 py-3 mt-2.5">
-            <h4 className="text-[11px] font-bold tracking-[0.7px] uppercase text-[#003770] mb-2">{strTitulo}</h4>
+            <h4 className="text-[11px] font-bold tracking-[0.7px] text-[#003770] mb-2">{textoInterfaz(strTitulo)}</h4>
             {children}
         </section>
     );
@@ -25,7 +26,7 @@ function Tarjeta({ strTitulo, children }) {
 function Campo({ strEtiqueta, children }) {
     return (
         <div className="min-w-0">
-            <p className="text-[11.5px] font-bold text-slate-400 mb-0.5">{strEtiqueta}</p>
+            <p className="text-[11.5px] font-bold text-slate-400 mb-0.5">{textoInterfaz(strEtiqueta)}</p>
             <div className="text-[13.5px] text-[#10294D]">{children}</div>
         </div>
     );
@@ -100,7 +101,7 @@ export default function DetalleExamenAdmin({
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                     <h3 className="text-[19px] font-bold text-[#0B3A73] flex items-center flex-wrap gap-2">
-                        {examen.nombreAsignatura || `Asignatura #${examen.idAsignatura}`}
+                        {textoInterfaz(examen.nombreAsignatura || `Asignatura #${examen.idAsignatura}`)}
                         {strGrupo && (
                             <span className="bg-[#E8F0FB] text-[#003770] border border-[#BFD3F2] rounded-full text-[11px] font-bold px-2.5 py-px">
                                 {strGrupo}
@@ -121,7 +122,7 @@ export default function DetalleExamenAdmin({
 
             <div className="mt-3 flex flex-wrap items-center gap-2.5">
                 <span className={`inline-block rounded-full border text-[11.5px] font-bold px-3 py-0.5 ${estilo.clase}`}>
-                    {estilo.texto}
+                    {textoInterfaz(estilo.texto)}
                 </span>
                 <span className="text-[12.5px] text-slate-500">
                     {fechaLarga(examen)}{strHorario ? ` · ${strHorario}` : ""}
@@ -130,8 +131,8 @@ export default function DetalleExamenAdmin({
 
             {strEstado === "CANCELADO" && (
                 <div className="mt-3 rounded-xl bg-[#FEF2F2] border border-[#FECACA] px-4 py-3">
-                    <p className="text-[10.5px] font-extrabold tracking-wider text-[#B91C1C]">MOTIVO DE LA CANCELACIÓN</p>
-                    <p className="text-[13px] text-[#7F1D1D] mt-1 break-words">{examen.motivoCancelacion || "Sin motivo registrado"}</p>
+                    <p className="text-[10.5px] font-extrabold tracking-wider text-[#B91C1C]">Motivo de la cancelación</p>
+                    <p className="text-[13px] text-[#7F1D1D] mt-1 break-words">{textoInterfaz(examen.motivoCancelacion || "Sin motivo registrado")}</p>
                 </div>
             )}
 

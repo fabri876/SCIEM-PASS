@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Estado del QR de un examen (etiqueta) y su botón, usados en "Mis exámenes de hoy" y en "Mis exámenes".
 // - Disponible: "QR disponible" + "Ver mi QR".
 // - Aún no: "QR disponible desde …" + "Ver mi QR" bloqueado.
@@ -25,7 +26,7 @@ export function EtiquetaQr({ objEstado }) {
     if (objEstado.estado === "PENDIENTE") {
         return (
             <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#F1F5F9] text-[#475569]">
-                QR disponible desde {fechaHora(objEstado.desde)}
+                QR disponible desde {textoInterfaz(fechaHora(objEstado.desde))}
             </span>
         );
     }

@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import strFotoHero from "../../assets/images/registro-hero.png";
 
 /**
@@ -89,10 +90,10 @@ export default function HeroBanner({
             {beneficio.svgPath}
           </svg>
           <h3 className="text-white text-sm sm:text-base md:text-[17px] font-extrabold m-0">
-            {beneficio.strTitulo}
+            {textoInterfaz(beneficio.strTitulo)}
           </h3>
           <p className="text-white text-[11px] sm:text-xs md:text-[13px] leading-[1.3] md:leading-[1.35] mt-1">
-            {beneficio.strTexto}
+            {textoInterfaz(beneficio.strTexto)}
           </p>
         </article>
       ))}
@@ -132,7 +133,7 @@ export default function HeroBanner({
 
           <div className="relative h-full flex flex-col justify-center gap-6 sm:gap-8 md:gap-9 px-6 sm:px-10 md:px-[50px] py-10 sm:py-14 md:py-16">
             <div>
-              <span className="inline-block text-[11px] sm:text-xs font-extrabold tracking-[2px] uppercase text-white/70 mb-3 sm:mb-4 md:mb-5">
+              <span className="inline-block text-[11px] sm:text-xs font-extrabold tracking-[2px] text-white/70 mb-3 sm:mb-4 md:mb-5">
                 - Universidad Mayor de San Simón -
               </span>
               <h1 className="text-2xl sm:text-[32px] md:text-[40px] leading-[1.2] md:leading-[1.15] font-extrabold text-white mb-2.5 sm:mb-3.5 md:mb-[17px]">

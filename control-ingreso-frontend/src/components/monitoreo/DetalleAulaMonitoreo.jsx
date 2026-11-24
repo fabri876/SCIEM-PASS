@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ChevronLeft, Search, Download, RefreshCw, WifiOff, CheckCircle2 } from "lucide-react";
 import {
@@ -20,8 +21,8 @@ const FILTROS = [
 function Dato({ titulo, valor, tono = "text-slate-800" }) {
     return (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 min-w-0">
-            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide truncate">{titulo}</p>
-            <p className={`text-xl font-black tabular-nums ${tono}`}>{valor}</p>
+            <p className="text-[10px] font-extrabold text-slate-500 tracking-wide truncate">{titulo}</p>
+            <p className={`text-xl font-black tabular-nums ${tono}`}>{textoInterfaz(valor)}</p>
         </div>
     );
 }
@@ -154,7 +155,7 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                         <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-lg font-black text-[#003770]">{aula.aula}</h3>
                             <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${boolCerrado ? "bg-slate-800 text-white" : estilo.pill}`}>
-                                {boolCerrado ? "Ingreso finalizado" : estilo.etiqueta}
+                                {textoInterfaz(boolCerrado ? "Ingreso finalizado" : estilo.etiqueta)}
                             </span>
                         </div>
                         <p className="text-xs font-semibold text-slate-500">
@@ -180,7 +181,7 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
             {strAviso.texto && (
                 <div role="status" className={`p-3 rounded-2xl text-xs font-bold flex items-center gap-2 border ${strAviso.tipo === "ok" ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-700"}`}>
                     {strAviso.tipo === "ok" && <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                    <span>{strAviso.tipo === "ok" ? "" : "✕ "}{strAviso.texto}</span>
+                    <span>{textoInterfaz(strAviso.tipo === "ok" ? "" : "✕ ")}{textoInterfaz(strAviso.texto)}</span>
                 </div>
             )}
 
@@ -194,7 +195,7 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                 )}
                 {strEstado === "error" && (
                     <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-2xl text-xs font-bold flex items-center justify-between gap-3 flex-wrap">
-                        <span>✕ {strError}</span>
+                        <span>✕ {textoInterfaz(strError)}</span>
                         <button type="button" onClick={fnActualizar} className="underline cursor-pointer">Reintentar</button>
                     </div>
                 )}
@@ -214,7 +215,7 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                                         onClick={() => { setStrFiltro(f.clave); setIntPagina(1); }}
                                         className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold border cursor-pointer transition ${strFiltro === f.clave ? "bg-[#1A365D] border-[#1A365D] text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
                                     >
-                                        {f.etiqueta} <span className="tabular-nums opacity-80">{detalle.totales[f.total]}</span>
+                                        {textoInterfaz(f.etiqueta)} <span className="tabular-nums opacity-80">{detalle.totales[f.total]}</span>
                                     </button>
                                 ))}
                             </div>
@@ -245,7 +246,7 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                             <div className="overflow-x-auto -mx-1 px-1">
                                 <table className="w-full text-xs min-w-[640px]">
                                     <thead>
-                                        <tr className="text-left text-[10.5px] uppercase tracking-wide text-slate-500">
+                                        <tr className="text-left text-[10.5px] tracking-wide text-slate-500">
                                             {["Código SIS", "Estudiante", "Estado", "Hora", "Método", "Observación"].map((c) => (
                                                 <th key={c} className="py-2 pr-3 font-extrabold">{c}</th>
                                             ))}
@@ -257,10 +258,10 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                                             return (
                                                 <tr key={`${a.codSis}-${a.estado}`} className="border-t border-slate-100">
                                                     <td className="py-2 pr-3 font-bold tabular-nums text-slate-600">{a.codSis}</td>
-                                                    <td className="py-2 pr-3 font-bold text-slate-800">{a.nombre}</td>
-                                                    <td className="py-2 pr-3"><span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${est.clase}`}>{est.etiqueta}</span></td>
+                                                    <td className="py-2 pr-3 font-bold text-slate-800">{textoInterfaz(a.nombre)}</td>
+                                                    <td className="py-2 pr-3"><span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${est.clase}`}>{textoInterfaz(est.etiqueta)}</span></td>
                                                     <td className="py-2 pr-3 tabular-nums text-slate-600">{a.hora}</td>
-                                                    <td className="py-2 pr-3 text-slate-600">{a.metodo}</td>
+                                                    <td className="py-2 pr-3 text-slate-600">{textoInterfaz(a.metodo)}</td>
                                                     <td className="py-2 text-slate-600">{a.observacion}</td>
                                                 </tr>
                                             );

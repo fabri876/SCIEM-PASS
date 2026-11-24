@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, ShieldCheck, RefreshCw, AlertCircle } from "lucide-react";
@@ -307,7 +308,7 @@ export default function EnrolamientoFacialPage() {
               {errorPermiso && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 text-white p-4 text-center space-y-3">
                   <AlertCircle size={36} className="text-[var(--color-accent-red)]" />
-                  <p className="text-xs font-semibold">{estado}</p>
+                  <p className="text-xs font-semibold">{textoInterfaz(estado)}</p>
                   <button
                     type="button"
                     onClick={iniciarCamara}
@@ -342,7 +343,7 @@ export default function EnrolamientoFacialPage() {
                     : "text-[var(--color-secondary-data)]"
                 }`}
               >
-                {estado}
+                {textoInterfaz(estado)}
               </p>
             </div>
 

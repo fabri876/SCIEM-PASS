@@ -1,3 +1,5 @@
+import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // "Mis registros" del ayudante: los ingresos que registró en todos sus exámenes.
 // - Sincronizados: los trae el backend (últimos ingresos de cada examen, solo los suyos).
 // - Sin sincronizar: los registrados sin internet que siguen en la cola local de Yuri (HU07); solo se leen.
@@ -124,7 +126,7 @@ export default function MisRegistrosAyudante() {
         >
           <option value="">Examen: todos</option>
           {listExamenes.map((ex) => (
-            <option key={ex.id} value={ex.id}>{ex.materia} · {ex.tipo}{ex.fecha ? ` · ${fechaCorta(ex.fecha)}` : ""}</option>
+            <option key={ex.id} value={ex.id}>{textoInterfaz(ex.materia)} · {textoInterfaz(ex.tipo)}{ex.fecha ? ` · ${fechaCorta(ex.fecha)}` : ""}</option>
           ))}
         </select>
         <label className="relative w-[300px] max-md:w-full">
@@ -144,18 +146,18 @@ export default function MisRegistrosAyudante() {
         )}
       </div>
 
-      {strError && <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{strError}</div>}
+      {strError && <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(strError)}</div>}
 
       <div className="bg-white border border-[#CBD5E1] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-[13px]">
+          <TablaConReporte titulo="Mis registros">{(_paraReporte) => (<table className="w-full min-w-[680px] text-[13px]">
             <thead>
               <tr className="bg-[#E8F1FB] text-left text-[10.5px] font-extrabold tracking-[.5px] text-[#124B83]">
-                <th className="px-4 py-2.5">FECHA Y HORA</th>
-                <th className="px-3 py-2.5">ESTUDIANTE</th>
-                <th className="px-3 py-2.5">EXAMEN</th>
-                <th className="px-3 py-2.5">MÉTODO</th>
-                <th className="px-4 py-2.5 text-right">ESTADO</th>
+                <th className="px-4 py-2.5">Fecha y hora</th>
+                <th className="px-3 py-2.5">Estudiante</th>
+                <th className="px-3 py-2.5">Examen</th>
+                <th className="px-3 py-2.5">Método</th>
+                <th className="px-4 py-2.5 text-right">Estado</th>
               </tr>
             </thead>
             <tbody>
@@ -173,11 +175,11 @@ export default function MisRegistrosAyudante() {
                       <span className="text-slate-600">{f.strHora ? ` · ${f.strHora.slice(0, 5)}` : ""}</span>
                     </td>
                     <td className="px-3 py-2.5 border-t border-[#E2E8F0]">
-                      <div className="font-bold text-[#08264A]">{f.estudiante.nombre || "—"}</div>
+                      <div className="font-bold text-[#08264A]">{textoInterfaz(f.estudiante.nombre || "—")}</div>
                       <div className="text-xs text-slate-500">{[f.estudiante.sis && `SIS ${f.estudiante.sis}`, f.estudiante.ci && `C.I. ${f.estudiante.ci}`].filter(Boolean).join(" · ")}</div>
                     </td>
                     <td className="px-3 py-2.5 border-t border-[#E2E8F0]">
-                      <div className="text-[#08264A]">{f.examen?.materia || "—"}</div>
+                      <div className="text-[#08264A]">{textoInterfaz(f.examen?.materia || "—")}</div>
                       <div className="text-xs text-slate-500">{[f.examen?.tipo, textoAula(f.examen?.aula)].filter(Boolean).join(" · ")}</div>
                     </td>
                     <td className="px-3 py-2.5 border-t border-[#E2E8F0] text-slate-700">{f.strMetodo}</td>
@@ -192,7 +194,7 @@ export default function MisRegistrosAyudante() {
                 ))
               )}
             </tbody>
-          </table>
+          </table>)}</TablaConReporte>
         </div>
       </div>
     </div>

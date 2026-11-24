@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import React, { useEffect, useState } from "react";
 import {
     Users,
@@ -171,7 +172,7 @@ export default function AdminMetricsCards({ usuarios }) {
                     <div className="flex items-center gap-1.5 px-1.5 first:pl-0">
                         <ShieldCheck className="w-4 h-4 text-primary-blue shrink-0" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-secondary font-bold text-text-body">{contarPorRol("ADMINISTRADOR")}</span>
+                            <span className="text-secondary font-bold text-text-body">{textoInterfaz(contarPorRol("ADMINISTRADOR"))}</span>
                             <span className="text-badge text-text-body/60 font-medium">Admins</span>
                         </div>
                     </div>
@@ -180,7 +181,7 @@ export default function AdminMetricsCards({ usuarios }) {
                     <div className="flex items-center gap-1.5 px-1.5">
                         <GraduationCap className="w-4 h-4 text-primary-blue shrink-0" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-secondary font-bold text-text-body">{contarPorRol("DOCENTE")}</span>
+                            <span className="text-secondary font-bold text-text-body">{textoInterfaz(contarPorRol("DOCENTE"))}</span>
                             <span className="text-badge text-text-body/60 font-medium">Docentes</span>
                         </div>
                     </div>
@@ -189,7 +190,7 @@ export default function AdminMetricsCards({ usuarios }) {
                     <div className="flex items-center gap-1.5 px-1.5">
                         <UserCheck className="w-4 h-4 text-primary-blue shrink-0" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-secondary font-bold text-text-body">{contarPorRol("ESTUDIANTE")}</span>
+                            <span className="text-secondary font-bold text-text-body">{textoInterfaz(contarPorRol("ESTUDIANTE"))}</span>
                             <span className="text-badge text-text-body/60 font-medium">Estudiantes</span>
                         </div>
                     </div>
@@ -198,7 +199,7 @@ export default function AdminMetricsCards({ usuarios }) {
                     <div className="flex items-center gap-1.5 px-1.5 last:pr-0">
                         <UserCog className="w-4 h-4 text-primary-blue shrink-0" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-secondary font-bold text-text-body">{contarPorRol("OPERADOR")}</span>
+                            <span className="text-secondary font-bold text-text-body">{textoInterfaz(contarPorRol("OPERADOR"))}</span>
                             <span className="text-badge text-text-body/60 font-medium">Ayudantes</span>
                         </div>
                     </div>

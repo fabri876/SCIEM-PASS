@@ -1,3 +1,5 @@
+import { TablaConReporte } from '../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useEffect, useState } from "react";
 import { CheckCircle2, RefreshCw, ScanFace } from "lucide-react";
 import { cambiarEstadoEnrolamiento, listarEnrolamientos } from "../../services/facialService";
@@ -51,7 +53,7 @@ export default function GestionEnrolamientosAdmin() {
       {error && <p role="alert" className="mt-4 rounded-lg bg-[#FEF2F2] p-3 text-sm text-[#B91C1C]">{error}</p>}
       {mensaje && <p role="status" className="mt-4 flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800"><CheckCircle2 className="h-4 w-4" />{mensaje}</p>}
       <div className="mt-5 overflow-x-auto">
-        <table className="w-full text-sm">
+        <TablaConReporte titulo="Enrolamientos faciales">{(_paraReporte) => (<table className="w-full text-sm">
           <thead className="text-[var(--color-secondary-data)]"><tr><th className="p-2 text-left">Estudiante</th><th>Estado</th><th>Registro</th><th /></tr></thead>
           <tbody>{filas.map((fila) => {
             const estado = normalizarEstado(fila.estado);
@@ -60,7 +62,7 @@ export default function GestionEnrolamientosAdmin() {
             const ocupado = procesando === fila.idEnrollment;
             return <tr key={fila.idEnrollment} className="border-t border-[var(--color-border)]">
               <td className="p-2 font-bold text-[var(--color-text-title)]">{fila.nombreCompleto}<small className="block text-[var(--color-text-body)]">SIS {fila.codsisEstudiante}</small></td>
-              <td className="text-center">{pendienteReenrolamiento ? "Pendiente de re-enrolamiento" : fila.estado}</td>
+              <td className="text-center">{textoInterfaz(pendienteReenrolamiento ? "Pendiente de re-enrolamiento" : fila.estado)}</td>
               <td className="text-center">{fila.fechaRegistro?.slice(0, 10)}</td>
               <td className="p-2 text-right">
                 {pendienteReenrolamiento ? <span className="inline-flex min-h-9 items-center rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">Esperando nueva foto</span> : <div className="inline-flex items-center gap-2">
@@ -70,7 +72,7 @@ export default function GestionEnrolamientosAdmin() {
               </td>
             </tr>;
           })}</tbody>
-        </table>
+        </table>)}</TablaConReporte>
       </div>
     </section>
   );

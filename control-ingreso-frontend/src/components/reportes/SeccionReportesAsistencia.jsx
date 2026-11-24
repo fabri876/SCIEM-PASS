@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 // HU12: "Reportes y Asistencia" (docente y administrador).
 // - Docente: elige una de SUS materias y un examen finalizado.
 // - Administrador: elige primero el docente, luego una materia de ese docente y un examen finalizado.
@@ -160,7 +161,7 @@ function VistaPreviaPdf({ objExamen, strDocente, objResumen, listFilas, objSecci
   // Tabla pequeña con encabezados; muestra 2 filas y "…" si hay más
   const fnTabla = (strTitulo, listDatos, listColumnas, strGrid, fnCeldas, boolCompleta = false) => (
     <>
-      <div className="mt-2.5 font-bold">{boolCompleta ? strTitulo : `${strTitulo} (${listDatos.length})`}</div>
+      <div className="mt-2.5 font-bold">{textoInterfaz(boolCompleta ? strTitulo : `${strTitulo} (${listDatos.length})`)}</div>
       {listDatos.length === 0 ? (
         <div className="text-[#64748B]">Sin estudiantes.</div>
       ) : (
@@ -189,7 +190,7 @@ function VistaPreviaPdf({ objExamen, strDocente, objResumen, listFilas, objSecci
         <span className="shrink-0 text-[#334155]">Emitido: {strEmision}</span>
       </div>
       <div className="mt-2">
-        <div><b>Materia:</b> {objExamen.nombreAsignatura}</div>
+        <div><b>Materia:</b> {textoInterfaz(objExamen.nombreAsignatura)}</div>
         <div><b>Examen:</b> {textoTipo(objExamen)}{strGrupo ? ` · ${strGrupo}` : ""}</div>
         <div><b>Fecha:</b> {fechaLarga(objExamen.fechaExamen)}{objExamen.horaInicio ? ` · ${objExamen.horaInicio} – ${objExamen.horaFin}` : ""}</div>
         {strAulas && <div><b>{boolVariasAulas || objExamen.listAulas.length > 1 ? "Aulas" : "Aula"}:</b> {strAulas}</div>}
@@ -201,20 +202,20 @@ function VistaPreviaPdf({ objExamen, strDocente, objResumen, listFilas, objSecci
         (r) => [r.boolTotal ? "Total" : aula(r), r.numInscritos, r.numAsistentes, r.numAusentes, r.numInhabilitados, `${r.numPorcentaje}%`],
         true
       )}
-      {objSecciones.asistentes && fnTabla(
+      {textoInterfaz(objSecciones.asistentes && fnTabla(
         "Asistentes", listAsistentes,
         boolVariasAulas ? ["Nombre", "SIS", "C.I.", "Aula", "Hora"] : ["Nombre", "SIS", "C.I.", "Hora"],
         boolVariasAulas ? "grid-cols-[2.2fr_1.3fr_1.2fr_0.8fr_0.8fr]" : "grid-cols-[2.4fr_1.3fr_1.2fr_0.8fr]",
         (f) => boolVariasAulas ? [f.strNombre, f.strSis || "—", f.strCi || "—", aula(f), f.strHora || "—"] : [f.strNombre, f.strSis || "—", f.strCi || "—", f.strHora || "—"]
-      )}
-      {objSecciones.ausentes && fnTabla(
+      ))}
+      {textoInterfaz(objSecciones.ausentes && fnTabla(
         "Ausentes", listAusentes, ["Nombre", "SIS", "C.I."], "grid-cols-[2.4fr_1.3fr_1.2fr]",
         (f) => [f.strNombre, f.strSis || "—", f.strCi || "—"]
-      )}
-      {objSecciones.inhabilitados && fnTabla(
+      ))}
+      {textoInterfaz(objSecciones.inhabilitados && fnTabla(
         "Inhabilitados", listInhabilitados, ["Nombre", "SIS", "C.I.", "Motivo"], "grid-cols-[2fr_1.2fr_1.1fr_1.6fr]",
         (f) => [f.strNombre, f.strSis || "—", f.strCi || "—", f.strMotivo || "Sin motivo"]
-      )}
+      ))}
     </div>
   );
 }
@@ -431,7 +432,7 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
       </div>
 
       {strErrorCarga && (
-        <div role="alert" className="px-4 py-3 rounded-lg text-sm font-semibold bg-[#FEF2F2] text-[#B91C1C]">{strErrorCarga}</div>
+        <div role="alert" className="px-4 py-3 rounded-lg text-sm font-semibold bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(strErrorCarga)}</div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
@@ -460,7 +461,7 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
                   className={CLASE_SELECT}
                 >
                   <option value="">{boolCargando ? "Cargando…" : "Selecciona una materia"}</option>
-                  {listMaterias.map((m) => <option key={m.id} value={m.id}>{m.strNombre}</option>)}
+                  {listMaterias.map((m) => <option key={m.id} value={m.id}>{textoInterfaz(m.strNombre)}</option>)}
                 </select>
                 {strAyudaMateria && <p className="mt-1.5 text-xs font-semibold text-[#64748B]">{strAyudaMateria}</p>}
               </div>
@@ -479,7 +480,7 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
                 {SECCIONES.map((s) => (
                   <label key={s.strId} className="flex items-center gap-2 text-sm font-semibold text-[#08264A] cursor-pointer">
                     <input type="checkbox" checked={objSecciones[s.strId]} onChange={() => fnCambiarSeccion(s.strId)} className="w-4 h-4 accent-[#003770] cursor-pointer" />
-                    {s.strTexto}
+                    {textoInterfaz(s.strTexto)}
                   </label>
                 ))}
               </div>
@@ -495,7 +496,7 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
             )}
             {objExamen && boolCargandoLista && <p className="mt-3 text-sm font-semibold text-[#64748B]">Cargando asistencia del examen…</p>}
             {objExamen && strErrorLista && (
-              <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm font-semibold bg-[#FEF2F2] text-[#B91C1C]">{strErrorLista}</div>
+              <div role="alert" className="mt-3 px-3.5 py-[11px] rounded-lg text-sm font-semibold bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(strErrorLista)}</div>
             )}
 
             {boolHayDatos && (objResumen.numInscritos === 0 ? (
@@ -547,7 +548,7 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
                     (boolActivo ? "border-2 border-[#1860A3] bg-[#F0F7FF] font-extrabold text-[#124B83]" : "border-[1.5px] border-[#CBD5E1] font-bold text-[#475569] hover:bg-[#F8FAFC]")
                   }
                 >
-                  {f.strTexto}
+                  {textoInterfaz(f.strTexto)}
                 </button>
               );
             })}
@@ -568,7 +569,7 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
               role={objAviso.strTipo === "error" ? "alert" : "status"}
               className={"mt-3 px-3.5 py-2.5 rounded-lg text-[13px] font-semibold " + (objAviso.strTipo === "error" ? "bg-[#FEF2F2] text-[#B91C1C]" : "bg-[#F0FDF4] text-[#166534]")}
             >
-              {objAviso.strTexto}
+              {textoInterfaz(objAviso.strTexto)}
             </div>
           )}
 
