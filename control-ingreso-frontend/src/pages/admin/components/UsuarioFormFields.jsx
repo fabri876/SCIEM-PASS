@@ -46,6 +46,7 @@ function dividirEnDos(strCompleto) {
 export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGuardar,
                                              rolesDisponibles = ROLES_CREABLES, boolActivo = true, mensajeExito = "" }) {
   const [objFormData, setObjFormData] = useState(VALORES_INICIALES);
+  const boolRolAdministrador = modo === "editar" && usuarioInicial?.rol === "ADMINISTRADOR";
   const [strRolOriginal, setStrRolOriginal] = useState(null);
   const [boolIsSubmitting, setBoolIsSubmitting] = useState(false);
   const [strError, setStrError] = useState("");
@@ -199,7 +200,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
       const intCodigoSis = objFormData.codigoSis ? Number(objFormData.codigoSis) : null;
 
       if (boolEsEdicion) {
-        const boolRolCambio = strRolOriginal && objFormData.rol !== strRolOriginal;
+        const boolRolCambio = !boolRolAdministrador && strRolOriginal && objFormData.rol !== strRolOriginal;
         await onGuardar({
           nombre: strNombre,
           apellido: strApellido,
@@ -463,7 +464,9 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
             Rol
           </label>
           <div className="min-h-12 flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
-            {rolesDisponibles.map((opcion) => (
+            {boolRolAdministrador ? (
+              <span className="text-[#173F77] text-[15px] font-semibold">Administrador</span>
+            ) : rolesDisponibles.map((opcion) => (
               <label
                 key={opcion.valor}
                 className="flex items-center gap-2.5 text-[#173F77] text-[15px] font-semibold cursor-pointer"

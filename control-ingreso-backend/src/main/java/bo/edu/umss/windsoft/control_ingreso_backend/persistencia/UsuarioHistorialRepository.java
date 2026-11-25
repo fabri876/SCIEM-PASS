@@ -3,15 +3,11 @@ package bo.edu.umss.windsoft.control_ingreso_backend.persistencia;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/** Borrado físico de cuentas sin actividad de exámenes, dentro de la transacción del servicio. */
+/** Consulta de referencias históricas para validar cambios de rol. */
 @Repository
-public class EliminacionUsuarioRepository {
+public class UsuarioHistorialRepository {
     private final JdbcTemplate jdbc;
-    public EliminacionUsuarioRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
-
-    public void bloquear(Integer id) {
-        jdbc.queryForObject("SELECT idusuario FROM usuario WHERE idusuario = ? FOR UPDATE", Integer.class, id);
-    }
+    public UsuarioHistorialRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public boolean tieneHistorial(Integer id) {
         return Boolean.TRUE.equals(jdbc.queryForObject("""
@@ -32,19 +28,4 @@ public class EliminacionUsuarioRepository {
                 """, Boolean.class, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id));
     }
 
-    public void eliminar(Integer id, Integer idAdministrador, String accion) {
-        jdbc.update("DELETE FROM docentegrupo WHERE idusuario = ?", id);
-        jdbc.update("DELETE FROM estudiantegrupo WHERE idusuario = ?", id);
-        jdbc.update("DELETE FROM ayudantegrupo WHERE idusuario = ?", id);
-        jdbc.update("DELETE FROM docenteasignatura WHERE idusuario = ?", id);
-        jdbc.update("DELETE FROM usuario_carrera_plan WHERE idusuario = ?", id);
-        jdbc.update("UPDATE usuario SET idcredencial = NULL WHERE idusuario = ?", id);
-        jdbc.update("DELETE FROM credencial WHERE idusuario = ?", id);
-        // El historial sellado no se modifica; las cuentas con referencias se desactivan.
-        jdbc.update("DELETE FROM docente WHERE idusuario = ?", id);
-        jdbc.update("DELETE FROM estudiante WHERE idusuario = ?", id);
-        jdbc.update("DELETE FROM ayudante WHERE idusuario = ?", id);
-        jdbc.update("DELETE FROM usuario WHERE idusuario = ?", id);
-        jdbc.update("INSERT INTO historialauditoria (idusuario, accion, fechaaccion) VALUES (?, ?, CURRENT_TIMESTAMP)", idAdministrador, accion);
-    }
 }
