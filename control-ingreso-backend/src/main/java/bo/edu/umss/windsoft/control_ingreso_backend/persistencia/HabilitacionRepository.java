@@ -43,6 +43,11 @@ public interface HabilitacionRepository extends JpaRepository<Habilitacion, Inte
 
     boolean existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(Integer idAsignatura, Integer idExamen, Integer codsisestudiante);
 
+    @Query("SELECT CASE WHEN COUNT(h) > 0 THEN true ELSE false END FROM Habilitacion h "
+            + "WHERE h.observacionhabilitacion IS NOT NULL "
+            + "AND LOWER(TRIM(h.observacionhabilitacion)) = LOWER(TRIM(:nombreMotivo))")
+    boolean existsByNombreMotivoUsado(@Param("nombreMotivo") String nombreMotivo);
+
     @Query("SELECT h FROM Habilitacion h JOIN FETCH h.estudiante " +
            "WHERE h.idAsignatura = :idAsignatura AND h.idExamen = :idExamen")
     List<Habilitacion> findHabilitacionesConEstudiante(@Param("idAsignatura") Integer idAsignatura,

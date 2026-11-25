@@ -19,6 +19,10 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Integer> {
                                                                        Integer idAsignatura,
                                                                        Integer idExamen);
 
+    boolean existsByCodsisEstudianteAndIdAsignaturaAndIdExamen(Integer codsisEstudiante,
+                                                               Integer idAsignatura,
+                                                               Integer idExamen);
+
     Optional<Ingreso> findByClientUuid(String clientUuid);
 
     @Modifying

@@ -8,6 +8,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.PoliticaAdministrado
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoDuplicadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AdminRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteRepository;
@@ -137,7 +138,9 @@ public class UsuarioService {
                 grupoService.validarUnGrupoPorAsignatura(new java.util.ArrayList<>(grupos));
                 for (Integer idGrupo : grupos) grupoService.inscribirEstudianteAGrupo(cuenta.getIdusuario(), dto.getCodigoSis(), idGrupo);
                 grupoService.guardarCarreras(cuenta.getIdusuario(),carrerasRegistro);
-                return usuarioRespuestaMapper.mapear(cuenta);
+                UsuarioRespuestaDto respuestaExistente = usuarioRespuestaMapper.mapear(cuenta);
+                respuestaExistente.setUsuarioExistente(true);
+                return respuestaExistente;
             }
         }
         validarUnicidad(ciNormalizado, dto.getCorreo());
@@ -208,6 +211,16 @@ public class UsuarioService {
         }
 
         validarCodigoDisponible(rolNuevoNormalizado, codigoSis);
+
+        // No se puede borrar la fila del rol actual si el usuario ya tiene
+        // historial académico u operativo. Ese historial debe conservarse y
+        // el cambio de rol no debe dejar referencias huérfanas.
+        if (eliminacionUsuarioRepository.tieneHistorial(id)) {
+            throw new ConflictoEstadoException(
+                    "No se puede cambiar el rol porque el usuario tiene registros vinculados "
+                            + "(exámenes, asignaciones, horarios, ingresos o auditoría). Desactive la cuenta "
+                            + "o conserve el rol actual.");
+        }
 
         // Eliminar fila de rol previa
         switch (rolOriginal) {

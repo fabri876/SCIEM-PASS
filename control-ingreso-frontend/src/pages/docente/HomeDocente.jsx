@@ -226,9 +226,16 @@ export default function HomeDocente() {
     };
 
     const [mensajeRegistro, setMensajeRegistro] = useState("");
+    useEffect(() => {
+        if (!mensajeRegistro) return undefined;
+        const timer = setTimeout(() => setMensajeRegistro(""), 4000);
+        return () => clearTimeout(timer);
+    }, [mensajeRegistro]);
     const fnRegistrarIndividual = async (datos) => {
-        await registrarUsuarioIndividual(datos);
-        setMensajeRegistro("Usuario registrado correctamente.");
+        const respuesta = await registrarUsuarioIndividual(datos);
+        setMensajeRegistro(respuesta?.usuarioExistente
+            ? "El estudiante ya estaba registrado; se actualizó su asociación correctamente."
+            : "Usuario creado correctamente.");
         // Si se registró un operador, la pantalla de asignación vuelve a pedir la lista
         setNumRecargaOperadores((n) => n + 1);
     };

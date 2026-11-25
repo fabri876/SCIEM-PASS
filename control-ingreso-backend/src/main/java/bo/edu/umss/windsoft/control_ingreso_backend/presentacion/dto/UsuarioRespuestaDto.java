@@ -17,6 +17,7 @@ public class UsuarioRespuestaDto {
     private List<String> permisos;
     // Solo aplica a DOCENTE (codsisdocente) y ESTUDIANTE (codsisestudiante).
     private Integer codigoSis;
+    private boolean usuarioExistente;
 
     public UsuarioRespuestaDto() {
     }
@@ -148,6 +149,10 @@ public class UsuarioRespuestaDto {
     public void setCodigoSis(Integer codigoSis) {
         this.codigoSis = codigoSis;
     }
+
+    public boolean isUsuarioExistente() { return usuarioExistente; }
+
+    public void setUsuarioExistente(boolean usuarioExistente) { this.usuarioExistente = usuarioExistente; }
 
     public Integer getCodsisDocente() {
         return codigoSis;

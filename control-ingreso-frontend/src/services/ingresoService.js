@@ -490,7 +490,6 @@ export async function obtenerUltimosIngresos(
     return null;
   }
 }
-
 export async function obtenerMisRegistros(numLimite = 100) {
   const res = await pedir(`/api/v1/control/mis-registros?limite=${numLimite}`);
   if (!Array.isArray(res)) return [];
