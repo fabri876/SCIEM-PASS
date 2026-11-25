@@ -21,7 +21,7 @@ class RegistroAcademicoTest {
     @Mock EstudianteRepository estudiantes;
     @Mock AyudanteRepository ayudantes;
     @Mock GrupoService grupos;
-    @Mock EliminacionUsuarioRepository eliminaciones;
+    @Mock UsuarioHistorialRepository historial;
     @Mock PasswordEncoder passwords;
     @Mock AuditoriaService auditoria;
     @Mock UsuarioRespuestaMapper mapper;
@@ -111,41 +111,38 @@ class RegistroAcademicoTest {
         verify(usuarios, never()).save(any()); verify(estudiantes, never()).save(any());
     }
 
-    @org.junit.jupiter.api.AfterEach void limpiarContexto() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
-    private void administrador() {
-        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
-                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin@example.test", null,
-                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))));
-    }
     private Usuario persona(int id, String correo) {
         Usuario u = new Usuario("1234567", "Persona", "Prueba", 71234567, correo, "hash", true); u.setIdusuario(id); return u;
     }
-    @Test void eliminarRequiereAdministrador() {
-        assertThrows(AccessDeniedException.class, () -> servicio.eliminar(4, "admin@example.test", "local"));
-        verifyNoInteractions(eliminaciones);
-    }
-    @Test void noEliminaAdministrador() {
-        administrador(); when(usuarios.findById(4)).thenReturn(Optional.of(persona(4, "admin@example.test")));
-        when(roles.resolver(4)).thenReturn("ADMINISTRADOR");
-        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
-                () -> servicio.eliminar(4, "admin@example.test", "local"));
-        verifyNoInteractions(eliminaciones);
-    }
-    @Test void conservarUsuarioConHistorial() {
-        administrador(); when(usuarios.findById(4)).thenReturn(Optional.of(persona(4, "estudiante@example.test")));
+    @Test void cambioDeRolConHistorialConservaElRolActual() {
+        when(usuarios.findById(4)).thenReturn(Optional.of(persona(4, "estudiante@example.test")));
         when(roles.resolver(4)).thenReturn("ESTUDIANTE");
-        when(usuarios.findByCorreousuario("admin@example.test")).thenReturn(Optional.of(persona(1, "admin@example.test")));
-        when(eliminaciones.tieneHistorial(4)).thenReturn(true);
-        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
-                () -> servicio.eliminar(4, "admin@example.test", "local"));
-        verify(eliminaciones, never()).eliminar(any(), any(), any());
+        when(historial.tieneHistorial(4)).thenReturn(true);
+
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException.class,
+                () -> servicio.cambiarRol(4, "OPERADOR", null, "admin@example.test", "local"));
+        verifyNoInteractions(estudiantes, ayudantes, auditoria);
     }
-    @Test void eliminaCuentaSinHistorialEnUnaOperacion() {
-        administrador(); when(usuarios.findById(4)).thenReturn(Optional.of(persona(4, "estudiante@example.test")));
-        when(roles.resolver(4)).thenReturn("ESTUDIANTE");
-        when(usuarios.findByCorreousuario("admin@example.test")).thenReturn(Optional.of(persona(1, "admin@example.test")));
-        servicio.eliminar(4, "admin@example.test", "local");
-        verify(eliminaciones).eliminar(eq(4), eq(1), contains("ELIMINACION_USUARIO"));
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"DOCENTE", "OPERADOR", "ESTUDIANTE"})
+    void cambiarEstadoConservaLaCuentaYSusVinculos(String rol) {
+        Usuario usuario = persona(4, "persona@example.test");
+        when(usuarios.findById(4)).thenReturn(Optional.of(usuario));
+        when(roles.resolver(4)).thenReturn(rol);
+        when(usuarios.save(usuario)).thenReturn(usuario);
+
+        servicio.cambiarEstado(4, false, "admin@example.test", "local");
+        assertFalse(usuario.getEstadousuario());
+        servicio.cambiarEstado(4, true, "admin@example.test", "local");
+        assertTrue(usuario.getEstadousuario());
+        assertEquals(4, usuario.getIdusuario());
+        assertEquals("hash", usuario.getContraseniausuario());
+        verifyNoInteractions(grupos, docentes, estudiantes, ayudantes, historial);
+        verify(usuarios, times(2)).save(usuario);
+        verify(usuarios, never()).deleteById(any());
+        verify(auditoria).registrarEnTransaccion(eq("DESACTIVACION_USUARIO"), any(), eq(usuario.getCorreousuario()), any(), any());
+        verify(auditoria).registrarEnTransaccion(eq("ACTIVACION_USUARIO"), any(), eq(usuario.getCorreousuario()), any(), any());
     }
     @Test void edicionGuardaAsignacionesConLosDatosBasicos() {
         Usuario u = persona(4, "estudiante@example.test"); when(usuarios.findById(4)).thenReturn(Optional.of(u));

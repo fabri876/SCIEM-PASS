@@ -28,7 +28,6 @@ import {
     actualizarUsuario,
     cambiarRolUsuario,
     cambiarEstadoUsuario,
-    eliminarUsuario,
     listarRoles,
     cargarUsuariosMasivo
 } from "../../services/adminService";
@@ -106,12 +105,6 @@ export default function AdminDashboard({ onNavigateToLogin }) {
 
     const fnEditarUsuario = async (idUsuario, datos) => {
         await actualizarUsuario(idUsuario, datos);
-        await fnCargarUsuarios();
-        setRevisionAcademica(v => v + 1);
-    };
-
-    const fnEliminarUsuario = async idUsuario => {
-        await eliminarUsuario(idUsuario);
         await fnCargarUsuarios();
         setRevisionAcademica(v => v + 1);
     };
@@ -222,7 +215,6 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                                         onEditar={fnEditarUsuario}
                                         onCambiarRol={fnCambiarRolUsuario}
                                         onCambiarEstado={fnCambiarEstadoUsuario}
-                                        onEliminar={fnEliminarUsuario}
                                     />
                                 </div>
 
