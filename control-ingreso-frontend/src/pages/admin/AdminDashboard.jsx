@@ -99,8 +99,9 @@ export default function AdminDashboard({ onNavigateToLogin }) {
     }, [activeMenu]);
 
     const fnCrearUsuario = async (datos) => {
-        await crearUsuario(datos);
+        const respuesta = await crearUsuario(datos);
         await fnCargarUsuarios();
+        return respuesta;
     };
 
     const fnEditarUsuario = async (idUsuario, datos) => {

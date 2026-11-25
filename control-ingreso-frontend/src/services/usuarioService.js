@@ -52,6 +52,13 @@ export async function registrarUsuarioIndividual(objDatosUsuario) {
   });
 }
 
+export async function verificarUsuarioDuplicado({ ci, correo, codigoSis }) {
+  const token = obtenerToken(); const p = new URLSearchParams();
+  if (ci) p.set("ci", ci); if (correo) p.set("correo", correo); if (codigoSis) p.set("codigoSis", codigoSis);
+  const r = await fetch(`${strApiBaseUrl}/api/usuarios/duplicado?${p}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!r.ok) throw new Error("No se pudo verificar la disponibilidad de los datos."); return r.json();
+}
+
 export async function cargarUsuariosMasivo(file, strRol = "ESTUDIANTE", idGrupo = null, vistaPrevia = false, idCarrera=null) {
   const strToken = obtenerToken();
   const formData = new FormData();

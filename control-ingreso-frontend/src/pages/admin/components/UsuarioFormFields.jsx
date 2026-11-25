@@ -4,6 +4,7 @@ import FormField from "../../../components/common/FormField";
 import { obtenerVinculaciones, obtenerCatalogoGrupos } from "../../../services/grupoService";
 import SeleccionGrupos from "../../../components/common/SeleccionGrupos";
 import usePasswordVisibility from "../../../hooks/usePasswordVisibility";
+import { verificarUsuarioDuplicado } from "../../../services/usuarioService";
 
 const ROLES_CREABLES = [
   { valor: "DOCENTE", etiqueta: "Docente" },
@@ -52,11 +53,18 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
   const [cargandoGrupos, setCargandoGrupos] = useState(false);
   const [errorGrupos, setErrorGrupos] = useState("");
   const [gruposAcademicos, setGruposAcademicos] = useState([]);
+  const [objDuplicados, setObjDuplicados] = useState({});
 
   const { boolShowPassword, fnToggleShowPassword, strInputType } = usePasswordVisibility();
 
   const boolEsEdicion = modo === "editar";
   const boolPideCodigoSis = ROLES_CON_CODIGO_SIS.includes(objFormData.rol);
+  const boolBloquearDuplicado = !boolEsEdicion && Object.values(objDuplicados).some(Boolean);
+  useEffect(() => {
+    if (boolEsEdicion || !boolActivo || !["ESTUDIANTE", "DOCENTE"].includes(objFormData.rol)) return;
+    const t = setTimeout(() => verificarUsuarioDuplicado({ ci: objFormData.ci, correo: objFormData.correo, codigoSis: objFormData.codigoSis }).then(setObjDuplicados).catch(() => setObjDuplicados({})), 350);
+    return () => clearTimeout(t);
+  }, [boolEsEdicion, boolActivo, objFormData.rol, objFormData.ci, objFormData.correo, objFormData.codigoSis]);
 
   useEffect(() => {
     if (!boolActivo) return;
@@ -169,6 +177,11 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
 
     if (boolEsEdicion && (cargandoGrupos || errorGrupos)) { setStrError(errorGrupos || "Espere a que carguen las asignaciones."); return; }
     const errores = fnValidarFormulario();
+    if (boolBloquearDuplicado) {
+      if (objDuplicados.ci) errores.ci = "Este carnet de identidad ya está registrado.";
+      if (objDuplicados.correo) errores.correo = "Este correo electrónico ya está registrado.";
+      if (objDuplicados.codigoSis) errores.codigoSis = "Este Código SIS ya está registrado.";
+    }
     if (!boolEsEdicion && ["DOCENTE", "ESTUDIANTE", "OPERADOR"].includes(objFormData.rol) && !gruposAcademicos.length)
       errores.grupos = "Seleccione una asignatura y al menos un grupo.";
     if (Object.keys(errores).length > 0) {
@@ -234,12 +247,6 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           ? "Actualiza sus datos y corrige las materias y grupos asignados."
           : "Se crea con estado ACTIVO de inmediato.")}
       </p>
-
-      {strError && (
-        <p className="mb-4 text-secondary font-semibold text-accent-red" role="alert">
-          {textoInterfaz(strError)}
-        </p>
-      )}
 
       <form onSubmit={fnManejarEnvio} autoComplete="off" className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
@@ -325,6 +332,9 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           {objErrores.correo && (
             <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.correo}</p>
           )}
+          {objDuplicados.correo && !objErrores.correo && (
+            <p className="mt-1 text-badge font-semibold text-accent-red">Este correo electrónico ya existe.</p>
+          )}
         </div>
 
         <div className={boolEsEdicion ? "col-span-2" : ""}>
@@ -367,6 +377,9 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
             />
             {objErrores.ci && (
               <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.ci}</p>
+            )}
+            {objDuplicados.ci && !objErrores.ci && (
+              <p className="mt-1 text-badge font-semibold text-accent-red">Este carnet de identidad ya existe.</p>
             )}
             {objFormData.ci.trim() && (
               <p className="mt-1 text-badge font-semibold text-primary-navy">
@@ -439,6 +452,9 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
             {objErrores.codigoSis && (
               <p className="mt-1 text-badge font-semibold text-accent-red">{objErrores.codigoSis}</p>
             )}
+            {objDuplicados.codigoSis && !objErrores.codigoSis && (
+              <p className="mt-1 text-badge font-semibold text-accent-red">Este Código SIS ya existe.</p>
+            )}
           </div>
         )}
 
@@ -468,6 +484,11 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
               Al guardar, se moverá la cuenta de {strRolOriginal} a {textoInterfaz(objFormData.rol)} y quedará registrado en auditoría.
             </p>
           )}
+          {strError && (
+            <p className="mt-3 text-secondary font-semibold text-accent-red" role="alert">
+              {textoInterfaz(strError)}
+            </p>
+          )}
         </div>
 
         {/* Selección opcional en cascada de Asignatura y Grupo */}
@@ -492,7 +513,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           </button>
           <button
             type="submit"
-            disabled={boolIsSubmitting || cargandoGrupos || Boolean(errorGrupos)}
+            disabled={boolIsSubmitting || cargandoGrupos || Boolean(errorGrupos) || boolBloquearDuplicado}
             className="px-5 py-2.5 rounded-xl text-secondary font-bold text-bg-card bg-gradient-to-r from-primary-blue to-primary-navy shadow-xs hover:opacity-95 transition-all disabled:opacity-60 active:scale-[0.99]"
           >
             {boolIsSubmitting ? "Guardando…" : "Guardar"}

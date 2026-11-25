@@ -29,6 +29,11 @@ public interface ExamenRepository extends JpaRepository<Examen, Integer> {
     @Query("SELECT e FROM Examen e WHERE e.idUsuario=:idUsuario AND e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL')")
     List<Examen> findByIdUsuario(Integer idUsuario);
 
+    @Query("SELECT CASE WHEN COUNT(e) > 0 THEN true ELSE false END FROM Examen e "
+            + "WHERE e.idGrupo = :idGrupo AND e.estadoExamen = true AND e.cancelado = false "
+            + "AND e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL')")
+    boolean existsActivoNoCanceladoByIdGrupo(@Param("idGrupo") Integer idGrupo);
+
     /** Tipos de examen ya registrados por un docente en una asignatura. */
     @Query("SELECT DISTINCT e.idTipoExamen FROM Examen e " +
            "WHERE e.idSemestre=(SELECT s.id FROM Semestre s WHERE s.estado='ACTUAL') AND e.cancelado = false AND e.idAsignatura = :idAsignatura AND e.codsisDocente = :codsisDocente")

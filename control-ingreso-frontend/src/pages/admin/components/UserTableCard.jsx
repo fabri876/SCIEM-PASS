@@ -1,6 +1,6 @@
 import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Search, Plus, Pencil, Ban, CheckCircle2, Trash2 } from "lucide-react";
 import VentanaEmergente from "../../../components/common/VentanaEmergente";
 import UsuarioFormModal from "./UsuarioFormModal";
@@ -44,6 +44,12 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
   const [errorAccion, setErrorAccion] = useState("");
   const [boolProcesando, setBoolProcesando] = useState(false);
 
+  useEffect(() => {
+    if (!mensajeExito) return undefined;
+    const timer = setTimeout(() => setMensajeExito(""), 4000);
+    return () => clearTimeout(timer);
+  }, [mensajeExito]);
+
   const listaSegura = Array.isArray(usuarios) ? usuarios : [];
 
   const filteredUsers = listaSegura.filter((u) => {
@@ -67,8 +73,10 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
         await onCambiarRol(modalUsuario.usuario.idUsuario, rolCambio.nuevoRol, rolCambio.codigoSis);
       }
     } else {
-      await onCrear(datos);
-      setMensajeExito("Usuario registrado correctamente.");
+      const respuesta = await onCrear(datos);
+      setMensajeExito(respuesta?.usuarioExistente
+        ? "El usuario ya estaba registrado; se actualizó su asociación correctamente."
+        : "Usuario creado correctamente.");
     }
     setModalUsuario(null);
   };
