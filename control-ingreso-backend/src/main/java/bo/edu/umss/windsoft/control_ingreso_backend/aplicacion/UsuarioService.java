@@ -4,6 +4,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Admin;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ayudante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Docente;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.PoliticaAdministrador;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoDuplicadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
@@ -201,6 +202,11 @@ public class UsuarioService {
             return usuarioRespuestaMapper.mapear(usuario);
         }
 
+        if (TipoUsuarioResolver.ADMINISTRADOR.equals(rolOriginal)
+                && !TipoUsuarioResolver.ADMINISTRADOR.equals(rolNuevoNormalizado)) {
+            PoliticaAdministrador.validarPuedeRetirarse(adminRepository.count());
+        }
+
         validarCodigoDisponible(rolNuevoNormalizado, codigoSis);
 
         // Eliminar fila de rol previa
@@ -253,6 +259,9 @@ public class UsuarioService {
     @Transactional
     public UsuarioRespuestaDto cambiarEstado(Integer id, boolean activo, String executorCorreo, String ip) {
         Usuario usuario = buscarOLanzar(id);
+        if (!activo && TipoUsuarioResolver.ADMINISTRADOR.equals(tipoUsuarioResolver.resolver(id))) {
+            PoliticaAdministrador.validarPuedeRetirarse(adminRepository.count());
+        }
         usuario.setEstadousuario(activo);
         usuario = usuarioRepository.save(usuario);
 
@@ -334,7 +343,10 @@ public class UsuarioService {
     private void crearFilaTablaHija(String rol, Integer idUsuario, Integer codigoSis) {
         int codSisFinal = codigoSis != null ? codigoSis : idUsuario;
         switch (rol) {
-            case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.save(new Admin(idUsuario));
+            case TipoUsuarioResolver.ADMINISTRADOR -> {
+                PoliticaAdministrador.validarPuedeExistirOtro(adminRepository.count());
+                adminRepository.save(new Admin(idUsuario));
+            }
             case TipoUsuarioResolver.DOCENTE -> docenteRepository.save(new Docente(idUsuario, codSisFinal));
             case TipoUsuarioResolver.OPERADOR -> ayudanteRepository.save(new Ayudante(idUsuario));
             case TipoUsuarioResolver.ESTUDIANTE -> estudianteRepository.save(new Estudiante(idUsuario, codSisFinal));
