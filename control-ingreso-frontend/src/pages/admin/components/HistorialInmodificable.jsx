@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
 import {
   ShieldCheck,
@@ -351,7 +352,7 @@ export default function HistorialInmodificable() {
         <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold" role="alert">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{strError}</span>
+            <span>{textoInterfaz(strError)}</span>
           </div>
           <button
             type="button"
@@ -366,7 +367,7 @@ export default function HistorialInmodificable() {
       {strMensajeFeedback && (
         <div className="flex items-center gap-2 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-          <span>{strMensajeFeedback}</span>
+          <span>{textoInterfaz(strMensajeFeedback)}</span>
         </div>
       )}
 
@@ -377,7 +378,7 @@ export default function HistorialInmodificable() {
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-[#003770]" />
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-600">
+            <span className="text-xs font-extrabold tracking-wider text-slate-600">
               Filtros de Búsqueda y Generación
             </span>
           </div>
@@ -395,7 +396,7 @@ export default function HistorialInmodificable() {
         <form onSubmit={fnAplicarFiltros} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
           {/* Módulo */}
           <div className="col-span-1 sm:col-span-1 lg:col-span-4 space-y-1">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
+            <label className="text-[11px] font-bold text-slate-500 tracking-wide block">
               Módulo del Sistema
             </label>
             <select
@@ -405,21 +406,21 @@ export default function HistorialInmodificable() {
             >
               <option value="TODOS">Todos los Módulos (Auditoría General)</option>
               <option value="CONTROL_INGRESO">CONTROL DE INGRESO (Verificación)</option>
-              <option value="EXPULSIONES">EXPULSIONES</option>
-              <option value="ING_EXCEPCIONAL">ING_EXCEPCIONAL</option>
+              <option value="EXPULSIONES">Expulsiones</option>
+              <option value="ING_EXCEPCIONAL">Ing excepcional</option>
               <option value="HABILITACIONES">HABILITACIONES (Nóminas)</option>
               <option value="CARGA_MASIVA">CARGA_MASIVA (Estudiantes / Docentes)</option>
               <option value="EXAMENES">EXAMENES (Programación)</option>
-              <option value="INCIDENCIAS">INCIDENCIAS</option>
-              <option value="USUARIOS">USUARIOS Y ROLES</option>
-              <option value="SEGURIDAD">SEGURIDAD Y SESIONES</option>
-              <option value="FACIAL">AUDITORÍA FACIAL</option>
+              <option value="INCIDENCIAS">Incidencias</option>
+              <option value="USUARIOS">Usuarios y roles</option>
+              <option value="SEGURIDAD">Seguridad y sesiones</option>
+              <option value="FACIAL">Auditoría facial</option>
             </select>
           </div>
 
           {/* Usuario / Ejecutor */}
           <div className="col-span-1 sm:col-span-1 lg:col-span-4 space-y-1">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
+            <label className="text-[11px] font-bold text-slate-500 tracking-wide block">
               Usuario / Ejecutor
             </label>
             <div className="relative">
@@ -436,7 +437,7 @@ export default function HistorialInmodificable() {
 
           {/* Rango de Fecha */}
           <div className="col-span-1 sm:col-span-1 lg:col-span-2 space-y-1">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">
+            <label className="text-[11px] font-bold text-slate-500 tracking-wide block">
               Fecha de Registro
             </label>
             <div className="relative">
@@ -451,13 +452,13 @@ export default function HistorialInmodificable() {
           </div>
 
           <div className="col-span-1 sm:col-span-1 lg:col-span-2 space-y-1">
-            <label htmlFor="auditoria-fecha-inicio" className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Desde</label>
+            <label htmlFor="auditoria-fecha-inicio" className="text-[11px] font-bold text-slate-500 tracking-wide block">Desde</label>
             <input id="auditoria-fecha-inicio" type="date" max={fechaMaxima} value={filtroFechaInicio}
               onChange={(e) => setFiltroFechaInicio(e.target.value)}
               className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700" />
           </div>
           <div className="col-span-1 sm:col-span-1 lg:col-span-2 space-y-1">
-            <label htmlFor="auditoria-fecha-fin" className="text-[11px] font-bold text-slate-500 uppercase tracking-wide block">Hasta</label>
+            <label htmlFor="auditoria-fecha-fin" className="text-[11px] font-bold text-slate-500 tracking-wide block">Hasta</label>
             <input id="auditoria-fecha-fin" type="date" max={fechaMaxima} value={filtroFechaFin}
               onChange={(e) => setFiltroFechaFin(e.target.value)}
               className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700" />
@@ -471,7 +472,7 @@ export default function HistorialInmodificable() {
               className="w-full h-11 inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#003770] text-white text-sm font-bold tracking-wide shadow-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:bg-[#08264A] hover:shadow-lg active:translate-y-0 active:scale-[0.99]"
             >
               <Search className="w-4 h-4" strokeWidth={2.5} />
-              <span className="uppercase">Aplicar filtros</span>
+              <span className="">Aplicar filtros</span>
             </button>
           </div>
         </form>
@@ -483,7 +484,7 @@ export default function HistorialInmodificable() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-extrabold text-[#021B3B] uppercase tracking-wide flex items-center gap-2">
+            <h2 className="text-sm font-extrabold text-[#021B3B] tracking-wide flex items-center gap-2">
               <Database className="w-4 h-4 text-[#003770]" />
               Registro de Eventos y Bloques Criptográficos
             </h2>
@@ -510,7 +511,7 @@ export default function HistorialInmodificable() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[760px]">
             <thead>
-              <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+              <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 tracking-wider border-b border-slate-200">
                 <th className="py-3 px-4">ID Bloque</th>
                 <th className="py-3 px-4">Fecha y Hora Oficial</th>
                 <th className="py-3 px-4">Módulo</th>
@@ -570,17 +571,17 @@ export default function HistorialInmodificable() {
                       {/* Módulo */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span
-                          className={`inline-block px-2.5 py-0.5 rounded-md font-bold text-[10px] uppercase border ${fnBadgeModuloClass(
+                          className={`inline-block px-2.5 py-0.5 rounded-md font-bold text-[10px] border ${fnBadgeModuloClass(
                             bloque.modulo
                           )}`}
                         >
-                          {bloque.modulo}
+                          {textoInterfaz(bloque.modulo)}
                         </span>
                       </td>
 
                       {/* Operación Ejecutada */}
                       <td className="py-3.5 px-4 font-semibold text-slate-800 max-w-[260px] truncate" title={bloque.operacionEjecutada}>
-                        {bloque.operacionEjecutada}
+                        {textoInterfaz(bloque.operacionEjecutada)}
                       </td>
 
                       {/* Ejecutor */}
@@ -596,7 +597,7 @@ export default function HistorialInmodificable() {
                       {/* Sello SHA-256 */}
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-slate-50 text-slate-700 border border-slate-200">
-                          {bloque.selloSha256 ? `${bloque.selloSha256.slice(0, 6)}...${bloque.selloSha256.slice(-4)}` : "SIN SELLO"}
+                          {textoInterfaz(bloque.selloSha256 ? `${bloque.selloSha256.slice(0, 6)}...${bloque.selloSha256.slice(-4)}` : "SIN SELLO")}
                         </span>
                       </td>
                     </tr>
@@ -672,7 +673,7 @@ export default function HistorialInmodificable() {
                 <Search className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-[#021B3B] uppercase tracking-wide">
+                <h3 className="text-sm font-extrabold text-[#021B3B] tracking-wide">
                   Inspección Forense de Bloque Auditable #{bloqueSeleccionado.idBloque}
                 </h3>
                 <p className="text-[11px] text-slate-400 font-medium">
@@ -690,12 +691,12 @@ export default function HistorialInmodificable() {
               ) : verificacionBloqueActual?.esValido ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-blue-50 text-[#003770] border border-blue-200 shadow-xs">
                   <CheckCircle2 className="w-3.5 h-3.5 text-primary-blue" />
-                  SELLO CRIPTOGRÁFICO VÁLIDO
+                  Sello criptográfico válido
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-rose-50 text-rose-700 border border-rose-300">
                   <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
-                  {bloqueSeleccionado.selloSha256 ? "SELLO NO CONFIRMADO" : "SIN SELLO: NO VERIFICABLE"}
+                  {textoInterfaz(bloqueSeleccionado.selloSha256 ? "SELLO NO CONFIRMADO" : "SIN SELLO: NO VERIFICABLE")}
                 </span>
               )}
             </div>
@@ -704,7 +705,7 @@ export default function HistorialInmodificable() {
           {/* Grilla de metadatos forenses */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             <div className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-slate-400 tracking-wider block">
                 Fecha y Hora Exacta
               </span>
               <p className="font-mono font-bold text-slate-700">
@@ -713,7 +714,7 @@ export default function HistorialInmodificable() {
             </div>
 
             <div className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-slate-400 tracking-wider block">
                 Usuario Ejecutor
               </span>
               <p className="font-semibold text-slate-700 truncate" title={bloqueSeleccionado.usuarioEjecutor}>
@@ -722,7 +723,7 @@ export default function HistorialInmodificable() {
             </div>
 
             <div className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-slate-400 tracking-wider block">
                 Dirección IP Registrada
               </span>
               <p className="font-mono font-semibold text-slate-700">
@@ -734,15 +735,15 @@ export default function HistorialInmodificable() {
           {/* Detalles completos de la operación */}
           <div className="p-4 bg-slate-50/90 rounded-xl border border-slate-200/80 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-slate-400 tracking-wider block">
                 Detalle Forense y Entidad Afectada
               </span>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase border ${fnBadgeModuloClass(
+                className={`px-2 py-0.5 rounded text-[10px] font-extrabold border ${fnBadgeModuloClass(
                   bloqueSeleccionado.modulo
                 )}`}
               >
-                {bloqueSeleccionado.modulo} — {bloqueSeleccionado.operacionEjecutada}
+                {textoInterfaz(bloqueSeleccionado.modulo)} — {textoInterfaz(bloqueSeleccionado.operacionEjecutada)}
               </span>
             </div>
             <p className="text-xs text-slate-700 leading-relaxed font-medium">
@@ -755,7 +756,7 @@ export default function HistorialInmodificable() {
             <div className="flex items-center justify-between border-b border-slate-700/80 pb-2.5">
               <div className="flex items-center gap-2">
                 <Lock className="w-4 h-4 text-blue-400" />
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-200">
+                <span className="text-[11px] font-extrabold tracking-wider text-blue-200">
                   Cadena criptográfica de integridad (SHA-256)
                 </span>
               </div>
@@ -874,7 +875,7 @@ export default function HistorialInmodificable() {
                   <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 space-y-2">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                      <span className="text-xs font-black uppercase tracking-wide">
+                      <span className="text-xs font-black tracking-wide">
                         Cadena interna consistente
                       </span>
                     </div>
@@ -886,12 +887,12 @@ export default function HistorialInmodificable() {
                   <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 space-y-2">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-                      <span className="text-xs font-black uppercase tracking-wide">
+                      <span className="text-xs font-black tracking-wide">
                         No se pudo confirmar la integridad
                       </span>
                     </div>
                     <p className="text-xs leading-relaxed text-rose-900">
-                      {resVerificacionCadena.motivo}
+                      {textoInterfaz(resVerificacionCadena.motivo)}
                     </p>
                   </div>
                 )}
@@ -907,7 +908,7 @@ export default function HistorialInmodificable() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Estado de la cadena interna:</span>
-                    <span className="font-bold text-slate-700">{resVerificacionCadena.esValido ? "CONSISTENTE" : "NO CONFIRMADO"}</span>
+                    <span className="font-bold text-slate-700">{textoInterfaz(resVerificacionCadena.esValido ? "CONSISTENTE" : "NO CONFIRMADO")}</span>
                   </div>
                 </div>
 

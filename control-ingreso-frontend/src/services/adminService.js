@@ -106,7 +106,3 @@ export {
 } from "./historialInmodificableService";
 
 export { cargarUsuariosMasivo } from "./usuarioService";
-
-export function eliminarUsuario(idUsuario) {
-  return fetchAutenticado(`/api/admin/usuarios/${idUsuario}`, { method: "DELETE" });
-}

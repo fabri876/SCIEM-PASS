@@ -3,12 +3,15 @@ package bo.edu.umss.windsoft.control_ingreso_backend.aplicacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoInhabilitacion;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HabilitacionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.MotivoInhabilitacionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EstudianteRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.ExamenRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IngresoRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.IncidenciaRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AsociarEstudianteExamenRequest;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HabilitacionRequestDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.HabilitacionResponseDto;
@@ -45,6 +48,8 @@ public class HabilitacionService {
     private final EstudianteRepository estudianteRepository;
     private final ExamenRepository examenRepository;
     private final AuditoriaService auditoriaService;
+    private final IngresoRepository ingresoRepository;
+    private final IncidenciaRepository incidenciaRepository;
 
     public HabilitacionService(
             HabilitacionRepository habilitacionRepository,
@@ -52,13 +57,17 @@ public class HabilitacionService {
             MotivoInhabilitacionRepository motivoInhabilitacionRepository,
             EstudianteRepository estudianteRepository,
             ExamenRepository examenRepository,
-            AuditoriaService auditoriaService) {
+            AuditoriaService auditoriaService,
+            IngresoRepository ingresoRepository,
+            IncidenciaRepository incidenciaRepository) {
         this.habilitacionRepository = habilitacionRepository;
         this.usuarioRepository = usuarioRepository;
         this.motivoInhabilitacionRepository = motivoInhabilitacionRepository;
         this.estudianteRepository = estudianteRepository;
         this.examenRepository = examenRepository;
         this.auditoriaService = auditoriaService;
+        this.ingresoRepository = ingresoRepository;
+        this.incidenciaRepository = incidenciaRepository;
     }
 
     @Transactional
@@ -180,6 +189,18 @@ public class HabilitacionService {
             throw new RecursoNoEncontradoException("No se encontró la habilitación con ID: " + idHabilitacion);
         }
         examenRepository.findById(habilitacion.getIdExamen()).ifPresent(this::validarExamenNoCancelado);
+        Integer codigoSis = habilitacion.getEstudiante() != null
+                ? habilitacion.getEstudiante().getCodsisestudiante() : null;
+        if (codigoSis != null && ingresoRepository.existsByCodsisEstudianteAndIdAsignaturaAndIdExamen(
+                codigoSis, habilitacion.getIdAsignatura(), habilitacion.getIdExamen())) {
+            throw new ConflictoEstadoException(
+                    "No se puede eliminar la habilitación porque el estudiante ya tiene un ingreso registrado.");
+        }
+        if (codigoSis != null && incidenciaRepository.existsByExamenAndCodigoSis(
+                habilitacion.getIdExamen(), codigoSis)) {
+            throw new ConflictoEstadoException(
+                    "No se puede eliminar la habilitación porque el estudiante tiene incidencias registradas.");
+        }
         habilitacionRepository.deleteById(idHabilitacion);
     }
 

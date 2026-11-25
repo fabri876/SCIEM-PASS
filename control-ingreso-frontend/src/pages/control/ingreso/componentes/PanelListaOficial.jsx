@@ -1,3 +1,5 @@
+import ReporteLista from '../../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Lista oficial del examen (panel lateral, HU11): estado de ingreso de cada estudiante en tiempo real.
 // Se usa con internet en el control del docente, del administrador y del ayudante.
 // - Muestra a TODOS los estudiantes del examen (todas sus aulas), tal como los devuelve el servidor.
@@ -280,7 +282,7 @@ export default function PanelListaOficial({ boolAbierto, onCerrar, idExamen, num
                     (boolActivo ? "bg-[#003770] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0]")
                   }
                 >
-                  {f.strTexto} ({objConteo[f.strId]})
+                  {textoInterfaz(f.strTexto)} ({objConteo[f.strId]})
                 </button>
               );
             })}
@@ -300,7 +302,7 @@ export default function PanelListaOficial({ boolAbierto, onCerrar, idExamen, num
 
             {strVacio && <li className="text-center text-sm text-[#64748B] px-[18px] py-7">{strVacio}</li>}
 
-            {listVisibles.map((f) => {
+            <ReporteLista titulo="Lista oficial de estudiantes" contenido={() => <>{listVisibles.map((f) => {
               const strEstado = estadoDe(f);
               const objEstado = ESTADOS[strEstado];
               const strClave = claveDe(f);
@@ -317,15 +319,45 @@ export default function PanelListaOficial({ boolAbierto, onCerrar, idExamen, num
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-[#08264A]">
                       {nombreEstudiante(f)}
-                      {boolNuevo && <span className="ml-2 text-[10px] font-extrabold text-[#1860A3]">NUEVO</span>}
+                      {boolNuevo && <span className="ml-2 text-[10px] font-extrabold text-[#1860A3]">Nuevo</span>}
                     </div>
-                    <div className="mt-px text-xs text-[#64748B]">SIS {f.sis} · C.I. {f.ci}</div>
+                    <div className="mt-px text-xs text-[#64748B]">SIS {f.sis} · C.i. {f.ci}</div>
                     {strEstado === "INHABILITADO" && (
-                      <div className="mt-1 text-xs text-[#B91C1C]">Motivo: {strMotivo ? strMotivo.charAt(0).toLocaleUpperCase("es") + strMotivo.slice(1) : "sin motivo especificado"}</div>
+                      <div className="mt-1 text-xs text-[#B91C1C]">Motivo: {textoInterfaz(strMotivo ? strMotivo.charAt(0).toLocaleUpperCase("es") + strMotivo.slice(1) : "sin motivo especificado")}</div>
                     )}
                   </div>
                   <span className={"justify-self-end px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap " + objEstado.strClase}>
-                    {objEstado.strTexto}{strEstado === "INGRESO" && hhmm(f.horaIngreso) ? ` ${hhmm(f.horaIngreso)}` : ""}
+                    {textoInterfaz(objEstado.strTexto)}{textoInterfaz(strEstado === "INGRESO" && hhmm(f.horaIngreso) ? ` ${hhmm(f.horaIngreso)}` : "")}
+                  </span>
+                </li>
+              );
+            })}</>} as="li" />
+{listVisibles.map((f) => {
+              const strEstado = estadoDe(f);
+              const objEstado = ESTADOS[strEstado];
+              const strClave = claveDe(f);
+              const boolNuevo = Boolean(objNuevos[strClave]);
+              const strMotivo = f.observacion || f.observacionHabilitacion || "";
+              return (
+                <li
+                  key={strClave}
+                  className={
+                    "grid grid-cols-[minmax(0,1fr)_auto] gap-3.5 items-center px-[18px] py-3 border-t border-[#CBD5E1] first:border-t-0 transition-colors " +
+                    (boolNuevo || f.ci === strUltimoRegistrado ? "bg-[#F0F6FC]" : "")
+                  }
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-[#08264A]">
+                      {nombreEstudiante(f)}
+                      {boolNuevo && <span className="ml-2 text-[10px] font-extrabold text-[#1860A3]">Nuevo</span>}
+                    </div>
+                    <div className="mt-px text-xs text-[#64748B]">SIS {f.sis} · C.i. {f.ci}</div>
+                    {strEstado === "INHABILITADO" && (
+                      <div className="mt-1 text-xs text-[#B91C1C]">Motivo: {textoInterfaz(strMotivo ? strMotivo.charAt(0).toLocaleUpperCase("es") + strMotivo.slice(1) : "sin motivo especificado")}</div>
+                    )}
+                  </div>
+                  <span className={"justify-self-end px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap " + objEstado.strClase}>
+                    {textoInterfaz(objEstado.strTexto)}{textoInterfaz(strEstado === "INGRESO" && hhmm(f.horaIngreso) ? ` ${hhmm(f.horaIngreso)}` : "")}
                   </span>
                 </li>
               );

@@ -6,7 +6,7 @@ export default function SeccionMotivo({ nombreMotivo, motivoSelectValue, motivoP
                 Modificar | Eliminar") no entran en una sola linea en pantallas
                 angostas y se empujaban fuera del drawer. */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="block text-[13px] font-bold text-slate-400 uppercase tracking-wider">MOTIVO DE INHABILITACIÓN</label>
+                <label className="block text-[13px] font-bold text-slate-400 tracking-wider">Motivo de inhabilitación</label>
                 {existeMotivo && (
                     <div className="flex items-center gap-2">
                         <span className="text-[13px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">Opcional</span>

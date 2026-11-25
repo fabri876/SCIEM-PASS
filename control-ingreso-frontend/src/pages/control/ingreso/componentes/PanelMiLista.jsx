@@ -1,3 +1,5 @@
+import ReporteLista from '../../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Lista del ayudante (panel lateral, solo lectura).
 // - Con internet: "Lista oficial" → toda SU aula (todas las letras), con los datos del servidor.
 // - Sin internet: "Mi lista" → solo SU rango de apellidos, con la nómina descargada en el equipo.
@@ -262,8 +264,8 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
       <aside role="dialog" aria-modal="true" aria-labelledby="ci-t-milista" className="ci-deslizar h-full w-[min(540px,100vw)] bg-white overflow-y-auto flex flex-col">
         <div className="flex items-start justify-between gap-3 px-[22px] pt-[22px]">
           <div>
-            <h2 id="ci-t-milista" className="m-0 text-[19px] font-bold text-[#08264A]">{objRango ? "Mi lista" : strTituloLista}</h2>
-            <p className="mt-1 text-[13px] text-[#64748B]">{objRango ? "Estudiantes que te toca registrar" : "Estado de ingreso de los estudiantes del aula"}</p>
+            <h2 id="ci-t-milista" className="m-0 text-[19px] font-bold text-[#08264A]">{textoInterfaz(objRango ? "Mi lista" : strTituloLista)}</h2>
+            <p className="mt-1 text-[13px] text-[#64748B]">{textoInterfaz(objRango ? "Estudiantes que te toca registrar" : "Estado de ingreso de los estudiantes del aula")}</p>
           </div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0 text-[#003770] hover:bg-[#F1F5F9] cursor-pointer">
             <X className="w-[22px] h-[22px]" />
@@ -315,7 +317,7 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
                         (boolActivo ? "bg-[#003770] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0]")
                       }
                     >
-                      {f.strTexto} ({objConteo[f.strId]})
+                      {textoInterfaz(f.strTexto)} ({objConteo[f.strId]})
                     </button>
                   );
                 })}
@@ -328,11 +330,11 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
 
                 {!boolCargando && listVisibles.length === 0 && (
                   <li className="text-center text-sm text-[#64748B] px-[18px] py-7">
-                    {listBuscadas.length === 0 ? "Sin coincidencias en la lista." : "No hay estudiantes con este estado."}
+                    {textoInterfaz(listBuscadas.length === 0 ? "Sin coincidencias en la lista." : "No hay estudiantes con este estado.")}
                   </li>
                 )}
 
-                {listVisibles.map((f) => {
+                <ReporteLista titulo="Mi lista de estudiantes" contenido={() => <>{listVisibles.map((f) => {
                   const objEstado = ESTADOS[f.estado] || ESTADOS.PENDIENTE;
                   const boolUltimo = strUltimoRegistrado && (f.ci === strUltimoRegistrado || f.sis === strUltimoRegistrado);
                   return (
@@ -345,7 +347,25 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
                         <div className="mt-px text-xs text-[#64748B]">SIS {f.sis}{f.ci ? ` · C.I. ${f.ci}` : ""}</div>
                       </div>
                       <span className={"justify-self-end px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap " + objEstado.strClase}>
-                        {objEstado.strTexto}
+                        {textoInterfaz(objEstado.strTexto)}
+                      </span>
+                    </li>
+                  );
+                })}</>} as="li" />
+{listVisibles.map((f) => {
+                  const objEstado = ESTADOS[f.estado] || ESTADOS.PENDIENTE;
+                  const boolUltimo = strUltimoRegistrado && (f.ci === strUltimoRegistrado || f.sis === strUltimoRegistrado);
+                  return (
+                    <li
+                      key={f.sis || f.ci}
+                      className={"grid grid-cols-[minmax(0,1fr)_auto] gap-3.5 items-center px-[18px] py-3 border-t border-[#CBD5E1] first:border-t-0 " + (boolUltimo ? "bg-[#F0F6FC]" : "")}
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-[#08264A]">{nombreEstudiante(f)}</div>
+                        <div className="mt-px text-xs text-[#64748B]">SIS {f.sis}{f.ci ? ` · C.I. ${f.ci}` : ""}</div>
+                      </div>
+                      <span className={"justify-self-end px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap " + objEstado.strClase}>
+                        {textoInterfaz(objEstado.strTexto)}
                       </span>
                     </li>
                   );

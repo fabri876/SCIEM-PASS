@@ -1,3 +1,5 @@
+import { TablaConReporte } from '../common/ReporteLista.jsx';
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   UserCheck,
@@ -455,7 +457,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0F6FC] border border-[#B6D3EE] text-[#003770] text-xs font-extrabold">
             <BookOpen className="w-3.5 h-3.5 text-[#4A97D3]" />
-            <span>{rol === "DOCENTE" ? "Mis exámenes asignados" : "Todos los exámenes"}</span>
+            <span>{textoInterfaz(rol === "DOCENTE" ? "Mis exámenes asignados" : "Todos los exámenes")}</span>
           </div>
 
           <select
@@ -470,7 +472,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             <option value={TODOS}>Materia: Todas</option>
             {materias.map((m) => (
               <option key={m.idAsignatura} value={String(m.idAsignatura)}>
-                {m.etiqueta}
+                {textoInterfaz(m.etiqueta)}
               </option>
             ))}
           </select>
@@ -486,7 +488,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           >
             <option value={TODOS}>Examen: Todos</option>
             {examenesDeMateria.map((ex) => (
-              <option key={ex.idExamen} value={String(ex.idExamen)}>{ex.etiqueta}</option>
+              <option key={ex.idExamen} value={String(ex.idExamen)}>{textoInterfaz(ex.etiqueta)}</option>
             ))}
           </select>
 
@@ -524,7 +526,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           >
             <option value={TODOS}>Tipo: Todos</option>
             {TIPOS_INCIDENCIA.map((t) => (
-              <option key={t.codigo} value={t.codigo}>{t.etiqueta}</option>
+              <option key={t.codigo} value={t.codigo}>{textoInterfaz(t.etiqueta)}</option>
             ))}
           </select>
 
@@ -562,7 +564,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
       {strErrorCarga && (
         <div className="bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] p-3 rounded-2xl text-xs font-bold">
-          ✕ {strErrorCarga}
+          ✕ {textoInterfaz(strErrorCarga)}
         </div>
       )}
       {strAvisoAulas && (
@@ -688,7 +690,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
           {strErrorExportar && (
             <div className="bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] px-3 py-2 rounded-2xl text-xs font-bold">
-              ✕ {strErrorExportar}
+              ✕ {textoInterfaz(strErrorExportar)}
             </div>
           )}
 
@@ -719,28 +721,28 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono font-black text-[#003770] text-xs">{item.codigo}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                           item.estado === "ABIERTA" ? "bg-[#D9E8F7] text-[#124B83]"
                             : item.estado === "EN_REVISION" ? "bg-[#F0F6FC] text-[#003770]"
                             : item.estado === "REVOCADA" ? "bg-[#E2E8F0] text-[#475569] border border-[#94A3B8]"
                             : "bg-[#F1F5F9] text-[#64748B]"
                         }`}>
-                          {item.estadoEtiqueta}
+                          {textoInterfaz(item.estadoEtiqueta)}
                         </span>
                       </div>
                       <p className="text-xs font-bold text-[#08264A]">
                         {textoTipo(item)} ·{" "}
                         <span className={item.severidad === "ALTA" ? "text-[#003770]" : item.severidad === "MEDIA" ? "text-[#4A97D3]" : "text-[#83B7E2]"}>
-                          {item.severidadEtiqueta}
+                          {textoInterfaz(item.severidadEtiqueta)}
                         </span>
                       </p>
                       <p className="text-[11px] text-[#7A8BA0] font-semibold">
                         {formatearHora(item.fechaHora)} · {item.aula} · {item.reportadoPor}
                       </p>
                       <p className="text-[10px] text-[#7A8BA0] font-bold truncate">
-                        Acción: {item.accion === "OTRO" && item.detalleAccionOtro && item.detalleAccionOtro.trim()
+                        Acción: {textoInterfaz(item.accion === "OTRO" && item.detalleAccionOtro && item.detalleAccionOtro.trim()
                           ? item.detalleAccionOtro.trim()
-                          : item.accionEtiqueta || item.accion || "-"}
+                          : item.accionEtiqueta || item.accion || "-")}
                       </p>
                       {item.estudianteRetirado && (
                         <p className="text-[10px] font-bold text-[#003770] flex items-center gap-1">
@@ -754,7 +756,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-[#F1F5F9] border-b border-[#CBD5E1] text-[#7A8BA0] uppercase tracking-wider text-[10px] font-black">
+                    <tr className="bg-[#F1F5F9] border-b border-[#CBD5E1] text-[#7A8BA0] tracking-wider text-[10px] font-black">
                       <th className="py-3 px-3.5">Código</th>
                       <th className="py-3 px-2">Hora</th>
                       <th className="py-3 px-2">Aula</th>
@@ -807,13 +809,13 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                               {textoTipo(item)}
                             </td>
                             <td className="py-3 px-3 font-semibold text-[#08264A] truncate max-w-[120px]">
-                              {item.accion === "OTRO" && item.detalleAccionOtro && item.detalleAccionOtro.trim()
+                              {textoInterfaz(item.accion === "OTRO" && item.detalleAccionOtro && item.detalleAccionOtro.trim()
                                 ? item.detalleAccionOtro.trim()
-                                : item.accionEtiqueta || item.accion || "-"}
+                                : item.accionEtiqueta || item.accion || "-")}
                             </td>
                             <td className="py-3 px-2">
                               <span
-                                className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black tracking-wider ${
                                   item.severidad === "ALTA"
                                     ? "bg-[#003770] text-white"
                                     : item.severidad === "MEDIA"
@@ -821,7 +823,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                                     : "bg-[#83B7E2] text-white"
                                 }`}
                               >
-                                {item.severidadEtiqueta || item.severidad}
+                                {textoInterfaz(item.severidadEtiqueta || item.severidad)}
                               </span>
                             </td>
                             <td className="py-3 px-3 font-bold text-[#64748B] truncate max-w-[130px]">
@@ -836,7 +838,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                             </td>
                             <td className="py-3 px-3.5 whitespace-nowrap">
                               <span
-                                className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider ${
                                   item.estado === "ABIERTA"
                                     ? "bg-[#267BC2] text-white border border-[#267BC2]"
                                     : item.estado === "EN_REVISION"
@@ -846,7 +848,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                                     : "bg-[#F1F5F9] text-[#64748B] border border-[#CBD5E1]"
                                 }`}
                               >
-                                {item.estadoEtiqueta || (item.estado === "EN_REVISION" ? "En revisión" : item.estado)}
+                                {textoInterfaz(item.estadoEtiqueta || (item.estado === "EN_REVISION" ? "En revisión" : item.estado))}
                               </span>
                             </td>
                           </tr>
@@ -877,7 +879,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                       </span>
                     </div>
                     <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider ${
                         incidenciaSeleccionada.estado === "ABIERTA"
                           ? "bg-[#267BC2] text-white"
                           : incidenciaSeleccionada.estado === "EN_REVISION"
@@ -887,23 +889,23 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                           : "bg-[#F1F5F9] text-[#64748B]"
                       }`}
                     >
-                      {incidenciaSeleccionada.estadoEtiqueta ||
+                      {textoInterfaz(incidenciaSeleccionada.estadoEtiqueta ||
                         (incidenciaSeleccionada.estado === "EN_REVISION"
                           ? "En revisión"
-                          : incidenciaSeleccionada.estado)}
+                          : incidenciaSeleccionada.estado))}
                     </span>
                   </div>
 
                   {/* Atributos Clave */}
                   <div className="grid grid-cols-2 gap-y-2 text-xs">
                     <div>
-                      <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block">Tipo</span>
+                      <span className="text-[10.5px] font-extrabold text-[#9AA8BA] block">Tipo</span>
                       <span className="font-black text-[#08264A]">
                         {textoTipo(incidenciaSeleccionada)}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block">Severidad</span>
+                      <span className="text-[10.5px] font-extrabold text-[#9AA8BA] block">Severidad</span>
                       <span
                         className={`font-black ${
                           incidenciaSeleccionada.severidad === "ALTA"
@@ -913,17 +915,17 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                             : "text-[#83B7E2]"
                         }`}
                       >
-                        {incidenciaSeleccionada.severidadEtiqueta || incidenciaSeleccionada.severidad}
+                        {textoInterfaz(incidenciaSeleccionada.severidadEtiqueta || incidenciaSeleccionada.severidad)}
                       </span>
                     </div>
                     <div className="col-span-2">
-                      <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block">Aula</span>
+                      <span className="text-[10.5px] font-extrabold text-[#9AA8BA] block">Aula</span>
                       <span className="font-black text-[#08264A]">
                         {incidenciaSeleccionada.aula} · {incidenciaSeleccionada.asignatura}
                       </span>
                     </div>
                     <div className="col-span-2 flex items-center justify-between rounded-lg bg-[#F1F5F9] border border-[#CBD5E1] px-3 py-2">
-                      <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA]">
+                      <span className="text-[10.5px] font-extrabold text-[#9AA8BA]">
                         Expulsión
                       </span>
                       <span
@@ -937,7 +939,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                     </div>
                     {incidenciaSeleccionada.estudiante && (
                       <div className="col-span-2 pt-1 border-t border-[#CBD5E1]">
-                        <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block">
+                        <span className="text-[10.5px] font-extrabold text-[#9AA8BA] block">
                           Estudiante involucrado
                         </span>
                         <span className="font-black text-[#003770]">
@@ -950,18 +952,18 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
                   {/* Descripción completa */}
                   <div>
-                    <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block mb-1">
+                    <span className="text-[10.5px] font-extrabold text-[#9AA8BA] block mb-1">
                       Descripción
                     </span>
                     <div className="bg-[#F1F5F9] border border-[#CBD5E1] rounded-xl p-3 text-xs font-semibold text-[#475569] leading-relaxed">
-                      {incidenciaSeleccionada.descripcion}
+                      {textoInterfaz(incidenciaSeleccionada.descripcion)}
                     </div>
                   </div>
 
                   {/* Foto de evidencia si existe */}
                   {incidenciaSeleccionada.evidenciaUrl && (
                     <div>
-                      <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block mb-1">
+                      <span className="text-[10.5px] font-extrabold text-[#9AA8BA] block mb-1">
                         Evidencia fotográfica
                       </span>
                       <a
@@ -979,7 +981,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
                   {/* Línea de Tiempo de Auditoría (EventoIncidenciaDto) */}
                   <div>
-                    <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block mb-2">
+                    <span className="text-[10.5px] font-extrabold text-[#9AA8BA] block mb-2">
                       Línea de tiempo (desde auditoría)
                     </span>
                     <div className="space-y-2 border-l-2 border-[#CBD5E1] pl-3 ml-1 text-xs">
@@ -1011,7 +1013,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
 
                   {/* Sección Resolución */}
                   <div>
-                    <span className="text-[10.5px] uppercase font-extrabold text-[#9AA8BA] block mb-1">
+                    <span className="text-[10.5px] font-extrabold text-[#9AA8BA] block mb-1">
                       Resolución {incidenciaSeleccionada.estado !== "CERRADA" && incidenciaSeleccionada.estado !== "REVOCADA" && <span className="text-[#B91C1C] font-normal">(obligatoria para cerrar)</span>}
                     </span>
                     {incidenciaSeleccionada.estado === "CERRADA" || incidenciaSeleccionada.estado === "REVOCADA" ? (
@@ -1039,7 +1041,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                           : "text-[#B91C1C]"
                       }`}
                     >
-                      {strMensajeFeedback}
+                      {textoInterfaz(strMensajeFeedback)}
                     </p>
                   )}
 
@@ -1150,7 +1152,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                       <p className="font-mono font-bold text-[#003770] text-[11px]">SIS {item.codSis}</p>
                     </div>
                     <span className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] font-extrabold px-2 py-0.5 rounded-full text-[10px] text-center shrink-0">
-                      {item.motivoEtiqueta || item.motivo}
+                      {textoInterfaz(item.motivoEtiqueta || item.motivo)}
                     </span>
                   </div>
                   <p className="text-[11px] text-[#7A8BA0] font-semibold">
@@ -1169,9 +1171,9 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
           </div>
 
           <div className="hidden lg:block overflow-x-auto rounded-2xl border border-[#CBD5E1]">
-            <table className="w-full text-left text-xs border-collapse">
+            <TablaConReporte titulo="Ingresos excepcionales">{(_paraReporte) => (<table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-[#F1F5F9] border-b border-[#CBD5E1] text-[#7A8BA0] uppercase tracking-wider text-[10px] font-black">
+                <tr className="bg-[#F1F5F9] border-b border-[#CBD5E1] text-[#7A8BA0] tracking-wider text-[10px] font-black">
                   <th className="py-3 px-3.5">Código SIS</th>
                   <th className="py-3 px-3">Estudiante</th>
                   <th className="py-3 px-2">Aula</th>
@@ -1212,7 +1214,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                       </td>
                       <td className="py-3 px-3">
                         <span className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] font-extrabold px-2.5 py-0.5 rounded-full text-[10.5px] whitespace-nowrap">
-                          {item.motivoEtiqueta || item.motivo}
+                          {textoInterfaz(item.motivoEtiqueta || item.motivo)}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-[#64748B] font-medium max-w-xs truncate" title={item.observacion}>
@@ -1240,7 +1242,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                   ))
                 )}
               </tbody>
-            </table>
+            </table>)}</TablaConReporte>
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.MotivoInhabilitacion
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.MotivoInhabilitacionRepository;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.HabilitacionRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.MotivoInhabilitacionRequestDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.MotivoInhabilitacionResponseDto;
 import org.springframework.stereotype.Service;
@@ -16,9 +17,12 @@ import java.util.stream.Collectors;
 public class MotivoInhabilitacionService {
 
     private final MotivoInhabilitacionRepository motivoRepository;
+    private final HabilitacionRepository habilitacionRepository;
 
-    public MotivoInhabilitacionService(MotivoInhabilitacionRepository motivoRepository) {
+    public MotivoInhabilitacionService(MotivoInhabilitacionRepository motivoRepository,
+                                       HabilitacionRepository habilitacionRepository) {
         this.motivoRepository = motivoRepository;
+        this.habilitacionRepository = habilitacionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -71,6 +75,12 @@ public class MotivoInhabilitacionService {
     public void eliminarMotivo(Integer id) {
         if (!motivoRepository.existsById(id)) {
             throw new RecursoNoEncontradoException("No se encontró el motivo de inhabilitación con ID: " + id);
+        }
+        MotivoInhabilitacion motivo = motivoRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el motivo de inhabilitación con ID: " + id));
+        if (habilitacionRepository.existsByNombreMotivoUsado(motivo.getNombremotivo())) {
+            throw new bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException(
+                    "No se puede eliminar el motivo porque está siendo utilizado por una habilitación.");
         }
         motivoRepository.deleteById(id);
     }

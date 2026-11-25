@@ -1,3 +1,5 @@
+import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
 import { Upload, Database, Info, ArrowRight, FileWarning, X, CheckCircle, Loader2, GraduationCap, Users, Download, LayoutGrid } from "lucide-react";
 import { previsualizarUsuariosMasivo } from "../../../services/usuarioService";
@@ -246,10 +248,10 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
 
                     {/* Formatos Aceptados */}
                     <div className="flex items-center justify-center gap-2 mt-4">
-                        <span className="px-3 py-1 bg-emerald-600 text-bg-card text-badge font-bold rounded-md uppercase tracking-wider">
+                        <span className="px-3 py-1 bg-emerald-600 text-bg-card text-badge font-bold rounded-md tracking-wider">
                             .XLSX
                         </span>
-                        <span className="px-3 py-1 bg-accent-red text-bg-card text-badge font-bold rounded-md uppercase tracking-wider">
+                        <span className="px-3 py-1 bg-accent-red text-bg-card text-badge font-bold rounded-md tracking-wider">
                             .PDF
                         </span>
                     </div>
@@ -280,7 +282,7 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
                                 <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
                             )}
                             <p className={`text-badge font-semibold leading-snug ${boolHuboFallos ? "text-amber-700" : "text-emerald-700"}`}>
-                                {resultado.mensaje || "Carga masiva procesada."}
+                                {textoInterfaz(resultado.mensaje || "Carga masiva procesada.")}
                             </p>
                         </div>
 
@@ -355,16 +357,16 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
                     <p className="text-secondary">{isSubmitting ? `Guardando ${vistaPrevia.filas.length} registros… ${segundosGuardando} s. Puede cerrar esta vista; el guardado continuará y verá el resultado en el panel.` : "Todavía no se ha registrado ningún usuario. Revise los datos y confirme para guardar; el sistema validará cada fila al realizar la carga."}</p>
                     {error && <p role="alert" className="text-accent-red font-bold">{error}</p>}
                     <div className="overflow-auto max-h-[55vh] border border-border rounded-xl" tabIndex={0} role="region" aria-label="Registros del archivo">
-                        <table className="w-full text-left text-secondary">
+                        <TablaConReporte titulo="Previsualización de carga masiva">{(_paraReporte) => (<table className="w-full text-left text-secondary">
                             <thead className="sticky top-0 bg-bg-app text-primary-navy"><tr>{["Fila", "Nombre completo", "CI", "SIS", "Correo", "Teléfono", "Rol", "Asignatura", "Grupo"].map(t => <th key={t} className="p-3 whitespace-nowrap">{t}</th>)}</tr></thead>
                             <tbody>{vistaPrevia.filas.map(f => <tr key={f.fila} className="border-t border-border">
-                                <td className="p-3">{f.fila}</td><td className="p-3 font-semibold text-primary-navy">{f.nombre} {f.apellido}</td>
+                                <td className="p-3">{f.fila}</td><td className="p-3 font-semibold text-primary-navy">{textoInterfaz(f.nombre)} {f.apellido}</td>
                                 <td className="p-3">{f.ci || "Sin CI"}</td><td className="p-3">{f.codigoSis ?? "Sin SIS"}</td><td className="p-3">{f.correo || "Sin correo"}</td>
-                                <td className="p-3">{f.telefono ?? "—"}</td><td className="p-3">{f.rol === "DOCENTE" ? "Docente" : f.rol === "ESTUDIANTE" ? "Estudiante" : f.rol}</td>
-                                <td className="p-3">{f.asignatura || grupoLote?.nombreAsignatura || "Sin asignación"}</td>
+                                <td className="p-3">{f.telefono ?? "—"}</td><td className="p-3">{textoInterfaz(f.rol === "DOCENTE" ? "Docente" : f.rol === "ESTUDIANTE" ? "Estudiante" : f.rol)}</td>
+                                <td className="p-3">{textoInterfaz(f.asignatura || grupoLote?.nombreAsignatura || "Sin asignación")}</td>
                                 <td className="p-3">{f.grupo || grupoLote?.nombreGrupo || "Sin asignación"}</td>
                             </tr>)}</tbody>
-                        </table>
+                        </table>)}</TablaConReporte>
                     </div>
                     <div className="flex flex-wrap justify-end gap-3">
                         <button type="button" onClick={() => setVistaPrevia(null)} className="px-4 py-2.5 rounded-xl border border-border text-primary-navy font-bold">{isSubmitting ? "Cerrar vista (el guardado continúa)" : "Volver sin guardar"}</button>
@@ -426,7 +428,7 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
                                                 {c.col}
                                             </td>
                                             <td className="px-3 py-2 text-badge font-bold text-text-body">
-                                                {c.nombre}
+                                                {textoInterfaz(c.nombre)}
                                             </td>
                                             <td className="px-3 py-2 text-badge text-text-body/70">
                                                 {c.ejemplo}

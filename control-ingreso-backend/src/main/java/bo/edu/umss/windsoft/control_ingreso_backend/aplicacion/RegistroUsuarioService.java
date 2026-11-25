@@ -12,6 +12,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Admin;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ayudante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Docente;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.PoliticaAdministrador;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.RecursoDuplicadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ValidacionNegocioException;
@@ -82,6 +83,9 @@ public class RegistroUsuarioService {
 
         if (rolesNormalizados.isEmpty()) {
             throw new ValidacionNegocioException("Debe seleccionar al menos un rol válido.");
+        }
+        if (rolesNormalizados.contains("admin")) {
+            throw new ValidacionNegocioException("El registro de administradores no está disponible por esta vía.");
         }
         if ((rolesNormalizados.contains("docente") || rolesNormalizados.contains("estudiante") || rolesNormalizados.contains("ayudante"))
                 && dto.getIdGrupo() == null && (dto.getIdGrupos() == null || dto.getIdGrupos().isEmpty())) {
@@ -191,7 +195,10 @@ public class RegistroUsuarioService {
                         }
                     }
                 }
-                case "admin" -> adminRepository.save(new Admin(idUsuarioGenerado));
+                case "admin" -> {
+                    PoliticaAdministrador.validarPuedeExistirOtro(adminRepository.count());
+                    adminRepository.save(new Admin(idUsuarioGenerado));
+                }
             }
         }
 

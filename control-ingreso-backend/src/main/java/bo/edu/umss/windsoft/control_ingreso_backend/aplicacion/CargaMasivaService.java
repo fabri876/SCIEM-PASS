@@ -161,6 +161,10 @@ public class CargaMasivaService {
             // Normalizar rol
             rolFila = normalizarRol(rolFila);
 
+            if (TipoUsuarioResolver.ADMINISTRADOR.equals(rolFila)) {
+                erroresFila.add("No se admite crear administradores mediante carga masiva.");
+            }
+
             // Validar restricción de docente
             if (TipoUsuarioResolver.DOCENTE.equals(rolEjecutor) && !TipoUsuarioResolver.ESTUDIANTE.equals(rolFila)) {
                 erroresFila.add("Permiso insuficiente: Un docente solo puede registrar Estudiantes.");
@@ -591,7 +595,10 @@ public class CargaMasivaService {
     private void crearFilaTablaHija(String rol, Integer idUsuario, Integer codigoSis, Integer idGrupo) {
         int codSisFinal = codigoSis != null ? codigoSis : idUsuario;
         switch (rol) {
-            case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.save(new Admin(idUsuario));
+            case TipoUsuarioResolver.ADMINISTRADOR -> {
+                PoliticaAdministrador.validarPuedeExistirOtro(adminRepository.count());
+                adminRepository.save(new Admin(idUsuario));
+            }
             case TipoUsuarioResolver.DOCENTE -> {
                 docenteRepository.save(new Docente(idUsuario, codSisFinal));
                 if (idGrupo != null) {

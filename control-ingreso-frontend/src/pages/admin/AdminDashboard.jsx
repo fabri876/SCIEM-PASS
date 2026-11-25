@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import Header from "../../components/layout/Header";
@@ -27,7 +28,6 @@ import {
     actualizarUsuario,
     cambiarRolUsuario,
     cambiarEstadoUsuario,
-    eliminarUsuario,
     listarRoles,
     cargarUsuariosMasivo
 } from "../../services/adminService";
@@ -98,18 +98,13 @@ export default function AdminDashboard({ onNavigateToLogin }) {
     }, [activeMenu]);
 
     const fnCrearUsuario = async (datos) => {
-        await crearUsuario(datos);
+        const respuesta = await crearUsuario(datos);
         await fnCargarUsuarios();
+        return respuesta;
     };
 
     const fnEditarUsuario = async (idUsuario, datos) => {
         await actualizarUsuario(idUsuario, datos);
-        await fnCargarUsuarios();
-        setRevisionAcademica(v => v + 1);
-    };
-
-    const fnEliminarUsuario = async idUsuario => {
-        await eliminarUsuario(idUsuario);
         await fnCargarUsuarios();
         setRevisionAcademica(v => v + 1);
     };
@@ -182,7 +177,7 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                     <div className="flex justify-between items-start">
                         <div>
                             <h1 className="text-xl lg:text-h2 font-extrabold text-primary-navy tracking-tight leading-none">
-                                Hola, {usuarioSesion?.nombre || "Administrador"}
+                                Hola, {textoInterfaz(usuarioSesion?.nombre || "Administrador")}
                             </h1>
 
                             <p className="text-secondary text-primary-blue font-semibold mt-1">
@@ -220,7 +215,6 @@ export default function AdminDashboard({ onNavigateToLogin }) {
                                         onEditar={fnEditarUsuario}
                                         onCambiarRol={fnCambiarRolUsuario}
                                         onCambiarEstado={fnCambiarEstadoUsuario}
-                                        onEliminar={fnEliminarUsuario}
                                     />
                                 </div>
 

@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React from "react";
 import { Lock, ChevronRight } from "lucide-react";
 import { estiloOcupacion } from "./utilidadesMonitoreo";
@@ -36,7 +37,7 @@ export default function TarjetaAula({ aula, incidencias, boolCerrada, onAbrir })
                     {strDocente && <p className="text-[10.5px] text-slate-500 font-semibold truncate">{strDocente}</p>}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full text-center ${estilo.pill}`}>{estilo.etiqueta}</span>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full text-center ${estilo.pill}`}>{textoInterfaz(estilo.etiqueta)}</span>
                     {boolCerrada && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-800 text-white">
                             <Lock className="w-3 h-3" /> Ingreso finalizado

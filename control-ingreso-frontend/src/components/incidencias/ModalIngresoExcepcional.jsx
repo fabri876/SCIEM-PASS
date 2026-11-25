@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useRef } from "react";
 import {
   Search,
@@ -339,9 +340,9 @@ export default function ModalIngresoExcepcional({
               <button onClick={onCerrar} className="absolute top-4 right-4 text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 transition cursor-pointer" title="Cerrar">
                 <X className="w-5 h-5" />
               </button>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-[10px] font-black uppercase tracking-wider mb-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-[10px] font-black tracking-wider mb-2">
                 <ShieldCheck className="w-3 h-3" />
-                <span>INGRESO EXCEPCIONAL</span>
+                <span>Ingreso excepcional</span>
               </div>
               <h3 className="text-lg font-black tracking-tight pr-8">
                 {aulaSeleccionada ? aulaSeleccionada.asignatura : "Sin examen en curso"}
@@ -368,7 +369,7 @@ export default function ModalIngresoExcepcional({
               ) : (
                 <>
                   <div>
-                    <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1">Aula</label>
+                    <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B] mb-1">Aula</label>
                     <select
                       value={idAmbienteActual ?? ""}
                       disabled={idAmbienteBloqueado != null}
@@ -382,14 +383,14 @@ export default function ModalIngresoExcepcional({
                     >
                       {aulasDisponibles.map((aula) => (
                         <option key={aula.idAmbiente} value={aula.idAmbiente}>
-                          {etiquetaAula(aula)} · {aula.ingresoCerrado ? "ingreso cerrado" : textoAforo(aula.aforo)}
+                          {textoInterfaz(etiquetaAula(aula))} · {aula.ingresoCerrado ? "ingreso cerrado" : textoAforo(aula.aforo)}
                         </option>
                       ))}
                     </select>
                   </div>
 
                   <form onSubmit={fnBuscarEstudiante} className="space-y-2">
-                    <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B]">
+                    <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B]">
                       Buscar estudiante (CI o Código SIS)
                     </label>
                     <div className="flex gap-2">
@@ -418,7 +419,7 @@ export default function ModalIngresoExcepcional({
                         <span>Buscar</span>
                       </button>
                     </div>
-                    {strErrorBusqueda && <p className="text-[11px] text-[#B91C1C] font-bold">{strErrorBusqueda}</p>}
+                    {strErrorBusqueda && <p className="text-[11px] text-[#B91C1C] font-bold">{textoInterfaz(strErrorBusqueda)}</p>}
                     {strAvisoBusqueda && (
                       <p className="text-[10.5px] text-[#124B83] font-bold">{strAvisoBusqueda}</p>
                     )}
@@ -445,7 +446,7 @@ export default function ModalIngresoExcepcional({
                           {consultaResultado.nombreCompleto || "Estudiante no registrado"}
                         </h4>
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${consultaResultado.estado === "DUPLICADO"
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider ${consultaResultado.estado === "DUPLICADO"
                               ? "bg-[#F1F5F9] text-[#64748B] border border-[#CBD5E1]"
                               : consultaResultado.estado === "HABILITADO"
                                 ? "bg-[#1860A3] text-white"
@@ -455,7 +456,7 @@ export default function ModalIngresoExcepcional({
                           {consultaResultado.estado === "DUPLICADO" ? <Clock className="w-3 h-3" />
                             : consultaResultado.estado === "HABILITADO" ? <CheckCircle2 className="w-3 h-3" />
                               : <XCircle className="w-3 h-3" />}
-                          <span>{ETIQUETA_ESTADO[consultaResultado.estado] || consultaResultado.estado}</span>
+                          <span>{textoInterfaz(ETIQUETA_ESTADO[consultaResultado.estado] || consultaResultado.estado)}</span>
                         </span>
                       </div>
                       {consultaResultado.estado !== "NO_ENCONTRADO" && (
@@ -471,7 +472,7 @@ export default function ModalIngresoExcepcional({
                               : "text-[#B91C1C]"
                           }`}
                       >
-                        {consultaResultado.mensaje}
+                        {textoInterfaz(consultaResultado.mensaje)}
                       </div>
                     </div>
                   </div>
@@ -532,15 +533,15 @@ export default function ModalIngresoExcepcional({
               <div className="min-w-0 flex-1">
                 <p className="font-black text-xs text-[#003770] truncate">{consultaResultado.nombreCompleto}</p>
                 <p className="text-[11px] text-[#64748B] font-bold">
-                  SIS {consultaResultado.codSis} · {ETIQUETA_ESTADO[consultaResultado.estado] || consultaResultado.estado}
+                  SIS {consultaResultado.codSis} · {textoInterfaz(ETIQUETA_ESTADO[consultaResultado.estado] || consultaResultado.estado)}
                 </p>
               </div>
             </div>
 
             {/* Motivo */}
             <div>
-              <label className={`block text-[11px] font-extrabold uppercase tracking-wider mb-1.5 ${motivoSeleccionado ? "text-[#64748B]" : "text-[#B91C1C]"}`}>
-                Motivo <span className="text-[#B91C1C]">* {!motivoSeleccionado && "(obligatorio)"}</span>
+              <label className={`block text-[11px] font-extrabold tracking-wider mb-1.5 ${motivoSeleccionado ? "text-[#64748B]" : "text-[#B91C1C]"}`}>
+                Motivo <span className="text-[#B91C1C]">* {textoInterfaz(!motivoSeleccionado && "(obligatorio)")}</span>
               </label>
               <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl ${motivoSeleccionado ? "" : "ring-2 ring-rose-200 p-1"}`}>
                 {listMotivos.map((mot) => {
@@ -557,8 +558,8 @@ export default function ModalIngresoExcepcional({
                         {isChecked && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
                       <div>
-                        <span className="font-extrabold block text-xs leading-snug">{mot.titulo}</span>
-                        <span className="text-[10px] text-[#64748B] block leading-tight mt-0.5">{mot.descripcion}</span>
+                        <span className="font-extrabold block text-xs leading-snug">{textoInterfaz(mot.titulo)}</span>
+                        <span className="text-[10px] text-[#64748B] block leading-tight mt-0.5">{textoInterfaz(mot.descripcion)}</span>
                       </div>
                     </button>
                   );
@@ -568,7 +569,7 @@ export default function ModalIngresoExcepcional({
 
             {/* Autorizador: siempre el usuario de la sesión */}
             <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1">Docente que autoriza</label>
+              <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B] mb-1">Docente que autoriza</label>
               <input
                 type="text"
                 value={strNombreAutoriza}
@@ -581,7 +582,7 @@ export default function ModalIngresoExcepcional({
             {/* Observación */}
             <div>
               <div className="flex justify-between items-center mb-1 gap-2">
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B]">
+                <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B]">
                   Observación <span className="text-[#B91C1C]">*</span>
                 </label>
                 <span className={`text-[10px] font-mono font-bold ${observacionValida ? "text-[#9AA8BA]" : "text-[#B91C1C]"}`}>
@@ -600,7 +601,7 @@ export default function ModalIngresoExcepcional({
 
             {/* Respaldo */}
             <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#64748B] mb-1">
+              <label className="block text-[11px] font-extrabold tracking-wider text-[#64748B] mb-1">
                 Respaldo <span className="text-[#9AA8BA] font-normal">(opcional · JPG o PNG, máx. 5 MB)</span>
               </label>
               <div className="border border-dashed border-[#CBD5E1] hover:border-[#4A97D3] rounded-xl p-3 bg-white flex items-center justify-between gap-3 transition">
@@ -658,7 +659,7 @@ export default function ModalIngresoExcepcional({
             </div>
 
             {strErrorGuardado && (
-              <div className="bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] p-2.5 rounded-xl text-xs font-bold">✕ {strErrorGuardado}</div>
+              <div className="bg-[#FEF2F2] border border-[#FEE2E2] text-[#B91C1C] p-2.5 rounded-xl text-xs font-bold">✕ {textoInterfaz(strErrorGuardado)}</div>
             )}
             {strExitoMensaje && (
               <div className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] p-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5">

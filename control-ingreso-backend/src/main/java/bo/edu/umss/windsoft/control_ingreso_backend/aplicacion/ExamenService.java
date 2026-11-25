@@ -9,6 +9,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.AmbienteRes
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.NormaGeneralRespuestaDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.AccesoDenegadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoDuplicadoException;
 
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ExamenDetalleDto;
 
@@ -332,6 +333,10 @@ public class ExamenService {
             throw new IllegalArgumentException(
                     "La hora de fin debe ser posterior a la hora de inicio.");
         }
+
+        validarExamenDuplicado(request.getIdAsignatura(), request.getIdGrupo(),
+                request.getFechaExamen().toLocalDate(), idAula, horaInicio, horaFin,
+                examenAActualizar != null ? examenAActualizar.getIdExamen() : null);
 
         List<Integer> aulasAdicionales = request.getIdsAulasAdicionales();
         validarAulaActiva(idAula);
@@ -847,10 +852,32 @@ public class ExamenService {
                     && horaFin.isAfter(existente.getHoraInicio());
 
             if (seSuperponen) {
-                throw new IllegalArgumentException(
+                throw new RecursoDuplicadoException(
                         "El aula con id " + idAula + " ya está ocupada el " + fecha
                                 + " entre " + existente.getHoraInicio() + " y " + existente.getHoraFin()
                                 + " (examen id " + existente.getIdExamen() + ").");
+            }
+        }
+    }
+
+    private void validarExamenDuplicado(Integer idAsignatura, Integer idGrupo, LocalDate fecha,
+            Integer idAula, LocalTime horaInicio, LocalTime horaFin, Integer idExamenAExcluir) {
+        if (idGrupo == null || idAula == null) return;
+
+        for (Examen existente : examenRepository.findByIdAsignatura(idAsignatura)) {
+            if (Boolean.TRUE.equals(existente.getCancelado())
+                    || existente.getIdExamen().equals(idExamenAExcluir)
+                    || !idGrupo.equals(existente.getIdGrupo())
+                    || !fecha.equals(existente.getFechaExamen())) {
+                continue;
+            }
+            for (Ambiente ambiente : ambienteRepository.findByIdExamen(existente.getIdExamen())) {
+                if (idAula.equals(ambiente.getIdAula())
+                        && horaInicio.equals(ambiente.getHoraInicio())
+                        && horaFin.equals(ambiente.getHoraFin())) {
+                    throw new RecursoDuplicadoException(
+                            "Ya existe un examen de esa materia y grupo en ese horario.");
+                }
             }
         }
     }

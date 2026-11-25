@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Camera, ScanFace, SwitchCamera, AlertCircle, CheckCircle2, ArrowLeft, ShieldAlert } from "lucide-react";
 import useHumanFace from "../../../hooks/useHumanFace";
@@ -292,12 +293,12 @@ export default function ModalVerificacionFacialEstudiante({ examen, usuario, onV
         {/* Cabecera */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="m-0 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+            <p className="m-0 text-[11px] font-bold tracking-wider text-[#64748B]">
               Control de acceso · Verificación biométrica obligatoria
             </p>
-            <h3 className="m-0 text-[17px] font-bold text-[#08264A] truncate">{strNombre}</h3>
+            <h3 className="m-0 text-[17px] font-bold text-[#08264A] truncate">{textoInterfaz(strNombre)}</h3>
             <p className="m-0 text-xs font-semibold text-[#64748B]">
-              SIS {strSis} · {examen?.materia || "Examen presencial"}
+              SIS {strSis} · {textoInterfaz(examen?.materia || "Examen presencial")}
             </p>
           </div>
           {onCancelar && (
@@ -390,7 +391,7 @@ export default function ModalVerificacionFacialEstudiante({ examen, usuario, onV
               className={`w-4 h-4 shrink-0 mt-0.5 ${tipoEstado === "error" ? "text-[#B91C1C]" : "text-[#003770]"}`}
             />
           )}
-          <span>{estado}</span>
+          <span>{textoInterfaz(estado)}</span>
         </div>
 
         {/* Controles de acción */}

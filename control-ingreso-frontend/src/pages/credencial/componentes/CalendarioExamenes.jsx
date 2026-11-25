@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Calendario compacto: marca los días con examen; al elegir un día muestra sus exámenes
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -80,7 +81,7 @@ export default function CalendarioExamenes({ listExamenes = [], onVerQr }) {
                   onClick={() => onVerQr(e.id)}
                   className="w-full text-left px-3 py-2 rounded-lg bg-[#F0F6FC] hover:bg-[#D9E8F7] cursor-pointer"
                 >
-                  <b className="block text-[13px] font-semibold text-[#08264A]">{e.materia}</b>
+                  <b className="block text-[13px] font-semibold text-[#08264A]">{textoInterfaz(e.materia)}</b>
                   <span className="text-xs text-[#475569]">{e.horaInicio}{e.horaFin ? ` – ${e.horaFin}` : ""} · Aula {String(e.aula || "").replace(/^aula\s*/i, "")}</span>
                 </button>
               </li>

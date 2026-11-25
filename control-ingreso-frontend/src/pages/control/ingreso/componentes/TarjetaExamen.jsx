@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Encabezado del examen que se está controlando (bloque azul):
 // tipo de examen, materia, fecha · horario · aula, botón de acciones y contadores
 import { textoGrupoExamen } from "../../../../components/examenes/textoGrupoExamen";
@@ -44,7 +45,7 @@ function Contador({ numValor, strEtiqueta, boolRojo = false }) {
   return (
     <div className={"min-w-[88px] max-md:min-w-0 rounded-lg px-3 py-2 " + (boolRojo ? "bg-[#B91C1C]" : "bg-white/10")}>
       <b className="block text-[18px] max-md:text-[16px] leading-none font-bold text-white">{numValor}</b>
-      <span className={"block mt-1 text-[11px] " + (boolRojo ? "text-white" : "text-white/80")}>{strEtiqueta}</span>
+      <span className={"block mt-1 text-[11px] " + (boolRojo ? "text-white" : "text-white/80")}>{textoInterfaz(strEtiqueta)}</span>
     </div>
   );
 }
@@ -75,8 +76,8 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
         <div className="min-w-0">
           {/* Tipo de examen + estado de la conexión ("En vivo") */}
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-            <span className="text-xs font-bold uppercase tracking-[.8px] text-white/75">
-              Control de ingreso · {conTildes(examen.tipo)}{strGrupo ? ` · ${strGrupo}` : ""}
+            <span className="text-xs font-bold tracking-[.8px] text-white/75">
+              Control de ingreso · {textoInterfaz(conTildes(examen.tipo))}{strGrupo ? ` · ${strGrupo}` : ""}
             </span>
             {strEstadoVivo === "vivo" && (
               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-bold text-white">
@@ -90,7 +91,7 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
               </span>
             )}
           </div>
-          <h1 className="m-0 mt-1 text-[28px] max-md:text-[22px] font-bold leading-tight break-words">{conTildes(examen.materia)}</h1>
+          <h1 className="m-0 mt-1 text-[28px] max-md:text-[22px] font-bold leading-tight break-words">{textoInterfaz(conTildes(examen.materia))}</h1>
           {/* Fecha · horario · aula en texto simple (sin recuadros) */}
           <p className="m-0 mt-2 text-[13px] font-medium text-white/80">
             {[textoFecha(examen.fecha), strHorario, examen.aula ? textoAula(examen.aula) : ""].filter(Boolean).join(" · ")}

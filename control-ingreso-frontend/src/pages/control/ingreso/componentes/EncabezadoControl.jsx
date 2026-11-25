@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Botón volver, saludo opcional y avisos de conexión (offline, almacenamiento y sincronización)
 import { ArrowLeft, HardDrive } from "lucide-react";
 
@@ -18,7 +19,7 @@ function BadgeConexion({ net, pend }) {
     <span className={`inline-flex items-center gap-[7px] px-3 py-1.5 rounded-full text-xs font-semibold ${c.bg} ${c.text}`}>
       <i className={`w-[7px] h-[7px] rounded-full ${c.dot}`} />
       {c.icon && <span className="text-[10px]">{c.icon}</span>}
-      {c.label}
+      {textoInterfaz(c.label)}
     </span>
   );
 }
@@ -84,7 +85,7 @@ function SyncProgress({ net, pend, syncTotal, lote, enviados }) {
         <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
           <div className="h-full rounded-full bg-[#4A97D3] transition-all duration-500" style={{ width: ancho + "%" }}></div>
         </div>
-        <span className="text-[11px] font-bold text-slate-500 w-44 text-right shrink-0 max-md:w-auto max-md:text-left">{etiqueta}</span>
+        <span className="text-[11px] font-bold text-slate-500 w-44 text-right shrink-0 max-md:w-auto max-md:text-left">{textoInterfaz(etiqueta)}</span>
       </div>
     </div>
   );
@@ -116,7 +117,7 @@ export default function EncabezadoControl({
         <div className="flex flex-wrap items-end justify-between gap-3.5">
           {strTitulo ? (
             <div>
-              <h1 className="m-0 text-[22px] max-md:text-xl font-bold text-[#08264A]">{strTitulo}</h1>
+              <h1 className="m-0 text-[22px] max-md:text-xl font-bold text-[#08264A]">{textoInterfaz(strTitulo)}</h1>
               <p className="mt-1 text-[13px] text-[#64748B]">{fechaDeHoy()}{strDetalle ? ` · ${strDetalle}` : ""}</p>
             </div>
           ) : <span />}

@@ -33,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ContextConfiguration(classes = HistorialAccesoSecurityTest.Config.class)
 class HistorialAccesoSecurityTest {
     @Autowired WebApplicationContext context;
+    @Autowired bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.UsuarioService usuariosAdmin;
     MockMvc mvc;
 
     @BeforeEach
@@ -62,17 +63,34 @@ class HistorialAccesoSecurityTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void administradorNoPuedeBorrarCuentas() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .delete("/api/admin/usuarios/4").with(user("admin").roles("ADMINISTRADOR")))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Allow", org.hamcrest.Matchers.containsString("GET")));
+        org.mockito.Mockito.verifyNoInteractions(usuariosAdmin);
+    }
+
     @Configuration
     @EnableWebMvc
     @EnableWebSecurity
-    @Import(SecurityConfig.class)
+    @Import({SecurityConfig.class,
+            bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.GlobalExceptionHandler.class,
+            bo.edu.umss.windsoft.control_ingreso_backend.presentacion.UsuarioAdminController.class})
     static class Config {
         @Bean ObjectMapper objectMapper() { return new ObjectMapper(); }
+        @Bean bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.UsuarioService usuariosAdmin() {
+            return mock(bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.UsuarioService.class);
+        }
         @Bean JwtTokenProvider tokenProvider() { return mock(JwtTokenProvider.class); }
+        @Bean ClientVersionFilter clientVersionFilter() { return new ClientVersionFilter(0); }
         @Bean UsuarioRepository usuarios() { return mock(UsuarioRepository.class); }
         @Bean AuditoriaService auditoria() { return mock(AuditoriaService.class); }
         @Bean JwtAuthenticationFilter filtro(JwtTokenProvider token, UsuarioRepository usuarios) {
-            return new JwtAuthenticationFilter(token, usuarios);
+            return new JwtAuthenticationFilter(token, usuarios,
+                    mock(bo.edu.umss.windsoft.control_ingreso_backend.aplicacion.TipoUsuarioResolver.class));
         }
         @Bean CambioContrasenaObligatorioFilter cambioContrasena(UsuarioRepository usuarios) {
             return new CambioContrasenaObligatorioFilter(usuarios);

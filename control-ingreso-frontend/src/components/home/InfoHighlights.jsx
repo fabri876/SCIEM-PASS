@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { Link } from "react-router-dom";
 
 /**
@@ -66,10 +67,10 @@ function ContenidoCard({ destacado }) {
         </svg>
       </span>
       <h3 className="text-[17px] font-extrabold text-primary-navy m-0">
-        {destacado.strTitulo}
+        {textoInterfaz(destacado.strTitulo)}
       </h3>
       <p className="text-[14px] leading-[1.5] text-text-body m-0">
-        {destacado.strTexto}
+        {textoInterfaz(destacado.strTexto)}
       </p>
     </>
   );

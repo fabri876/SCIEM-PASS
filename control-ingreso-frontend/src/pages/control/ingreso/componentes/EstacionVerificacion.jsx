@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 import { useRegisterBackHandler } from "../../../../hooks/useAndroidBackButton";
 // Estación de verificación en dos fases:
 // 1) Identificar por QR o manual (no registra).
@@ -39,11 +40,11 @@ function Paso({ numero, texto, boolActivo, boolHecho }) {
       ? "bg-[#003770] text-white border-[#003770]"
       : "bg-white text-[#94A3B8] border-[#CBD5E1]";
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider">
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold tracking-wider">
       <span className={"w-5 h-5 rounded-full border flex items-center justify-center " + clase}>
         {boolHecho ? <Check className="w-3 h-3" /> : numero}
       </span>
-      <span className={boolActivo || boolHecho ? "text-[#08264A]" : "text-[#94A3B8]"}>{texto}</span>
+      <span className={boolActivo || boolHecho ? "text-[#08264A]" : "text-[#94A3B8]"}>{textoInterfaz(texto)}</span>
     </span>
   );
 }
@@ -250,7 +251,7 @@ export default function EstacionVerificacion({
           </span>
           <div>
             <h2 id="ci-t-verificacion" className="m-0 text-lg font-bold text-[#08264A]">Verificación de ingreso</h2>
-            <p className="m-0 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+            <p className="m-0 text-[11px] font-bold tracking-wider text-[#64748B]">
               {boolIdentificado ? (boolModoRapido ? "Fase 2 de 2 · Confirmar" : "Fase 2 de 2 · Rostro") : "Fase 1 de 2 · Identificar"}
             </p>
           </div>

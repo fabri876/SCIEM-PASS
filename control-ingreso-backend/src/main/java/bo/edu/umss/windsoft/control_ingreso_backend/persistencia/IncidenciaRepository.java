@@ -3,6 +3,8 @@ package bo.edu.umss.windsoft.control_ingreso_backend.persistencia;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Incidencia;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -17,4 +19,9 @@ public interface IncidenciaRepository extends JpaRepository<Incidencia, Integer>
     List<Incidencia> findByIdAmbienteInOrderByFechaHoraDesc(Collection<Integer> idsAmbiente);
 
     List<Incidencia> findAllByOrderByFechaHoraDesc();
+
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM incidencia i JOIN ambiente a ON a.idambiente = i.idambiente "
+            + "WHERE a.idexamen = :idExamen AND i.codsisestudiante = :codigoSis)", nativeQuery = true)
+    boolean existsByExamenAndCodigoSis(@Param("idExamen") Integer idExamen,
+                                       @Param("codigoSis") Integer codigoSis);
 }

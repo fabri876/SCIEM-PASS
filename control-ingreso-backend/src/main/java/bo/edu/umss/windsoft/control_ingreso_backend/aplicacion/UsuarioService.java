@@ -4,9 +4,11 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Admin;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ayudante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Docente;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.PoliticaAdministrador;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoDuplicadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoNoEncontradoException;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AdminRepository;
 import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.AyudanteRepository;
@@ -16,6 +18,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioReposito
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ActualizarUsuarioDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.CrearUsuarioDto;
 import bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.UsuarioRespuestaDto;
+import bo.edu.umss.windsoft.control_ingreso_backend.persistencia.UsuarioHistorialRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +38,7 @@ public class UsuarioService {
     private final AyudanteRepository ayudanteRepository;
     private final EstudianteRepository estudianteRepository;
     private final GrupoService grupoService;
-    private final bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EliminacionUsuarioRepository eliminacionUsuarioRepository;
+    private final UsuarioHistorialRepository usuarioHistorialRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoriaService;
     private final UsuarioRespuestaMapper usuarioRespuestaMapper;
@@ -44,7 +47,7 @@ public class UsuarioService {
     public UsuarioService(UsuarioRepository usuarioRepository, AdminRepository adminRepository,
                            DocenteRepository docenteRepository, AyudanteRepository ayudanteRepository,
                            EstudianteRepository estudianteRepository, GrupoService grupoService,
-                           bo.edu.umss.windsoft.control_ingreso_backend.persistencia.EliminacionUsuarioRepository eliminacionUsuarioRepository,
+                           UsuarioHistorialRepository usuarioHistorialRepository,
                            PasswordEncoder passwordEncoder, AuditoriaService auditoriaService,
                            UsuarioRespuestaMapper usuarioRespuestaMapper, TipoUsuarioResolver tipoUsuarioResolver) {
         this.usuarioRepository = usuarioRepository;
@@ -53,7 +56,7 @@ public class UsuarioService {
         this.ayudanteRepository = ayudanteRepository;
         this.estudianteRepository = estudianteRepository;
         this.grupoService = grupoService;
-        this.eliminacionUsuarioRepository = eliminacionUsuarioRepository;
+        this.usuarioHistorialRepository = usuarioHistorialRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditoriaService = auditoriaService;
         this.usuarioRespuestaMapper = usuarioRespuestaMapper;
@@ -136,7 +139,9 @@ public class UsuarioService {
                 grupoService.validarUnGrupoPorAsignatura(new java.util.ArrayList<>(grupos));
                 for (Integer idGrupo : grupos) grupoService.inscribirEstudianteAGrupo(cuenta.getIdusuario(), dto.getCodigoSis(), idGrupo);
                 grupoService.guardarCarreras(cuenta.getIdusuario(),carrerasRegistro);
-                return usuarioRespuestaMapper.mapear(cuenta);
+                UsuarioRespuestaDto respuestaExistente = usuarioRespuestaMapper.mapear(cuenta);
+                respuestaExistente.setUsuarioExistente(true);
+                return respuestaExistente;
             }
         }
         validarUnicidad(ciNormalizado, dto.getCorreo());
@@ -201,7 +206,22 @@ public class UsuarioService {
             return usuarioRespuestaMapper.mapear(usuario);
         }
 
+        if (TipoUsuarioResolver.ADMINISTRADOR.equals(rolOriginal)
+                && !TipoUsuarioResolver.ADMINISTRADOR.equals(rolNuevoNormalizado)) {
+            PoliticaAdministrador.validarPuedeRetirarse(adminRepository.count());
+        }
+
         validarCodigoDisponible(rolNuevoNormalizado, codigoSis);
+
+        // No se puede borrar la fila del rol actual si el usuario ya tiene
+        // historial académico u operativo. Ese historial debe conservarse y
+        // el cambio de rol no debe dejar referencias huérfanas.
+        if (usuarioHistorialRepository.tieneHistorial(id)) {
+            throw new ConflictoEstadoException(
+                    "No se puede cambiar el rol porque el usuario tiene registros vinculados "
+                            + "(exámenes, asignaciones, horarios, ingresos o auditoría). Desactive la cuenta "
+                            + "o conserve el rol actual.");
+        }
 
         // Eliminar fila de rol previa
         switch (rolOriginal) {
@@ -253,6 +273,9 @@ public class UsuarioService {
     @Transactional
     public UsuarioRespuestaDto cambiarEstado(Integer id, boolean activo, String executorCorreo, String ip) {
         Usuario usuario = buscarOLanzar(id);
+        if (!activo && TipoUsuarioResolver.ADMINISTRADOR.equals(tipoUsuarioResolver.resolver(id))) {
+            PoliticaAdministrador.validarPuedeRetirarse(adminRepository.count());
+        }
         usuario.setEstadousuario(activo);
         usuario = usuarioRepository.save(usuario);
 
@@ -261,30 +284,6 @@ public class UsuarioService {
                 "Estado de cuenta cambiado a " + (activo ? "ACTIVO" : "INACTIVO") + " para ID " + id + ".", ip);
 
         return usuarioRespuestaMapper.mapear(usuario);
-    }
-
-    @Transactional
-    public void eliminar(Integer id, String executorCorreo, String ip) {
-        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities().stream()
-                .noneMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority())))
-            throw new org.springframework.security.access.AccessDeniedException("Solo el administrador puede eliminar usuarios.");
-        Usuario usuario = buscarOLanzar(id);
-        if (TipoUsuarioResolver.ADMINISTRADOR.equals(tipoUsuarioResolver.resolver(id)))
-            throw new SolicitudInvalidaException("No se permite eliminar cuentas de administrador.");
-        Usuario ejecutor = usuarioRepository.findByCorreousuario(executorCorreo)
-                .orElseThrow(() -> new SolicitudInvalidaException("Administrador no encontrado."));
-        if (id.equals(ejecutor.getIdusuario())) throw new SolicitudInvalidaException("No puede eliminar su propia cuenta.");
-        eliminacionUsuarioRepository.bloquear(id);
-        if (eliminacionUsuarioRepository.tieneHistorial(id))
-            throw new SolicitudInvalidaException("Este usuario tiene registros o auditorías vinculados. Desactive la cuenta para conservar el historial.");
-        try {
-            eliminacionUsuarioRepository.eliminar(id, ejecutor.getIdusuario(),
-                    "[ELIMINACION_USUARIO] ejecutor=" + executorCorreo + " | afectado=" + usuario.getCorreousuario()
-                    + " | ID=" + id + " | ip=" + ip);
-        } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            throw new SolicitudInvalidaException("El usuario tiene otros registros vinculados y no puede eliminarse. Desactive la cuenta.");
-        }
     }
 
     private Usuario buscarOLanzar(Integer id) {
@@ -334,7 +333,10 @@ public class UsuarioService {
     private void crearFilaTablaHija(String rol, Integer idUsuario, Integer codigoSis) {
         int codSisFinal = codigoSis != null ? codigoSis : idUsuario;
         switch (rol) {
-            case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.save(new Admin(idUsuario));
+            case TipoUsuarioResolver.ADMINISTRADOR -> {
+                PoliticaAdministrador.validarPuedeExistirOtro(adminRepository.count());
+                adminRepository.save(new Admin(idUsuario));
+            }
             case TipoUsuarioResolver.DOCENTE -> docenteRepository.save(new Docente(idUsuario, codSisFinal));
             case TipoUsuarioResolver.OPERADOR -> ayudanteRepository.save(new Ayudante(idUsuario));
             case TipoUsuarioResolver.ESTUDIANTE -> estudianteRepository.save(new Estudiante(idUsuario, codSisFinal));

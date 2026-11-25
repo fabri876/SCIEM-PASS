@@ -1,3 +1,4 @@
+import ReporteLista from '../../components/common/ReporteLista.jsx';
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "../../components/layout/Header";
@@ -70,7 +71,10 @@ export default function Examenes() {
 
         {!boolCargando && !strError && arrExamenes.length > 0 && (
           <div className="flex flex-col gap-4">
-            {arrExamenes.map((examen) => (
+            <ReporteLista titulo="Exámenes" contenido={() => <>{arrExamenes.map((examen) => (
+              <ExamenCard key={`${examen.intId}-${examen.idAmbiente ?? "sin-aula"}`} examen={examen} />
+            ))}</>} />
+{arrExamenes.map((examen) => (
               <ExamenCard key={`${examen.intId}-${examen.idAmbiente ?? "sin-aula"}`} examen={examen} />
             ))}
           </div>

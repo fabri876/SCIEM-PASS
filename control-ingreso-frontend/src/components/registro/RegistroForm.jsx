@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Logo from "../common/Logo";
@@ -87,7 +88,7 @@ export default function RegistroForm() {
 
       {strErrorEnvio && (
         <p className="mb-4 text-sm font-semibold text-accent-red" role="alert">
-          {strErrorEnvio}
+          {textoInterfaz(strErrorEnvio)}
         </p>
       )}
 
@@ -210,7 +211,7 @@ export default function RegistroForm() {
                   checked={strRolSeleccionado === opcion.strValor}
                   onChange={() => setStrRolSeleccionado(opcion.strValor)}
                 />
-                {opcion.strEtiqueta}
+                {textoInterfaz(opcion.strEtiqueta)}
               </label>
             ))}
           </div>

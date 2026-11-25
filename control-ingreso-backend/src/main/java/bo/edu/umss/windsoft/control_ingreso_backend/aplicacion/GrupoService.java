@@ -392,6 +392,10 @@ public class GrupoService {
             case TipoUsuarioResolver.OPERADOR -> {
                 if (!ayudanteRepository.existsByIdusuario(idUsuario))
                     throw new ValidacionNegocioException("El usuario no es ayudante.");
+                if (examenRepository.existsActivoNoCanceladoByIdGrupo(idGrupo)) {
+                    throw new bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.ConflictoEstadoException(
+                            "No se puede quitar la asignación del ayudante porque el grupo tiene exámenes activos.");
+                }
                 ayudanteGrupoRepository.deleteByIdUsuarioAndIdGrupo(idUsuario, idGrupo);
             }
             default -> throw new ValidacionNegocioException("Rol no válido para asignación académica.");

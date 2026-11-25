@@ -30,10 +30,14 @@ const pwaSsr = {
 const server = await createServer({ root, configFile: false, define: { "import.meta.env.DEV": false }, plugins: [pwaSsr], server: { middlewareMode: true, watch: null }, appType: "custom" });
 try {
   const { default: Tabla } = await server.ssrLoadModule("/src/pages/admin/components/UserTableCard.jsx");
-  for (const usuarios of [[], [{ idUsuario: 4, nombre: "Estudiante", apellido: "Prueba", rol: "ESTUDIANTE", estado: true }]]) {
-    const html = renderToString(React.createElement(Tabla, { usuarios, onEliminar: async () => {} }));
+  const estudiante = { idUsuario: 4, nombre: "Estudiante", apellido: "Prueba", rol: "ESTUDIANTE" };
+  for (const usuarios of [[], [{ ...estudiante, estado: true }], [{ ...estudiante, estado: false }]]) {
+    const html = renderToString(React.createElement(Tabla, { usuarios }));
     assert.ok(html.includes("Administración de Usuarios y Roles"));
-    if (usuarios.length) assert.ok(html.includes("Eliminar usuario"));
+    assert.ok(!html.includes("Eliminar usuario"));
+    assert.ok(!html.includes("Eliminar definitivamente"));
+    assert.equal(html.includes('title="Desactivar"'), usuarios[0]?.estado === true);
+    assert.equal(html.includes('title="Activar"'), usuarios[0]?.estado === false);
   }
   const { default: Header } = await server.ssrLoadModule("/src/components/layout/Header.jsx");
   for (const [rol, destino] of [["ADMINISTRADOR", "/admin"], ["DOCENTE", "/home/docente"], ["ESTUDIANTE", "/estudiante"], ["OPERADOR", "/control"], [null, "/inicio"]]) {

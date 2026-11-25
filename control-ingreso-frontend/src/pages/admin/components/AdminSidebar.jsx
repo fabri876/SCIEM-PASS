@@ -1,3 +1,4 @@
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useState, useEffect } from "react";
 import { Users, Calendar, UserCheck, History, Shield, AlertTriangle, BookOpen, Activity, FileText, Upload, XCircle, ScanFace, Database } from "lucide-react";
 import { obtenerTotalIncidenciasAbiertas } from "../../../services/incidenciaService";
@@ -48,7 +49,7 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
         <div className="w-full h-full bg-primary-navy text-bg-card p-4 flex flex-col justify-between shrink-0 border-r border-border/20">
             <div className="space-y-2">
                 <div className="px-4 py-3 mb-2">
-                    <span className="text-badge font-black uppercase tracking-wider text-bg-card/60">
+                    <span className="text-badge font-black tracking-wider text-bg-card/60">
                         Menú Principal
                     </span>
                 </div>
@@ -72,7 +73,7 @@ export default function AdminSidebar({ activeMenu, setActiveMenu }) {
                         >
                             <div className="flex items-center gap-3">
                                 <Icon className={`w-4 h-4 ${isActive ? "text-bg-card" : "text-bg-card/60"}`} />
-                                <span>{item.label}</span>
+                                <span>{textoInterfaz(item.label)}</span>
                             </div>
                             {badgeValor !== null && badgeValor !== undefined && (
                                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isActive ? "bg-white text-rose-600" : "bg-rose-500 text-white"

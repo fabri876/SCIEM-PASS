@@ -23,4 +23,11 @@ class PoliticaContrasenaTest {
         assertTrue(PoliticaContrasena.validarCambio("MiClave!2025", "MiClave!2025").orElseThrow().contains("distinta"));
         assertTrue(PoliticaContrasena.validarCambio("MiClave!2025", "Roca!MiClave!2025#").orElseThrow().contains("contener"));
     }
+
+    @Test void administradorNoPuedeUsarDatosDeSuIdentidad() {
+        assertTrue(PoliticaContrasena.validarAdministrador("Persona!Nube49", "7592468", "persona@example.invalid").isPresent());
+        assertTrue(PoliticaContrasena.validarAdministrador("Vela!7592468Nube", "7592468", "persona@example.invalid").isPresent());
+        assertTrue(PoliticaContrasena.validarAdministrador("Password!2026#", "7592468", "persona@example.invalid").isPresent());
+        assertTrue(PoliticaContrasena.validarAdministrador("Vela$8Nube!49", "7592468", "persona@example.invalid").isEmpty());
+    }
 }

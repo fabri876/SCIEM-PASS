@@ -45,6 +45,15 @@ class CargaMasivaAcademicaTest {
             w.write(out); return new MockMultipartFile("archivo", "personas.xlsx", "application/octet-stream", out.toByteArray());
         }
     }
+    @Test void cargaMasivaNoCreaAdministradoresConCi() throws Exception {
+        ejecutor();
+        var resultado = servicio.procesarCargaMasiva(archivo(false), "ADMINISTRADOR", "admin@example.test", "local", null);
+        assertEquals(0, resultado.getExitosos());
+        assertEquals(1, resultado.getFallidos());
+        verify(admins, never()).save(any());
+        verify(passwords, never()).encode(any());
+        verify(escrituraLotes, never()).guardarNuevos(any());
+    }
     @Test void docenteSeCreaUnaVezYSeVinculaAVariasMateriasYGrupos() throws Exception {
         ejecutor(); when(passwords.encode(any())).thenReturn("hash");
         Asignatura calculo = new Asignatura(); calculo.setIdAsignatura(10);

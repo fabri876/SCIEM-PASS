@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import { Search, Plus, Pencil, Ban, CheckCircle2, Trash2 } from "lucide-react";
+import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
+import { textoInterfaz } from '../../../utils/textoInterfaz.js';
+import React, { useEffect, useState } from "react";
+import { Search, Plus, Pencil, Ban, CheckCircle2 } from "lucide-react";
 import VentanaEmergente from "../../../components/common/VentanaEmergente";
 import UsuarioFormModal from "./UsuarioFormModal";
 
@@ -31,16 +33,21 @@ const PESTANAS = [
 /**
  * Tabla de administración de usuarios (HU16).
  */
-export default function UserTableCard({ usuarios, boolCargando, strError, onCrear, onEditar, onCambiarRol, onCambiarEstado, onEliminar }) {
+export default function UserTableCard({ usuarios, boolCargando, strError, onCrear, onEditar, onCambiarRol, onCambiarEstado }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [rolSeleccionado, setRolSeleccionado] = useState("ESTUDIANTE");
   const [estadoSeleccionado, setEstadoSeleccionado] = useState("TODOS");
   const [modalUsuario, setModalUsuario] = useState(null);
   const [usuarioParaCambiarEstado, setUsuarioParaCambiarEstado] = useState(null);
-  const [usuarioParaEliminar, setUsuarioParaEliminar] = useState(null);
   const [mensajeExito, setMensajeExito] = useState("");
   const [errorAccion, setErrorAccion] = useState("");
   const [boolProcesando, setBoolProcesando] = useState(false);
+
+  useEffect(() => {
+    if (!mensajeExito) return undefined;
+    const timer = setTimeout(() => setMensajeExito(""), 4000);
+    return () => clearTimeout(timer);
+  }, [mensajeExito]);
 
   const listaSegura = Array.isArray(usuarios) ? usuarios : [];
 
@@ -65,8 +72,10 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
         await onCambiarRol(modalUsuario.usuario.idUsuario, rolCambio.nuevoRol, rolCambio.codigoSis);
       }
     } else {
-      await onCrear(datos);
-      setMensajeExito("Usuario registrado correctamente.");
+      const respuesta = await onCrear(datos);
+      setMensajeExito(respuesta?.usuarioExistente
+        ? "El usuario ya estaba registrado; se actualizó su asociación correctamente."
+        : "Usuario creado correctamente.");
     }
     setModalUsuario(null);
   };
@@ -78,19 +87,6 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
       await onCambiarEstado(usuarioParaCambiarEstado.idUsuario, nuevoEstado);
       setUsuarioParaCambiarEstado(null);
     } catch (e) { setErrorAccion(e.message); } finally {
-      setBoolProcesando(false);
-    }
-  };
-
-  const fnEliminar = async () => {
-    setBoolProcesando(true);
-    setErrorAccion("");
-    try {
-      await onEliminar(usuarioParaEliminar.idUsuario);
-      setUsuarioParaEliminar(null);
-    } catch (e) {
-      setErrorAccion(e.message);
-    } finally {
       setBoolProcesando(false);
     }
   };
@@ -122,7 +118,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
           {PESTANAS.map(tab => <button key={tab.id} type="button" aria-pressed={rolSeleccionado === tab.id}
             onClick={() => setRolSeleccionado(tab.id)}
             className={`shrink-0 px-3 py-3 text-secondary font-bold border-b-2 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-primary-blue ${rolSeleccionado === tab.id ? "border-primary-blue text-primary-blue bg-primary-blue/5" : "border-transparent text-text-body hover:bg-bg-app hover:text-primary-navy"}`}>
-            {tab.nombre} <span className="ml-1 text-badge rounded-full bg-bg-app px-1.5 py-0.5">{tab.id === "TODOS" ? listaSegura.length : listaSegura.filter(u => u?.rol === tab.id).length}</span>
+            {textoInterfaz(tab.nombre)} <span className="ml-1 text-badge rounded-full bg-bg-app px-1.5 py-0.5">{tab.id === "TODOS" ? listaSegura.length : listaSegura.filter(u => u?.rol === tab.id).length}</span>
           </button>)}
         </div>
 
@@ -130,7 +126,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
           {[{id: "TODOS", nombre: "Todos los estados"}, {id: "ACTIVO", nombre: "Activos"}, {id: "INACTIVO", nombre: "Inactivos"}].map(estado =>
             <button key={estado.id} type="button" aria-pressed={estadoSeleccionado === estado.id} onClick={() => setEstadoSeleccionado(estado.id)}
               className={`px-3 py-2 rounded-lg text-secondary font-bold transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-primary-blue ${estadoSeleccionado === estado.id ? "bg-bg-card text-primary-navy shadow-sm" : "text-text-body hover:text-primary-navy"}`}>
-              {estado.nombre}
+              {textoInterfaz(estado.nombre)}
             </button>)}
         </div>
 
@@ -152,15 +148,15 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
 
         {strError && (
           <p className="mb-4 text-body font-semibold text-accent-red" role="alert">
-            {strError}
+            {textoInterfaz(strError)}
           </p>
         )}
 
         {/* Tabla */}
         <div className="max-h-[520px] overflow-auto rounded-xl border border-border" tabIndex={0} aria-label="Lista de usuarios" role="region">
-          <table className="w-full text-left border-collapse">
+          <TablaConReporte titulo="Usuarios">{(_paraReporte) => (<table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-10">
-              <tr className="bg-bg-app text-badge font-bold text-text-body/70 uppercase tracking-wider border-b border-border">
+              <tr className="bg-bg-app text-badge font-bold text-text-body/70 tracking-wider border-b border-border">
                 <th className="py-3 px-4">Usuario</th>
                 <th className="py-3 px-4">CI</th>
                 <th className="py-3 px-4">Correo</th>
@@ -199,7 +195,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
                       <td className="py-3 px-4 text-text-body/80">{user.correo}</td>
                       <td className="py-3 px-4">
                         <span className="bg-bg-app border border-border text-primary-navy font-semibold px-3 py-1.5 rounded-xl text-secondary">
-                          {({ ESTUDIANTE: "Estudiante", DOCENTE: "Docente", OPERADOR: "Ayudante", ADMINISTRADOR: "Administrador" })[user.rol] || user.rol || "PENDIENTE"}
+                          {textoInterfaz(({ ESTUDIANTE: "Estudiante", DOCENTE: "Docente", OPERADOR: "Ayudante", ADMINISTRADOR: "Administrador" })[user.rol] || user.rol || "PENDIENTE")}
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -207,7 +203,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
                           ? "bg-emerald-100/70 text-emerald-600"
                           : "bg-red-100/70 text-accent-red"
                           }`}>
-                          {user.estado ? "Activo" : "Inactivo"}
+                          {textoInterfaz(user.estado ? "Activo" : "Inactivo")}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
@@ -219,14 +215,16 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => { setErrorAccion(""); setUsuarioParaCambiarEstado(user); }}
-                            title={user.estado ? "Desactivar" : "Activar"}
-                            className={user.estado ? "p-1 text-accent-red hover:bg-red-50 rounded-md transition-colors" : "p-1 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"}
-                          >
-                            {user.estado ? <Ban className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                          </button>
-                          {onEliminar && user.rol !== "ADMINISTRADOR" && <button type="button" title="Eliminar usuario" aria-label={`Eliminar a ${nombreCompleto}`} onClick={() => { setErrorAccion(""); setUsuarioParaEliminar(user); }} className="p-1 text-accent-red hover:bg-red-50 rounded-md"><Trash2 className="w-4 h-4" /></button>}
+                          {(user.rol !== "ADMINISTRADOR" || !user.estado) && (
+                            <button
+                              type="button"
+                              onClick={() => { setErrorAccion(""); setUsuarioParaCambiarEstado(user); }}
+                              title={user.estado ? "Desactivar" : "Activar"}
+                              className={user.estado ? "p-1 text-accent-red hover:bg-red-50 rounded-md transition-colors" : "p-1 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"}
+                            >
+                              {user.estado ? <Ban className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -240,7 +238,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
                 </tr>
               )}
             </tbody>
-          </table>
+          </table>)}</TablaConReporte>
         </div>
       </div>
 
@@ -256,23 +254,19 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
         onGuardar={fnGuardarUsuario}
       />
 
-      <VentanaEmergente boolAbierto={!!usuarioParaEliminar} onCerrar={() => { if (!boolProcesando) setUsuarioParaEliminar(null); }}>
-        <div className="p-6 space-y-4">
-          <h2 className="text-h3 font-extrabold text-primary-navy">¿Eliminar este usuario?</h2>
-          <p>{usuarioParaEliminar?.nombre} {usuarioParaEliminar?.apellido} · {usuarioParaEliminar?.correo}</p>
-          <p>Se eliminarán la cuenta y todas sus asignaciones a materias y grupos. Esta acción no se puede deshacer. Si tiene registros de exámenes, se impedirá la eliminación; puede desactivarlo.</p>
-          {errorAccion && <p role="alert" className="text-accent-red">{errorAccion}</p>}
-          <div className="flex justify-end gap-3"><button type="button" disabled={boolProcesando} onClick={() => setUsuarioParaEliminar(null)} className="px-4 py-2 rounded-xl border border-border">Cancelar</button><button type="button" disabled={boolProcesando} onClick={fnEliminar} className="px-4 py-2 rounded-xl bg-accent-red text-white font-bold">{boolProcesando ? "Eliminando…" : "Eliminar definitivamente"}</button></div>
-        </div>
-      </VentanaEmergente>
       <VentanaEmergente boolAbierto={!!usuarioParaCambiarEstado} onCerrar={() => setUsuarioParaCambiarEstado(null)}>
         <div className="p-6">
           <h2 className="text-h3 font-extrabold text-primary-navy mb-2">
-            {usuarioParaCambiarEstado?.estado ? "¿Está seguro de desactivar a este usuario?" : "¿Está seguro de activar a este usuario?"}
+            {textoInterfaz(usuarioParaCambiarEstado?.estado ? "¿Está seguro de desactivar a este usuario?" : "¿Está seguro de activar a este usuario?")}
           </h2>
           <p className="text-secondary text-text-body/80 mb-5">
-            {usuarioParaCambiarEstado?.nombre} {usuarioParaCambiarEstado?.apellido} ({usuarioParaCambiarEstado?.correo})
+            {textoInterfaz(usuarioParaCambiarEstado?.nombre)} {textoInterfaz(usuarioParaCambiarEstado?.apellido)} ({textoInterfaz(usuarioParaCambiarEstado?.correo)})
           </p>
+          {usuarioParaCambiarEstado?.estado && (
+            <p className="text-secondary text-text-body/80 mb-5">
+              La cuenta perderá el acceso al sistema. Sus datos e historial se conservarán.
+            </p>
+          )}
           {errorAccion && <p role="alert" className="text-accent-red mb-3">{errorAccion}</p>}
           <div className="flex justify-end gap-3">
             <button
