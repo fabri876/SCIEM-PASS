@@ -595,7 +595,10 @@ public class CargaMasivaService {
     private void crearFilaTablaHija(String rol, Integer idUsuario, Integer codigoSis, Integer idGrupo) {
         int codSisFinal = codigoSis != null ? codigoSis : idUsuario;
         switch (rol) {
-            case TipoUsuarioResolver.ADMINISTRADOR -> adminRepository.save(new Admin(idUsuario));
+            case TipoUsuarioResolver.ADMINISTRADOR -> {
+                PoliticaAdministrador.validarPuedeExistirOtro(adminRepository.count());
+                adminRepository.save(new Admin(idUsuario));
+            }
             case TipoUsuarioResolver.DOCENTE -> {
                 docenteRepository.save(new Docente(idUsuario, codSisFinal));
                 if (idGrupo != null) {
