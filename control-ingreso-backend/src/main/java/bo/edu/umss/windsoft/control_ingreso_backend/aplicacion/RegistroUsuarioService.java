@@ -12,6 +12,7 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Admin;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Ayudante;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Docente;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Estudiante;
+import bo.edu.umss.windsoft.control_ingreso_backend.dominio.PoliticaAdministrador;
 import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.RecursoDuplicadoException;
 import bo.edu.umss.windsoft.control_ingreso_backend.infraestructura.ValidacionNegocioException;
@@ -194,7 +195,10 @@ public class RegistroUsuarioService {
                         }
                     }
                 }
-                case "admin" -> adminRepository.save(new Admin(idUsuarioGenerado));
+                case "admin" -> {
+                    PoliticaAdministrador.validarPuedeExistirOtro(adminRepository.count());
+                    adminRepository.save(new Admin(idUsuarioGenerado));
+                }
             }
         }
 

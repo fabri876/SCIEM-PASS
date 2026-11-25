@@ -80,6 +80,24 @@ class RegistroAcademicoTest {
                 () -> servicio.cambiarRol(4, "ADMINISTRADOR", null, "admin@example.test", "local"));
         verify(usuarios, never()).save(any());
     }
+    @Test void noDegradaAlUnicoAdministrador() {
+        Usuario u = persona(4, "admin@example.test");
+        when(usuarios.findById(4)).thenReturn(Optional.of(u));
+        when(roles.resolver(4)).thenReturn("ADMINISTRADOR");
+        when(admins.count()).thenReturn(1L);
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
+                () -> servicio.cambiarRol(4, "DOCENTE", 98765, "admin@example.test", "local"));
+        verify(admins, never()).deleteById(any());
+        verify(usuarios, never()).save(any());
+    }
+    @Test void noDesactivaAlUnicoAdministrador() {
+        when(usuarios.findById(4)).thenReturn(Optional.of(persona(4, "admin@example.test")));
+        when(roles.resolver(4)).thenReturn("ADMINISTRADOR");
+        when(admins.count()).thenReturn(1L);
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
+                () -> servicio.cambiarEstado(4, false, "admin@example.test", "local"));
+        verify(usuarios, never()).save(any());
+    }
     @Test void registroEstudianteVinculaVariosGrupos() {
         when(passwords.encode(any())).thenReturn("hash");
         when(usuarios.save(any())).thenAnswer(i -> { Usuario u = i.getArgument(0); u.setIdusuario(5); return u; });
