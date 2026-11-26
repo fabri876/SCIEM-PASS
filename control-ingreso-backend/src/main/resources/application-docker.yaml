@@ -1,0 +1,10 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+# Ruta local donde el volumen de Docker guardará las imágenes de evidencia
+app:
+  storage:
+    evidencias-dir: /app/evidencias
