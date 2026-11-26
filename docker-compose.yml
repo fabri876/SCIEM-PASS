@@ -17,23 +17,31 @@ services:
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
       APP_STORAGE_EVIDENCIAS_DIR: /app/evidencias
       STORAGE_BIOMETRIC_PATH: /app/storage/biometrics
+      BACKUP_ENABLED: ${BACKUP_ENABLED:-true}
+      BACKUP_AUTO_ENABLED: ${BACKUP_AUTO_ENABLED:-false}
+      BACKUP_DB_HOST: ${BACKUP_DB_HOST}
+      BACKUP_DB_PORT: ${BACKUP_DB_PORT:-5432}
+      BACKUP_DB_USER: ${BACKUP_DB_USER}
+      BACKUP_DB_NAME: ${BACKUP_DB_NAME}
+      BACKUP_DB_PASSWORD: ${BACKUP_DB_PASSWORD}
     volumes:
       - sciem_evidencias:/app/evidencias
       - sciem_biometrics:/app/storage/biometrics
     networks:
-      - coolify
+      windsoft_internal:
+        aliases:
+          - windsoft-backend
+      coolify:
 
   frontend:
     build:
       context: ./control-ingreso-frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL}
-        VITE_APP_VERSION: ${VITE_APP_VERSION:-2}
     restart: unless-stopped
     depends_on:
       - backend
     networks:
+      - windsoft_internal
       - coolify
 
 volumes:
@@ -41,5 +49,7 @@ volumes:
   sciem_biometrics:
 
 networks:
+  windsoft_internal:
+    driver: bridge
   coolify:
     external: true
