@@ -1,1 +1,5 @@
 target
+src/main/resources/application-local.yaml
+storage/
+.git
+*.log
