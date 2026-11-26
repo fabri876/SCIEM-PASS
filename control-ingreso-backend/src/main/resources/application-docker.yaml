@@ -4,6 +4,9 @@ spring:
       ddl-auto: none
     show-sql: false
 
+jwt:
+  expiration: ${JWT_EXPIRATION:86400000}
+
 # Ruta local donde el volumen de Docker guardará las imágenes de evidencia
 app:
   storage:
