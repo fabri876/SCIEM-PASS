@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: sciem-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_ADMIN_USER}
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_ADMIN_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sciem-net
+
+  backend:
+    image: sciem-pass-backend:local
+    build:
+      context: ./control-ingreso-backend
+      dockerfile: Dockerfile
+    container_name: sciem-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_ADMIN_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_ADMIN_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGIN: ${PUBLIC_ORIGIN}
+      CLOUDINARY_CLOUD_NAME: local-docker
+      CLOUDINARY_API_KEY: "000000"
+      CLOUDINARY_API_SECRET: local-docker-secret
+    volumes:
+      - evidencias_data:/app/evidencias
+    networks:
+      - sciem-net
+
+  frontend:
+    image: sciem-pass-frontend:local
+    build:
+      context: ./control-ingreso-frontend
+      dockerfile: Dockerfile
+    container_name: sciem-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${WEB_PORT:-8088}:80"
+    networks:
+      - sciem-net
+
+volumes:
+  postgres_data:
+  evidencias_data:
+
+networks:
+  sciem-net:
+    driver: bridge

@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y curl ca-certificates lsb-release \
 # -------------------------------------
 
 COPY --from=build /app/target/*.jar /app/app.jar
+RUN mkdir -p /app/evidencias
 EXPOSE 8080
 # Aquí ya incluimos los límites de memoria RAM que usamos en Railway
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-Xss512k", "-jar", "/app/app.jar"]
