@@ -1,11 +1,11 @@
 services:
-  backend:
+  windsoft-backend:
     build:
       context: ./control-ingreso-backend
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
@@ -15,8 +15,8 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
-      APP_STORAGE_EVIDENCIAS_DIR: /app/evidencias
-      STORAGE_BIOMETRIC_PATH: /app/storage/biometrics
+      APP_STORAGE_EVIDENCIAS_DIR: ${APP_STORAGE_EVIDENCIAS_DIR:-/app/evidencias}
+      STORAGE_BIOMETRIC_PATH: ${STORAGE_BIOMETRIC_PATH:-/app/storage/biometrics}
       BACKUP_ENABLED: ${BACKUP_ENABLED:-true}
       BACKUP_AUTO_ENABLED: ${BACKUP_AUTO_ENABLED:-false}
       BACKUP_DB_HOST: ${BACKUP_DB_HOST}
@@ -28,20 +28,17 @@ services:
       - sciem_evidencias:/app/evidencias
       - sciem_biometrics:/app/storage/biometrics
     networks:
-      windsoft_internal:
-        aliases:
-          - windsoft-backend
-      coolify:
+      - coolify
 
   frontend:
     build:
       context: ./control-ingreso-frontend
       dockerfile: Dockerfile
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c", "sed -i 's|http://backend:8080|http://windsoft-backend:8080|g' /etc/nginx/conf.d/default.conf && exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
     depends_on:
-      - backend
+      - windsoft-backend
     networks:
-      - windsoft_internal
       - coolify
 
 volumes:
@@ -49,7 +46,5 @@ volumes:
   sciem_biometrics:
 
 networks:
-  windsoft_internal:
-    driver: bridge
   coolify:
     external: true
