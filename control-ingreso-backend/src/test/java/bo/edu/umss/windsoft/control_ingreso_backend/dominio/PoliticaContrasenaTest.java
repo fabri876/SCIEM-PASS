@@ -12,6 +12,12 @@ class PoliticaContrasenaTest {
     }
 
     @Test
+    void exigeDoceCaracteresAunqueCumplaLosOtrosCriterios() {
+        assertTrue(PoliticaContrasena.validarNivelOcho("Vela!Roca7#").orElseThrow().contains("12 caracteres"));
+        assertTrue(PoliticaContrasena.validarNivelOcho("Vela!Roca7#Q").isEmpty());
+    }
+
+    @Test
     void rechazaRepeticionYSecuencias() {
         assertTrue(PoliticaContrasena.validarNivelOcho("Roca!!!Verde2026").orElseThrow().contains("repetir"));
         assertTrue(PoliticaContrasena.validarNivelOcho("Clave!Abc2026#").orElseThrow().contains("secuencias"));

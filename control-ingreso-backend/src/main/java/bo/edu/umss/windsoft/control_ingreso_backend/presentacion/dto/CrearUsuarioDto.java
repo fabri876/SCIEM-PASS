@@ -30,6 +30,8 @@ public class CrearUsuarioDto {
     private String rol;
 
     // Solo obligatorio cuando rol=ESTUDIANTE o DOCENTE.
+    @jakarta.validation.constraints.Min(value = 100000000, message = "El Código SIS debe tener exactamente 9 dígitos.")
+    @jakarta.validation.constraints.Max(value = 999999999, message = "El Código SIS debe tener exactamente 9 dígitos.")
     private Integer codigoSis;
 
     // Opcional para vinculacion con Grupo

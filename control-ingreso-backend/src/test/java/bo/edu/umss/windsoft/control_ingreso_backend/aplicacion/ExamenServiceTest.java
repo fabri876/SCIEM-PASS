@@ -165,6 +165,69 @@ class ExamenServiceTest {
     // Pruebas
     // ---------------------------------------------------------------------
 
+    @Test
+    void editarAulaYHorarioConservaElAmbienteReferenciadoPorElAyudante() {
+        Examen existente = new Examen();
+        existente.setIdExamen(100);
+        existente.setIdAsignatura(ID_ASIGNATURA);
+        existente.setIdTipoExamen(1);
+        existente.setIdUsuario(ID_USUARIO_DOCENTE);
+        existente.setFechaExamen(FECHA_FUTURA);
+        when(examenRepository.findById(100)).thenReturn(Optional.of(existente));
+        Ambiente asignado = new Ambiente();
+        asignado.setIdAmbiente(700);
+        asignado.setIdExamen(100);
+        asignado.setIdAsignatura(ID_ASIGNATURA);
+        asignado.setIdAula(ID_AULA);
+        asignado.setHoraInicio(LocalTime.of(9, 0));
+        asignado.setHoraFin(LocalTime.of(10, 0));
+        when(ambienteRepository.findByIdExamen(100)).thenReturn(List.of(asignado));
+        ExamenRequest request = solicitudEventual(1, fechaFutura(LocalTime.of(11, 0)), 20,
+                LocalTime.of(11, 0), LocalTime.of(12, 0));
+
+        examenService.actualizarExamen(100, request, "127.0.0.1");
+
+        verify(ambienteRepository).save(same(asignado));
+        verify(ambienteRepository, never()).deleteAll(any(Iterable.class));
+        assertEquals(700, asignado.getIdAmbiente());
+        assertEquals(20, asignado.getIdAula());
+        assertEquals(LocalTime.of(11, 0), asignado.getHoraInicio());
+        assertEquals(LocalTime.of(12, 0), asignado.getHoraFin());
+    }
+
+    @Test
+    void editarVariasAulasConservaLosAmbientesDeLasAulasQueSiguen() {
+        Examen existente = new Examen();
+        existente.setIdExamen(100);
+        existente.setIdAsignatura(ID_ASIGNATURA);
+        existente.setIdTipoExamen(1);
+        existente.setIdUsuario(ID_USUARIO_DOCENTE);
+        existente.setFechaExamen(FECHA_FUTURA);
+        when(examenRepository.findById(100)).thenReturn(Optional.of(existente));
+        Ambiente reemplazado = new Ambiente();
+        reemplazado.setIdAmbiente(700);
+        reemplazado.setIdExamen(100);
+        reemplazado.setIdAula(10);
+        Ambiente conservado = new Ambiente();
+        conservado.setIdAmbiente(701);
+        conservado.setIdExamen(100);
+        conservado.setIdAula(20);
+        when(ambienteRepository.findByIdExamen(100)).thenReturn(List.of(reemplazado, conservado));
+        ExamenRequest request = solicitudEventual(1, fechaFutura(LocalTime.of(11, 0)), 30,
+                LocalTime.of(11, 0), LocalTime.of(12, 0));
+        request.setIdsAulasAdicionales(List.of(20));
+
+        examenService.actualizarExamen(100, request, "127.0.0.1");
+
+        verify(ambienteRepository).save(same(reemplazado));
+        verify(ambienteRepository).save(same(conservado));
+        verify(ambienteRepository, never()).deleteAll(any(Iterable.class));
+        assertEquals(700, reemplazado.getIdAmbiente());
+        assertEquals(30, reemplazado.getIdAula());
+        assertEquals(701, conservado.getIdAmbiente());
+        assertEquals(20, conservado.getIdAula());
+    }
+
     private Examen prepararCancelacion(boolean cancelado) {
         var auth = new UsernamePasswordAuthenticationToken("admin@example.invalid", null,
                 List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")));
@@ -314,7 +377,7 @@ class ExamenServiceTest {
         ExamenRequest request = solicitudEventual(1, fechaFutura(LocalTime.of(9, 0)), ID_AULA,
                 LocalTime.of(9, 0), LocalTime.of(11, 0));
 
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+        var error = assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.RecursoDuplicadoException.class,
                 () -> examenService.registrarExamen(request, "127.0.0.1"));
         assertTrue(error.getMessage().contains("ya está ocupada"));
         verify(examenRepository, never()).save(any(Examen.class));
