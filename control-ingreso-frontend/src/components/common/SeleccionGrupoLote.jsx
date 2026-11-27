@@ -12,6 +12,7 @@ export default function SeleccionGrupoLote({ value, onChange, disabled = false, 
   const [cargandoMaterias, setCargandoMaterias] = useState(true);
   const [cargandoGrupos, setCargandoGrupos] = useState(false);
   const [error, setError] = useState("");
+  const [reintento, setReintento] = useState(0);
   useEffect(() => {
     let activo = true;
     setCargandoMaterias(true); setError("");
@@ -23,7 +24,7 @@ export default function SeleccionGrupoLote({ value, onChange, disabled = false, 
       .catch(e => { if (activo) setError(e.message); })
       .finally(() => { if (activo) setCargandoMaterias(false); });
     return () => { activo = false; };
-  }, [revision]);
+  }, [revision, reintento]);
   useEffect(() => {
     let activo = true;
     if (!materia) { setGrupos([]); setCargandoGrupos(false); return; }
@@ -34,11 +35,11 @@ export default function SeleccionGrupoLote({ value, onChange, disabled = false, 
       .catch(e => { if (activo) setError(e.message); })
       .finally(() => { if (activo) setCargandoGrupos(false); });
     return () => { activo = false; };
-  }, [materia, revision]);
+  }, [materia, revision, reintento]);
   const estilo = "w-full mt-1 p-2.5 border border-border rounded-xl bg-bg-app text-primary-navy disabled:opacity-60";
   return <fieldset disabled={disabled} className="space-y-3 rounded-xl border border-border p-4">
     <legend className="px-2 font-bold text-primary-navy">Asignatura y grupo *</legend>
-    {error && <p role="alert" className="text-accent-red text-secondary">{error}</p>}
+    {error && <div role="alert" className="text-accent-red text-secondary"><p>{error}</p><button type="button" onClick={()=>setReintento(v=>v+1)} className="mt-2 underline font-semibold">Reintentar asignaturas y grupos</button></div>}
     <SelectorAsignatura value={materia} permitidas={asignaturas} disabled={disabled||cargandoMaterias} revision={revision}
       onClasificacion={setClasificacion}
       onChange={valor=>{setMateria(valor);setGrupos([]);onChange(null);}} />
@@ -48,7 +49,7 @@ export default function SeleccionGrupoLote({ value, onChange, disabled = false, 
         {grupos.map(g => <option key={g.idGrupo} value={g.idGrupo}>Grupo {g.nombreGrupo}</option>)}
       </select>
     </label>
-    {!cargandoMaterias && !asignaturas.length && <p className="text-secondary">No hay asignaturas disponibles para su cuenta.</p>}
-    {materia && !cargandoGrupos && !grupos.length && <p className="text-secondary">No hay grupos activos disponibles en esta asignatura.</p>}
+    {!cargandoMaterias && !error && !asignaturas.length && <p className="text-secondary">No hay asignaturas disponibles para su cuenta.</p>}
+    {materia && !cargandoGrupos && !error && !grupos.length && <p className="text-secondary">No hay grupos activos disponibles en esta asignatura.</p>}
   </fieldset>;
 }

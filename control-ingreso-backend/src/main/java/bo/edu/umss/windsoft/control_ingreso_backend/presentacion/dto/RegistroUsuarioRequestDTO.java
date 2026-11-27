@@ -37,6 +37,7 @@ public class RegistroUsuarioRequestDTO {
     @Size(max = 20, message = "El carnet de identidad no puede exceder 20 caracteres")
     private String carnetIdentidad;
 
+    @jakarta.validation.constraints.Pattern(regexp = "[0-9]{9}", message = "El Código SIS debe tener exactamente 9 dígitos.")
     private String codigoSis;
 
     @NotEmpty(message = "Debe seleccionar al menos un rol (Estudiante, Docente o Ayudante)")

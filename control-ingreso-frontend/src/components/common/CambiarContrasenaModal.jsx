@@ -1,5 +1,6 @@
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import VentanaEmergente from "./VentanaEmergente";
 import FormField from "./FormField";
 import IndicadorSeguridadContrasena from "./IndicadorSeguridadContrasena";
@@ -96,7 +97,9 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito,
     }
   };
 
-  return (
+  if (!boolAbierto) return null;
+
+  return createPortal(
     <VentanaEmergente boolAbierto={boolAbierto} onCerrar={onCerrar}>
       <div className="p-6">
         <h2 className="text-base font-black text-[#1A365D] mb-1">Cambiar contraseña</h2>
@@ -162,6 +165,6 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito,
           </div>
         </form>
       </div>
-    </VentanaEmergente>
+    </VentanaEmergente>, document.body
   );
 }
