@@ -16,7 +16,6 @@ const ROLES_CON_CODIGO_SIS = ["DOCENTE", "ESTUDIANTE"];
 
 const REGEX_SOLO_LETRAS = /^[A-Za-zÁÉÍÓÚÜñÑáéíóúü\s]+$/;
 const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const REGEX_SOLO_NUMEROS = /^[0-9]+$/;
 const REGEX_CI = /^[0-9]+([\s-]?[0-9A-Za-z]{1,3})?$/;
 
 function normalizarCi(ci) {
@@ -161,11 +160,11 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
       }
     }
 
-    if (boolPideCodigoSis) {
+    if (boolPideCodigoSis && (!boolEsEdicion || objFormData.rol !== strRolOriginal)) {
       if (!objFormData.codigoSis.trim()) {
         errores.codigoSis = "El código SIS es obligatorio para este rol";
-      } else if (!REGEX_SOLO_NUMEROS.test(objFormData.codigoSis.trim())) {
-        errores.codigoSis = "Ingrese un código SIS válido, solo números";
+      } else if (!/^[0-9]{9}$/.test(objFormData.codigoSis.trim())) {
+        errores.codigoSis = "El código SIS debe tener exactamente 9 dígitos";
       }
     }
 
@@ -437,11 +436,15 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
 
         {boolPideCodigoSis && (
           <div className={boolEsEdicion ? "col-span-2" : ""}>
+            {boolEsEdicion && objFormData.rol === strRolOriginal && (
+              <p className="mb-2 text-xs text-secondary">El código SIS identifica el registro académico y se conserva al editar sus datos.</p>
+            )}
             <FormField
               label="Código SIS"
-              placeholder="Ej. 123456"
+              placeholder="Ej. 202309099"
               value={objFormData.codigoSis}
               onChange={fnActualizarCampo("codigoSis")}
+              readOnly={boolEsEdicion && objFormData.rol === strRolOriginal}
               required
               icon={
                 <svg viewBox="0 0 24 24" className="w-full h-full fill-none stroke-current stroke-[1.8]">

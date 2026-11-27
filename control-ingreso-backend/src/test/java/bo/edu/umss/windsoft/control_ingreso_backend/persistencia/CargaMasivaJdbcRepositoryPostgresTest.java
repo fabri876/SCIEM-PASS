@@ -82,7 +82,7 @@ class CargaMasivaJdbcRepositoryPostgresTest {
         List<String> ddl = List.of(
             "CREATE TEMP SEQUENCE usuario_idusuario_seq",
             "CREATE TEMP SEQUENCE habilitacion_idhabilitacion_seq",
-            "CREATE TEMP TABLE usuario (idusuario integer PRIMARY KEY, ciusuario text UNIQUE, nombreusuario text, apellidousuario text, telefonousuario integer, correousuario text UNIQUE, contraseniausuario varchar(255), estadousuario boolean, intentos_fallidos integer)",
+            "CREATE TEMP TABLE usuario (idusuario integer PRIMARY KEY, ciusuario text UNIQUE, nombreusuario text, apellidousuario text, telefonousuario integer, correousuario text UNIQUE, contraseniausuario varchar(255), estadousuario boolean, intentos_fallidos integer, debe_cambiar_contrasena boolean)",
             "CREATE TEMP TABLE docente (idusuario integer PRIMARY KEY REFERENCES pg_temp.usuario, codsisdocente integer UNIQUE)",
             "CREATE TEMP TABLE estudiante (idusuario integer PRIMARY KEY REFERENCES pg_temp.usuario, codsisestudiante integer UNIQUE)",
             "CREATE TEMP TABLE ayudante (idusuario integer PRIMARY KEY REFERENCES pg_temp.usuario)",

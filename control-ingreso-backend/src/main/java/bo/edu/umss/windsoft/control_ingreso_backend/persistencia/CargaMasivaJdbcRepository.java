@@ -90,16 +90,15 @@ public class CargaMasivaJdbcRepository {
         for (int start = 0; start < filas.size(); start += TAMANO_LOTE) {
             var lote = filas.subList(start, Math.min(start + TAMANO_LOTE, filas.size()));
             // Tipos explicitos para NULL: evita consultas adicionales de metadata del driver.
-            jdbc.batchUpdate(sql, lote, lote.getFirst().length == 9
-                    ? new int[]{Types.INTEGER, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.INTEGER,
-                    Types.VARCHAR, Types.VARCHAR, Types.BOOLEAN, Types.INTEGER}
-                    : tipos(lote.getFirst()));
+            jdbc.batchUpdate(sql, lote, tipos(lote.getFirst()));
         }
     }
 
     private int[] tipos(Object[] fila) {
         int[] tipos = new int[fila.length];
-        for (int i = 0; i < fila.length; i++) tipos[i] = fila[i] instanceof LocalDate ? Types.DATE
+        for (int i = 0; i < fila.length; i++) tipos[i] = fila[i] instanceof String ? Types.VARCHAR
+                : fila[i] instanceof Boolean ? Types.BOOLEAN
+                : fila[i] instanceof LocalDate ? Types.DATE
                 : fila[i] instanceof LocalDateTime ? Types.TIMESTAMP : Types.INTEGER;
         return tipos;
     }

@@ -8,6 +8,8 @@ public class CambiarRolDto {
     private String nuevoRol;
 
     // Solo obligatorio cuando nuevoRol=ESTUDIANTE.
+    @jakarta.validation.constraints.Min(value = 100000000, message = "El Código SIS debe tener exactamente 9 dígitos.")
+    @jakarta.validation.constraints.Max(value = 999999999, message = "El Código SIS debe tener exactamente 9 dígitos.")
     private Integer codigoSis;
 
     public String getNuevoRol() {

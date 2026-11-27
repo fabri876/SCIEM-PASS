@@ -223,7 +223,6 @@ public class ExamenService {
         }
 
         var antes = cambiosExamen.estado(examenExistente.getFechaExamen(), ambienteRepository.findByIdExamen(idExamen));
-        ambienteRepository.deleteAll(ambienteRepository.findByIdExamen(idExamen));
         examenNormaGeneralRepository.deleteAll(
                 examenNormaGeneralRepository.findByIdIdExamen(idExamen));
         normaEspecificaRepository.deleteAll(
@@ -387,14 +386,24 @@ public class ExamenService {
             crearHabilitacionesDelExamen(examenGuardado);
         }
 
-        guardarAmbiente(examenGuardado, idAula, idHorarioRegularUsado, horaInicio, horaFin, request.getTipoHorario());
-
-        if (aulasAdicionales != null) {
-            for (Integer idAulaAdicional : aulasAdicionales) {
-                guardarAmbiente(examenGuardado, idAulaAdicional, idHorarioRegularUsado, horaInicio, horaFin,
-                        request.getTipoHorario());
-            }
+        List<Integer> aulasSolicitadas = new ArrayList<>();
+        aulasSolicitadas.add(idAula);
+        if (aulasAdicionales != null) aulasSolicitadas.addAll(aulasAdicionales);
+        List<Ambiente> pendientes = examenAActualizar == null ? new ArrayList<>()
+                : new ArrayList<>(ambienteRepository.findByIdExamen(examenGuardado.getIdExamen()));
+        for (Integer aulaSolicitada : aulasSolicitadas) {
+            // Conservar los IDs mantiene las asignaciones de ayudantes y el historial.
+            Ambiente ambiente = pendientes.stream()
+                    .filter(a -> Objects.equals(a.getIdAula(), aulaSolicitada)).findFirst()
+                    .orElseGet(() -> pendientes.stream()
+                            .filter(a -> !aulasSolicitadas.contains(a.getIdAula())).findFirst()
+                            .orElseGet(Ambiente::new));
+            pendientes.remove(ambiente);
+            guardarAmbiente(ambiente, examenGuardado, aulaSolicitada, idHorarioRegularUsado,
+                    horaInicio, horaFin, request.getTipoHorario());
         }
+        // Solo se eliminan ambientes retirados; la BD protege los que tengan referencias.
+        if (!pendientes.isEmpty()) ambienteRepository.deleteAll(pendientes);
 
         if (request.getIdsNormasGenerales() != null) {
             for (Integer idNormaGeneral : request.getIdsNormasGenerales()) {
@@ -817,9 +826,8 @@ public class ExamenService {
     // HELPERS PRIVADOS
     // -------------------------------------------------------------------------
 
-    private void guardarAmbiente(Examen examen, Integer idAula, Integer idHorarioRegular,
+    private void guardarAmbiente(Ambiente ambiente, Examen examen, Integer idAula, Integer idHorarioRegular,
             LocalTime horaInicio, LocalTime horaFin, TipoHorario tipoHorario) {
-        Ambiente ambiente = new Ambiente();
         ambiente.setIdAsignatura(examen.getIdAsignatura());
         ambiente.setIdExamen(examen.getIdExamen());
         ambiente.setIdAula(idAula);

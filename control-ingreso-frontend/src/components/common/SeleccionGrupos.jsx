@@ -14,18 +14,21 @@ export default function SeleccionGrupos({ value = [], onChange, disabled = false
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [cargandoAsignaturas, setCargandoAsignaturas] = useState(true);
+  const [reintento, setReintento] = useState(0);
   useEffect(() => {
     let activo = true;
+    setCargandoAsignaturas(true); setError("");
     const usuario = obtenerUsuarioActual();
     const consulta = usuario?.rol === "DOCENTE" ? obtenerAsignaturasPorDocente(usuario.idUsuario, usuario.codigoSis) : obtenerAsignaturas();
     consulta.then(datos => { if (activo) setAsignaturas(datos || []); })
       .catch(err => { if (activo) setError(err.message); })
       .finally(() => { if (activo) setCargandoAsignaturas(false); });
     return () => { activo = false; };
-  }, []);
+  }, [reintento]);
   useEffect(() => {
     let activo = true;
     if (!asignatura) return () => { activo = false; };
+    setCargando(true);
     const usuario = obtenerUsuarioActual();
     const consulta = usuario?.rol === "DOCENTE"
       ? obtenerGruposPorDocente(asignatura, usuario.idUsuario)
@@ -34,11 +37,11 @@ export default function SeleccionGrupos({ value = [], onChange, disabled = false
       .catch(err => { if (activo) setError(err.message); })
       .finally(() => { if (activo) setCargando(false); });
     return () => { activo = false; };
-  }, [asignatura]);
+  }, [asignatura, reintento]);
   return <fieldset disabled={disabled} className="space-y-3 p-4 border border-border rounded-xl">
     <legend className="px-2 font-bold text-primary-navy">Asignaturas y grupos{required ? " *" : ""}</legend>
     <p className="text-secondary">{unGrupoPorAsignatura ? "Seleccione un solo grupo por asignatura. Para cambiarlo, quite primero el grupo seleccionado. Puede añadir otras asignaturas." : "Seleccione una materia y marque sus grupos. Se añaden al instante; puede repetir con otras materias."}</p>
-    {error && <p role="alert" className="text-accent-red">{error}</p>}
+    {error && <div role="alert" className="text-accent-red"><p>{error}</p><button type="button" onClick={()=>setReintento(v=>v+1)} className="mt-2 underline font-semibold">Reintentar asignaturas y grupos</button></div>}
     <SelectorAsignatura value={asignatura} permitidas={asignaturas} disabled={disabled||cargandoAsignaturas}
       onClasificacion={setClasificacion}
       onChange={valor=>{setAsignatura(valor);setGrupos([]);setError("");setCargando(Boolean(valor));}} />
@@ -49,7 +52,7 @@ export default function SeleccionGrupos({ value = [], onChange, disabled = false
           onChange={e => onChange(e.target.checked ? [...value, {...g,idCarrera:clasificacion?.idCarrera}] : value.filter(v => v.idGrupo !== g.idGrupo))} />
         Grupo {g.nombreGrupo}
       </label>)}
-      {!grupos.length && <p className="text-sm">No hay grupos registrados. Un administrador debe crearlos primero.</p>}
+      {!error && !grupos.length && <p className="text-sm">No hay grupos registrados. Un administrador debe crearlos primero.</p>}
     </div>}
     <p className="text-secondary font-semibold text-primary-navy">{value.length ? `${value.length} grupo(s) seleccionados` : required ? "Seleccione al menos un grupo para poder registrar." : "Sin grupos seleccionados (opcional)."}</p>
     {value.map(g => <div key={g.idGrupo} className="flex justify-between gap-3 text-sm bg-bg-app p-2 rounded-lg">
