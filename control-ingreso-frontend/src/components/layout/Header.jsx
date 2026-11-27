@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "../common/Logo";
 import UserAccountMenu from "../common/UserAccountMenu";
-import FlujoCambioContrasena from "../common/FlujoCambioContrasena";
 import NotificationsMenu from "./NotificationsMenu";
 import { obtenerToken, obtenerUsuarioActual, obtenerRutaPorRol, cerrarSesion } from "../../services/authService";
 import ModalCierreSesion from "../../pages/control/components/ModalCierreSesion.jsx";
@@ -112,7 +111,6 @@ export default function Header() {
   const [boolMenuAbierto, setBoolMenuAbierto] = useState(false);
   const [boolAbrirNotifMobile, setBoolAbrirNotifMobile] = useState(false);
   const [modalLogout, setModalLogout] = useState({ visible: false, mensaje: "" });
-  const [contrasenaAbierta, setContrasenaAbierta] = useState(false);
 
   const fnCerrarSesion = async () => {
     let pend = 0;
@@ -195,7 +193,7 @@ export default function Header() {
       {/* Bloque de sesión: solo visible desde "md" hacia arriba */}
       <div className="hidden md:flex min-w-0 ml-4 pl-4 lg:ml-8 lg:pl-8 h-full items-center border-l border-[#CBD5E1]">
         {boolAutenticado ? (
-          <UserAccountMenu usuario={usuarioActual} onCerrarSesion={fnCerrarSesion} onCambiarContrasena={() => setContrasenaAbierta(true)} />
+          <UserAccountMenu usuario={usuarioActual} onCerrarSesion={fnCerrarSesion} />
         ) : (
           <Link
             to="/login"
@@ -249,7 +247,7 @@ export default function Header() {
 
           <div className="mt-3 pt-3 border-t border-[#E2E8F0]">
             {boolAutenticado ? (
-              <UserAccountMenu usuario={usuarioActual} onCerrarSesion={fnCerrarSesion} onCambiarContrasena={() => setContrasenaAbierta(true)} />
+              <UserAccountMenu usuario={usuarioActual} onCerrarSesion={fnCerrarSesion} />
             ) : (
               <Link
                 to="/login"
@@ -262,15 +260,6 @@ export default function Header() {
           </div>
         </div>
       )}
-
-      {boolAutenticado && <FlujoCambioContrasena
-        key={usuarioActual.idUsuario ?? usuarioActual.id ?? usuarioActual.correo}
-        usuario={usuarioActual}
-        abierto={contrasenaAbierta}
-        onAbrir={() => setContrasenaAbierta(true)}
-        onCerrar={() => setContrasenaAbierta(false)}
-        onCerrarSesion={fnCerrarSesion}
-      />}
 
       <ModalCierreSesion
         visibleConfirm={modalLogout.visible}
