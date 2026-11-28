@@ -16,7 +16,21 @@ const ROLES_CON_CODIGO_SIS = ["DOCENTE", "ESTUDIANTE"];
 
 const REGEX_SOLO_LETRAS = /^[A-Za-zÁÉÍÓÚÜñÑáéíóúü\s]+$/;
 const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const REGEX_CORREO_ADMIN_INSTITUCIONAL = /^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+@umss\.edu\.bo$/i;
+const PALABRAS_RESERVADAS_CORREO_ADMIN = ["admin", "administrador", "root", "test", "usuario"];
 const REGEX_CI = /^[0-9]+([\s-]?[0-9A-Za-z]{1,3})?$/;
+
+function validarCorreoAdministrador(strCorreo) {
+  const strNormalizado = (strCorreo || "").trim().toLowerCase();
+  if (!REGEX_CORREO_ADMIN_INSTITUCIONAL.test(strNormalizado)) {
+    return "El correo del administrador debe ser institucional con formato nombre.apellido@umss.edu.bo";
+  }
+  const strParteLocal = strNormalizado.split("@")[0];
+  if (PALABRAS_RESERVADAS_CORREO_ADMIN.some((strPalabra) => strParteLocal.includes(strPalabra))) {
+    return "El correo del administrador no puede contener palabras reservadas como admin, administrador, root, test o usuario";
+  }
+  return "";
+}
 
 function normalizarCi(ci) {
   return ci.trim().toUpperCase().replace(/[.\-\s]/g, "");
@@ -139,6 +153,9 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
 
     if (!objFormData.correo.trim()) {
       errores.correo = "El correo es obligatorio";
+    } else if (boolRolAdministrador) {
+      const strErrorCorreoAdmin = validarCorreoAdministrador(objFormData.correo);
+      if (strErrorCorreoAdmin) errores.correo = strErrorCorreoAdmin;
     } else if (!REGEX_CORREO.test(objFormData.correo.trim())) {
       errores.correo = "Ingrese un correo válido, con dominio y extensión (ej. usuario@dominio.com)";
     }
@@ -319,7 +336,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
             name="registro-persona-correo"
             autoComplete="off"
             type="email"
-            placeholder="ejemplo@est.umss.edu"
+            placeholder={boolRolAdministrador ? "nombre.apellido@umss.edu.bo" : "ejemplo@est.umss.edu"}
             value={objFormData.correo}
             onChange={fnActualizarCampo("correo")}
             required

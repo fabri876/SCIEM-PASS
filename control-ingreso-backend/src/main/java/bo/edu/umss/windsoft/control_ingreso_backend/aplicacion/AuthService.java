@@ -170,7 +170,7 @@ public class AuthService {
             throw new CredencialesInvalidasException("La contraseña actual es incorrecta.");
         }
 
-        PoliticaContrasena.validarCambio(contrasenaActual, nuevaContrasena)
+        PoliticaContrasena.validarCambio(contrasenaActual, nuevaContrasena, usuario.getCorreousuario())
                 .ifPresent(mensaje -> { throw new SolicitudInvalidaException(mensaje); });
         if (TipoUsuarioResolver.ADMINISTRADOR.equals(tipoUsuarioResolver.resolver(usuario.getIdusuario()))) {
             PoliticaContrasena.validarAdministrador(nuevaContrasena, usuario.getCiusuario(), usuario.getCorreousuario())

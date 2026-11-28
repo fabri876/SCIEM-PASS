@@ -36,4 +36,12 @@ class PoliticaContrasenaTest {
         assertTrue(PoliticaContrasena.validarAdministrador("Password!2026#", "7592468", "persona@example.invalid").isPresent());
         assertTrue(PoliticaContrasena.validarAdministrador("Vela$8Nube!49", "7592468", "persona@example.invalid").isEmpty());
     }
+
+    @Test void rechazaPalabraComunAdminYPartesDelCorreoEnCambio() {
+        assertTrue(PoliticaContrasena.validarCambio("ClaveVieja!99", "admin#\"!#\"#!\"!\"#!A1", "carlos.mendoza@umss.edu.bo").isPresent());
+        assertTrue(PoliticaContrasena.validarCambio("ClaveVieja!99", "Carlos!Nube2026#", "carlos.mendoza@umss.edu.bo").isPresent());
+        assertTrue(PoliticaContrasena.validarCambio("ClaveVieja!99", "Mendoza!Nube2026#", "carlos.mendoza@umss.edu.bo").isPresent());
+        assertTrue(PoliticaContrasena.validarCambio("ClaveVieja!99", "Nombre!Nube2026#", "nombre@gmail.com").isPresent());
+        assertTrue(PoliticaContrasena.validarCambio("ClaveVieja!99", "Vela$8Nube!49", "carlos.mendoza@umss.edu.bo").isEmpty());
+    }
 }
