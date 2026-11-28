@@ -98,7 +98,7 @@ public class ReporteAsistenciaService {
         String base = (materia + "_" + tipo + "_" + fecha).replaceAll("\\s+", "-");
         base = Normalizer.normalize(base, Normalizer.Form.NFD).replaceAll("\\p{M}", "").replaceAll("[^A-Za-z0-9._-]", "-").replaceAll("-+", "-");
         String extension = "xlsx".equalsIgnoreCase(formato) ? "xlsx" : "pdf";
-        return base + "." + extension;
+        return base + "_generado_" + java.time.LocalDate.now(java.time.ZoneId.of("America/La_Paz")) + "." + extension;
     }
 
     private boolean finalizado(Examen e, Integer id) {

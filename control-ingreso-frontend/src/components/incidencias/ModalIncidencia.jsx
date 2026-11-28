@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
+import { textoNombre } from '../common/textoNombre.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
 import {
@@ -510,7 +512,7 @@ export default function ModalIncidencia({
                   <Building className="w-3 h-3 text-[#9AA8BA] shrink-0" />
                   <span>
                     {aulaSeleccionada
-                      ? `${aulaSeleccionada.aula} · ${aulaSeleccionada.asignatura} · ${formatearFecha(aulaSeleccionada.fechaExamen)}`
+                      ? `${aulaSeleccionada.aula} · ${textoAsignatura(aulaSeleccionada.asignatura)} · ${formatearFecha(aulaSeleccionada.fechaExamen)}`
                       : "Sin aula seleccionada"}
                     {` · ${strHoraActual} (automático)`}
                   </span>
@@ -657,7 +659,7 @@ export default function ModalIncidencia({
                 <div className="flex items-center gap-2 min-w-0">
                   <CheckCircle2 className="w-4 h-4 text-[#4A97D3] shrink-0" />
                   <span className="text-xs font-bold text-[#003770]">
-                    {estudianteInvolucrado.nombreCompleto}
+                    {textoNombre(estudianteInvolucrado.nombreCompleto)}
                     {textoInterfaz(estudianteInvolucrado.estado === "DESCONOCIDO"
                       ? " · estado de ingreso no comprobado"
                       : estudianteInvolucrado.estado === "RETIRADO"

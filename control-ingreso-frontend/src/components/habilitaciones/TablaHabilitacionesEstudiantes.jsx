@@ -1,3 +1,5 @@
+import { textoNombre } from '../common/textoNombre.js';
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
 import { TablaConReporte } from '../common/ReporteLista.jsx';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 // Habilitaciones del ADMINISTRADOR (por materia), con el mismo diseño que la pantalla del docente:
@@ -321,10 +323,10 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
     ];
 
     // Fila de datos: igual que en el docente, más el docente de la materia
-    const strMateria = [materia?.codigo, materia?.nombre].filter(Boolean).join(' · ');
+    const strMateria = [materia?.codigo, textoAsignatura(materia?.nombre)].filter(Boolean).join(' · ');
     const filasExamen = [
-        { etiqueta: 'EXAMEN', valor: [materia?.nombre, infoExamen.nombreExamen !== '---' ? infoExamen.nombreExamen : ''].filter(Boolean).join(' · ') || '---', boolSelector: listExamenes.length > 0 },
-        { etiqueta: 'DOCENTE', valor: strDocente || '---' },
+        { etiqueta: 'EXAMEN', valor: [textoAsignatura(materia?.nombre), infoExamen.nombreExamen !== '---' ? textoAsignatura(infoExamen.nombreExamen) : ''].filter(Boolean).join(' · ') || '---', boolSelector: listExamenes.length > 0 },
+        { etiqueta: 'DOCENTE', valor: textoNombre(strDocente) || '---' },
         { etiqueta: 'FECHA', valor: boolCargandoDatos ? 'Cargando...' : infoExamen.fecha },
         { etiqueta: 'HORA', valor: boolCargandoDatos ? 'Cargando...' : infoExamen.hora },
         { etiqueta: 'DURACIÓN', valor: boolCargandoDatos ? 'Cargando...' : calcularDuracion(infoExamen.duracion, infoExamen.hora) },
@@ -451,7 +453,7 @@ export default function TablaHabilitacionesEstudiantes({ materia, onVolver }) {
                     <>
                         {/* Tabla: visible desde md hacia arriba */}
                         <div className="hidden md:block overflow-x-auto">
-                            <TablaConReporte titulo="Habilitaciones de estudiantes">{(paraReporte) => (<table className="w-full min-w-[760px] text-left text-[14px]">
+                            <TablaConReporte filtros={[busqueda, filtroEstado]} titulo="Habilitaciones de estudiantes">{(paraReporte) => (<table className="w-full min-w-[760px] text-left text-[14px]">
                                 <thead>
                                     <tr className="text-[#124B83] border-y border-[#CBD5E1] font-extrabold text-[11px] tracking-[.6px] bg-[#E8F1FB]">
                                         <th className="py-3.5 px-3 sm:px-6">N°</th>

@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Tarjeta de un examen de HOY en el Inicio del docente.
 // - Hora de inicio en grande a la izquierda.
@@ -56,7 +57,7 @@ export default function TarjetaExamenInicio({ examen }) {
 
         <div className="flex-1 min-w-[180px] max-md:min-w-0 max-md:basis-[calc(100%-70px)]">
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="m-0 font-black text-sm text-[#08264A] ">{examen.nombreExamen}</h4>
+            <h4 className="m-0 font-black text-sm text-[#08264A] ">{textoAsignatura(examen.nombreExamen)}</h4>
             {boolEnCurso && <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#003770] text-white">● En curso</span>}
           </div>
           {strDetalle.length > 0 && (

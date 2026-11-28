@@ -439,6 +439,27 @@ class MonitoreoServiceTest {
     }
 
     @Test
+    void asistentesCsv_respetaEstadoYBusquedaSinAfectarTotales() {
+        when(ingresoRepository.findByIdAsignaturaAndIdExamen(ID_ASIGNATURA, ID_EXAMEN)).thenReturn(ingresos);
+        ingresos.add(ingreso(9101, AMB_601));
+        String ausentes = new String(service.asistentesCsv(AMB_601, "AUSENTE", "", "ip"), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(ausentes.contains("Barrios"));
+        assertFalse(ausentes.contains("Alba"));
+        String presentes = new String(service.asistentesCsv(AMB_601, "PRESENTE", "9101", "ip"), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(presentes.contains("Alba"));
+        assertFalse(presentes.contains("Barrios"));
+        String vacio = new String(service.asistentesCsv(AMB_601, "AUSENTE", "9101", "ip"), java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(1, vacio.lines().count());
+        assertEquals(2, service.asistentes(AMB_601, "ip").asistentes().size());
+        verify(auditoriaService).registrarEnTransaccion(eq("EXPORTACION_ASISTENCIA"), anyString(), anyString(), contains("estado PRESENTE"), eq("ip"));
+    }
+
+    @Test
+    void asistentesCsv_rechazaEstadoInvalido() {
+        assertThrows(IllegalArgumentException.class, () -> service.asistentesCsv(AMB_601, "DESCONOCIDO", "", "ip"));
+    }
+
+    @Test
     void asistentesCsv_noRespondeExitoSiFallaAuditoria() {
         when(ingresoRepository.findByIdAsignaturaAndIdExamen(ID_ASIGNATURA, ID_EXAMEN)).thenReturn(ingresos);
         doThrow(new IllegalStateException("auditoria no disponible")).when(auditoriaService)

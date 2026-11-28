@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { reporteColumnas } from '../../../utils/reportesListas.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import ReporteLista from '../../../components/common/ReporteLista.jsx';
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -65,13 +67,7 @@ export default function DocumentosPasadosPanel({ actualizacion }) {
     {(error || errorDescarga) && <p role="alert" className="m-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{error || errorDescarga}</p>}
     {cargando ? <p role="status" className="p-6 text-sm text-slate-500">Cargando documentos…</p> : <>
       {!documentos.length && !error && <p className="p-6 text-sm text-slate-500">Aún no hay documentos. El primer PDF que guardes aparecerá aquí.</p>}
-      <div className="max-h-[680px] overflow-y-auto divide-y divide-slate-100"><ReporteLista titulo="Documentos de exámenes pasados" contenido={() => <>{documentos.map(d => <article key={d.intId} className="p-5 hover:bg-slate-50">
-        <div className="flex gap-3"><FileText size={22} className="text-blue-700 shrink-0 mt-1" /><div className="min-w-0"><span className="text-xs font-semibold text-blue-700">Gestión {d.strPeriodo}</span><h3 className="font-semibold text-[#123F7B] break-words mt-1">{textoInterfaz(d.strNombre)}</h3>{d.strFecha && <p className="text-xs text-slate-500 mt-1">{d.strFecha}</p>}</div></div>
-        <div className="flex flex-wrap gap-2 mt-3 pl-8">
-          <button type="button" onClick={() => ver(d)} disabled={abriendo === d.intId} className="inline-flex items-center gap-2 text-sm px-3 py-2 border border-blue-200 rounded-lg text-blue-700 hover:bg-blue-50 disabled:cursor-wait">{abriendo === d.intId ? <LoaderCircle size={16} className="animate-spin" /> : <Eye size={16} />}{abriendo === d.intId ? "Abriendo…" : "Ver PDF"}</button>
-          <button type="button" onClick={() => descargar(d)} disabled={pendientes.has(d.intId)} aria-busy={pendientes.has(d.intId)} className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-[#123F7B] text-white disabled:cursor-wait">{pendientes.has(d.intId) ? <LoaderCircle size={16} className="animate-spin" /> : <Download size={16} />}{pendientes.has(d.intId) ? "Descargando…" : "Descargar"}</button>
-        </div>
-      </article>)}</>} />
+      <div className="max-h-[680px] overflow-y-auto divide-y divide-slate-100"><ReporteLista datos={() => reporteColumnas(documentos, [["Examen", d => textoAsignatura(d.strNombre)], ["Gestión", d => d.strPeriodo], ["Fecha", d => d.strFecha], ["Observaciones", d => d.strObservaciones]])} titulo="Documentos de exámenes pasados"  />
 {documentos.map(d => <article key={d.intId} className="p-5 hover:bg-slate-50">
         <div className="flex gap-3"><FileText size={22} className="text-blue-700 shrink-0 mt-1" /><div className="min-w-0"><span className="text-xs font-semibold text-blue-700">Gestión {d.strPeriodo}</span><h3 className="font-semibold text-[#123F7B] break-words mt-1">{textoInterfaz(d.strNombre)}</h3>{d.strFecha && <p className="text-xs text-slate-500 mt-1">{d.strFecha}</p>}</div></div>
         <div className="flex flex-wrap gap-2 mt-3 pl-8">

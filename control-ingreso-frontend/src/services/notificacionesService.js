@@ -1,3 +1,5 @@
+import { textoAsignatura, textoInterfaz } from '../utils/textoInterfaz.js';
+import { textoNombre } from '../components/common/textoNombre.js';
 import { strApiBaseUrl } from "./apiConfig";
 import { obtenerToken } from "./authService";
 
@@ -17,7 +19,7 @@ export function crearAvisosExamenes(examenes, ahora = new Date()) {
       intId: `${examen.intId}-${examen.idAmbiente ?? "sin-aula"}`,
       strTipo: "examen",
       strTitulo: dias === 0 ? "Examen hoy" : dias === 1 ? "Examen mañana" : "Examen próximo",
-      strDescripcion: `${examen.strNombre} · ${examen.strDocente || "Docente por confirmar"} · ${examen.strAmbiente || "Aula por confirmar"}.`,
+      strDescripcion: `${textoAsignatura(examen.strNombre)} · ${textoNombre(examen.strDocente) || "Docente por confirmar"} · ${examen.strAmbiente || "Aula por confirmar"}.`,
       strHace: `${fecha} · ${examen.strHoraInicio && examen.strHoraFin ? `${examen.strHoraInicio} - ${examen.strHoraFin}` : "Horario por confirmar"}`,
     }];
   });
@@ -32,7 +34,7 @@ export async function obtenerAvisosExamenes(filtros = {}) {
   if(!respuesta.ok) throw new Error(respuesta.status===401?"Inicie sesión para ver sus notificaciones.":"No se pudieron cargar sus notificaciones.");
   const {examenes,cambios,eventos}=await respuesta.json();
   if(Array.isArray(eventos)) return [...eventos].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha) || String(b.intId).localeCompare(String(a.intId),undefined,{numeric:true}))
-    .map(e=>({...e,strDescripcion:formatearDescripcion(e.strDescripcion),strHace:formatearFechaAviso(e.fecha)}));
+    .map(e=>({...e,strTitulo:textoAsignatura(e.strTitulo),strDescripcion:formatearDescripcion(e.strDescripcion),strHace:formatearFechaAviso(e.fecha)}));
   return [...crearAvisosCambios(cambios), ...crearAvisosExamenes(examenes)];
 }
 
@@ -42,10 +44,10 @@ export function formatearFechaAviso(fecha) {
 
 export function formatearDescripcion(texto="") {
  const [materia,...detalle]=texto.split(" · ");
- // Presentación del catálogo SAGA en mayúsculas; la BD conserva el nombre original.
+ // Normaliza la presentación del catálogo SAGA; la BD conserva el nombre original.
  const acentos={introduccion:"introducción",programacion:"programación",calculo:"cálculo",algebra:"álgebra",fisica:"física",quimica:"química",administracion:"administración",investigacion:"investigación",computacion:"computación",metodos:"métodos",analisis:"análisis",diseno:"diseño",teoria:"teoría",matematica:"matemática",ingenieria:"ingeniería",mecanica:"mecánica",electronica:"electrónica",estadistica:"estadística",logica:"lógica"};
  const nombre=materia===materia.toLocaleUpperCase("es") ? materia.toLocaleLowerCase("es").replace(/[a-záéíóúñ]+/g,p=>acentos[p]??p) : materia;
- const resultado=[nombre.charAt(0).toLocaleUpperCase("es")+nombre.slice(1),...detalle].join(" · ");
+ const resultado=[textoAsignatura(nombre),...detalle.map(parte => parte.replace(/[A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ_ -]+/g, valor => textoAsignatura(valor)))].join(" · ");
  return resultado.replace(/\s*\(#\d+\)/g,"").replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g,"$3/$2/$1");
 }
 

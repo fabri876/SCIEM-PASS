@@ -1,3 +1,4 @@
+import { textoNombre } from '../../components/common/textoNombre.js';
 import MenuSeccionesResponsive from "../../components/layout/MenuSeccionesResponsive";
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from 'react';
@@ -162,8 +163,8 @@ export default function HomeDocente() {
         return () => { cancel = true; };
     }, [usuario, numRecarga]);
 
-    const strNombre = usuario?.nombre || "Docente";
-    const strApellido = usuario?.apellido || "";
+    const strNombre = textoNombre(usuario?.nombre || "Docente");
+    const strApellido = textoNombre(usuario?.apellido || "");
     const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`;
 
     const [boolModalRegistroAbierto, setBoolModalRegistroAbierto] = useState(false);

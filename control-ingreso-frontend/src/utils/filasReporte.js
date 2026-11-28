@@ -6,7 +6,7 @@ export function obtenerFilasReporte(marcado, titulo) {
   const elementos = n => Array.from(n.getElementsByTagName('*'));
   for (const n of elementos(body)) {
     const etiqueta = n.tagName.toLowerCase();
-    const decorativo = ['svg', 'input', 'select', 'textarea', 'script', 'style'].includes(etiqueta) || n.getAttribute('aria-hidden') === 'true';
+    const decorativo = ['svg', 'input', 'select', 'textarea', 'script', 'style'].includes(etiqueta) || n.getAttribute('aria-hidden') === 'true' || n.hasAttribute('data-reporte-ignorar');
     const accion = (etiqueta === 'button' || n.getAttribute('role') === 'button') && n.parentNode !== body;
     if ((decorativo || accion) && n.parentNode) n.parentNode.removeChild(n);
   }

@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Credencial QR de un examen: el código grande + datos del examen y del estudiante
 import { useEffect, useRef, useState } from "react";
@@ -149,7 +150,7 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
         <div className={"flex flex-wrap items-center justify-between gap-2 px-[22px] py-3.5 text-white max-md:px-4 " + strColorBanda}>
           <div>
             <b className="block text-[15px] font-bold tracking-[.3px]">Credencial de ingreso</b>
-            <span className="text-xs font-semibold tracking-[.5px] opacity-90">{textoInterfaz(examen.tipo.toUpperCase())} · {textoInterfaz(examen.materia)}</span>
+            <span className="text-xs font-semibold tracking-[.5px] opacity-90">{textoInterfaz(examen.tipo.toUpperCase())} · {textoAsignatura(examen.materia)}</span>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-xs font-semibold">
             <i className={"w-[7px] h-[7px] rounded-full " + (boolDisponible ? "bg-[#83B7E2]" : "bg-[#CBD5E1]")} />

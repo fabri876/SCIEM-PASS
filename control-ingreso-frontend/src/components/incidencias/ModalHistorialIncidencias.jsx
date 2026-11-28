@@ -1,3 +1,6 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
+import { reporteColumnas } from '../../utils/reportesListas.js';
+import { textoNombre } from '../common/textoNombre.js';
 import ReporteLista from '../common/ReporteLista.jsx';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
@@ -498,118 +501,7 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
             </div>
           ) : (
             <div className="space-y-2.5">
-              <ReporteLista titulo="Historial de incidencias" contenido={() => <>{incidenciasFiltradas.map((it) => {
-                const claveItem = it.local ? it.clientUuid : (it.idExpulsion || it.idIncidencia);
-                const estiloSeveridad = ESTILO_SEVERIDAD[it.severidad] || ESTILO_SEVERIDAD.BAJA;
-                const claseEstado = ESTILO_ESTADO[it.estado] || "bg-[#F1F5F9] text-[#64748B]";
-                const esError = ESTADOS_CON_ERROR.has(it.estado);
-                const tieneExpulsion = Boolean(it.idExpulsion) || it.estudianteRetirado;
-                const revocada = it.esRevocada;
-                const borde = esError
-                  ? "border-[#FCA5A5]"
-                  : it.local
-                    ? "border-[#FDE68A]"
-                    : "border-[#E2E8F0]";
-                return (
-                  <article
-                    key={claveItem}
-                    className={`group relative overflow-hidden rounded-2xl border bg-white transition-shadow hover:shadow-md ${borde}`}
-                  >
-                    <span className={`absolute inset-y-0 left-0 w-1.5 ${estiloSeveridad.barra}`} />
-
-                    <div className="pl-4 pr-3.5 py-3">
-                      <div className="flex items-start justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-mono text-[10px] font-black tracking-wider text-[#124B83] bg-[#F0F6FC] border border-[#B6D3EE] rounded-md px-1.5 py-0.5">
-                            {textoInterfaz(it.local ? "SIN SINCRONIZAR" : it.codigo)}
-                          </span>
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-black ${claseEstado}`}>
-                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                            {textoInterfaz(textoEstado(it))}
-                          </span>
-                          {tieneExpulsion && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#FEE2E2] text-[#B91C1C] px-2 py-0.5 text-[10px] font-black">
-                              <UserMinus className="w-3 h-3" />
-                              {revocada ? "Expulsión revocada" : "Estudiante retirado"}
-                            </span>
-                          )}
-                          {it.evidenciaPendiente && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#F0F6FC] text-[#124B83] border border-[#B6D3EE] px-2 py-0.5 text-[10px] font-black">
-                              <CloudUpload className="w-3 h-3" />
-                              Foto pendiente
-                            </span>
-                          )}
-                        </div>
-                        {it.fechaHora && (
-                          <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-[#9AA8BA] shrink-0">
-                            <Clock className="w-3 h-3" />
-                            {formatearFecha(it.fechaHora)} · {formatearHora(it.fechaHora)}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-1.5 flex flex-col gap-1">
-                        <div className="flex items-start gap-2 text-sm font-black text-[#08264A]">
-                          <span className="text-[#B91C1C] font-bold text-[10px]">Tipo:</span>
-                          <span>{textoTipo(it)}</span>
-                        </div>
-                        <div className="flex items-start gap-2 text-sm font-black text-[#08264A]">
-                          <span className="text-[#B91C1C] font-bold text-[10px]">Accion:</span>
-                          <span>{textoAccion(it)}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-[#7A8BA0]">
-                        {it.estudiante && (
-                          <span className="inline-flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            {it.estudiante}
-                          </span>
-                        )}
-                        {it.aula && (
-                          <span className="inline-flex items-center gap-1">
-                            <Building2 className="w-3 h-3" />
-                            {it.aula}
-                          </span>
-                        )}
-                        {it.reportadoPor && (
-                          <span className="inline-flex items-center gap-1">
-                            <ClipboardList className="w-3 h-3" />
-                            {it.reportadoPor}
-                          </span>
-                        )}
-                      </div>
-
-                      {it.descripcion && (
-                        <p className="mt-1.5 text-[11px] leading-snug text-[#64748B] line-clamp-2">
-                          {textoInterfaz(it.descripcion)}
-                        </p>
-                      )}
-
-                      {esError && it.ultimoError && (
-                        <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-[#FEE2E2] bg-[#FEF2F2] px-2.5 py-1.5 text-[10.5px] font-bold text-[#B91C1C]">
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
-                          <span>Motivo del rechazo: {it.ultimoError}</span>
-                        </div>
-                      )}
-
-                      {rol === "DOCENTE" && !revocada && it.estado !== "REVOCADA" && (
-                        <div className="mt-2.5 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => fnAbrirRevocar(it)}
-                            disabled={idRevocando === claveItem}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#FCA5A5] bg-white px-2.5 py-1 text-[11px] font-black text-[#B91C1C] hover:bg-[#FEF2F2] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            {idRevocando === claveItem ? "Revocando…" : "Revocar"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}</>} />
+              <ReporteLista filtros={[filtroChip]} datos={() => reporteColumnas(incidenciasFiltradas, [["Código", i => i.codigo], ["Fecha y hora", i => i.fechaHora], ["Tipo", i => textoInterfaz(i.tipoEtiqueta || i.tipo)], ["Aula", i => i.aula], ["Asignatura", i => textoAsignatura(i.asignatura)], ["Severidad", i => textoInterfaz(i.severidad)], ["Estado", i => textoInterfaz(i.estado)], ["Descripción", i => i.descripcion], ["Reportado por", i => textoNombre(i.reportadoPor)]])} titulo="Historial de incidencias"  />
 {incidenciasFiltradas.map((it) => {
                 const claveItem = it.local ? it.clientUuid : (it.idExpulsion || it.idIncidencia);
                 const estiloSeveridad = ESTILO_SEVERIDAD[it.severidad] || ESTILO_SEVERIDAD.BAJA;
@@ -687,7 +579,7 @@ export default function ModalHistorialIncidencias({ boolAbierto, onCerrar, idExa
                         {it.reportadoPor && (
                           <span className="inline-flex items-center gap-1">
                             <ClipboardList className="w-3 h-3" />
-                            {it.reportadoPor}
+                            {textoNombre(it.reportadoPor)}
                           </span>
                         )}
                       </div>

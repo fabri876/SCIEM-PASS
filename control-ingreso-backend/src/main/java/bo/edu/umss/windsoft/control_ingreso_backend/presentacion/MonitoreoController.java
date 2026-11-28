@@ -67,11 +67,13 @@ public class MonitoreoController {
 
     /** La misma lista en CSV (queda en auditoría como EXPORTACION_ASISTENCIA). */
     @GetMapping("/ambientes/{idAmbiente}/asistentes.csv")
-    public ResponseEntity<byte[]> asistentesCsv(@PathVariable Integer idAmbiente, HttpServletRequest request) {
-        byte[] csv = monitoreoService.asistentesCsv(idAmbiente, ClientIpResolver.resolver(request));
+    public ResponseEntity<byte[]> asistentesCsv(@PathVariable Integer idAmbiente,
+            @RequestParam(defaultValue = "TODOS") String estado,
+            @RequestParam(defaultValue = "") String busqueda, HttpServletRequest request) {
+        byte[] csv = monitoreoService.asistentesCsv(idAmbiente, estado, busqueda, ClientIpResolver.resolver(request));
         return ResponseEntity.ok()
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"asistentes-aula-" + idAmbiente + ".csv\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"asistentes-aula-" + idAmbiente + "_" + estado.replaceAll("[^A-Za-z]", "") + "_" + java.time.LocalDate.now(java.time.ZoneId.of("America/La_Paz")) + ".csv\"")
                 .body(csv);
     }
 

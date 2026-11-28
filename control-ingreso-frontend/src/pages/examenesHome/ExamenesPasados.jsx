@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
+import { reporteColumnas } from '../../utils/reportesListas.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import ReporteLista from '../../components/common/ReporteLista.jsx';
 import { useCallback, useEffect, useState } from "react";
@@ -32,11 +34,7 @@ export default function ExamenesPasados() {
       {errorDescarga && <p role="alert" className="p-3 mb-4 bg-red-50 text-red-700 rounded-lg">{errorDescarga}</p>}
       {cargando ? <ExamenesSkeleton intCantidad={4} /> : error ? <ExamenesError strMensaje={error} fnReintentar={cargar} /> : <>
         {!documentos.length && <ExamenesVacio strTitulo={pagina===0 ? "Aún no hay exámenes pasados" : "No hay documentos en esta página"} strDescripcion="Los PDFs publicados por el administrador aparecerán aquí." />}
-        <div className="space-y-4"><ReporteLista titulo="Exámenes pasados" contenido={() => <>{documentos.map(d => <article key={d.intId} className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row gap-4 sm:items-center">
-          <FileText className="text-blue-700 shrink-0" size={30} /><div className="flex-1 min-w-0"><p className="text-sm text-slate-500">Gestión {d.strPeriodo}{d.strFecha ? ` · ${d.strFecha}` : ""}</p><h2 className="text-lg font-bold text-[#123F7B] break-words">{textoInterfaz(d.strNombre)}</h2>{d.strObservaciones && <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap break-words">{d.strObservaciones}</p>}</div>
-          <button type="button" disabled={pendientes.has(d.intId)} aria-busy={pendientes.has(d.intId)} onClick={() => descargar(d)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#123F7B] text-white px-4 py-2 font-semibold disabled:cursor-wait">{pendientes.has(d.intId) ? <LoaderCircle size={18} className="animate-spin" /> : <Download size={18} />}{pendientes.has(d.intId) ? "Descargando…" : "Descargar PDF"}</button>
-          <button type="button" onClick={()=>setVisor(d)} className="rounded-lg border border-blue-300 text-blue-800 px-4 py-2 font-semibold">Ver PDF</button>
-        </article>)}</>} />
+        <div className="space-y-4"><ReporteLista datos={() => reporteColumnas(documentos, [["Examen", d => textoAsignatura(d.strNombre)], ["Gestión", d => d.strPeriodo], ["Fecha", d => d.strFecha], ["Observaciones", d => d.strObservaciones]])} titulo="Exámenes pasados"  />
 {documentos.map(d => <article key={d.intId} className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row gap-4 sm:items-center">
           <FileText className="text-blue-700 shrink-0" size={30} /><div className="flex-1 min-w-0"><p className="text-sm text-slate-500">Gestión {d.strPeriodo}{d.strFecha ? ` · ${d.strFecha}` : ""}</p><h2 className="text-lg font-bold text-[#123F7B] break-words">{textoInterfaz(d.strNombre)}</h2>{d.strObservaciones && <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap break-words">{d.strObservaciones}</p>}</div>
           <button type="button" disabled={pendientes.has(d.intId)} aria-busy={pendientes.has(d.intId)} onClick={() => descargar(d)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#123F7B] text-white px-4 py-2 font-semibold disabled:cursor-wait">{pendientes.has(d.intId) ? <LoaderCircle size={18} className="animate-spin" /> : <Download size={18} />}{pendientes.has(d.intId) ? "Descargando…" : "Descargar PDF"}</button>

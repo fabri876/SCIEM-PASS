@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
+import { textoNombre } from '../common/textoNombre.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
 import {
@@ -221,7 +223,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
     }
     setBoolExportando(true);
     try {
-      exportarIntentosExcelCsv(arrIntentos);
+      exportarIntentosExcelCsv(arrIntentos, filtrosActivos);
       setStrMensajeExito("Archivo Excel (CSV) descargado exitosamente con todos los registros filtrados.");
       setTimeout(() => setStrMensajeExito(""), 4000);
     } catch {
@@ -410,7 +412,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
               <option value="TODOS">Todos los Exámenes</option>
               {listExamenesDisponibles.map((ex) => (
                 <option key={ex.id} value={ex.id}>
-                  {textoInterfaz(ex.nombre)}
+                  {textoAsignatura(ex.nombre)}
                 </option>
               ))}
             </select>
@@ -619,7 +621,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
                   <tr key={item.idIntento} className="text-xs hover:bg-slate-50/80 transition-colors text-slate-700">
                     {/* Estudiante (SIS / CI) */}
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-900">{item.estudianteNombre}</div>
+                      <div className="font-bold text-slate-900">{textoNombre(item.estudianteNombre)}</div>
                       <div className="text-[11px] text-slate-500 font-medium mt-0.5">
                         SIS: <span className="font-mono text-slate-700">{item.codSis}</span> · CI: {item.ci}
                       </div>
@@ -651,7 +653,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
 
                     {/* Operador */}
                     <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
-                      {item.operador}
+                      {textoNombre(item.operador)}
                     </td>
 
                     {/* Estado Posterior */}
