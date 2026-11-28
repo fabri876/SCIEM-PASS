@@ -1,3 +1,5 @@
+import { textoNombre } from './textoNombre.js';
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
 import {
@@ -145,7 +147,7 @@ export default function SeleccionAsignaturaGrupo({
           {listAsignaturas.map((a) => (
             <option key={a.idAsignatura} value={a.idAsignatura}>
               {a.siglaAsignatura ? `[${a.siglaAsignatura}] ` : ""}
-              {textoInterfaz(a.nombreAsignatura)}
+              {textoAsignatura(a.nombreAsignatura)}
             </option>
           ))}
         </select>
@@ -170,7 +172,7 @@ export default function SeleccionAsignaturaGrupo({
             </option>
             {listDocentes.map((d) => (
               <option key={d.idUsuario} value={d.idUsuario}>
-                {d.nombreCompleto} (SIS: {d.codSisDocente || d.idUsuario})
+                {textoNombre(d.nombreCompleto)} (SIS: {d.codSisDocente || d.idUsuario})
               </option>
             ))}
           </select>

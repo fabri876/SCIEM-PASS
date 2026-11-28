@@ -1,3 +1,4 @@
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import React, { useEffect, useState } from "react";
@@ -154,7 +155,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
 
         {/* Tabla */}
         <div className="max-h-[520px] overflow-auto rounded-xl border border-border" tabIndex={0} aria-label="Lista de usuarios" role="region">
-          <TablaConReporte titulo="Usuarios">{(_paraReporte) => (<table className="w-full text-left border-collapse">
+          <TablaConReporte filtros={[rolSeleccionado, estadoSeleccionado, searchTerm]} titulo="Usuarios">{(_paraReporte) => (<table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-10">
               <tr className="bg-bg-app text-badge font-bold text-text-body/70 tracking-wider border-b border-border">
                 <th className="py-3 px-4">Usuario</th>
@@ -174,7 +175,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
                 </tr>
               ) : filteredUsers.length > 0 ? (
                 filteredUsers.map((user) => {
-                  const nombreCompleto = `${user?.nombre || ""} ${user?.apellido || ""}`.trim();
+                  const nombreCompleto = textoNombre(`${user?.nombre || ""} ${user?.apellido || ""}`);
                   const initials = nombreCompleto
                     ? nombreCompleto.split(" ").map((n) => n[0]).join("").substring(0, 2)
                     : "U";
@@ -185,10 +186,10 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
                         <div className="flex items-center gap-3">
                           {/* No cargar fotos faciales masivamente en la tabla general.
                               Evita solicitudes 404 para estudiantes sin enrolamiento. */}
-                          <div className={`w-8 h-8 rounded-full ${colorAvatar(user.idUsuario)} text-bg-card font-bold text-badge flex items-center justify-center shrink-0`}>
+                          <div aria-hidden="true" className={`w-8 h-8 rounded-full ${colorAvatar(user.idUsuario)} text-bg-card font-bold text-badge flex items-center justify-center shrink-0`}>
                             {initials}
                           </div>
-                          <span className="font-bold text-primary-navy truncate">{nombreCompleto}</span>
+                          <span className="font-bold text-primary-navy truncate">{textoNombre(nombreCompleto)}</span>
                         </div>
                       </td>
                       <td className="py-3 px-4 font-semibold text-text-body">{user.ci}</td>
@@ -260,7 +261,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
             {textoInterfaz(usuarioParaCambiarEstado?.estado ? "¿Está seguro de desactivar a este usuario?" : "¿Está seguro de activar a este usuario?")}
           </h2>
           <p className="text-secondary text-text-body/80 mb-5">
-            {textoInterfaz(usuarioParaCambiarEstado?.nombre)} {textoInterfaz(usuarioParaCambiarEstado?.apellido)} ({textoInterfaz(usuarioParaCambiarEstado?.correo)})
+            {textoInterfaz(usuarioParaCambiarEstado?.nombre)} {textoNombre(usuarioParaCambiarEstado?.apellido)} ({textoInterfaz(usuarioParaCambiarEstado?.correo)})
           </p>
           {usuarioParaCambiarEstado?.estado && (
             <p className="text-secondary text-text-body/80 mb-5">

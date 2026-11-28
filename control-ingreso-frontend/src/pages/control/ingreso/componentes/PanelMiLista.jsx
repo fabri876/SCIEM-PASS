@@ -1,3 +1,4 @@
+import { reporteEstudiantes } from '../../../../utils/reportesListas.js';
 import ReporteLista from '../../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Lista del ayudante (panel lateral, solo lectura).
@@ -334,24 +335,7 @@ export default function PanelMiLista({ boolAbierto, onCerrar, examen, boolSinRed
                   </li>
                 )}
 
-                <ReporteLista titulo="Mi lista de estudiantes" contenido={() => <>{listVisibles.map((f) => {
-                  const objEstado = ESTADOS[f.estado] || ESTADOS.PENDIENTE;
-                  const boolUltimo = strUltimoRegistrado && (f.ci === strUltimoRegistrado || f.sis === strUltimoRegistrado);
-                  return (
-                    <li
-                      key={f.sis || f.ci}
-                      className={"grid grid-cols-[minmax(0,1fr)_auto] gap-3.5 items-center px-[18px] py-3 border-t border-[#CBD5E1] first:border-t-0 " + (boolUltimo ? "bg-[#F0F6FC]" : "")}
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-[#08264A]">{nombreEstudiante(f)}</div>
-                        <div className="mt-px text-xs text-[#64748B]">SIS {f.sis}{f.ci ? ` · C.I. ${f.ci}` : ""}</div>
-                      </div>
-                      <span className={"justify-self-end px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap " + objEstado.strClase}>
-                        {textoInterfaz(objEstado.strTexto)}
-                      </span>
-                    </li>
-                  );
-                })}</>} as="li" />
+                <ReporteLista filtros={[strFiltro, strBuscar]} datos={() => reporteEstudiantes(listVisibles, f => (ESTADOS[f.estado] || ESTADOS.PENDIENTE).strTexto)} titulo="Mi lista de estudiantes"  as="li" />
 {listVisibles.map((f) => {
                   const objEstado = ESTADOS[f.estado] || ESTADOS.PENDIENTE;
                   const boolUltimo = strUltimoRegistrado && (f.ci === strUltimoRegistrado || f.sis === strUltimoRegistrado);

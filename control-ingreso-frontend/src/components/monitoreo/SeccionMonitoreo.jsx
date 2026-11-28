@@ -1,3 +1,6 @@
+import { textoNombre } from '../common/textoNombre.js';
+import { reporteColumnas } from '../../utils/reportesListas.js';
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
 import ReporteLista from '../common/ReporteLista.jsx';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
@@ -224,7 +227,7 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
             {examenes.length === 0 && <option value="">{boolCargandoExamenes ? "Cargando..." : "Sin exámenes"}</option>}
             {examenes.map((ex) => (
               <option key={ex.idExamen} value={ex.idExamen}>
-                {ex.asignatura} · {formatearFecha(ex.fechaExamen)}
+                {textoAsignatura(ex.asignatura)} · {formatearFecha(ex.fechaExamen)}
                 {ex.horaInicio ? ` · ${horaCorta(ex.horaInicio)}–${horaCorta(ex.horaFin)}` : ""}
                 {textoInterfaz(ex.enCurso ? " · EN CURSO" : "")}
               </option>
@@ -305,15 +308,7 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
                 <p className="text-xs text-slate-400 font-semibold py-6 text-center">El examen no tiene aulas asignadas.</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <ReporteLista titulo="Ocupación de aulas" contenido={() => <>{tablero.aulas.map((aula) => (
-                    <TarjetaAula
-                      key={aula.idAmbiente}
-                      aula={aula}
-                      incidencias={extras.incidencias ? extras.incidencias.porAula[aula.idAmbiente] || null : undefined}
-                      boolCerrada={Boolean(extras.cierres[aula.idAmbiente]?.cerrado)}
-                      onAbrir={setAulaDetalle}
-                    />
-                  ))}</>} />
+                  <ReporteLista datos={() => reporteColumnas(tablero.aulas, [["Aula", a => a.aula], ["Ubicación", a => a.ubicacion], ["Docente", a => textoNombre(a.docenteResponsable || a.docente)], ["Capacidad", a => a.capacidad], ["Asignados", a => a.asignados], ["Ingresados", a => a.ingresados], ["Pendientes", a => a.pendientes]])} titulo="Ocupación de aulas"  />
 {tablero.aulas.map((aula) => (
                     <TarjetaAula
                       key={aula.idAmbiente}
@@ -334,7 +329,7 @@ export default function SeccionMonitoreo({ rol = "DOCENTE" }) {
 
           {examenActual && (
             <p className="text-[11px] text-slate-400 font-semibold text-right">
-              {examenActual.asignatura} · {formatearFecha(examenActual.fechaExamen)} · datos de las {strHoraDatos}
+              {textoAsignatura(examenActual.asignatura)} · {formatearFecha(examenActual.fechaExamen)} · datos de las {strHoraDatos}
             </p>
           )}
         </>

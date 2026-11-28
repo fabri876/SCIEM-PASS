@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
+import { nombreReporte } from '../../utils/exportarCsv.js';
 import { TablaConReporte } from '../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -347,7 +349,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
     };
 
     const filasExamen = [
-        { etiqueta: 'EXAMEN', valor: infoExamen.nombreExamen, icono: 'documento' },
+        { etiqueta: 'EXAMEN', valor: textoAsignatura(infoExamen.nombreExamen), icono: 'documento' },
         { etiqueta: 'FECHA', valor: infoExamen.fecha, icono: 'calendario' },
         { etiqueta: 'HORA', valor: infoExamen.hora, icono: 'horario' },
         { etiqueta: 'DURACIÓN', valor: obtenerDuracionCalculada(infoExamen.duracion, infoExamen.hora), icono: 'reloj' },
@@ -399,7 +401,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                                 const url = window.URL.createObjectURL(blob);
                                 const a = document.createElement('a');
                                 a.href = url;
-                                a.download = `Lista_Oficial_Habilitados_${(infoExamen.nombreExamen || 'Examen').replace(/\s+/g, '_')}.xlsx`;
+                                a.download = nombreReporte(`Lista-oficial-habilitados-${infoExamen.nombreExamen || 'Examen'}`, [], 'xlsx');
                                 document.body.appendChild(a);
                                 a.click();
                                 a.remove();
@@ -485,7 +487,7 @@ export default function GestionHabilitaciones({ examenId: propExamenId }) {
                             <>
                                 {/* Tabla: visible desde md hacia arriba */}
                                 <div className="hidden md:block overflow-x-auto">
-                                    <TablaConReporte titulo="Habilitaciones de estudiantes">{(paraReporte) => (<table className="w-full min-w-[760px] text-left text-[14px]">
+                                    <TablaConReporte filtros={[busqueda, filtroEstado]} titulo="Habilitaciones de estudiantes">{(paraReporte) => (<table className="w-full min-w-[760px] text-left text-[14px]">
                                         <thead>
                                             <tr className="text-[#124B83] border-y border-[#CBD5E1] font-extrabold text-[11px] tracking-[.6px] bg-[#E8F1FB]">
                                                 <th className="py-3.5 px-3 sm:px-6">N°</th>

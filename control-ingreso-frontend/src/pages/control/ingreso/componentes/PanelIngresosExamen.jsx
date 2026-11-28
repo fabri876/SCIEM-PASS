@@ -1,3 +1,4 @@
+import { reporteEstudiantes } from '../../../../utils/reportesListas.js';
 import ReporteLista from '../../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // "Ver ingresos" de un examen (panel lateral, solo lectura): todos los estudiantes con su estado.
@@ -145,31 +146,7 @@ export default function PanelIngresosExamen({ boolAbierto, onCerrar, idExamen, s
                 {textoInterfaz(listBuscadas.length === 0 ? "Sin coincidencias en la lista." : "No hay estudiantes con este estado.")}
               </li>
             )}
-            <ReporteLista titulo="Ingresos del examen" contenido={() => <>{listVisibles.map((f) => {
-              const strEstado = estadoDe(f);
-              const objEstado = ESTADOS[strEstado];
-              const strAula = f.aulaAsignada ? `Aula ${String(f.aulaAsignada).replace(/^aula\s*/i, "")}` : "";
-              const strMotivo = f.observacion || f.observacionHabilitacion || "";
-              return (
-                <li key={f.sis || f.ci} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3.5 items-center px-[18px] py-3 border-t border-[#CBD5E1] first:border-t-0">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-[#08264A]">{nombreEstudiante(f)}</div>
-                    <div className="mt-px text-xs text-[#64748B]">
-                      {[f.sis && `SIS ${f.sis}`, f.ci && `C.I. ${f.ci}`, strAula].filter(Boolean).join(" · ")}
-                    </div>
-                    {strEstado === "INGRESO" && f.marcadoPor && (
-                      <div className="mt-1 text-xs text-[#334155]">Registrado por {nombreNormal(f.marcadoPor)}</div>
-                    )}
-                    {strEstado === "INHABILITADO" && (
-                      <div className="mt-1 text-xs text-[#B91C1C]">Motivo: {textoInterfaz(strMotivo || "sin motivo especificado")}</div>
-                    )}
-                  </div>
-                  <span className={"justify-self-end px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap " + objEstado.strClase}>
-                    {textoInterfaz(objEstado.strTexto)}{textoInterfaz(strEstado === "INGRESO" && hhmm(f.horaIngreso) ? ` ${hhmm(f.horaIngreso)}` : "")}
-                  </span>
-                </li>
-              );
-            })}</>} as="li" />
+            <ReporteLista filtros={[strFiltro, strBuscar]} datos={() => reporteEstudiantes(listVisibles, f => ESTADOS[estadoDe(f)].strTexto)} titulo="Ingresos del examen"  as="li" />
 {listVisibles.map((f) => {
               const strEstado = estadoDe(f);
               const objEstado = ESTADOS[strEstado];

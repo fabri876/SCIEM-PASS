@@ -1,3 +1,4 @@
+import { reporteColumnas } from '../../utils/reportesListas.js';
 import ReporteLista from '../common/ReporteLista.jsx';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useMemo } from "react";
@@ -50,20 +51,7 @@ export default function ActividadReciente({ incidencias, alertas }) {
                 <p className="text-xs text-slate-400 font-semibold py-6 text-center">Sin incidencias ni alertas por ahora.</p>
             ) : (
                 <ul className="space-y-2.5 max-h-80 overflow-y-auto pr-3 [scrollbar-gutter:stable]">
-                    <ReporteLista titulo="Actividad reciente" contenido={() => <>{eventos.map((e) => (
-                        <li key={e.clave} className="flex items-start gap-2.5 text-xs">
-                            <span className="w-10 shrink-0 font-black text-slate-500 tabular-nums pt-0.5">{formatearHora(e.fecha)}</span>
-                            <div className="min-w-0 flex-1">
-                                <p className="font-bold text-slate-800 break-words">
-                                    <span className={`inline-flex items-center gap-1 text-[9.5px] font-black px-1.5 py-0.5 rounded-full mr-1.5 align-middle ${clases[e.tono]}`}>
-                                        <e.Icono className="w-3 h-3" />{textoInterfaz(e.etiqueta)}
-                                    </span>
-                                    {textoInterfaz(e.titulo)}
-                                </p>
-                                <p className="text-[11px] font-semibold text-slate-500 break-words">{e.detalle}</p>
-                            </div>
-                        </li>
-                    ))}</>} as="li" />
+                    <ReporteLista datos={() => reporteColumnas(eventos, [["Fecha y hora", e => e.fecha], ["Evento", e => textoInterfaz(e.etiqueta)], ["Descripción", e => [e.titulo, e.detalle].filter(Boolean).join(" · ")]])} titulo="Actividad reciente"  as="li" />
 {eventos.map((e) => (
                         <li key={e.clave} className="flex items-start gap-2.5 text-xs">
                             <span className="w-10 shrink-0 font-black text-slate-500 tabular-nums pt-0.5">{formatearHora(e.fecha)}</span>

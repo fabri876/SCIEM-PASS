@@ -25,7 +25,8 @@ class ExportacionHistorialServiceTest {
                 .thenReturn(List.of(bloque, bloque));
         String csv = new String(servicio.generar("USUARIOS", "operador", null, "2026-11-01", "2026-11-09", null,
                 "admin@example.invalid", "127.0.0.1"), StandardCharsets.UTF_8);
-        assertTrue(csv.startsWith("\uFEFFID_BLOQUE"));
+        assertTrue(csv.startsWith("\uFEFFID_BLOQUE;FECHA_HORA_OFICIAL;"));
+        assertTrue(csv.contains("\"1\";\"2026-11-01\";\"USUARIOS\""));
         assertEquals(2, csv.split("\"'=1\\+1\"", -1).length - 1);
         verify(auditoria).registrarCompletoEnTransaccion(eq("EXPORTACION_HISTORIAL_CSV"), eq("admin@example.invalid"),
                 eq("admin@example.invalid"), argThat(d -> d.contains("modulo=USUARIOS") && d.contains("ejecutor=operador")

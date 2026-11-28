@@ -1,3 +1,4 @@
+import { nombreReporte } from '../utils/exportarCsv.js';
 /**
  * historialInmodificableService.js
  *
@@ -387,14 +388,7 @@ export async function verificarCadenaCompleta(arrBloques) {
 export async function exportarRegistroCompletoCsv(objFiltros = {}) {
   const blob = await fetchAutenticado(`/api/admin/historial-inmodificable/exportar${parametrosHistorial(objFiltros)}`, {}, true);
 
-  const fechaActual = new Date();
-  const anio = fechaActual.getFullYear();
-  const mes = String(fechaActual.getMonth() + 1).padStart(2, "0");
-  const dia = String(fechaActual.getDate()).padStart(2, "0");
-  const hora = String(fechaActual.getHours()).padStart(2, "0");
-  const min = String(fechaActual.getMinutes()).padStart(2, "0");
-
-  const strNombreArchivo = `SCIEM_PASS_Historial_Inmodificable_${anio}-${mes}-${dia}_${hora}${min}.csv`;
+  const strNombreArchivo = nombreReporte('SCIEM_PASS_Historial_Inmodificable', Object.entries(objFiltros).map(([clave, valor]) => valor ? `${clave}-${valor}` : '').filter(Boolean));
 
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);

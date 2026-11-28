@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../../../utils/textoInterfaz.js';
+import { reporteExamenes } from '../../../../utils/reportesListas.js';
 import ReporteLista from '../../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // "Mis exámenes": los 3 más relevantes como tarjetas + "Ver todos" con la lista completa
@@ -231,7 +233,7 @@ function TarjetaExamenHoy({ examen, onElegir, boolSinRed }) {
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h3 className="m-0 text-base font-bold text-[#08264A] leading-snug">{textoInterfaz(examen.tipo)} · {textoInterfaz(examen.materia)}</h3>
+              <h3 className="m-0 text-base font-bold text-[#08264A] leading-snug">{textoInterfaz(examen.tipo)} · {textoAsignatura(examen.materia)}</h3>
               <span className={"inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold " + objEstado.strClase}>
                 <i className={"w-[7px] h-[7px] rounded-full " + objEstado.strPunto} />
                 {textoInterfaz(objEstado.strTexto)}
@@ -315,7 +317,7 @@ function FilaExamen({ examen, onElegir }) {
         <div className="text-xs text-[#64748B]">{examen.horaInicio} – {examen.horaFin}</div>
       </div>
       <div className="min-w-0">
-        <div className="text-sm font-semibold text-[#08264A] truncate">{textoInterfaz(examen.tipo)} · {textoInterfaz(examen.materia)}</div>
+        <div className="text-sm font-semibold text-[#08264A] truncate">{textoInterfaz(examen.tipo)} · {textoAsignatura(examen.materia)}</div>
         <div className="mt-px text-xs text-[#64748B] truncate">
           Aula {String(examen.aula || "").replace(/^aula\s*/i, "")}{textoGrupoExamen(examen.grupo) ? ` · ${textoGrupoExamen(examen.grupo)}` : ""}{examen.fila ? ` · Sin internet: apellidos ${examen.fila.desde} – ${examen.fila.hasta}` : ""}
           <span className={"ml-2 inline-flex items-center gap-1 px-2 py-px rounded-full text-[11px] font-semibold " + objEstado.strClase}>
@@ -451,14 +453,7 @@ export default function ListaExamenesHoy({ listExamenes, boolCargando, sinRespal
 
       {listDestacados.length > 0 && (
         <div className="flex flex-col gap-3">
-          <ReporteLista titulo="Exámenes de hoy" contenido={() => <>{objOrden.todos.map((ex) => (
-            <TarjetaExamenHoy
-              key={ex.id}
-              examen={ex}
-              onElegir={onElegir}
-              boolSinRed={boolSinRedReal}
-            />
-          ))}</>} />
+          <ReporteLista datos={() => reporteExamenes(objOrden.todos)} titulo="Exámenes de hoy"  />
 {listDestacados.map((ex) => (
             <TarjetaExamenHoy
               key={ex.id}

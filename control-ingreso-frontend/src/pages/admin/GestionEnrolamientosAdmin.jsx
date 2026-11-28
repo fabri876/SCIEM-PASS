@@ -1,3 +1,4 @@
+import { textoNombre } from '../../components/common/textoNombre.js';
 import { TablaConReporte } from '../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useEffect, useState } from "react";
@@ -61,7 +62,7 @@ export default function GestionEnrolamientosAdmin() {
             const pendienteReenrolamiento = estado === "pendiente_reenrolamiento";
             const ocupado = procesando === fila.idEnrollment;
             return <tr key={fila.idEnrollment} className="border-t border-[var(--color-border)]">
-              <td className="p-2 font-bold text-[var(--color-text-title)]">{fila.nombreCompleto}<small className="block text-[var(--color-text-body)]">SIS {fila.codsisEstudiante}</small></td>
+              <td className="p-2 font-bold text-[var(--color-text-title)]">{textoNombre(fila.nombreCompleto)}<small className="block text-[var(--color-text-body)]">SIS {fila.codsisEstudiante}</small></td>
               <td className="text-center">{textoInterfaz(pendienteReenrolamiento ? "Pendiente de re-enrolamiento" : fila.estado)}</td>
               <td className="text-center">{fila.fechaRegistro?.slice(0, 10)}</td>
               <td className="p-2 text-right">

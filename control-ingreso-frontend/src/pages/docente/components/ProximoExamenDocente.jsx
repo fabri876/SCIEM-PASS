@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 // Tarjeta "Próximo examen" del Inicio del docente (el examen más cercano que aún no terminó).
 import { cuentaRegresiva, fechaCorta } from "../../credencial/componentes/formato";
 
@@ -21,7 +22,7 @@ export default function ProximoExamenDocente({ examen, onVerDetalle }) {
       ) : (
         <>
           <div className="p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
-            <p className="font-extrabold text-sm text-[#1A365D]">{examen.nombreExamen}</p>
+            <p className="font-extrabold text-sm text-[#1A365D]">{textoAsignatura(examen.nombreExamen)}</p>
             <p className="text-[11px] text-slate-600 mt-1">
               {fechaCorta(strFecha)} · {examen.horario}
             </p>

@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // "Mis registros" del ayudante: los ingresos que registró en todos sus exámenes.
@@ -126,7 +127,7 @@ export default function MisRegistrosAyudante() {
         >
           <option value="">Examen: todos</option>
           {listExamenes.map((ex) => (
-            <option key={ex.id} value={ex.id}>{textoInterfaz(ex.materia)} · {textoInterfaz(ex.tipo)}{ex.fecha ? ` · ${fechaCorta(ex.fecha)}` : ""}</option>
+            <option key={ex.id} value={ex.id}>{textoAsignatura(ex.materia)} · {textoInterfaz(ex.tipo)}{ex.fecha ? ` · ${fechaCorta(ex.fecha)}` : ""}</option>
           ))}
         </select>
         <label className="relative w-[300px] max-md:w-full">

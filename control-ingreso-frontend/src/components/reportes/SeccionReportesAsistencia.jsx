@@ -1,3 +1,6 @@
+import { textoNombre } from '../common/textoNombre.js';
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
+import { nombreReporte } from '../../utils/exportarCsv.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 // HU12: "Reportes y Asistencia" (docente y administrador).
 // - Docente: elige una de SUS materias y un examen finalizado.
@@ -62,7 +65,7 @@ function textoExamen(ex) {
 }
 
 function nombreDocente(d) {
-  return [d?.nombre, d?.apellido].filter(Boolean).join(" ").trim();
+  return textoNombre([d?.nombre, d?.apellido].filter(Boolean).join(" "));
 }
 
 function nombreAula(strAula) {
@@ -148,7 +151,7 @@ function nombreArchivo(ex, strFormato) {
   const strBase = [parteNombre(ex?.nombreAsignatura), parteNombre(textoTipo(ex || {})), String(ex?.fechaExamen || "").slice(0, 10)]
     .filter(Boolean)
     .join("_");
-  return `${strBase || "Reporte-de-asistencia"}.${strFormato === "excel" ? "xlsx" : "pdf"}`;
+  return nombreReporte(strBase || "Reporte-de-asistencia", [], strFormato === "excel" ? "xlsx" : "pdf");
 }
 
 // ---------- Piezas visuales ----------
@@ -207,11 +210,11 @@ function VistaPreviaPdf({ objExamen, strDocente, objResumen, listFilas, objSecci
         <span className="shrink-0 text-[#334155]">Emitido: {strEmision}</span>
       </div>
       <div className="mt-2">
-        <div><b>Materia:</b> {textoInterfaz(objExamen.nombreAsignatura)}</div>
+        <div><b>Materia:</b> {textoAsignatura(objExamen.nombreAsignatura)}</div>
         <div><b>Examen:</b> {textoTipo(objExamen)}{strGrupo ? ` · ${strGrupo}` : ""}</div>
         <div><b>Fecha:</b> {fechaLarga(objExamen.fechaExamen)}{objExamen.horaInicio ? ` · ${objExamen.horaInicio} – ${objExamen.horaFin}` : ""}</div>
         {strAulas && <div><b>{boolVariasAulas || objExamen.listAulas.length > 1 ? "Aulas" : "Aula"}:</b> {strAulas}</div>}
-        <div><b>Docente:</b> {strDocente || "—"}</div>
+        <div><b>Docente:</b> {textoNombre(strDocente || "—")}</div>
       </div>
       {objSecciones.resumen && fnTabla(
         "Resumen", filasResumen(objResumen).map((r) => ({ ...r, strClave: r.strAula })),
@@ -500,7 +503,7 @@ export default function SeccionReportesAsistencia({ strRol = "DOCENTE", boolMost
                   className={CLASE_SELECT}
                 >
                   <option value="">{boolCargando ? "Cargando…" : "Selecciona una materia"}</option>
-                  {listMaterias.map((m) => <option key={m.id} value={m.id}>{textoInterfaz(m.strNombre)}</option>)}
+                  {listMaterias.map((m) => <option key={m.id} value={m.id}>{textoAsignatura(m.strNombre)}</option>)}
                 </select>
                 {strAyudaMateria && <p className="mt-1.5 text-xs font-semibold text-[#64748B]">{strAyudaMateria}</p>}
               </div>

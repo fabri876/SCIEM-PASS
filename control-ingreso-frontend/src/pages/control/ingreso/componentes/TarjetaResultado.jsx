@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../../../utils/textoInterfaz.js';
+import { textoNombre } from '../../../../components/common/textoNombre.js';
 import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Tarjeta con el resultado de la verificación (se puede cerrar con la X).
 // Muestra solo los datos del estudiante: la hora, el método y quién registró ya están en el historial en vivo.
@@ -126,7 +128,7 @@ function configurar(r, strRol) {
         strTono: "bad", Icono: AlertTriangle, strTitulo: "LE CORRESPONDE A OTRO AYUDANTE", strSub: "INGRESO NO REGISTRADO",
         nota: f ? (
           <Nota>
-            <b className="font-bold">Debe ir con {f.operador || "otro ayudante"}</b> · apellidos {f.desde} – {f.hasta}
+            <b className="font-bold">Debe ir con {textoNombre(f.operador || "otro ayudante")}</b> · apellidos {f.desde} – {f.hasta}
           </Nota>
         ) : <Nota><b className="font-bold">Debe ir con otro ayudante del aula</b></Nota>,
       };
@@ -171,7 +173,7 @@ function configurar(r, strRol) {
         strTono: "bad", Icono: UserX, strTitulo: "NO INSCRITO EN ESTE EXAMEN", strSub: "PERTENECE A OTRO EXAMEN",
         nota: r.otroExamen ? (
           <Nota>
-            <b className="font-bold">Está inscrito en {r.otroExamen.asignatura}</b> · {textoInterfaz(r.otroExamen.nombre)} · {textoAula(r.otroExamen.aula)} · {r.otroExamen.hora}
+            <b className="font-bold">Está inscrito en {textoAsignatura(r.otroExamen.asignatura)}</b> · {textoInterfaz(r.otroExamen.nombre)} · {textoAula(r.otroExamen.aula)} · {r.otroExamen.hora}
           </Nota>
         ) : null,
       };
