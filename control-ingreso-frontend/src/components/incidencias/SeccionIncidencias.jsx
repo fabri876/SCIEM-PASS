@@ -1,3 +1,6 @@
+import { nombreReporte } from '../../utils/exportarCsv.js';
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
+import { textoNombre } from '../common/textoNombre.js';
 import { TablaConReporte } from '../common/ReporteLista.jsx';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -172,7 +175,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
         idsExamenVistos.add(aula.idExamen);
         examenesDeMateria.push({
           idExamen: aula.idExamen,
-          etiqueta: `${aula.asignatura} · ${formatearFecha(aula.fechaExamen)}`,
+          etiqueta: `${textoAsignatura(aula.asignatura)} · ${formatearFecha(aula.fechaExamen)}`,
         });
       }
     });
@@ -411,7 +414,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
       const urlArchivo = window.URL.createObjectURL(blobExcel);
       const enlace = document.createElement("a");
       enlace.href = urlArchivo;
-      enlace.download = `incidencias-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      enlace.download = nombreReporte("incidencias", [strIdExamen, filtroAula, filtroMateria, filtroTipo, filtroEstado, boolSoloExpulsiones ? "solo-expulsiones" : "todas"], "xlsx");
       document.body.appendChild(enlace);
       enlace.click();
       enlace.remove();
@@ -514,7 +517,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             <option value={TODOS}>Aula: Todas</option>
             {aulasDelExamen.map((aula) => (
               <option key={aula.idAmbiente} value={String(aula.idAmbiente)}>
-                {strIdExamen === TODOS ? `${aula.aula} · ${aula.asignatura}` : aula.aula}
+                {strIdExamen === TODOS ? `${aula.aula} · ${textoAsignatura(aula.asignatura)}` : aula.aula}
               </option>
             ))}
           </select>
@@ -737,7 +740,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                         </span>
                       </p>
                       <p className="text-[11px] text-[#7A8BA0] font-semibold">
-                        {formatearHora(item.fechaHora)} · {item.aula} · {item.reportadoPor}
+                        {formatearHora(item.fechaHora)} · {item.aula} · {textoNombre(item.reportadoPor)}
                       </p>
                       <p className="text-[10px] text-[#7A8BA0] font-bold truncate">
                         Acción: {textoInterfaz(item.accion === "OTRO" && item.detalleAccionOtro && item.detalleAccionOtro.trim()
@@ -827,7 +830,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                               </span>
                             </td>
                             <td className="py-3 px-3 font-bold text-[#64748B] truncate max-w-[130px]">
-                              {item.reportadoPor}
+                              {textoNombre(item.reportadoPor)}
                             </td>
                             <td className="py-3 px-2 text-center">
                               {item.estudianteRetirado ? (
@@ -921,7 +924,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                     <div className="col-span-2">
                       <span className="text-[10.5px] font-extrabold text-[#9AA8BA] block">Aula</span>
                       <span className="font-black text-[#08264A]">
-                        {incidenciaSeleccionada.aula} · {incidenciaSeleccionada.asignatura}
+                        {incidenciaSeleccionada.aula} · {textoAsignatura(incidenciaSeleccionada.asignatura)}
                       </span>
                     </div>
                     <div className="col-span-2 flex items-center justify-between rounded-lg bg-[#F1F5F9] border border-[#CBD5E1] px-3 py-2">

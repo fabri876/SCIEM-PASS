@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useEffect, useState } from "react";
 import { obtenerCarreras, obtenerNiveles, obtenerAsignaturasFiltradas } from "../../services/grupoService";
@@ -30,7 +31,7 @@ export default function SelectorAsignatura({ value, onChange, permitidas, disabl
     </label>
     {!soloClasificacion&&!soloFiltros&&<label className="block text-sm font-bold">Asignatura
       <select aria-label="Asignatura" required={required} disabled={disabled||!nivel||cargando} className={estilo} value={value} onChange={e=>onChange(e.target.value)}>
-        <option value="">{cargando?"Cargando asignaturas…":"Seleccione una asignatura"}</option>{visibles.map(a=><option key={a.idAsignatura} value={a.idAsignatura}>{textoInterfaz(a.nombreAsignatura)} · Código {a.codigoOficial||a.idAsignatura}</option>)}
+        <option value="">{cargando?"Cargando asignaturas…":"Seleccione una asignatura"}</option>{visibles.map(a=><option key={a.idAsignatura} value={a.idAsignatura}>{textoAsignatura(a.nombreAsignatura)} · Código {a.codigoOficial||a.idAsignatura}</option>)}
       </select>
       {nivel&&!cargando&&!error&&!visibles.length&&<span className="block text-sm font-normal mt-1">No hay asignaturas disponibles para este nivel.</span>}
     </label>}

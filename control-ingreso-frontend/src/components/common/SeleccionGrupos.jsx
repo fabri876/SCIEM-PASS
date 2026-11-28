@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import SelectorAsignatura from "./SelectorAsignatura";
 import React, { useState, useEffect } from "react";
@@ -56,7 +57,7 @@ export default function SeleccionGrupos({ value = [], onChange, disabled = false
     </div>}
     <p className="text-secondary font-semibold text-primary-navy">{value.length ? `${value.length} grupo(s) seleccionados` : required ? "Seleccione al menos un grupo para poder registrar." : "Sin grupos seleccionados (opcional)."}</p>
     {value.map(g => <div key={g.idGrupo} className="flex justify-between gap-3 text-sm bg-bg-app p-2 rounded-lg">
-      <span>{textoInterfaz(g.nombreAsignatura)} · {asignaturas.find(a=>a.idAsignatura===g.idAsignatura)?.codigoOficial ? `Código ${asignaturas.find(a=>a.idAsignatura===g.idAsignatura).codigoOficial}` : `ID ${g.idAsignatura}`} · Grupo {g.nombreGrupo}</span>
+      <span>{textoAsignatura(g.nombreAsignatura)} · {asignaturas.find(a=>a.idAsignatura===g.idAsignatura)?.codigoOficial ? `Código ${asignaturas.find(a=>a.idAsignatura===g.idAsignatura).codigoOficial}` : `ID ${g.idAsignatura}`} · Grupo {g.nombreGrupo}</span>
       <button type="button" aria-label={`Quitar ${g.nombreAsignatura}, grupo ${g.nombreGrupo}`} onClick={() => onChange(value.filter(v => v.idGrupo !== g.idGrupo))}>Quitar</button>
     </div>)}
   </fieldset>;

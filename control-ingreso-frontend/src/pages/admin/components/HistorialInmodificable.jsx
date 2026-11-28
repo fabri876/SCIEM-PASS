@@ -404,13 +404,13 @@ export default function HistorialInmodificable() {
               onChange={(e) => setFiltroModulo(e.target.value)}
               className="w-full h-10 px-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-primary-blue focus:bg-white transition"
             >
-              <option value="TODOS">Todos los Módulos (Auditoría General)</option>
-              <option value="CONTROL_INGRESO">CONTROL DE INGRESO (Verificación)</option>
+              <option value="TODOS">Todos los módulos (auditoría general)</option>
+              <option value="CONTROL_INGRESO">Control de ingreso (verificación)</option>
               <option value="EXPULSIONES">Expulsiones</option>
               <option value="ING_EXCEPCIONAL">Ing excepcional</option>
-              <option value="HABILITACIONES">HABILITACIONES (Nóminas)</option>
-              <option value="CARGA_MASIVA">CARGA_MASIVA (Estudiantes / Docentes)</option>
-              <option value="EXAMENES">EXAMENES (Programación)</option>
+              <option value="HABILITACIONES">Habilitaciones (nóminas)</option>
+              <option value="CARGA_MASIVA">Carga masiva (estudiantes / docentes)</option>
+              <option value="EXAMENES">Exámenes (programación)</option>
               <option value="INCIDENCIAS">Incidencias</option>
               <option value="USUARIOS">Usuarios y roles</option>
               <option value="SEGURIDAD">Seguridad y sesiones</option>

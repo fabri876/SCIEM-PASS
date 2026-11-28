@@ -1,3 +1,5 @@
+import { textoNombre } from '../common/textoNombre.js';
+import { reporteColumnas } from '../../utils/reportesListas.js';
 import ReporteLista from '../common/ReporteLista.jsx';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useMemo, useState } from "react";
@@ -54,43 +56,7 @@ export default function PanelAulasCruzadas({ alertas, rol, onReubicar }) {
                 <p className="text-xs text-slate-400 font-semibold py-6 text-center">Sin resultados para «{strBusqueda}».</p>
             ) : (
                 <ul className="space-y-2.5 max-h-[34rem] overflow-y-auto pr-3 [scrollbar-gutter:stable]">
-                    <ReporteLista titulo="Alertas de aulas cruzadas" contenido={() => <>{alertasFiltradas.map((alerta) => (
-                        <li key={alerta.idIntento} className="border border-rose-200 bg-rose-50/40 rounded-2xl p-3.5 space-y-2.5 text-xs break-words">
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                    <p className="font-black text-slate-800">{alerta.estudiante}</p>
-                                    <p className="text-[11px] font-bold text-slate-500">
-                                        SIS {alerta.codSis}
-                                        {alerta.ci ? ` · CI ${alerta.ci}` : ""} · {formatearHora(alerta.hora)}
-                                    </p>
-                                </div>
-                                <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white text-center shrink-0">
-                                    Ingreso a un ambiente diferente
-                                </span>
-                            </div>
-
-                            <ComparadorAulas alerta={alerta} />
-
-                            {rol === "DOCENTE" ? (
-                                alerta.puedeReubicar ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => onReubicar(alerta)}
-                                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-[#1A365D] hover:bg-[#132743] text-white px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer"
-                                    >
-                                        <Zap className="w-3.5 h-3.5" />
-                                        Reubicar y Autorizar en {nombreAula(alerta.aulaActual)}
-                                    </button>
-                                ) : (
-                                    <p className="text-[11px] font-bold text-slate-500">
-                                        {textoInterfaz(alerta.motivoNoReubicable || "No se puede reubicar en este momento.")}
-                                    </p>
-                                )
-                            ) : (
-                                <p className="text-[11px] font-bold text-slate-500">Solo el docente de la materia puede reubicar al estudiante.</p>
-                            )}
-                        </li>
-                    ))}</>} as="li" />
+                    <ReporteLista filtros={[strBusqueda]} datos={() => reporteColumnas(alertasFiltradas, [["Estudiante", a => textoNombre(a.estudiante)], ["SIS", a => a.codSis], ["Aula de intento", a => a.aulaActual], ["Aula asignada", a => a.aulaAsignada], ["Hora", a => a.hora]])} titulo="Alertas de aulas cruzadas"  as="li" />
 {alertasFiltradas.map((alerta) => (
                         <li key={alerta.idIntento} className="border border-rose-200 bg-rose-50/40 rounded-2xl p-3.5 space-y-2.5 text-xs break-words">
                             <div className="flex items-start justify-between gap-2">

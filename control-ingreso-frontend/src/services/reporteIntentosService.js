@@ -1,3 +1,7 @@
+import { generarCsv, nombreReporte } from '../utils/exportarCsv.js';
+import { textoNombre } from '../components/common/textoNombre.js';
+// Conserva los valores que el CSV debe neutralizar como posibles fórmulas.
+const nombreParaReporte = valor => /^[\s]*[=+@-]/u.test(String(valor ?? '')) ? valor : textoNombre(valor);
 /**
  * reporteIntentosService.js
  *
@@ -371,7 +375,7 @@ export function calcularEstadisticasIntentos(arrIntentos) {
  * @param {Array} arrIntentos - Lista de registros que cumplen los filtros
  * @param {Object} objMetadata - Metadatos de la asignatura/examen
  */
-export function exportarIntentosExcelCsv(arrIntentos, _objMetadata = {}) {
+export function exportarIntentosExcelCsv(arrIntentos, objMetadata = {}) {
   if (!Array.isArray(arrIntentos) || arrIntentos.length === 0) {
     throw new Error("No existen datos para generar el reporte.");
   }
@@ -390,44 +394,15 @@ export function exportarIntentosExcelCsv(arrIntentos, _objMetadata = {}) {
     "ESTADO_POSTERIOR",
   ];
 
-  const escapeCsv = (valor) => {
-    if (valor === null || valor === undefined) return '""';
-    let str = String(valor);
-    if (/^\s*[=+@\-\t\r]/.test(str)) str = "'" + str;
-    str = str.replace(/"/g, '""');
-    return `"${str}"`;
-  };
-
-  const lineas = [
-    columnas.join(","),
-    ...arrIntentos.map((item) =>
-      [
-        escapeCsv(item.estudianteNombre),
-        escapeCsv(item.codSis),
-        escapeCsv(item.ci),
-        escapeCsv(item.carreraEstudiante || "No especificada"),
-        escapeCsv(item.motivoEtiqueta || item.motivo),
-        escapeCsv(item.sePresentoEn),
-        escapeCsv(item.examenAulaAsignada || "No disponible"),
-        escapeCsv(item.fecha),
-        escapeCsv(item.hora),
-        escapeCsv(item.operador),
-        escapeCsv(item.estadoPosterior || "No disponible"),
-      ].join(",")
-    ),
-  ];
-
-  const strCsv = "\uFEFF" + lineas.join("\r\n");
+  const strCsv = generarCsv(columnas, arrIntentos.map(item => [
+    nombreParaReporte(item.estudianteNombre), item.codSis, item.ci,
+    item.carreraEstudiante || "No especificada", item.motivoEtiqueta || item.motivo,
+    item.sePresentoEn, item.examenAulaAsignada || "No disponible", item.fecha, item.hora,
+    nombreParaReporte(item.operador), item.estadoPosterior || "No disponible",
+  ]));
   const blob = new Blob([strCsv], { type: "text/csv;charset=utf-8;" });
 
-  const fechaActual = new Date();
-  const anio = fechaActual.getFullYear();
-  const mes = String(fechaActual.getMonth() + 1).padStart(2, "0");
-  const dia = String(fechaActual.getDate()).padStart(2, "0");
-  const hora = String(fechaActual.getHours()).padStart(2, "0");
-  const min = String(fechaActual.getMinutes()).padStart(2, "0");
-
-  const strNombreArchivo = `SCIEM_PASS_Reporte_Intentos_Incorrectos_${anio}-${mes}-${dia}_${hora}${min}.csv`;
+  const strNombreArchivo = nombreReporte('SCIEM_PASS_Reporte_Intentos_Incorrectos', Object.entries(objMetadata).map(([clave, valor]) => valor ? `${clave}-${valor}` : '').filter(Boolean));
 
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
@@ -467,7 +442,7 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
     <tr style="border-bottom: 1px solid #e2e8f0; font-size: 12px;">
       <td style="padding: 8px 6px; font-weight: bold; color: #1e293b;">${i + 1}</td>
       <td style="padding: 8px 6px;">
-        <div style="font-weight: bold; color: #0f172a;">${escaparHtml(item.estudianteNombre)}</div>
+        <div style="font-weight: bold; color: #0f172a;">${escaparHtml(nombreParaReporte(item.estudianteNombre))}</div>
         <div style="color: #64748b; font-size: 11px;">SIS: ${escaparHtml(item.codSis)} | CI: ${escaparHtml(item.ci)}</div>
       </td>
       <td style="padding: 8px 6px;">
@@ -478,7 +453,7 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
       <td style="padding: 8px 6px; color: #334155;">${escaparHtml(item.sePresentoEn)}</td>
       <td style="padding: 8px 6px; color: #003770; font-weight: 600;">${item.examenAulaAsignada ? escaparHtml(item.examenAulaAsignada) : sinDatoHtml}</td>
       <td style="padding: 8px 6px; color: #475569;">${escaparHtml(item.fecha || "No disponible")}<br>${escaparHtml(item.hora || "No disponible")}</td>
-      <td style="padding: 8px 6px; color: #334155;">${escaparHtml(item.operador)}</td>
+      <td style="padding: 8px 6px; color: #334155;">${escaparHtml(nombreParaReporte(item.operador))}</td>
       <td style="padding: 8px 6px;">
         ${item.estadoPosterior ? escaparHtml(item.estadoPosterior) : sinDatoHtml}
       </td>

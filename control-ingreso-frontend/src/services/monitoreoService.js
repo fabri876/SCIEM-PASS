@@ -111,8 +111,8 @@ export async function obtenerAsistentesAula(idAmbiente, idExamen, { signal } = {
  * GET /api/monitoreo/ambientes/{idAmbiente}/asistentes.csv?idExamen=
  * Se descarga con fetch (lleva el JWT); un <a href> no podría enviarlo.
  */
-export async function descargarAsistentesCsv(idAmbiente, idExamen) {
-  const response = await peticionAutenticada(`/api/monitoreo/ambientes/${idAmbiente}/asistentes.csv?idExamen=${idExamen}`, {
+export async function descargarAsistentesCsv(idAmbiente, idExamen, estado = "TODOS", busqueda = "") {
+  const response = await peticionAutenticada(`/api/monitoreo/ambientes/${idAmbiente}/asistentes.csv?${new URLSearchParams({ idExamen, estado, busqueda })}`, {
     headers: { Accept: "text/csv" },
   });
   return response.blob();

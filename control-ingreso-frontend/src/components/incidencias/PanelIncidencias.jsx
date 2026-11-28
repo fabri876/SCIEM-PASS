@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -184,7 +185,7 @@ export default function PanelIncidencias({
             <span>Incidencias</span>
           </div>
           <h3 className="text-lg font-black tracking-tight pr-8">
-            {aulaIncidenciaActual?.asignatura || "Examen actual"}
+            {textoAsignatura(aulaIncidenciaActual?.asignatura || "Examen actual")}
           </h3>
           <p className="text-xs text-white/90 font-medium mt-0.5">
             {textoInterfaz(aulaIncidenciaActual ? etiquetaAula(aulaIncidenciaActual) : "Aula asignada")}

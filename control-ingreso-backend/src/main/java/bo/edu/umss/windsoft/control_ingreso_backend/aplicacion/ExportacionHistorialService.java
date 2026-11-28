@@ -22,12 +22,12 @@ public class ExportacionHistorialService {
                           String busqueda, String responsable, String ip) {
         List<HistorialInmodificableBloqueDto> registros = historial.listarHistorialInmodificable(
                 modulo, ejecutor, fecha, fechaInicio, fechaFin, busqueda);
-        StringBuilder csv = new StringBuilder("\uFEFFID_BLOQUE,FECHA_HORA_OFICIAL,MODULO,OPERACION_EJECUTADA,USUARIO_EJECUTOR,IP_ORIGEN,SELLO_SHA256,HASH_BLOQUE_ANTERIOR,DETALLES\r\n");
+        StringBuilder csv = new StringBuilder("\uFEFFID_BLOQUE;FECHA_HORA_OFICIAL;MODULO;OPERACION_EJECUTADA;USUARIO_EJECUTOR;IP_ORIGEN;SELLO_SHA256;HASH_BLOQUE_ANTERIOR;DETALLES\r\n");
         for (var b : registros) {
-            csv.append(escaparCsv(b.getIdBloque())).append(',').append(escaparCsv(b.getFechaHoraOficial())).append(',')
-                    .append(escaparCsv(b.getModulo())).append(',').append(escaparCsv(b.getOperacionEjecutada())).append(',')
-                    .append(escaparCsv(b.getUsuarioEjecutor())).append(',').append(escaparCsv(b.getIpOrigen())).append(',')
-                    .append(escaparCsv(b.getSelloSha256())).append(',').append(escaparCsv(b.getHashBloqueAnterior())).append(',')
+            csv.append(escaparCsv(b.getIdBloque())).append(';').append(escaparCsv(b.getFechaHoraOficial())).append(';')
+                    .append(escaparCsv(b.getModulo())).append(';').append(escaparCsv(b.getOperacionEjecutada())).append(';')
+                    .append(escaparCsv(b.getUsuarioEjecutor())).append(';').append(escaparCsv(b.getIpOrigen())).append(';')
+                    .append(escaparCsv(b.getSelloSha256())).append(';').append(escaparCsv(b.getHashBloqueAnterior())).append(';')
                     .append(escaparCsv(b.getDetalles())).append("\r\n");
         }
         byte[] resultado = csv.toString().getBytes(StandardCharsets.UTF_8);

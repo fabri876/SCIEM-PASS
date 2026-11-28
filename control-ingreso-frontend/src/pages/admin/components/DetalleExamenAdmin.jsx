@@ -1,3 +1,4 @@
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
@@ -138,7 +139,7 @@ export default function DetalleExamenAdmin({
 
             <Tarjeta strTitulo="Examen">
                 <DosColumnas
-                    izquierda={<Campo strEtiqueta="Docente">{strDocente}</Campo>}
+                    izquierda={<Campo strEtiqueta="Docente">{textoNombre(strDocente)}</Campo>}
                     derecha={
                         <Campo strEtiqueta="Aulas">
                             {arrAmbientes.length === 0 ? (

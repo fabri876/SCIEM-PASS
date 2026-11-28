@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Tarjeta de un examen del estudiante: datos del examen + estado de su QR + "Ver mi QR"
 import { GraduationCap, Clock, QrCode } from "lucide-react";
@@ -63,7 +64,7 @@ export default function TarjetaExamenEstudiante({ examen, onVerQr }) {
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h3 className="m-0 text-base font-bold text-[#08264A] leading-snug">{textoInterfaz(examen.tipo)} · {textoInterfaz(examen.materia)}</h3>
+              <h3 className="m-0 text-base font-bold text-[#08264A] leading-snug">{textoInterfaz(examen.tipo)} · {textoAsignatura(examen.materia)}</h3>
               <PildoraFecha strFecha={examen.fecha} />
             </div>
             <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-[#64748B]">

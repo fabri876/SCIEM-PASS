@@ -1,3 +1,4 @@
+import { reporteColumnas } from '../../../../utils/reportesListas.js';
 import ReporteLista from '../../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Historial en vivo de los últimos ingresos (se actualiza solo cada pocos segundos)
@@ -75,48 +76,7 @@ export default function TablaUltimosIngresos({ listUltimos = [], strUltimoRegist
           </li>
         )}
 
-        <ReporteLista titulo="Últimos registros" contenido={() => <>{listUltimos.map((r, i) => {
-          const e = r.estudiante;
-          const boolNuevo = i === 0 || (strUltimoRegistrado && e.ci === strUltimoRegistrado);
-          const strDatos = [e.sis && `SIS ${e.sis}`, e.ci && `C.I. ${e.ci}`].filter(Boolean).join(" · ");
-          return (
-            <li
-              key={`${r.idRegistro || e.ci || e.sis}-${r.hora}-${i}`}
-              className={
-                FILA + "py-3 border-t border-[#E2E8F0] " +
-                (boolNuevo ? "bg-[#F0F6FC] shadow-[inset_4px_0_0_#003770]" : i % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white")
-              }
-            >
-              <span className="font-mono text-[13px] font-bold text-[#003770]">{r.hora}</span>
-              <div className="min-w-0">
-                <div className="text-sm font-bold text-[#08264A] truncate">
-                  {nombreNormal(`${e.nombres} ${e.apellidos || ""}`)}
-                  {r.estado && r.estado !== "PERMITIDO" && (
-                    <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-800">
-                      {textoInterfaz(r.estado.replaceAll("_", " "))}
-                    </span>
-                  )}
-                  {r.sinSincronizar && (
-                    <span className="ml-2 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEF3C7] text-[#92400E]">sin sincronizar</span>
-                  )}
-                </div>
-                {strDatos && <div className="text-xs text-[#64748B]">{strDatos}</div>}
-              </div>
-              <span className="text-[13px] text-[#334155] max-md:col-start-2 max-md:text-xs">
-                <span className="md:hidden text-[#64748B]">Método: </span>{textoInterfaz(r.metodo)}
-                {r.conFacial != null && (
-                  <span className="text-[#64748B]"> · {r.conFacial ? "con facial" : "sin facial"}</span>
-                )}
-                {r.modoRapido && <span className="text-[#1860A3]"> · modo rápido</span>}
-              </span>
-              {boolRegistro && (
-                <span className="min-w-0 truncate text-[13px] text-[#334155] max-md:col-start-2 max-md:text-xs" title={textoRegistro(r.registradoPor) || ""}>
-                  <span className="md:hidden text-[#64748B]">Registró: </span>{textoRegistro(r.registradoPor) || "—"}
-                </span>
-              )}
-            </li>
-          );
-        })}</>} as="li" />
+        <ReporteLista datos={() => reporteColumnas(listUltimos, [["Hora", r => r.hora], ["Estudiante", r => textoNombre(`${r.estudiante.nombres || ""} ${r.estudiante.apellidos || ""}`)], ["SIS", r => r.estudiante.sis], ["CI", r => r.estudiante.ci], ["Método", r => textoInterfaz(r.metodo)], ...(boolRegistro ? [["Registró", r => textoRegistro(r.registradoPor) || "—"]] : [])])} titulo="Últimos registros"  as="li" />
 {listUltimos.map((r, i) => {
           const e = r.estudiante;
           const boolNuevo = i === 0 || (strUltimoRegistrado && e.ci === strUltimoRegistrado);

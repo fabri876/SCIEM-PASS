@@ -1,3 +1,6 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { reporteColumnas } from '../../../utils/reportesListas.js';
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import ReporteLista from '../../../components/common/ReporteLista.jsx';
 import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
@@ -297,7 +300,7 @@ export default function SeccionRegistroExamenes() {
     }, [arrExamenes]);
 
     function nombreDocenteDe(ex) {
-        return ex.nombreDocente || mapDocentePorId[ex.idUsuario] || `Docente #${ex.idUsuario ?? "-"}`;
+        return textoNombre(ex.nombreDocente || mapDocentePorId[ex.idUsuario] || `Docente #${ex.idUsuario ?? "-"}`);
     }
 
     function nombreTipoDe(ex) {
@@ -645,13 +648,13 @@ export default function SeccionRegistroExamenes() {
                                 <select value={strDocenteFiltro} onChange={(e) => setStrDocenteFiltro(e.target.value)} className={CLASE_SELECT}>
                                     <option value="">Docente: Todos</option>
                                     {arrDocentesOpciones.map(([id, nombre]) => (
-                                        <option key={id} value={id}>{nombre}</option>
+                                        <option key={id} value={id}>{textoNombre(nombre)}</option>
                                     ))}
                                 </select>
                                 <select value={strAsignaturaFiltro} onChange={(e) => setStrAsignaturaFiltro(e.target.value)} className={CLASE_SELECT}>
                                     <option value="">Asignatura: Todas</option>
                                     {arrAsignaturasOpciones.map(([id, nombre]) => (
-                                        <option key={id} value={id}>{nombre}</option>
+                                        <option key={id} value={id}>{textoAsignatura(nombre)}</option>
                                     ))}
                                 </select>
                                 {boolHayFiltros && (
@@ -729,7 +732,7 @@ export default function SeccionRegistroExamenes() {
                             ) : (
                                 <>
                                     <div className="overflow-x-auto">
-                                        <TablaConReporte titulo="Exámenes y normas">{(paraReporte) => (<table className="w-full text-left">
+                                        <TablaConReporte filtros={[strBusqueda, strEstadoFiltro, strDocenteFiltro, strAsignaturaFiltro]} titulo="Exámenes y normas">{(paraReporte) => (<table className="w-full text-left">
                                             <thead>
                                                 <tr className="text-[11px] font-bold text-slate-400 tracking-wide">
                                                     <th className="pb-3 pr-3">Asignatura</th>
@@ -757,7 +760,7 @@ export default function SeccionRegistroExamenes() {
                                                                 </span>
                                                             </td>
                                                             <td className="py-3.5 pr-3 whitespace-nowrap">{ex._tipo}</td>
-                                                            <td className="py-3.5 pr-3">{ex._docente}</td>
+                                                            <td className="py-3.5 pr-3">{textoNombre(ex._docente)}</td>
                                                             <td className="py-3.5 pr-3 whitespace-nowrap">{fechaCorta(ex)}</td>
                                                             <td className="py-3.5 pr-3">
                                                                 {strEstadoFiltro === "CANCELADO" ? (
@@ -864,68 +867,7 @@ export default function SeccionRegistroExamenes() {
                         </p>
                     ) : (
                         <div>
-                            <ReporteLista titulo="Normas generales" contenido={() => <>{arrNormasGenerales.map((norma, index) => (
-                                <div
-                                    key={norma.idNormaGeneral}
-                                    className={`flex items-start gap-3.5 py-3.5 ${index > 0 ? "border-t border-[#EEF1F8]" : ""}`}
-                                >
-                                    <div className="flex-shrink-0 w-[26px] h-[26px] rounded-md bg-[#EEF1F8] text-[#5E6B8A] text-[11px] font-extrabold flex items-center justify-center mt-0.5">
-                                        {String(index + 1).padStart(2, "0")}
-                                    </div>
-                                    <div className="flex-1">
-                                        {idNormaGeneralEnEdicion === norma.idNormaGeneral ? (
-                                            <div className="flex flex-col sm:flex-row gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={strTextoEdicionGeneral}
-                                                    onChange={(e) => setStrTextoEdicionGeneral(e.target.value)}
-                                                    maxLength={100}
-                                                    className="h-[36px] flex-1 border border-[#2B6CB0] rounded-md px-3 text-[13px]"
-                                                    autoFocus
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleGuardarEdicionGeneral(norma.idNormaGeneral)}
-                                                    className="h-[36px] px-3 rounded-md bg-[#163F79] text-white font-semibold text-[12px]"
-                                                >
-                                                    Guardar
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleCancelarEdicionGeneral}
-                                                    className="h-[36px] px-3 rounded-md border border-[#C8D6E8] text-[#163F79] font-semibold text-[12px]"
-                                                >
-                                                    Cancelar
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="text-[13.5px] font-semibold text-[#22304F]">
-                                                {norma.descripcionNorma}
-                                            </div>
-                                        )}
-                                    </div>
-                                    {idNormaGeneralEnEdicion !== norma.idNormaGeneral && (
-                                        <div className="flex items-center gap-2.5 flex-shrink-0">
-                                            <button
-                                                type="button"
-                                                title="Editar"
-                                                onClick={() => handleEmpezarEdicionGeneral(norma)}
-                                                className="text-[#5E71A0] hover:text-[#163F79]"
-                                            >
-                                                <IconoLapiz />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                title="Eliminar"
-                                                onClick={() => handleEliminarNormaGeneral(norma)}
-                                                className="text-[#5E71A0] hover:text-red-600"
-                                            >
-                                                <IconoBasurero />
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}</>} />
+                            <ReporteLista filtros={[strBusqueda, strEstadoFiltro, strDocenteFiltro, strAsignaturaFiltro]} datos={() => reporteColumnas(arrNormasGenerales, [["Norma", n => n.descripcionNorma]])} titulo="Normas generales"  />
 {arrNormasGenerales.map((norma, index) => (
                                 <div
                                     key={norma.idNormaGeneral}
@@ -1004,7 +946,7 @@ export default function SeccionRegistroExamenes() {
                             Todavía no se registraron normas particulares.
                         </p>
                     ) : (
-                        <TablaConReporte titulo="Exámenes y normas">{(_paraReporte) => (<table className="w-full text-left">
+                        <TablaConReporte filtros={[strBusqueda, strEstadoFiltro, strDocenteFiltro, strAsignaturaFiltro]} titulo="Exámenes y normas">{(_paraReporte) => (<table className="w-full text-left">
                             <thead>
                                 <tr className="text-[11.5px] font-bold text-gray-400 tracking-wide">
                                     <th className="pb-3 pr-3">Norma particular</th>
@@ -1022,7 +964,7 @@ export default function SeccionRegistroExamenes() {
                                         <td className="py-3.5 pr-3 max-w-[420px]">{n.descripcionNorma}</td>
                                         <td className="py-3.5 pr-3">
                                             <span className="block font-semibold text-[12.5px]">
-                                                {n.strDocente || "—"}
+                                                {textoNombre(n.strDocente || "—")}
                                             </span>
                                             <span className="block text-[11.5px] text-gray-500">
                                                 Asignatura #{n.idAsignatura}

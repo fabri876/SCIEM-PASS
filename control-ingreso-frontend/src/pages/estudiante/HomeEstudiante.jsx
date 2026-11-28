@@ -1,3 +1,4 @@
+import { textoNombre } from '../../components/common/textoNombre.js';
 import MenuSeccionesResponsive from "../../components/layout/MenuSeccionesResponsive";
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 // Panel del estudiante (mismas medidas que los paneles de docente y ayudante):
@@ -79,7 +80,7 @@ export default function HomeEstudiante() {
   }, []);
 
   const strNombre = usuario?.nombre || "Estudiante";
-  const strApellido = usuario?.apellido || "";
+  const strApellido = textoNombre(usuario?.apellido || "");
   const strIniciales = `${strNombre.charAt(0)}${strApellido ? strApellido.charAt(0) : ""}`.toUpperCase();
 
   const listOrdenados = useMemo(() => ordenarExamenesEstudiante(listExamenes, dateAhora), [listExamenes, dateAhora]);

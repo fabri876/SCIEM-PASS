@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useState, useEffect } from "react";
 import {
@@ -669,7 +671,7 @@ export default function ExamenFormAdmin({
                     <option value="" disabled>Seleccione un docente</option>
                     {arrDocentes.map((docente) => (
                         <option key={docente.idUsuario} value={docente.idUsuario}>
-                            {textoInterfaz(docente.nombre)} {docente.apellido}
+                            {textoNombre(docente.nombre)} {textoNombre(docente.apellido)}
                         </option>
                     ))}
                 </select>
@@ -700,7 +702,7 @@ export default function ExamenFormAdmin({
                                 <option value="" disabled>Seleccione una asignatura</option>
                                 {arrAsignaturas.map((a) => (
                                     <option key={a.idAsignatura} value={a.idAsignatura}>
-                                        {textoInterfaz(a.nombreAsignatura)}
+                                        {textoAsignatura(a.nombreAsignatura)}
                                     </option>
                                 ))}
                             </select>

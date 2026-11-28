@@ -1,3 +1,6 @@
+import { textoNombre } from '../common/textoNombre.js';
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
+import { nombreReporte } from '../../utils/exportarCsv.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ChevronLeft, Search, Download, RefreshCw, WifiOff, CheckCircle2 } from "lucide-react";
@@ -112,13 +115,14 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
 
     const fnExportar = async () => {
         if (boolExportando) return;
+        if (!filtrados.length) { fnAviso("error", "No hay registros para generar el reporte."); return; }
         setBoolExportando(true);
         try {
-            const blob = await descargarAsistentesCsv(idAmbiente, idExamen);
+            const blob = await descargarAsistentesCsv(idAmbiente, idExamen, strFiltro, strBusqueda);
             const url = URL.createObjectURL(blob);
             const enlace = document.createElement("a");
             enlace.href = url;
-            enlace.download = `asistentes-${String(aula.aula).toLowerCase().replace(/\s+/g, "-")}.csv`;
+            enlace.download = nombreReporte(`asistentes-${aula.aula}`, [strFiltro, strBusqueda]);
             document.body.appendChild(enlace);
             enlace.click();
             enlace.remove();
@@ -143,7 +147,7 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                     <ChevronLeft className="w-4 h-4" /> Monitoreo
                 </button>
                 <span>/</span>
-                <span className="truncate">{examen.asignatura}</span>
+                <span className="truncate">{textoAsignatura(examen.asignatura)}</span>
                 <span>/</span>
                 <span className="text-slate-800">{aula.aula}</span>
             </div>
@@ -159,7 +163,7 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                             </span>
                         </div>
                         <p className="text-xs font-semibold text-slate-500">
-                            {[strUbicacion, strDocente ? `Docente: ${strDocente}` : null].filter(Boolean).join(" · ") || "Sin ubicación registrada"}
+                            {[strUbicacion, strDocente ? `Docente: ${textoNombre(strDocente)}` : null].filter(Boolean).join(" · ") || "Sin ubicación registrada"}
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">

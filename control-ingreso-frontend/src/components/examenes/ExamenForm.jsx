@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useState, useEffect, useRef } from "react";
 import {
@@ -554,7 +555,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
                             <option value="" disabled>Seleccione una asignatura</option>
                             {arrAsignaturas.map((a) => (
                                 <option key={a.idAsignatura} value={a.idAsignatura}>
-                                    {textoInterfaz(a.nombreAsignatura)}
+                                    {textoAsignatura(a.nombreAsignatura)}
                                 </option>
                             ))}
                         </select>

@@ -13,6 +13,7 @@
     "check:hu15": "node scripts/check-hu15-inmodificable.mjs",
     "check:hu13": "node scripts/check-hu13-intentos.mjs",
     "check:interfaz": "node scripts/check-revision-interfaz.mjs",
+    "check:qa-01-07": "node scripts/check-observaciones-01-07.mjs",
     "check:responsive": "node scripts/check-responsive-roles.mjs",
     "preview": "vite preview"
   },

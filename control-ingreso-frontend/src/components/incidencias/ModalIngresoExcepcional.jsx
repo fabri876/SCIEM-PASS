@@ -1,3 +1,4 @@
+import { textoNombre } from '../common/textoNombre.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -443,7 +444,7 @@ export default function ModalIngresoExcepcional({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <h4 className="font-black text-sm text-[#003770]">
-                          {consultaResultado.nombreCompleto || "Estudiante no registrado"}
+                          {textoNombre(consultaResultado.nombreCompleto || "Estudiante no registrado")}
                         </h4>
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider ${consultaResultado.estado === "DUPLICADO"
@@ -531,7 +532,7 @@ export default function ModalIngresoExcepcional({
             <div className="bg-[#F1F5F9] border border-[#CBD5E1] rounded-2xl p-3 flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-[#B6D3EE] text-[#003770] font-black text-xs flex items-center justify-center shrink-0">{iniciales}</div>
               <div className="min-w-0 flex-1">
-                <p className="font-black text-xs text-[#003770] truncate">{consultaResultado.nombreCompleto}</p>
+                <p className="font-black text-xs text-[#003770] truncate">{textoNombre(consultaResultado.nombreCompleto)}</p>
                 <p className="text-[11px] text-[#64748B] font-bold">
                   SIS {consultaResultado.codSis} · {textoInterfaz(ETIQUETA_ESTADO[consultaResultado.estado] || consultaResultado.estado)}
                 </p>

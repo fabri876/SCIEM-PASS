@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // "Tu próximo examen": el examen más cercano destacado arriba (el QR se ve en "Ver detalle")
 import { useEffect, useState } from "react";
@@ -30,7 +31,7 @@ export default function ProximoExamen({ examen, onVerDetalle }) {
               </span>
             )}
           </div>
-          <h2 className="m-0 text-[22px] max-md:text-xl font-bold leading-snug">{textoInterfaz(examen.tipo)} · {textoInterfaz(examen.materia)}</h2>
+          <h2 className="m-0 text-[22px] max-md:text-xl font-bold leading-snug">{textoInterfaz(examen.tipo)} · {textoAsignatura(examen.materia)}</h2>
           <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-[#D9E8F7]">
             <span className="inline-flex items-center gap-1.5"><Clock className="w-4 h-4" /> {fechaCorta(examen.fecha)} · {examen.horaInicio}{examen.horaFin ? ` – ${examen.horaFin}` : ""}</span>
             <span className="inline-flex items-center gap-1.5"><MapPin className="w-4 h-4" /> Aula {examen.aula}{examen.edificio ? ` · ${examen.edificio}` : ""}</span>

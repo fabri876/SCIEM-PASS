@@ -1,5 +1,5 @@
 // Solo transforma la presentación; los códigos enviados a la API no cambian.
-const SIGLAS = new Set(['CI', 'C.I.', 'SIS', 'QR', 'PDF', 'CSV', 'XLSX', 'IP', 'SHA-256', 'JWT', 'UMSS', 'TIS', 'PWA', 'ID', 'PIN', 'API', 'URL', 'JPG', 'PNG', 'MB', 'GB', 'KB', 'SQL', 'HTTP', 'HTTPS', 'GPS', 'USB', 'QR/CI/SIS', 'SCIEM-PASS']);
+const SIGLAS = new Set(['CI', 'C.I.', 'SIS', 'QR', 'PDF', 'CSV', 'XLSX', 'IP', 'SHA-256', 'JWT', 'UMSS', 'TIS', 'PWA', 'ID', 'PIN', 'API', 'URL', 'JPG', 'PNG', 'MB', 'GB', 'KB', 'SQL', 'HTTP', 'HTTPS', 'GPS', 'USB', 'QR/CI/SIS', 'SCIEM-PASS', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']);
 
 export function textoInterfaz(valor) {
   if (typeof valor !== 'string' || !/[A-ZÁÉÍÓÚÜÑ]/.test(valor)) return valor;
@@ -13,4 +13,12 @@ export function textoInterfaz(valor) {
     const sigla = palabra.toUpperCase();
     return SIGLAS.has(sigla) || /^(?=.*\d)[A-Z\d-]+$/.test(sigla) ? sigla : palabra;
   });
+}
+
+// Materias y módulos pueden llegar con capitalización mezclada desde el catálogo.
+export function textoAsignatura(valor) {
+  if (typeof valor !== 'string') return valor;
+  const frase = valor.trim().replaceAll('_', ' ').toLocaleLowerCase('es')
+    .replace(/\p{L}/u, letra => letra.toLocaleUpperCase('es'));
+  return frase.replace(/[\p{L}\d./-]+/gu, palabra => SIGLAS.has(palabra.toUpperCase()) ? palabra.toUpperCase() : palabra);
 }
