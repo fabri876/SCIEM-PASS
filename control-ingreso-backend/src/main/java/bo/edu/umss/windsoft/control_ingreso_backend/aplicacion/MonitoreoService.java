@@ -360,10 +360,26 @@ public class MonitoreoService {
     /** CSV de la lista del aula (abre bien en Excel). Queda en auditoría. */
     @Transactional
     public byte[] asistentesCsv(Integer idAmbiente, String ip) {
+        return asistentesCsv(idAmbiente, "TODOS", "", ip);
+    }
+
+    @Transactional
+    public byte[] asistentesCsv(Integer idAmbiente, String estado, String busqueda, String ip) {
+        String filtro = estado == null ? "TODOS" : estado.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!java.util.Set.of("TODOS", "PRESENTE", "EXCEPCIONAL", "AUSENTE", "RETIRADO").contains(filtro)) {
+            throw new IllegalArgumentException("Estado de asistencia no válido.");
+        }
         AsistentesAulaDto lista = asistentes(idAmbiente, ip);
+        String consulta = textoBusquedaReporte(busqueda);
+        List<AsistenteAulaDto> filtrados = lista.asistentes().stream()
+                .filter(a -> "TODOS".equals(filtro) || filtro.equals(a.estado()))
+                .filter(a -> consulta.isBlank() || textoBusquedaReporte(a.nombre()).contains(consulta)
+                        || textoBusquedaReporte(a.codSis()).contains(consulta)
+                        || textoBusquedaReporte(a.observacion()).contains(consulta))
+                .toList();
         StringBuilder csv = new StringBuilder("\uFEFF");
         csv.append("Código SIS;Estudiante;CI;Estado;Hora;Método;Observación\r\n");
-        for (AsistenteAulaDto a : lista.asistentes()) {
+        for (AsistenteAulaDto a : filtrados) {
             csv.append(celda(a.codSis())).append(';')
                     .append(celda(a.nombre())).append(';')
                     .append(celda(a.ci())).append(';')
@@ -375,8 +391,13 @@ public class MonitoreoService {
         UsuarioActual usuario = contextoUsuarioService.actual();
         auditoriaService.registrarEnTransaccion("EXPORTACION_ASISTENCIA", usuario.correo(), usuario.correo(),
                 "Exportó la lista del " + lista.aula() + " · examen " + lista.idExamen() + " · "
-                        + lista.asistentes().size() + " estudiante(s)", ip);
+                        + filtrados.size() + " estudiante(s) · estado " + filtro, ip);
         return csv.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static String textoBusquedaReporte(Object valor) {
+        return java.text.Normalizer.normalize(valor == null ? "" : valor.toString().trim(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").toLowerCase(java.util.Locale.ROOT);
     }
 
     private static String celda(Object valor) {

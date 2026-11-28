@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { textoNombre } from '../../common/textoNombre.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 /**
  * ExamenCard.jsx
@@ -115,14 +117,14 @@ export default function ExamenCard({
           </div>
 
           <h3 className="mt-1.5 text-[17px] font-extrabold text-[#123F7B] break-words">
-            {textoInterfaz(examen.strNombre)}
+            {textoAsignatura(examen.strNombre)}
           </h3>
 
           <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:gap-x-5 text-[13px] text-[#64748B]">
             <span className="inline-flex items-center gap-1.5">
               <IconoDocente />
               <span>
-                <b className="font-bold text-[#123F7B]">Docente:</b> {examen.strDocente || "Por confirmar"}
+                <b className="font-bold text-[#123F7B]">Docente:</b> {textoNombre(examen.strDocente || "Por confirmar")}
               </span>
             </span>
             <span className="inline-flex items-center gap-1.5">

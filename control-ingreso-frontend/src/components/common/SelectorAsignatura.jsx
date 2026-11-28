@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useEffect, useState } from "react";
 import { obtenerCarreras, obtenerNiveles, obtenerAsignaturasFiltradas } from "../../services/grupoService";
@@ -20,7 +21,7 @@ export default function SelectorAsignatura({ value, onChange, permitidas, disabl
     {error&&<div role="alert" className="text-accent-red"><p>{error}</p><button type="button" disabled={disabled} onClick={()=>setReintento(v=>v+1)} className="mt-2 underline font-semibold">Reintentar catálogo</button></div>}
     <label className="block text-sm font-bold">Carrera / plan
       <select aria-label="Carrera o plan" required={required} disabled={disabled} className={estilo} value={carrera} onChange={e=>{setCarrera(e.target.value);setNivel("");setError("");onChange?.("");onClasificacion?.(null);}}>
-        <option value="">Seleccione una carrera</option>{carreras.map(c=><option key={c.idCarrera} value={c.idCarrera}>{textoInterfaz(c.nombre)} · {c.codigo}</option>)}
+        <option value="">Seleccione una carrera</option>{carreras.map(c=><option key={c.idCarrera} value={c.idCarrera}>{textoAsignatura(c.nombre)} · {c.codigo}</option>)}
       </select>
     </label>
     <label className="block text-sm font-bold">Nivel
@@ -30,7 +31,7 @@ export default function SelectorAsignatura({ value, onChange, permitidas, disabl
     </label>
     {!soloClasificacion&&!soloFiltros&&<label className="block text-sm font-bold">Asignatura
       <select aria-label="Asignatura" required={required} disabled={disabled||!nivel||cargando} className={estilo} value={value} onChange={e=>onChange(e.target.value)}>
-        <option value="">{cargando?"Cargando asignaturas…":"Seleccione una asignatura"}</option>{visibles.map(a=><option key={a.idAsignatura} value={a.idAsignatura}>{textoInterfaz(a.nombreAsignatura)} · Código {a.codigoOficial||a.idAsignatura}</option>)}
+        <option value="">{cargando?"Cargando asignaturas…":"Seleccione una asignatura"}</option>{visibles.map(a=><option key={a.idAsignatura} value={a.idAsignatura}>{textoAsignatura(a.nombreAsignatura)} · Código {a.codigoOficial||a.idAsignatura}</option>)}
       </select>
       {nivel&&!cargando&&!error&&!visibles.length&&<span className="block text-sm font-normal mt-1">No hay asignaturas disponibles para este nivel.</span>}
     </label>}

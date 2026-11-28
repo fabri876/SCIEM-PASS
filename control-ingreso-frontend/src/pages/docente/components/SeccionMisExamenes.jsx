@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { reporteExamenes } from '../../../utils/reportesListas.js';
 import ReporteLista from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Sección "Mis exámenes": lista completa del docente con filtros por estado y por asignatura.
@@ -92,20 +94,12 @@ export default function SeccionMisExamenes({
           className="ml-auto h-9 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700 px-3 max-w-[260px] cursor-pointer max-md:ml-0 max-md:w-full max-md:max-w-none"
         >
           <option value="">Todas las asignaturas</option>
-          {listAsignaturas.map((n) => <option key={n} value={n}>{n}</option>)}
+          {listAsignaturas.map((n) => <option key={n} value={n}>{textoAsignatura(n)}</option>)}
         </select>
       </div>
 
       <div className="space-y-3">
-        <ReporteLista titulo="Mis exámenes" contenido={() => <>{listVisibles.map((examen) => (
-            <TarjetaExamen
-              key={examen.idExamen}
-              examen={examen}
-              dateAhora={dateAhora}
-              boolResaltado={String(examen.idExamen) === String(idResaltado)}
-              onCambio={onCambio}
-            />
-          ))}</>} />
+        <ReporteLista datos={() => reporteExamenes(listVisibles.map(e => ({ ...e, estado: e.esExamenReal === false ? "SIN_FECHA" : estadoExamen(e, dateAhora) })))} filtros={[strFiltro, strAsignatura]} titulo="Mis exámenes"  />
 {boolCargando ? (
           <div className="text-center py-10 text-slate-500 text-xs font-semibold animate-pulse bg-white rounded-2xl border border-slate-200">
             Cargando exámenes del docente...

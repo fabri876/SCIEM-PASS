@@ -4,6 +4,22 @@ const REGEX_MINUSCULA = /[a-z]/;
 const REGEX_MAYUSCULA = /[A-Z]/;
 const REGEX_NUMERO = /[0-9]/;
 const REGEX_ESPECIAL = /[^A-Za-z0-9\s]/;
+const PALABRAS_COMUNES = ["password", "contrasena", "contraseña", "qwerty", "admin", "administrador", "root"];
+
+export function fnContienePalabraComunOCorreo(strContrasena = "", strCorreo = "") {
+    const strMin = (strContrasena || "").toLowerCase();
+    if (!strMin) return false;
+    if (PALABRAS_COMUNES.some((strPalabra) => strMin.includes(strPalabra))) {
+        return true;
+    }
+    const strParteLocal = (strCorreo || "").trim().split("@")[0].toLowerCase();
+    if (strParteLocal.length >= 3 && strMin.includes(strParteLocal)) {
+        return true;
+    }
+    return strParteLocal
+        .split(/[^a-z0-9]+/)
+        .some((strSegmento) => strSegmento.length >= 3 && strMin.includes(strSegmento));
+}
 
 // Detecta 3 caracteres iguales seguidos o secuencias ascendentes/descendentes (abc, 123, cba, 321)
 function fnTieneRepeticionOSecuencia(strTexto) {
@@ -26,8 +42,9 @@ function fnTieneRepeticionOSecuencia(strTexto) {
  * Evalúa la contraseña nueva y devuelve el nivel (0 a 8), los criterios
  * cumplidos y el color/etiqueta para el medidor visual.
  */
-export function fnEvaluarContrasena(strNueva = "", strActual = "") {
+export function fnEvaluarContrasena(strNueva = "", strActual = "", objContexto = {}) {
     const boolHayTexto = strNueva.length > 0;
+    const boolContieneComunOCorreo = fnContienePalabraComunOCorreo(strNueva, objContexto?.correo);
 
     const arrCriterios = [
         { strClave: "largo8", strTexto: "Al menos 8 caracteres", boolCumple: strNueva.length >= 8 },
@@ -38,8 +55,8 @@ export function fnEvaluarContrasena(strNueva = "", strActual = "") {
         { strClave: "especial", strTexto: "Un carácter especial (!@#$%&*...)", boolCumple: REGEX_ESPECIAL.test(strNueva) },
         {
             strClave: "sinPatrones",
-            strTexto: "Sin repeticiones ni secuencias (aaa, 123, abc)",
-            boolCumple: boolHayTexto && !fnTieneRepeticionOSecuencia(strNueva),
+            strTexto: "Sin repeticiones, secuencias ni palabras comunes o del correo",
+            boolCumple: boolHayTexto && !fnTieneRepeticionOSecuencia(strNueva) && !boolContieneComunOCorreo,
         },
         {
             strClave: "distintaActual",
@@ -70,6 +87,7 @@ export function fnEvaluarContrasena(strNueva = "", strActual = "") {
         arrCriterios,
         strColor,
         strEtiqueta,
+        boolContieneComunOCorreo,
         boolValida: intNivel >= NIVEL_REQUERIDO,
     };
 }

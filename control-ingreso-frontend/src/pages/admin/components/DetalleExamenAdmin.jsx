@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
@@ -101,7 +103,7 @@ export default function DetalleExamenAdmin({
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                     <h3 className="text-[19px] font-bold text-[#0B3A73] flex items-center flex-wrap gap-2">
-                        {textoInterfaz(examen.nombreAsignatura || `Asignatura #${examen.idAsignatura}`)}
+                        {textoAsignatura(examen.nombreAsignatura || `Asignatura #${examen.idAsignatura}`)}
                         {strGrupo && (
                             <span className="bg-[#E8F0FB] text-[#003770] border border-[#BFD3F2] rounded-full text-[11px] font-bold px-2.5 py-px">
                                 {strGrupo}
@@ -138,7 +140,7 @@ export default function DetalleExamenAdmin({
 
             <Tarjeta strTitulo="Examen">
                 <DosColumnas
-                    izquierda={<Campo strEtiqueta="Docente">{strDocente}</Campo>}
+                    izquierda={<Campo strEtiqueta="Docente">{textoNombre(strDocente)}</Campo>}
                     derecha={
                         <Campo strEtiqueta="Aulas">
                             {arrAmbientes.length === 0 ? (

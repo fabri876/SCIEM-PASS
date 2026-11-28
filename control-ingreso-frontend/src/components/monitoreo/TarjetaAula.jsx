@@ -1,3 +1,4 @@
+import { textoNombre } from '../common/textoNombre.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React from "react";
 import { Lock, ChevronRight } from "lucide-react";
@@ -34,7 +35,7 @@ export default function TarjetaAula({ aula, incidencias, boolCerrada, onAbrir })
                 <div className="min-w-0">
                     <p className="font-black text-[#003770] text-sm truncate">{aula.aula}</p>
                     {aula.ubicacion && <p className="text-[10.5px] text-slate-500 font-semibold truncate">{aula.ubicacion}</p>}
-                    {strDocente && <p className="text-[10.5px] text-slate-500 font-semibold truncate">{strDocente}</p>}
+                    {strDocente && <p className="text-[10.5px] text-slate-500 font-semibold truncate">{textoNombre(strDocente)}</p>}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full text-center ${estilo.pill}`}>{textoInterfaz(estilo.etiqueta)}</span>

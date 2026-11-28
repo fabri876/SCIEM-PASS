@@ -1,3 +1,6 @@
+import { reporteColumnas } from '../../../utils/reportesListas.js';
+import { textoNombre } from '../../../components/common/textoNombre.js';
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import ReporteLista from '../../../components/common/ReporteLista.jsx';
 import React, { useState } from "react";
@@ -398,7 +401,7 @@ export default function GestionGruposAsignaturaCard({
                             <option value="">Selecciona una asignatura</option>
                             {asignaturas.map((a) => (
                                 <option key={a.idAsignatura} value={a.idAsignatura}>
-                                    {textoInterfaz(a.nombreAsignatura)}
+                                    {textoAsignatura(a.nombreAsignatura)}
                                 </option>
                             ))}
                         </CampoSelect>
@@ -477,7 +480,7 @@ export default function GestionGruposAsignaturaCard({
                         <option value="">Selecciona un docente</option>
                         {docentesIniciales.map((d) => (
                             <option key={d.idDocente} value={d.idDocente}>
-                                {d.nombreDocente}
+                                {textoNombre(d.nombreDocente)}
                             </option>
                         ))}
                     </CampoSelect>
@@ -508,6 +511,7 @@ export default function GestionGruposAsignaturaCard({
                 {/* Asignatura (solo las que ya tienen grupos) */}
                 <div>
                     <label className="block text-badge font-bold mb-1.5 text-primary-navy">Asignatura</label>
+                    <ReporteLista titulo="Grupos por asignatura" datos={() => reporteColumnas(asignaturasConGrupos, [['Asignatura', a => textoAsignatura(a.nombreAsignatura)], ['Grupos', a => a.cantidadGrupos]])} />
                     <CampoSelect
                         icono={BookOpen}
                         value={idAsignaturaDoc}
@@ -519,14 +523,9 @@ export default function GestionGruposAsignaturaCard({
                                 ? "Primero crea grupos para una asignatura"
                                 : "Selecciona una asignatura"}
                         </option>
-                        <ReporteLista titulo="Grupos por asignatura" contenido={() => <>{asignaturasConGrupos.map((a) => (
-                            <option key={a.idAsignatura} value={a.idAsignatura}>
-                                {textoInterfaz(a.nombreAsignatura)} ({a.cantidadGrupos} {a.cantidadGrupos === 1 ? "grupo" : "grupos"})
-                            </option>
-                        ))}</>} />
 {asignaturasConGrupos.map((a) => (
                             <option key={a.idAsignatura} value={a.idAsignatura}>
-                                {textoInterfaz(a.nombreAsignatura)} ({a.cantidadGrupos} {a.cantidadGrupos === 1 ? "grupo" : "grupos"})
+                                {textoAsignatura(a.nombreAsignatura)} ({a.cantidadGrupos} {a.cantidadGrupos === 1 ? "grupo" : "grupos"})
                             </option>
                         ))}
                     </CampoSelect>

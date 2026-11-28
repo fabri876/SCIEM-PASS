@@ -1,3 +1,7 @@
+import { generarCsv, nombreReporte } from '../utils/exportarCsv.js';
+import { textoNombre } from '../components/common/textoNombre.js';
+// Conserva los valores que el CSV debe neutralizar como posibles fórmulas.
+const nombreParaReporte = valor => /^[\s]*[=+@-]/u.test(String(valor ?? '')) ? valor : textoNombre(valor);
 /**
  * reporteIntentosService.js
  *
@@ -371,7 +375,7 @@ export function calcularEstadisticasIntentos(arrIntentos) {
  * @param {Array} arrIntentos - Lista de registros que cumplen los filtros
  * @param {Object} objMetadata - Metadatos de la asignatura/examen
  */
-export function exportarIntentosExcelCsv(arrIntentos, _objMetadata = {}) {
+export function exportarIntentosExcelCsv(arrIntentos, objMetadata = {}) {
   if (!Array.isArray(arrIntentos) || arrIntentos.length === 0) {
     throw new Error("No existen datos para generar el reporte.");
   }
@@ -390,44 +394,15 @@ export function exportarIntentosExcelCsv(arrIntentos, _objMetadata = {}) {
     "ESTADO_POSTERIOR",
   ];
 
-  const escapeCsv = (valor) => {
-    if (valor === null || valor === undefined) return '""';
-    let str = String(valor);
-    if (/^\s*[=+@\-\t\r]/.test(str)) str = "'" + str;
-    str = str.replace(/"/g, '""');
-    return `"${str}"`;
-  };
-
-  const lineas = [
-    columnas.join(","),
-    ...arrIntentos.map((item) =>
-      [
-        escapeCsv(item.estudianteNombre),
-        escapeCsv(item.codSis),
-        escapeCsv(item.ci),
-        escapeCsv(item.carreraEstudiante || "No especificada"),
-        escapeCsv(item.motivoEtiqueta || item.motivo),
-        escapeCsv(item.sePresentoEn),
-        escapeCsv(item.examenAulaAsignada || "No disponible"),
-        escapeCsv(item.fecha),
-        escapeCsv(item.hora),
-        escapeCsv(item.operador),
-        escapeCsv(item.estadoPosterior || "No disponible"),
-      ].join(",")
-    ),
-  ];
-
-  const strCsv = "\uFEFF" + lineas.join("\r\n");
+  const strCsv = generarCsv(columnas, arrIntentos.map(item => [
+    nombreParaReporte(item.estudianteNombre), item.codSis, item.ci,
+    item.carreraEstudiante || "No especificada", item.motivoEtiqueta || item.motivo,
+    item.sePresentoEn, item.examenAulaAsignada || "No disponible", item.fecha, item.hora,
+    nombreParaReporte(item.operador), item.estadoPosterior || "No disponible",
+  ]));
   const blob = new Blob([strCsv], { type: "text/csv;charset=utf-8;" });
 
-  const fechaActual = new Date();
-  const anio = fechaActual.getFullYear();
-  const mes = String(fechaActual.getMonth() + 1).padStart(2, "0");
-  const dia = String(fechaActual.getDate()).padStart(2, "0");
-  const hora = String(fechaActual.getHours()).padStart(2, "0");
-  const min = String(fechaActual.getMinutes()).padStart(2, "0");
-
-  const strNombreArchivo = `SCIEM_PASS_Reporte_Intentos_Incorrectos_${anio}-${mes}-${dia}_${hora}${min}.csv`;
+  const strNombreArchivo = nombreReporte('SCIEM_PASS_Reporte_Intentos_Incorrectos', Object.entries(objMetadata).map(([clave, valor]) => valor ? `${clave}-${valor}` : '').filter(Boolean));
 
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
@@ -467,7 +442,7 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
     <tr style="border-bottom: 1px solid #e2e8f0; font-size: 12px;">
       <td style="padding: 8px 6px; font-weight: bold; color: #1e293b;">${i + 1}</td>
       <td style="padding: 8px 6px;">
-        <div style="font-weight: bold; color: #0f172a;">${escaparHtml(item.estudianteNombre)}</div>
+        <div style="font-weight: bold; color: #0f172a;">${escaparHtml(nombreParaReporte(item.estudianteNombre))}</div>
         <div style="color: #64748b; font-size: 11px;">SIS: ${escaparHtml(item.codSis)} | CI: ${escaparHtml(item.ci)}</div>
       </td>
       <td style="padding: 8px 6px;">
@@ -478,7 +453,7 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
       <td style="padding: 8px 6px; color: #334155;">${escaparHtml(item.sePresentoEn)}</td>
       <td style="padding: 8px 6px; color: #003770; font-weight: 600;">${item.examenAulaAsignada ? escaparHtml(item.examenAulaAsignada) : sinDatoHtml}</td>
       <td style="padding: 8px 6px; color: #475569;">${escaparHtml(item.fecha || "No disponible")}<br>${escaparHtml(item.hora || "No disponible")}</td>
-      <td style="padding: 8px 6px; color: #334155;">${escaparHtml(item.operador)}</td>
+      <td style="padding: 8px 6px; color: #334155;">${escaparHtml(nombreParaReporte(item.operador))}</td>
       <td style="padding: 8px 6px;">
         ${item.estadoPosterior ? escaparHtml(item.estadoPosterior) : sinDatoHtml}
       </td>
@@ -497,20 +472,20 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; color: #0f172a; }
         .header { display: flex; justify-content: space-between; border-bottom: 2px solid #003770; padding-bottom: 12px; margin-bottom: 20px; }
         .logo { font-size: 20px; font-weight: 900; color: #003770; letter-spacing: -0.5px; }
-        .sublogo { font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; }
+        .sublogo { font-size: 10px; color: #64748b; font-weight: bold; }
         .meta { text-align: right; font-size: 11px; color: #475569; }
         .title { font-size: 17px; font-weight: 800; color: #021B3B; margin-bottom: 4px; }
         .subtitle { font-size: 12px; color: #64748b; margin-bottom: 16px; }
         .kpi-container { display: flex; gap: 12px; margin-bottom: 20px; }
         .kpi-box { flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #f8fafc; }
-        .kpi-title { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #64748b; }
+        .kpi-title { font-size: 9px; font-weight: bold; color: #64748b; }
         .kpi-value { font-size: 20px; font-weight: 900; color: #003770; margin-top: 2px; }
         .kpi-sub { font-size: 9px; color: #475569; }
         table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; margin-top: 10px; }
         th, td { overflow-wrap: anywhere; vertical-align: top; }
         thead { display: table-header-group; }
         tr { break-inside: avoid; page-break-inside: avoid; }
-        th { background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 800; border-bottom: 2px solid #cbd5e1; }
+        th { background: #f1f5f9; padding: 8px 6px; font-size: 11px; color: #475569; font-weight: 800; border-bottom: 2px solid #cbd5e1; }
         .footer { margin-top: 30px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px; }
       </style>
     </head>

@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { reporteExamenes } from '../../../utils/reportesListas.js';
 import ReporteLista from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // "Mis exámenes" del estudiante: lista completa con filtros por estado y por asignatura
@@ -53,7 +55,7 @@ function TarjetaExamenLista({ examen, strEstado, dateAhora, onVerQr }) {
 
             <div className="flex-1 min-w-[200px]">
                 <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="m-0 font-black text-sm text-[#08264A] ">{textoInterfaz(examen.materia)}</h4>
+                    <h4 className="m-0 font-black text-sm text-[#08264A] ">{textoAsignatura(examen.materia)}</h4>
                     {objBadge && <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{textoInterfaz(objBadge.strTexto)}</span>}
                 </div>
                 <p className="mt-0.5 text-xs font-bold text-[#64748B]">
@@ -123,9 +125,7 @@ export default function SeccionMisExamenesEstudiante({ examenes = [], boolCargan
             )}
 
             <div className="space-y-3">
-                <ReporteLista titulo="Mis exámenes" contenido={() => <>{listVisibles.map(({ e, strEstado }) => (
-                        <TarjetaExamenLista key={e.id} examen={e} strEstado={strEstado} dateAhora={dateAhora} onVerQr={onVerQr} />
-                    ))}</>} />
+                <ReporteLista datos={() => reporteExamenes(listVisibles.map(({ e, strEstado }) => ({ ...e, estado: strEstado })))} filtros={[strFiltro, strAsignatura]} titulo="Mis exámenes"  />
 {boolCargando ? (
                     <div className="text-center py-10 text-slate-500 text-xs font-semibold animate-pulse bg-white rounded-2xl border border-slate-200">
                         Cargando exámenes…

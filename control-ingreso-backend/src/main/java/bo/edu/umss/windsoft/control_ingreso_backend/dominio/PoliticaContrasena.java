@@ -6,6 +6,10 @@ import java.util.Optional;
 /** Reglas puras compartidas para una contraseña de nivel 8. */
 public final class PoliticaContrasena {
 
+    private static final String[] PALABRAS_COMUNES = {
+            "password", "contrasena", "contraseña", "qwerty", "admin", "administrador", "root"
+    };
+
     private PoliticaContrasena() {
     }
 
@@ -35,6 +39,10 @@ public final class PoliticaContrasena {
     }
 
     public static Optional<String> validarCambio(String contrasenaActual, String nuevaContrasena) {
+        return validarCambio(contrasenaActual, nuevaContrasena, null);
+    }
+
+    public static Optional<String> validarCambio(String contrasenaActual, String nuevaContrasena, String correo) {
         Optional<String> errorNivel = validarNivelOcho(nuevaContrasena);
         if (errorNivel.isPresent()) {
             return errorNivel;
@@ -46,7 +54,7 @@ public final class PoliticaContrasena {
                 && nuevaContrasena.toLowerCase(Locale.ROOT).contains(contrasenaActual.toLowerCase(Locale.ROOT))) {
             return Optional.of("La nueva contraseña no puede contener la contraseña actual.");
         }
-        return Optional.empty();
+        return validarPalabrasComunesYCorreo(nuevaContrasena, correo);
     }
 
     /** Reglas adicionales para credenciales privilegiadas; nunca devuelve la clave. */
@@ -54,19 +62,35 @@ public final class PoliticaContrasena {
         Optional<String> nivel = validarNivelOcho(contrasena);
         if (nivel.isPresent()) return nivel;
         if (contrasena.length() > 256) return Optional.of("La contraseña no puede superar 256 caracteres.");
-        String valor = contrasena.toLowerCase(Locale.ROOT);
-        for (String patron : new String[]{"password", "contrasena", "contraseña", "qwerty", "admin"}) {
-            if (valor.contains(patron)) {
-                return Optional.of("La contraseña de administrador contiene un patrón demasiado común.");
-            }
+        Optional<String> errorComunOCorreo = validarPalabrasComunesYCorreo(contrasena, correo);
+        if (errorComunOCorreo.isPresent()) {
+            return errorComunOCorreo;
         }
+        String valor = contrasena.toLowerCase(Locale.ROOT);
         String carnet = ci == null ? "" : ci.trim().toLowerCase(Locale.ROOT);
         if (!carnet.isEmpty() && valor.contains(carnet)) {
             return Optional.of("La contraseña no puede contener el carnet de identidad.");
         }
-        String nombreCorreo = correo == null ? "" : correo.trim().split("@", 2)[0].toLowerCase(Locale.ROOT);
-        if (nombreCorreo.length() >= 4 && valor.contains(nombreCorreo)) {
-            return Optional.of("La contraseña no puede contener el nombre del correo.");
+        return Optional.empty();
+    }
+
+    private static Optional<String> validarPalabrasComunesYCorreo(String contrasena, String correo) {
+        String valor = contrasena.toLowerCase(Locale.ROOT);
+        for (String patron : PALABRAS_COMUNES) {
+            if (valor.contains(patron)) {
+                return Optional.of("La nueva contraseña no puede contener palabras comunes como admin, root o password.");
+            }
+        }
+        if (correo != null && !correo.isBlank()) {
+            String parteLocal = correo.trim().split("@", 2)[0].toLowerCase(Locale.ROOT);
+            if (parteLocal.length() >= 3 && valor.contains(parteLocal)) {
+                return Optional.of("La nueva contraseña no puede contener el nombre del correo.");
+            }
+            for (String segmento : parteLocal.split("[^a-z0-9]+")) {
+                if (segmento.length() >= 3 && valor.contains(segmento)) {
+                    return Optional.of("La nueva contraseña no puede contener partes del correo.");
+                }
+            }
         }
         return Optional.empty();
     }

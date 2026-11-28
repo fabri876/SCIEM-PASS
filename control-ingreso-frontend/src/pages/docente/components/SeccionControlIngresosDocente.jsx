@@ -1,3 +1,5 @@
+import { reporteExamenes } from '../../../utils/reportesListas.js';
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 import ReporteLista from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Sección "Control de Ingresos" del docente: lo operativo de cada examen
@@ -106,7 +108,7 @@ function TarjetaControlDocente({ examen, objAsig, dateAhora, onAsignarOperadores
 
       <div className="flex-1 min-w-[200px]">
         <div className="flex items-center gap-2 flex-wrap">
-          <h4 className="m-0 font-black text-sm text-[#08264A] ">{examen.nombreExamen}</h4>
+          <h4 className="m-0 font-black text-sm text-[#08264A] ">{textoAsignatura(examen.nombreExamen)}</h4>
           {objBadge && <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{textoInterfaz(objBadge.strTexto)}</span>}
         </div>
         <p className="mt-0.5 text-xs font-bold text-[#64748B]">
@@ -247,16 +249,7 @@ export default function SeccionControlIngresosDocente({ examenes = [], boolCarga
       </div>
 
       <div className="space-y-3">
-        <ReporteLista titulo="Exámenes para control de ingresos" contenido={() => <>{listVisibles.map((examen) => (
-            <TarjetaControlDocente
-              key={examen.idExamen}
-              examen={examen}
-              objAsig={objAsignaciones[examen.idExamen]}
-              dateAhora={dateAhora}
-              onAsignarOperadores={onAsignarOperadores}
-              onVerIngresos={setObjExamenLista}
-            />
-          ))}</>} />
+        <ReporteLista filtros={[strFiltro]} datos={() => reporteExamenes(listVisibles)} titulo="Exámenes para control de ingresos"  />
 {boolCargando ? (
           <div className="text-center py-10 text-slate-500 text-xs font-semibold animate-pulse bg-white rounded-2xl border border-slate-200">
             Cargando exámenes del docente...

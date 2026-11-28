@@ -1,3 +1,6 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { reporteExamenes } from '../../../utils/reportesListas.js';
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import ReporteLista from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import React from "react";
@@ -25,39 +28,7 @@ export default function StudentExamList({ listExamenes, cargando }) {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    <ReporteLista titulo="Exámenes del estudiante" contenido={() => <>{listExamenes.map((ex) => (
-                        <div
-                            key={ex.id}
-                            className="bg-white hover:border-blue-300 border border-slate-200/80 rounded-xl p-5 transition-all duration-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-2xs group"
-                        >
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2.5">
-                                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-md tracking-wide border ${ex.estado === "HABILITADO"
-                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                            : "bg-amber-50 text-amber-700 border-amber-200"
-                                        }`}>
-                                        {textoInterfaz(ex.estado)}
-                                    </span>
-                                    <span className="text-xs text-slate-400 font-medium">• {ex.fecha}</span>
-                                </div>
-
-                                <h3 className="text-sm font-bold text-slate-900 group-hover:text-[#1763C6] transition-colors">
-                                    {textoInterfaz(ex.materia)}
-                                </h3>
-
-                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                                    <span><strong className="text-slate-700">Docente:</strong> {ex.docente}</span>
-                                    <span>•</span>
-                                    <span><strong className="text-slate-700">Ambiente:</strong> {ex.ambiente}</span>
-                                </div>
-                            </div>
-
-                            <div className="bg-slate-50 group-hover:bg-blue-50/40 px-4 py-3 rounded-xl border border-slate-200/70 text-left md:text-right self-stretch md:self-auto flex flex-col justify-center transition-colors">
-                                <span className="text-[10px] text-slate-400 font-bold tracking-wider">Horario de Ingreso</span>
-                                <span className="text-xs font-mono font-extrabold text-slate-800 mt-0.5">{ex.hora}</span>
-                            </div>
-                        </div>
-                    ))}</>} />
+                    <ReporteLista datos={() => reporteExamenes(listExamenes)} titulo="Exámenes del estudiante"  />
 {listExamenes.map((ex) => (
                         <div
                             key={ex.id}
@@ -75,11 +46,11 @@ export default function StudentExamList({ listExamenes, cargando }) {
                                 </div>
 
                                 <h3 className="text-sm font-bold text-slate-900 group-hover:text-[#1763C6] transition-colors">
-                                    {textoInterfaz(ex.materia)}
+                                    {textoAsignatura(ex.materia)}
                                 </h3>
 
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                                    <span><strong className="text-slate-700">Docente:</strong> {ex.docente}</span>
+                                    <span><strong className="text-slate-700">Docente:</strong> {textoNombre(ex.docente)}</span>
                                     <span>•</span>
                                     <span><strong className="text-slate-700">Ambiente:</strong> {ex.ambiente}</span>
                                 </div>

@@ -69,6 +69,7 @@ class ExamenServiceTest {
     @Mock private NormaGeneralRepository normaGeneralRepository;
     @Mock private CambioExamenService cambiosExamen;
     @Mock private CredencialRepository credencialRepository;
+    @Mock private HabilitacionCuentaInactiva habilitacionCuentaInactiva;
 
     @InjectMocks
     private ExamenService examenService;
@@ -257,6 +258,8 @@ class ExamenServiceTest {
     void reactivarExamen_registraOperacion() {
         Examen examen = prepararCancelacion(true);
         examenService.reactivarExamen(100, "127.0.0.1");
+        verify(habilitacionCuentaInactiva).alReactivarExamen(argThat(e ->
+                Boolean.TRUE.equals(e.getEstadoExamen()) && Boolean.FALSE.equals(e.getCancelado())));
         assertFalse(examen.getCancelado());
         verify(auditoriaService).registrarEnTransaccion(eq("REACTIVACION_EXAMEN"), eq("admin@example.invalid"),
                 eq("1"), contains("examen=100"), eq("127.0.0.1"));

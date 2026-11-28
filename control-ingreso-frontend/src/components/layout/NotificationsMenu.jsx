@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useEffect, useRef, useState } from "react";
 
@@ -182,7 +183,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
               setCarrera(e.target.value); setNivel(""); setAsignatura(""); setNiveles([]); setAsignaturas([]);
             }} className="block w-full mt-1 rounded-lg border border-[#E2E8F0] p-2 bg-white">
               <option value="">Todas las carreras</option>
-              {carreras.map(c => <option key={c.idCarrera} value={c.idCarrera}>{textoInterfaz(c.nombre)} ({c.codigo})</option>)}
+              {carreras.map(c => <option key={c.idCarrera} value={c.idCarrera}>{textoAsignatura(c.nombre)} ({c.codigo})</option>)}
             </select>
           </label>
           <label>Nivel
@@ -197,7 +198,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
             <select aria-label="Asignatura de notificaciones" value={asignatura} disabled={!nivel} onChange={e => setAsignatura(e.target.value)}
               className="block w-full mt-1 rounded-lg border border-[#E2E8F0] p-2 bg-white disabled:bg-slate-100">
               <option value="">Todas las asignaturas</option>
-              {asignaturas.map(a => <option key={a.idAsignatura} value={a.idAsignatura}>{textoInterfaz(a.nombreAsignatura)} ({a.codigoOficial})</option>)}
+              {asignaturas.map(a => <option key={a.idAsignatura} value={a.idAsignatura}>{textoAsignatura(a.nombreAsignatura)} ({a.codigoOficial})</option>)}
             </select>
           </label>
         </div>

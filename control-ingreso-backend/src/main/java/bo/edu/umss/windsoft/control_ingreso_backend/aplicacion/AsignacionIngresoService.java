@@ -146,7 +146,7 @@ public class AsignacionIngresoService {
                 return todosAyudantes.stream()
                                 .map(ay -> {
                                         Usuario u = usuariosMap.get(ay.getIdusuario());
-                                        if (u == null)
+                                        if (u == null || !Boolean.TRUE.equals(u.getEstadousuario()))
                                                 return null;
                                         return new OperadorDisponibleDTO(
                                                         u.getIdusuario(),
@@ -229,7 +229,8 @@ public class AsignacionIngresoService {
                                                 operador != null ? operador.getNombreusuario() : null,
                                                 operador != null ? operador.getApellidousuario() : null,
                                                 ae != null ? ae.getApellidoDesde() : null,
-                                                ae != null ? ae.getApellidoHasta() : null);
+                                                ae != null ? ae.getApellidoHasta() : null,
+                                                operador != null ? Boolean.TRUE.equals(operador.getEstadousuario()) : null);
                         });
                 }).toList();
         }
@@ -307,8 +308,16 @@ public class AsignacionIngresoService {
                 Set<Integer> ambientesDelExamen = ambienteRepository.findByIdExamen(idExamen).stream()
                                 .map(Ambiente::getIdAmbiente).collect(Collectors.toSet());
                 Set<Integer> operadoresEnSolicitud = new java.util.HashSet<>();
+                Set<AyudanteExamenId> conservar = new java.util.HashSet<>();
+                Map<Integer, Usuario> cuentas = new java.util.HashMap<>();
+                request.asignaciones().stream()
+                                .filter(item -> !"DOCENTE".equalsIgnoreCase(item.rol()))
+                                .map(AsignacionIngresoRequestDTO.ItemAsignacion::idOperador)
+                                .filter(Objects::nonNull).distinct().sorted()
+                                .forEach(id -> cuentas.put(id, usuarioRepository.bloquearPorId(id)
+                                                .orElseThrow(() -> new ResponseStatusException(
+                                                                HttpStatus.BAD_REQUEST, "Ayudante no encontrado."))));
 
-                Set<Integer> ambientesProcesados = new java.util.HashSet<>();
                 for (AsignacionIngresoRequestDTO.ItemAsignacion item : request.asignaciones()) {
                         Integer idAmbiente = item.idAmbiente();
                         Integer idOperador = item.idOperador();
@@ -321,7 +330,28 @@ public class AsignacionIngresoService {
                                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                                 "El operador " + idOperador + " no puede asignarse a dos aulas.");
                         }
+                        if (idOperador == null || "DOCENTE".equalsIgnoreCase(item.rol())) continue;
+                        if (!ayudanteRepository.existsByIdusuario(idOperador)) {
+                                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                                "El usuario " + idOperador + " no es un operador registrado.");
+                        }
+                        if (!Boolean.TRUE.equals(cuentas.get(idOperador).getEstadousuario())) {
+                                var id = new AyudanteExamenId(idOperador, idAsignatura, idExamen, idAmbiente);
+                                var anterior = ayudanteExamenRepository.findById(id).orElse(null);
+                                if (anterior == null || !ESTADO_ACTIVO.equals(anterior.getEstadoAsignacion())
+                                                || !Objects.equals(anterior.getApellidoDesde(), normalizarLetra(item.apellidoDesde()))
+                                                || !Objects.equals(anterior.getApellidoHasta(), normalizarLetra(item.apellidoHasta()))) {
+                                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                                        "No se puede asignar ni modificar un ayudante inactivo.");
+                                }
+                                conservar.add(id);
+                        }
+                }
 
+                Set<Integer> ambientesProcesados = new java.util.HashSet<>();
+                for (AsignacionIngresoRequestDTO.ItemAsignacion item : request.asignaciones()) {
+                        Integer idAmbiente = item.idAmbiente();
+                        Integer idOperador = item.idOperador();
                         // Se desactivan las asignaciones anteriores una sola vez por aula.
                         // Las filas siguientes del mismo ambiente representan varios operadores.
                         if (ambientesProcesados.add(idAmbiente)) {
@@ -329,6 +359,7 @@ public class AsignacionIngresoService {
                                                 .findByIdIdasignaturaAndIdIdexamenAndIdIdambienteAndEstadoAsignacion(
                                                                 idAsignatura, idExamen, idAmbiente, ESTADO_ACTIVO);
                                 for (AyudanteExamen ae : existentes) {
+                                        if (conservar.contains(ae.getId())) continue;
                                         ae.setEstadoAsignacion(ESTADO_INACTIVO);
                                         ayudanteExamenRepository.save(ae);
                                 }
@@ -353,13 +384,9 @@ public class AsignacionIngresoService {
                                 responsableExamenRepository.save(responsable);
                                 continue;
                         }
-                        if (!ayudanteRepository.existsByIdusuario(idOperador)) {
-                                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                                "El usuario " + idOperador + " no es un operador registrado.");
-                        }
-
                         // Crear asignación nueva si no existe ya una activa para este operador-ambiente
                         AyudanteExamenId nuevoId = new AyudanteExamenId(idOperador, idAsignatura, idExamen, idAmbiente);
+                        if (conservar.contains(nuevoId)) continue;
                         boolean yaExisteActiva = ayudanteExamenRepository.findById(nuevoId)
                                         .map(ae -> ESTADO_ACTIVO.equals(ae.getEstadoAsignacion()))
                                         .orElse(false);

@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import React, { useState, useEffect } from "react";
@@ -360,10 +362,10 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
                         <TablaConReporte titulo="Previsualización de carga masiva">{(_paraReporte) => (<table className="w-full text-left text-secondary">
                             <thead className="sticky top-0 bg-bg-app text-primary-navy"><tr>{["Fila", "Nombre completo", "CI", "SIS", "Correo", "Teléfono", "Rol", "Asignatura", "Grupo"].map(t => <th key={t} className="p-3 whitespace-nowrap">{t}</th>)}</tr></thead>
                             <tbody>{vistaPrevia.filas.map(f => <tr key={f.fila} className="border-t border-border">
-                                <td className="p-3">{f.fila}</td><td className="p-3 font-semibold text-primary-navy">{textoInterfaz(f.nombre)} {f.apellido}</td>
+                                <td className="p-3">{f.fila}</td><td className="p-3 font-semibold text-primary-navy">{textoNombre(f.nombre)} {textoNombre(f.apellido)}</td>
                                 <td className="p-3">{f.ci || "Sin CI"}</td><td className="p-3">{f.codigoSis ?? "Sin SIS"}</td><td className="p-3">{f.correo || "Sin correo"}</td>
                                 <td className="p-3">{f.telefono ?? "—"}</td><td className="p-3">{textoInterfaz(f.rol === "DOCENTE" ? "Docente" : f.rol === "ESTUDIANTE" ? "Estudiante" : f.rol)}</td>
-                                <td className="p-3">{textoInterfaz(f.asignatura || grupoLote?.nombreAsignatura || "Sin asignación")}</td>
+                                <td className="p-3">{textoAsignatura(f.asignatura || grupoLote?.nombreAsignatura || "Sin asignación")}</td>
                                 <td className="p-3">{f.grupo || grupoLote?.nombreGrupo || "Sin asignación"}</td>
                             </tr>)}</tbody>
                         </table>)}</TablaConReporte>
@@ -428,7 +430,7 @@ export default function BulkUploadCard({ onProcesar, soloEstudiantes = false }) 
                                                 {c.col}
                                             </td>
                                             <td className="px-3 py-2 text-badge font-bold text-text-body">
-                                                {textoInterfaz(c.nombre)}
+                                                {textoAsignatura(c.nombre)}
                                             </td>
                                             <td className="px-3 py-2 text-badge text-text-body/70">
                                                 {c.ejemplo}

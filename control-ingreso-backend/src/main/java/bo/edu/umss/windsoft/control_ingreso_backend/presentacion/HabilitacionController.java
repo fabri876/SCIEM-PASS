@@ -51,7 +51,7 @@ public class HabilitacionController {
     public ResponseEntity<byte[]> exportarExcel(@RequestParam(required = false) Integer idAsignatura) {
         byte[] archivo = habilitacionService.exportarExcel(idAsignatura);
         String nombreArchivo = "lista_habilitaciones"
-                + (idAsignatura != null ? "_asignatura_" + idAsignatura : "") + ".xlsx";
+                + (idAsignatura != null ? "_asignatura_" + idAsignatura : "") + "_" + java.time.LocalDate.now(java.time.ZoneId.of("America/La_Paz")) + ".xlsx";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nombreArchivo + "\"")
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))

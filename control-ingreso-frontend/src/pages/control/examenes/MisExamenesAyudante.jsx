@@ -1,3 +1,5 @@
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { reporteExamenes } from '../../../utils/reportesListas.js';
 import ReporteLista from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // "Mis exámenes" del ayudante: todos los exámenes donde registra el ingreso (como "Mis exámenes" del docente).
@@ -64,7 +66,7 @@ function TarjetaExamenAyudante({ examen, strEstado, dateAhora, onRegistrar }) {
 
       <div className="flex-1 min-w-[200px]">
         <div className="flex items-center gap-2 flex-wrap">
-          <h4 className="m-0 font-black text-sm text-[#08264A] ">{textoInterfaz(examen.materia)}</h4>
+          <h4 className="m-0 font-black text-sm text-[#08264A] ">{textoAsignatura(examen.materia)}</h4>
           <span className={"text-[10px] font-extrabold px-2 py-0.5 rounded-full " + objBadge.strClase}>{textoInterfaz(objBadge.strTexto)}</span>
         </div>
         <p className="mt-0.5 text-xs font-bold text-[#64748B]">
@@ -180,9 +182,7 @@ export default function MisExamenesAyudante() {
       {strError && <div role="alert" className="px-3.5 py-[11px] rounded-lg text-sm bg-[#FEF2F2] text-[#B91C1C]">{textoInterfaz(strError)}</div>}
 
       <div className="space-y-3">
-        <ReporteLista titulo="Exámenes asignados" contenido={() => <>{listVisibles.map(({ e, strEstado }) => (
-            <TarjetaExamenAyudante key={e.id} examen={e} strEstado={strEstado} dateAhora={dateAhora} onRegistrar={fnRegistrar} />
-          ))}</>} />
+        <ReporteLista filtros={[strFiltro]} datos={() => reporteExamenes(listVisibles.map(({ e, strEstado }) => ({ ...e, estado: strEstado })))} titulo="Exámenes asignados"  />
 {boolCargando ? (
           <div className="text-center py-10 text-slate-500 text-xs font-semibold animate-pulse bg-white rounded-2xl border border-slate-200">Cargando exámenes…</div>
         ) : listVisibles.length === 0 ? (

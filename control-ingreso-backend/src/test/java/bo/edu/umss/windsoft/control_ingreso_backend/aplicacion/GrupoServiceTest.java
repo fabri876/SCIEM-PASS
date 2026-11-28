@@ -85,6 +85,7 @@ class GrupoServiceTest {
 
     @Test
     void inscripcionUsaElSisDelEstudiante() {
+        cuentaEstudiante(true);
         grupo();
         when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 202309099)));
         servicio.inscribirEstudianteAGrupo(4, null, 7);
@@ -100,6 +101,7 @@ class GrupoServiceTest {
 
     @Test
     void estudianteNoPuedeInscribirseEnOtroGrupoDeLaMismaMateria() {
+        cuentaEstudiante(true);
         grupo();
         when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 202309099)));
         when(estudianteGrupos.existeOtroGrupoEnAsignatura(4, 2008054, 7)).thenReturn(true);
@@ -109,6 +111,7 @@ class GrupoServiceTest {
 
     @Test
     void estudiantePuedeRepetirElMismoGrupoSinDuplicarInscripcion() {
+        cuentaEstudiante(true);
         grupo();
         when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 202309099)));
         when(estudianteGrupos.existsByIdUsuarioAndIdGrupo(4, 7)).thenReturn(true);
@@ -185,6 +188,7 @@ class GrupoServiceTest {
 
     @Test
     void quitarEstudianteBloqueaInscripcionYConservaUsuario() {
+        cuentaEstudiante(true);
         admin();
         grupo();
         when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 123)));
@@ -205,6 +209,7 @@ class GrupoServiceTest {
 
     @Test
     void cambiarGrupoEstudianteBorraAnteriorAntesDeInsertarNuevo() {
+        cuentaEstudiante(true);
         admin();
         grupo();
         Grupo nuevo = new Grupo(2008054, "3", null);
@@ -222,6 +227,7 @@ class GrupoServiceTest {
 
     @Test
     void editarNoPermiteDosGruposDeLaMismaMateria() {
+        cuentaEstudiante(true);
         admin();
         grupo();
         Grupo otro = new Grupo(2008054, "3", null);
@@ -235,6 +241,7 @@ class GrupoServiceTest {
 
     @Test
     void quitarTodosLosGruposEstudianteEsUnaCorreccionExplicita() {
+        cuentaEstudiante(true);
         admin();
         grupo();
         when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 123)));
@@ -255,5 +262,31 @@ class GrupoServiceTest {
         servicio.desvincularUsuario(5, "DOCENTE", 7);
         verify(docenteGrupos).deleteByIdUsuarioAndIdGrupo(5, 7);
         verify(docenteAsignaturas, never()).deleteById(any());
+    }
+
+    private void cuentaEstudiante(boolean activa) {
+        var cuenta = new bo.edu.umss.windsoft.control_ingreso_backend.dominio.Usuario();
+        cuenta.setEstadousuario(activa);
+        when(usuarios.bloquearPorId(4)).thenReturn(Optional.of(cuenta));
+    }
+
+    @Test
+    void estudianteInactivoNoPuedeVaciarGrupos() {
+        admin();
+        cuentaEstudiante(false);
+        when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 123)));
+        when(estudianteGrupos.findByIdUsuario(4)).thenReturn(List.of(new EstudianteGrupo(4, 123, 7)));
+        assertThrows(ValidacionNegocioException.class,
+                () -> servicio.reemplazarGruposUsuario(4, "ESTUDIANTE", List.of()));
+        verify(estudianteGrupos, never()).deleteByIdUsuarioAndIdGrupo(any(), any());
+    }
+
+    @Test
+    void estudianteInactivoNoRecibeUnGrupoNuevo() {
+        cuentaEstudiante(false);
+        grupo();
+        when(estudiantes.bloquearParaInscripcion(4)).thenReturn(Optional.of(new Estudiante(4, 123)));
+        assertThrows(ValidacionNegocioException.class, () -> servicio.inscribirEstudianteAGrupo(4, null, 7));
+        verify(estudianteGrupos, never()).save(any());
     }
 }

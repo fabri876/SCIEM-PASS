@@ -14,5 +14,6 @@ public record AulaAsignacionDTO(
         String nombreOperador,
         String apellidoOperador,
         String apellidoDesde,
-        String apellidoHasta
+        String apellidoHasta,
+        Boolean operadorActivo
 ) {}

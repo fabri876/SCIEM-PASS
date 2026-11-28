@@ -1,4 +1,7 @@
-import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
+import { reporteColumnas } from '../../../utils/reportesListas.js';
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
+import { textoNombre } from '../../../components/common/textoNombre.js';
+import ReporteLista, { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import React, { useCallback, useEffect, useState } from "react";
 import { obtenerAsignaturas, obtenerCatalogoGrupos, obtenerVinculaciones, quitarVinculacion, invalidarCatalogo, clasificarAsignatura } from "../../../services/grupoService";
@@ -38,7 +41,7 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
     .filter(a => pendiente === "todos" || (pendiente === "asignaturas" ? asignaturasPendientes.some(p => p.idAsignatura === a.idAsignatura) : gruposPendientes.some(g => g.idAsignatura === a.idAsignatura)));
   const nombreUsuario = v => {
     const u = usuarios.find(u => u.idUsuario === v.idUsuario) || docentes.find(u => u.idUsuario === v.idUsuario);
-    return u ? `${u.nombre} ${u.apellido}` : `Usuario ${v.idUsuario}`;
+    return u ? textoNombre(`${u.nombre} ${u.apellido}`) : `Usuario ${v.idUsuario}`;
   };
   const quitar = async () => {
     setQuitando(true); setError("");
@@ -47,7 +50,7 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
   };
   const nombresDocentes = idGrupo => vinculaciones.filter(v => v.idGrupo === idGrupo && v.rol === "DOCENTE").map(v => {
     const d = docentes.find(u => u.idUsuario === v.idUsuario);
-    return d ? `${d.nombre} ${d.apellido}` : `Docente ${v.idUsuario}`;
+    return d ? textoNombre(`${d.nombre} ${d.apellido}`) : `Docente ${v.idUsuario}`;
   }).join(", ");
   return <section className="rounded-2xl border border-border bg-bg-card p-6 space-y-4 shadow-sm">
     <div className="flex flex-wrap justify-between items-center gap-3">
@@ -62,7 +65,7 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
         {[["todos", "Todo el catálogo"], ["asignaturas", `${asignaturasPendientes.length} asignaturas sin docente`], ["grupos", `${gruposPendientes.length} grupos sin docente`]].map(([valor, etiqueta]) => <button key={valor} type="button" aria-pressed={pendiente === valor} onClick={() => setPendiente(valor)} className={`rounded-lg border px-3 py-2 text-sm font-bold ${pendiente === valor ? "bg-primary-navy text-white" : "border-border text-primary-navy"}`}>{textoInterfaz(etiqueta)}</button>)}
       </div>
       <details><summary className="cursor-pointer font-bold text-primary-navy">{docentesPendientes.length} docentes sin grupos asignados</summary>
-        <ul className="mt-2 max-h-48 overflow-auto space-y-2 text-secondary">{docentesPendientes.map(d => <li key={d.idUsuario}>{textoInterfaz(d.nombre)} {d.apellido} · {textoInterfaz(d.estado ? "Activo" : "Inactivo")}</li>)}</ul>
+        <ul className="mt-2 max-h-48 overflow-auto space-y-2 text-secondary">{docentesPendientes.map(d => <li key={d.idUsuario}>{textoNombre(d.nombre)} {textoNombre(d.apellido)} · {textoInterfaz(d.estado ? "Activo" : "Inactivo")}</li>)}</ul>
         {!docentesPendientes.length && <p className="text-secondary">Todos los docentes tienen grupos asignados.</p>}
       </details>
     </aside>}
@@ -70,13 +73,15 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
     <details className="rounded-xl border border-border p-3"><summary className="font-bold cursor-pointer">Filtrar por carrera y nivel</summary>
       <div className="mt-3"><SelectorAsignatura soloFiltros onMaterias={setFiltroMaterias} revision={revision} /></div>
     </details>
+    <ReporteLista titulo="Asignaturas" filtros={[pendiente, busqueda, filtroMaterias ? `carrera-nivel-${filtroMaterias.join('-')}` : 'todas-las-carreras']}
+      datos={() => reporteColumnas(visibles, [['Código', a => a.codigoOficial || a.idAsignatura], ['Asignatura', a => textoAsignatura(a.nombreAsignatura)], ['Grupos', a => grupos.filter(g => g.idAsignatura === a.idAsignatura).length], ['Docentes', a => grupos.filter(g => g.idAsignatura === a.idAsignatura).map(g => nombresDocentes(g.idGrupo)).filter(Boolean).join(', ')]])} />
     {mensaje && <p role="status" className="text-primary-navy">{mensaje}</p>}
     {error && <p role="alert" className="text-accent-red">{error}</p>}
     {cargando ? <p role="status">Cargando asignaturas y grupos…</p> : <div className="max-h-[650px] overflow-auto space-y-3">
       {!visibles.length && <p className="text-secondary">No hay asignaturas para mostrar.</p>}
       {visibles.map(a => <details key={a.idAsignatura} className="rounded-xl border border-border bg-bg-app/50">
-        <summary className="p-4 cursor-pointer text-primary-navy font-bold">{textoInterfaz(a.nombreAsignatura)} <span className="font-normal text-secondary">· Código {a.codigoOficial || a.idAsignatura} · ID {a.idAsignatura} · {grupos.filter(g => g.idAsignatura === a.idAsignatura).length} grupos</span></summary>
-        <div className="px-4 pb-4 overflow-x-auto"><TablaConReporte titulo="Grupos y docentes por asignatura">{(_paraReporte) => (<table className="w-full text-left text-secondary">
+        <summary className="p-4 cursor-pointer text-primary-navy font-bold">{textoAsignatura(a.nombreAsignatura)} <span className="font-normal text-secondary">· Código {a.codigoOficial || a.idAsignatura} · ID {a.idAsignatura} · {grupos.filter(g => g.idAsignatura === a.idAsignatura).length} grupos</span></summary>
+        <div className="px-4 pb-4 overflow-x-auto"><TablaConReporte titulo={`Grupos-${a.codigoOficial || a.idAsignatura}-${textoAsignatura(a.nombreAsignatura)}`} filtros={[pendiente, busqueda]}>{(_paraReporte) => (<table className="w-full text-left text-secondary">
           <thead><tr className="text-primary-navy"><th className="py-2 pr-3">Grupo</th><th className="py-2 pr-3">Estado</th><th className="py-2">Docentes</th></tr></thead>
           <tbody>{grupos.filter(g => g.idAsignatura === a.idAsignatura && (pendiente !== "grupos" || !gruposAsignados.has(g.idGrupo))).map(g => <tr key={g.idGrupo} className="border-t border-border"><td className="py-2 pr-3">{g.nombreGrupo}</td><td className="py-2 pr-3">{textoInterfaz(g.estadoGrupo ? "Activo" : "Inactivo")}</td><td className="py-2">{nombresDocentes(g.idGrupo) || "Sin docente asignado"}</td></tr>)}</tbody>
         </table>)}</TablaConReporte>
@@ -95,7 +100,7 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
       catch(e){setError(e.message);}finally{setGuardandoClasificacion(false);}
     }}>
       <h3 id="clasificar-titulo" className="font-bold text-primary-navy">Clasificar asignatura existente</h3>
-      <p>{textoInterfaz(clasificando.nombreAsignatura)} · Código {clasificando.codigoOficial||clasificando.idAsignatura}</p>
+      <p>{textoAsignatura(clasificando.nombreAsignatura)} · Código {clasificando.codigoOficial||clasificando.idAsignatura}</p>
       <SelectorAsignatura soloClasificacion required disabled={guardandoClasificacion} onClasificacion={setDatosClasificacion} />
       {error&&<p role="alert" className="text-accent-red">{error}</p>}
       <div className="flex justify-end gap-3"><button type="button" disabled={guardandoClasificacion} onClick={()=>setClasificando(null)} className="rounded-xl border border-border px-4 py-2">Cancelar</button>
@@ -103,7 +108,7 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
     </form></div>}
     {seleccion && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div role="dialog" aria-modal="true" aria-labelledby="quitar-asignacion-titulo" className="w-full max-w-lg rounded-2xl bg-bg-card p-6 shadow-xl space-y-4">
       <h3 id="quitar-asignacion-titulo" className="font-bold text-primary-navy">¿Quitar esta asignación?</h3>
-      <p className="text-secondary">{nombreUsuario(seleccion)} · {textoInterfaz(asignaturas.find(a => a.idAsignatura === seleccion.idAsignatura)?.nombreAsignatura)} · Grupo {seleccion.nombreGrupo}.</p>
+      <p className="text-secondary">{nombreUsuario(seleccion)} · {textoAsignatura(asignaturas.find(a => a.idAsignatura === seleccion.idAsignatura)?.nombreAsignatura)} · Grupo {seleccion.nombreGrupo}.</p>
       <p className="text-secondary">Se conservan la cuenta y los registros de exámenes. Si esta es su última asignación, quedará sin grupos.</p>
       {error && <p role="alert" className="text-accent-red">{error}</p>}
       <div className="flex justify-end gap-3"><button type="button" disabled={quitando} onClick={() => setSeleccion(null)} className="rounded-xl border border-border px-4 py-2">Cancelar</button><button type="button" disabled={quitando} onClick={quitar} className="rounded-xl bg-accent-red text-white px-4 py-2 font-bold">{quitando ? "Quitando…" : "Confirmar"}</button></div>
