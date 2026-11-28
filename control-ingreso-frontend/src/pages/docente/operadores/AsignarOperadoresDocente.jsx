@@ -1,3 +1,4 @@
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useEffect, useMemo, useState } from "react";
@@ -559,7 +560,7 @@ export default function AsignarOperadoresDocente({
                             const disponibles = operadores.filter((o) => !operadoresEnUso.has(o.idUsuario));
                             const docenteYaEsta = lista.some((r) => r.rol === "DOCENTE");
                             const ajustando = Boolean(cantidades[idx]) && idAulaAjustando === aula.idAmbiente && lista.length > 1;
-                            const nombreDe = (r) => (r.rol === "DOCENTE" ? (boolVistaAdmin ? `${r.nombre} (docente)` : "Yo (docente)") : r.nombre);
+                            const nombreDe = (r) => (r.rol === "DOCENTE" ? (boolVistaAdmin ? `${textoNombre(r.nombre)} (docente)` : "Yo (docente)") : textoNombre(r.nombre));
                             return (
                                 <div key={aula.idAmbiente} className={`px-4 py-3 ${idx === aulas.findIndex((_, k) => cantidades[k]) ? "" : "border-t border-[#E2E8F0]"}`}>
                                     <div className="flex items-center gap-2.5">
@@ -632,8 +633,8 @@ export default function AsignarOperadoresDocente({
                                         className="mt-2 w-full h-9 px-3 rounded-lg border-[1.5px] border-dashed border-[#94A3B8] bg-white font-extrabold text-xs text-[#003770] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <option value="">{boolVistaAdmin ? "+ Agregar ayudante o al docente" : "+ Agregar ayudante o agregarme"}</option>
-                                        {!docenteYaEsta && <option value="DOCENTE">{textoInterfaz(boolVistaAdmin ? `${docente.nombre} · Docente` : "Yo (docente)")}</option>}
-                                        {disponibles.map((o) => <option key={o.idUsuario} value={String(o.idUsuario)}>{nombreCompleto(o)} · Ayudante</option>)}
+                                        {!docenteYaEsta && <option value="DOCENTE">{textoInterfaz(boolVistaAdmin ? `${textoNombre(docente.nombre)} · Docente` : "Yo (docente)")}</option>}
+                                        {disponibles.map((o) => <option key={o.idUsuario} value={String(o.idUsuario)}>{textoNombre(nombreCompleto(o))} · Ayudante</option>)}
                                     </select>
                                 </div>
                             );
@@ -674,7 +675,7 @@ export default function AsignarOperadoresDocente({
                                         <tr key={i} className={i % 2 === 1 ? "bg-slate-50" : "bg-white"}>
                                             <td className="px-4 py-2 border-t border-[#E2E8F0] font-extrabold">{f.aula}</td>
                                             <td className="px-3 py-2 border-t border-[#E2E8F0]">
-                                                {textoInterfaz(f.responsable.rol === "DOCENTE" ? (boolVistaAdmin ? `${f.responsable.nombre} (docente)` : "Yo (docente)") : f.responsable.nombre)}
+                                                {textoInterfaz(f.responsable.rol === "DOCENTE" ? (boolVistaAdmin ? `${textoNombre(f.responsable.nombre)} (docente)` : "Yo (docente)") : textoNombre(f.responsable.nombre))}
                                                 {f.responsable.inactivo && " (Inactivo)"}
                                             </td>
                                             <td className="px-3 py-2 border-t border-[#E2E8F0]">{f.rango}</td>

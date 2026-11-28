@@ -475,7 +475,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
             <option value={TODOS}>Materia: Todas</option>
             {materias.map((m) => (
               <option key={m.idAsignatura} value={String(m.idAsignatura)}>
-                {textoInterfaz(m.etiqueta)}
+                {textoAsignatura(m.etiqueta)}
               </option>
             ))}
           </select>
@@ -946,7 +946,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                           Estudiante involucrado
                         </span>
                         <span className="font-black text-[#003770]">
-                          {incidenciaSeleccionada.estudiante}
+                          {textoNombre(incidenciaSeleccionada.estudiante)}
                           {incidenciaSeleccionada.codSisEstudiante && ` · SIS ${incidenciaSeleccionada.codSisEstudiante}`}
                         </span>
                       </div>
@@ -1151,7 +1151,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                 <div key={item.idIngreso || idx} className="border border-[#CBD5E1] rounded-2xl p-3.5 space-y-1.5 text-xs break-words">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-black text-[#08264A]">{item.estudiante}</p>
+                      <p className="font-black text-[#08264A]">{textoNombre(item.estudiante)}</p>
                       <p className="font-mono font-bold text-[#003770] text-[11px]">SIS {item.codSis}</p>
                     </div>
                     <span className="bg-[#F0F6FC] border border-[#B6D3EE] text-[#124B83] font-extrabold px-2 py-0.5 rounded-full text-[10px] text-center shrink-0">
@@ -1159,7 +1159,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                     </span>
                   </div>
                   <p className="text-[11px] text-[#7A8BA0] font-semibold">
-                    {formatearHora(item.horaIngreso)} · {item.aula} · autorizó {item.autorizadoPor || "-"}
+                    {formatearHora(item.horaIngreso)} · {item.aula} · autorizó {textoNombre(item.autorizadoPor) || "-"}
                   </p>
                   <p className="text-[#64748B] font-medium">{item.observacion}</p>
                   {item.evidenciaUrl && (
@@ -1207,7 +1207,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                         {item.codSis}
                       </td>
                       <td className="py-3 px-3 font-black text-[#08264A]">
-                        {item.estudiante}
+                        {textoNombre(item.estudiante)}
                       </td>
                       <td className="py-3 px-2 font-bold text-[#475569]">
                         {item.aula}
@@ -1224,7 +1224,7 @@ export default function SeccionIncidencias({ rol = "DOCENTE" }) {
                         {item.observacion}
                       </td>
                       <td className="py-3 px-3 font-bold text-[#475569] whitespace-nowrap">
-                        {item.autorizadoPor || "Docente"}
+                        {textoNombre(item.autorizadoPor) || "Docente"}
                       </td>
                       <td className="py-3 px-3">
                         {item.evidenciaUrl ? (

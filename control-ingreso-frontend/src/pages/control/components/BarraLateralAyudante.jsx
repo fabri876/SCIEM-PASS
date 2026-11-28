@@ -1,3 +1,4 @@
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import MenuSeccionesResponsive from "../../../components/layout/MenuSeccionesResponsive";
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Perfil y menú del ayudante (mismo estilo que el panel del docente).
@@ -29,7 +30,7 @@ export default function BarraLateralAyudante({ boolMovilAbierto = false, onCambi
         <div className="w-16 h-16 rounded-2xl bg-[#1A365D] text-white font-black text-xl flex items-center justify-center shadow-md mb-3">
           {strIniciales}
         </div>
-        <h3 className="font-extrabold text-[#1A365D] text-sm ">{textoInterfaz(strNombre)} {strApellido}</h3>
+        <h3 className="font-extrabold text-[#1A365D] text-sm ">{textoNombre([strNombre, strApellido].filter(Boolean).join(" "))}</h3>
         <span className="text-[11px] text-[#1A365D] font-bold mb-4">Ayudante</span>
         <div className="w-full border-t border-slate-100 pt-3 text-left text-xs">
           <p className="text-slate-600"><span className="font-bold text-[#1A365D]">C.i.:</span> {usuario?.ci || "-"}</p>

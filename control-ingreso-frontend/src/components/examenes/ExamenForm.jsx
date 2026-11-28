@@ -616,7 +616,7 @@ export default function ExamenForm({ onCancelar, onRegistrado }) {
 
                                 return (
                                     <option key={tipo.idTipoExamen} value={tipo.idTipoExamen} disabled={boolDeshabilitado}>
-                                        {tipo.nombreTipoExamen}
+                                        {textoAsignatura(tipo.nombreTipoExamen)}
                                         {boolYaUsado ? (idGrupo ? " (ya registrado en este grupo)" : " (ya registrado)") : ""}
                                     </option>
                                 );

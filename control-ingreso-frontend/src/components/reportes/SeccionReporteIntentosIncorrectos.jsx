@@ -1,4 +1,4 @@
-import { textoAsignatura } from '../../utils/textoInterfaz.js';
+import { textoAsignatura, textoExamenAulaAsignada } from '../../utils/textoInterfaz.js';
 import { textoNombre } from '../common/textoNombre.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
@@ -393,7 +393,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
               <option value="TODAS">Todas las Asignaturas {boolAdmin ? "(General)" : "(Asignadas)"}</option>
               {listAsignaturasDisponibles.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {textoInterfaz(a.nombre)}
+                  {textoAsignatura(a.nombre)}
                 </option>
               ))}
             </select>
@@ -642,7 +642,7 @@ export default function SeccionReporteIntentosIncorrectos({ strRol = "DOCENTE" }
 
                     {/* Examen / Aula Asignada */}
                     <td className="py-3.5 px-4 font-medium text-primary-blue">
-                      {textoInterfaz(item.examenAulaAsignada || fnRenderBadgeEstadoPosterior(null))}
+                      {item.examenAulaAsignada ? textoExamenAulaAsignada(item.examenAulaAsignada) : fnRenderBadgeEstadoPosterior(null)}
                     </td>
 
                     {/* Fecha y hora del intento */}

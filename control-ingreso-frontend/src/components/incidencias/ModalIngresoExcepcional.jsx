@@ -297,7 +297,7 @@ export default function ModalIngresoExcepcional({
 
       if (respuesta?.aforo) setAforoActual(respuesta.aforo);
       setStrExitoMensaje(
-        `Ingreso registrado a las ${formatearHora(respuesta?.horaIngreso)} · autorizó ${respuesta?.autorizadoPor || strNombreAutoriza}.`
+        `Ingreso registrado a las ${formatearHora(respuesta?.horaIngreso)} · autorizó ${textoNombre(respuesta?.autorizadoPor || strNombreAutoriza)}.`
       );
       notificarCambioIncidencias();
       setTimeout(() => {
@@ -349,7 +349,7 @@ export default function ModalIngresoExcepcional({
                 {aulaSeleccionada ? aulaSeleccionada.asignatura : "Sin examen en curso"}
               </h3>
               <p className="text-xs text-white/90 font-medium">
-                {strNombreAutoriza}{aulaSeleccionada ? ` · ${aulaSeleccionada.aula}` : ""}
+                {textoNombre(strNombreAutoriza)}{aulaSeleccionada ? ` · ${aulaSeleccionada.aula}` : ""}
               </p>
             </div>
 

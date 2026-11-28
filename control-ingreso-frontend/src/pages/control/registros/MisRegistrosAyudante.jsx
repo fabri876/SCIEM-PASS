@@ -1,3 +1,4 @@
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 import { TablaConReporte } from '../../../components/common/ReporteLista.jsx';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
@@ -176,12 +177,12 @@ export default function MisRegistrosAyudante() {
                       <span className="text-slate-600">{f.strHora ? ` · ${f.strHora.slice(0, 5)}` : ""}</span>
                     </td>
                     <td className="px-3 py-2.5 border-t border-[#E2E8F0]">
-                      <div className="font-bold text-[#08264A]">{textoInterfaz(f.estudiante.nombre || "—")}</div>
+                      <div className="font-bold text-[#08264A]">{textoNombre(f.estudiante.nombre) || "—"}</div>
                       <div className="text-xs text-slate-500">{[f.estudiante.sis && `SIS ${f.estudiante.sis}`, f.estudiante.ci && `C.I. ${f.estudiante.ci}`].filter(Boolean).join(" · ")}</div>
                     </td>
                     <td className="px-3 py-2.5 border-t border-[#E2E8F0]">
-                      <div className="text-[#08264A]">{textoInterfaz(f.examen?.materia || "—")}</div>
-                      <div className="text-xs text-slate-500">{[f.examen?.tipo, textoAula(f.examen?.aula)].filter(Boolean).join(" · ")}</div>
+                      <div className="text-[#08264A]">{textoAsignatura(f.examen?.materia || "—")}</div>
+                      <div className="text-xs text-slate-500">{[textoAsignatura(f.examen?.tipo), textoAula(f.examen?.aula)].filter(Boolean).join(" · ")}</div>
                     </td>
                     <td className="px-3 py-2.5 border-t border-[#E2E8F0] text-slate-700">{f.strMetodo}</td>
                     <td className="px-4 py-2.5 border-t border-[#E2E8F0] text-right">

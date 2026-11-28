@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
-import { textoAsignatura, textoInterfaz } from '../src/utils/textoInterfaz.js';
+import { textoAsignatura, textoExamenAulaAsignada, textoInterfaz } from '../src/utils/textoInterfaz.js';
 import { textoNombre } from '../src/components/common/textoNombre.js';
 import { fechaReporte, nombreReporte, generarCsv } from '../src/utils/exportarCsv.js';
 
@@ -18,6 +18,10 @@ for (const valor of ['CÁLCULO II', 'Cálculo ii', 'cálculo II']) assert.equal(
 assert.equal(textoAsignatura('PROGRAMACIÓN I'), 'Programación I');
 assert.equal(textoAsignatura('BASE DE DATOS III'), 'Base de datos III');
 assert.equal(textoInterfaz('EXAMEN INCORRECTO'), 'Examen incorrecto');
+assert.equal(textoExamenAulaAsignada('BASE DE DATOS I Segundo Parcial 2026-11-16 Aula 690E'), 'Base de datos I segundo parcial 2026-11-16 Aula 690E');
+assert.equal(textoExamenAulaAsignada('REDES II Aula 691B'), 'Redes II Aula 691B');
+assert.equal(textoExamenAulaAsignada('Aula 693B'), 'Aula 693B');
+assert.equal(textoExamenAulaAsignada('Sin exámenes programados'), 'Sin exámenes programados');
 assert.equal(textoNombre('sAMUEL ACHA PEREZ'), 'Samuel Acha Perez');
 assert.equal(textoNombre('valeria camila huanca cruz'), 'Valeria Camila Huanca Cruz');
 assert.equal(fechaReporte(new Date(2026, 10, 27)), '2026-11-27');

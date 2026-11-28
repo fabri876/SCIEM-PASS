@@ -1,3 +1,4 @@
+import { textoAsignatura } from '../../../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../../../utils/textoInterfaz.js';
 // Encabezado del examen que se está controlando (bloque azul):
 // tipo de examen, materia, fecha · horario · aula, botón de acciones y contadores
@@ -91,7 +92,7 @@ export default function TarjetaExamen({ examen, objContador, children, listAviso
               </span>
             )}
           </div>
-          <h1 className="m-0 mt-1 text-[28px] max-md:text-[22px] font-bold leading-tight break-words">{textoInterfaz(conTildes(examen.materia))}</h1>
+          <h1 className="m-0 mt-1 text-[28px] max-md:text-[22px] font-bold leading-tight break-words">{textoAsignatura(conTildes(examen.materia))}</h1>
           {/* Fecha · horario · aula en texto simple (sin recuadros) */}
           <p className="m-0 mt-2 text-[13px] font-medium text-white/80">
             {[textoFecha(examen.fecha), strHorario, examen.aula ? textoAula(examen.aula) : ""].filter(Boolean).join(" · ")}

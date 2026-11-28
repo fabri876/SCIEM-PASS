@@ -21,7 +21,7 @@ export default function SelectorAsignatura({ value, onChange, permitidas, disabl
     {error&&<div role="alert" className="text-accent-red"><p>{error}</p><button type="button" disabled={disabled} onClick={()=>setReintento(v=>v+1)} className="mt-2 underline font-semibold">Reintentar catálogo</button></div>}
     <label className="block text-sm font-bold">Carrera / plan
       <select aria-label="Carrera o plan" required={required} disabled={disabled} className={estilo} value={carrera} onChange={e=>{setCarrera(e.target.value);setNivel("");setError("");onChange?.("");onClasificacion?.(null);}}>
-        <option value="">Seleccione una carrera</option>{carreras.map(c=><option key={c.idCarrera} value={c.idCarrera}>{textoInterfaz(c.nombre)} · {c.codigo}</option>)}
+        <option value="">Seleccione una carrera</option>{carreras.map(c=><option key={c.idCarrera} value={c.idCarrera}>{textoAsignatura(c.nombre)} · {c.codigo}</option>)}
       </select>
     </label>
     <label className="block text-sm font-bold">Nivel

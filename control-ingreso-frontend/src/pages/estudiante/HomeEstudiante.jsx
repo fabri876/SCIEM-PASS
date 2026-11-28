@@ -130,7 +130,7 @@ export default function HomeEstudiante() {
                 className="w-16 h-16 rounded-2xl overflow-hidden bg-[#1A365D] shadow-md mb-3 flex items-center justify-center shrink-0"
                 fallback={<span className="text-white font-black text-xl">{strIniciales}</span>}
               />
-              <h3 className="font-extrabold text-[#1A365D] text-sm ">{textoInterfaz(strNombre)} {strApellido}</h3>
+              <h3 className="font-extrabold text-[#1A365D] text-sm ">{textoNombre([strNombre, strApellido].filter(Boolean).join(" "))}</h3>
               <span className="text-[11px] text-[#1A365D] font-bold mb-4">Estudiante</span>
               <div className="w-full border-t border-slate-100 pt-3 text-left space-y-2 text-xs">
                 <p className="flex justify-between text-slate-600"><span className="font-bold text-[#1A365D]">C.i.:</span> {usuario?.ci || "-"}</p>
@@ -179,7 +179,7 @@ export default function HomeEstudiante() {
                   style={{ backgroundImage: "linear-gradient(to right, #1A365D, #2563EB, #DC2626)" }}
                 >
                   <span className="text-xs font-bold tracking-wider opacity-90 mb-1">
-                    ¡Hola, {textoInterfaz(strNombre.split(" ")[0])}!
+                    ¡Hola, {textoNombre(strNombre.split(" ")[0])}!
                   </span>
                   <h1 className="text-2xl md:text-3xl font-black tracking-tight mb-2">Te damos la bienvenida a SCIEM-PASS</h1>
                   <p className="text-xs md:text-sm opacity-90 max-w-2xl font-medium">

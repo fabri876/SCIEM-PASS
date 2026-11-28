@@ -261,7 +261,7 @@ export default function UserTableCard({ usuarios, boolCargando, strError, onCrea
             {textoInterfaz(usuarioParaCambiarEstado?.estado ? "¿Está seguro de desactivar a este usuario?" : "¿Está seguro de activar a este usuario?")}
           </h2>
           <p className="text-secondary text-text-body/80 mb-5">
-            {textoInterfaz(usuarioParaCambiarEstado?.nombre)} {textoNombre(usuarioParaCambiarEstado?.apellido)} ({textoInterfaz(usuarioParaCambiarEstado?.correo)})
+            {textoNombre(usuarioParaCambiarEstado?.nombre)} {textoNombre(usuarioParaCambiarEstado?.apellido)} ({textoInterfaz(usuarioParaCambiarEstado?.correo)})
           </p>
           {usuarioParaCambiarEstado?.estado && (
             <p className="text-secondary text-text-body/80 mb-5">

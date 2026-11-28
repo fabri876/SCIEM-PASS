@@ -262,7 +262,7 @@ export default function DetalleAulaMonitoreo({ examen, aula, boolCerradoInicial,
                                             return (
                                                 <tr key={`${a.codSis}-${a.estado}`} className="border-t border-slate-100">
                                                     <td className="py-2 pr-3 font-bold tabular-nums text-slate-600">{a.codSis}</td>
-                                                    <td className="py-2 pr-3 font-bold text-slate-800">{textoInterfaz(a.nombre)}</td>
+                                                    <td className="py-2 pr-3 font-bold text-slate-800">{textoNombre(a.nombre)}</td>
                                                     <td className="py-2 pr-3"><span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${est.clase}`}>{textoInterfaz(est.etiqueta)}</span></td>
                                                     <td className="py-2 pr-3 tabular-nums text-slate-600">{a.hora}</td>
                                                     <td className="py-2 pr-3 text-slate-600">{textoInterfaz(a.metodo)}</td>

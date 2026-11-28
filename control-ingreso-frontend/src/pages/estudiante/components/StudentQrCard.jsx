@@ -1,4 +1,4 @@
-import { textoInterfaz } from '../../../utils/textoInterfaz.js';
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import React from "react";
 
 export default function StudentQrCard({ usuario }) {
@@ -34,7 +34,7 @@ export default function StudentQrCard({ usuario }) {
             <div className="space-y-2.5 pt-1 text-xs">
                 <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
                     <span className="text-slate-400 font-medium">Estudiante:</span>
-                    <span className="font-bold text-slate-700">{textoInterfaz(`${strNombre} ${strApellido}`)}</span>
+                    <span className="font-bold text-slate-700">{textoNombre(`${strNombre} ${strApellido}`)}</span>
                 </div>
                 <div className="flex justify-between items-center py-1.5">
                     <span className="text-slate-400 font-medium">Código SIS:</span>
