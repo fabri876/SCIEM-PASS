@@ -32,4 +32,30 @@ class PoliticaAdministradorTest {
     void permiteRetirarCuandoHayMasDeUnAdministrador() {
         assertDoesNotThrow(() -> PoliticaAdministrador.validarPuedeRetirarse(2));
     }
+
+    @Test
+    void aceptaCorreoInstitucionalValidoDeAdministrador() {
+        assertDoesNotThrow(() -> PoliticaAdministrador.validarCorreoInstitucional("carlos.mendoza@umss.edu.bo"));
+        assertDoesNotThrow(() -> PoliticaAdministrador.validarCorreoInstitucional("Carlos.Mendoza.Rojas@umss.edu.bo"));
+    }
+
+    @Test
+    void rechazaCorreosGenericosONoInstitucionalesParaAdministrador() {
+        assertThrows(SolicitudInvalidaException.class,
+                () -> PoliticaAdministrador.validarCorreoInstitucional("admin@gmail.com"));
+        assertThrows(SolicitudInvalidaException.class,
+                () -> PoliticaAdministrador.validarCorreoInstitucional("carlos.mendoza@gmail.com"));
+        assertThrows(SolicitudInvalidaException.class,
+                () -> PoliticaAdministrador.validarCorreoInstitucional("carlos@umss.edu.bo"));
+        assertThrows(SolicitudInvalidaException.class,
+                () -> PoliticaAdministrador.validarCorreoInstitucional("admin.sistema@umss.edu.bo"));
+        assertThrows(SolicitudInvalidaException.class,
+                () -> PoliticaAdministrador.validarCorreoInstitucional("administrador.umss@umss.edu.bo"));
+        assertThrows(SolicitudInvalidaException.class,
+                () -> PoliticaAdministrador.validarCorreoInstitucional("root.cuenta@umss.edu.bo"));
+        assertThrows(SolicitudInvalidaException.class,
+                () -> PoliticaAdministrador.validarCorreoInstitucional("test.cuenta@umss.edu.bo"));
+        assertThrows(SolicitudInvalidaException.class,
+                () -> PoliticaAdministrador.validarCorreoInstitucional("usuario.uno@umss.edu.bo"));
+    }
 }

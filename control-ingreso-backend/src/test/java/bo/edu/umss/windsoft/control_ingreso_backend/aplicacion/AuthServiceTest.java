@@ -120,9 +120,20 @@ class AuthServiceTest {
     void administradorNoPuedeCambiarAClaveConNombreDeCorreo() {
         when(usuarioRepository.findByCorreousuario("admin@umss.edu")).thenReturn(Optional.of(usuarioActivo));
         when(passwordEncoder.matches("clave-anterior", "encodedPassword")).thenReturn(true);
-        when(tipoUsuarioResolver.resolver(1)).thenReturn("ADMINISTRADOR");
         assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
                 () -> authService.cambiarContrasena("admin@umss.edu", "clave-anterior", "Admin!Luna2026", "local"));
+        verify(passwordEncoder, never()).encode(any());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void administradorNoPuedeCambiarAClaveConSuCi() {
+        usuarioActivo.setCiusuario("7592468");
+        when(usuarioRepository.findByCorreousuario("admin@umss.edu")).thenReturn(Optional.of(usuarioActivo));
+        when(passwordEncoder.matches("clave-anterior", "encodedPassword")).thenReturn(true);
+        when(tipoUsuarioResolver.resolver(1)).thenReturn("ADMINISTRADOR");
+        assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
+                () -> authService.cambiarContrasena("admin@umss.edu", "clave-anterior", "Vela!7592468Nube#", "local"));
         verify(passwordEncoder, never()).encode(any());
         verify(usuarioRepository, never()).save(any());
     }

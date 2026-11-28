@@ -247,6 +247,11 @@ public class UsuarioService {
     public UsuarioRespuestaDto actualizar(Integer id, ActualizarUsuarioDto dto,
                                            String executorCorreo, String ip) {
         Usuario usuario = bloquearUsuario(id);
+        String rol = tipoUsuarioResolver.resolver(id);
+
+        if (TipoUsuarioResolver.ADMINISTRADOR.equals(rol)) {
+            PoliticaAdministrador.validarCorreoInstitucional(dto.getCorreo());
+        }
 
         if (!usuario.getCorreousuario().equalsIgnoreCase(dto.getCorreo().trim())) {
             if (usuarioRepository.existsByCorreousuario(dto.getCorreo().trim())) {
@@ -255,9 +260,8 @@ public class UsuarioService {
         }
 
         if (dto.getIdGrupos() != null)
-            grupoService.reemplazarGruposUsuario(id, tipoUsuarioResolver.resolver(id), dto.getIdGrupos());
+            grupoService.reemplazarGruposUsuario(id, rol, dto.getIdGrupos());
         if(dto.getIdCarreras()!=null && !dto.getIdCarreras().isEmpty()) {
-            String rol = tipoUsuarioResolver.resolver(id);
             if (TipoUsuarioResolver.ESTUDIANTE.equals(rol) && !Boolean.TRUE.equals(usuario.getEstadousuario())) {
                 grupoService.validarCarrerasSinCambios(id, dto.getIdCarreras());
             } else {

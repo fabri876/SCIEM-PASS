@@ -6,7 +6,8 @@ import FormField from "./FormField";
 import IndicadorSeguridadContrasena from "./IndicadorSeguridadContrasena";
 import usePasswordVisibility from "../../hooks/usePasswordVisibility";
 import { cambiarContrasena } from "../../services/usuarioService";
-import { fnEvaluarContrasena } from "../../utils/passwordStrength";
+import { obtenerUsuarioActual } from "../../services/authService";
+import { fnEvaluarContrasena, fnContienePalabraComunOCorreo } from "../../utils/passwordStrength";
 
 const VALORES_INICIALES = { contrasenaActual: "", contrasenaNueva: "", confirmarContrasena: "" };
 
@@ -32,7 +33,10 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito,
   const objVisNueva = usePasswordVisibility();
   const objVisConfirmar = usePasswordVisibility();
 
-  const objEvaluacion = fnEvaluarContrasena(objFormData.contrasenaNueva, objFormData.contrasenaActual);
+  const usuarioEfectivo = usuario || obtenerUsuarioActual();
+  const objEvaluacion = fnEvaluarContrasena(objFormData.contrasenaNueva, objFormData.contrasenaActual, {
+    correo: usuarioEfectivo?.correo,
+  });
 
   useEffect(() => {
     if (!boolAbierto) return;
@@ -66,15 +70,18 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito,
     setStrError("");
 
     if (!objEvaluacion.boolValida) {
-      setStrError("Tu nueva contraseña debe llegar al nivel 8 (Segura) para poder guardarla.");
+      setStrError(
+        objEvaluacion.boolContieneComunOCorreo
+          ? "La nueva contraseña no puede incluir palabras comunes (como admin) ni partes de tu correo."
+          : "Tu nueva contraseña debe llegar al nivel 8 (Segura) para poder guardarla."
+      );
       return;
     }
-    if (usuario?.rol === "ADMINISTRADOR") {
+    if (usuarioEfectivo?.rol === "ADMINISTRADOR") {
       const clave = objFormData.contrasenaNueva.toLowerCase();
-      const ci = (usuario.ci || "").trim().toLowerCase();
-      const correo = (usuario.correo || "").trim().split("@")[0].toLowerCase();
-      if (objFormData.contrasenaNueva.length > 256 || ["password", "contrasena", "contraseña", "qwerty", "admin"].some((p) => clave.includes(p))
-          || (ci && clave.includes(ci)) || (correo.length >= 4 && clave.includes(correo))) {
+      const ci = (usuarioEfectivo.ci || "").trim().toLowerCase();
+      if (objFormData.contrasenaNueva.length > 256 || fnContienePalabraComunOCorreo(objFormData.contrasenaNueva, usuarioEfectivo.correo)
+          || (ci && clave.includes(ci))) {
         setStrError("Para administrador, evita patrones comunes, tu CI y el nombre de tu correo; usa hasta 256 caracteres.");
         return;
       }
@@ -106,7 +113,7 @@ export default function CambiarContrasenaModal({ boolAbierto, onCerrar, onExito,
         <p className="text-xs text-slate-500 font-medium mb-5">
           Ingresa tu contraseña actual y luego la nueva. Debe alcanzar el nivel 8 de seguridad. Después deberás iniciar sesión nuevamente.
         </p>
-        {usuario?.rol === "ADMINISTRADOR" && <p className="text-xs text-slate-500 mb-4">No incluyas patrones comunes, tu CI ni el nombre de tu correo.</p>}
+        {usuarioEfectivo?.rol === "ADMINISTRADOR" && <p className="text-xs text-slate-500 mb-4">No incluyas patrones comunes, tu CI ni el nombre de tu correo.</p>}
 
         {strError && (
           <p className="mb-4 text-xs font-semibold text-rose-600" role="alert">
