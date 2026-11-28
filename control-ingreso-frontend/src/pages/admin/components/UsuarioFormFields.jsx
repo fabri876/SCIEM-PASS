@@ -58,6 +58,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
   const { boolShowPassword, fnToggleShowPassword, strInputType } = usePasswordVisibility();
 
   const boolEsEdicion = modo === "editar";
+  const estudianteInactivo = boolEsEdicion && usuarioInicial?.rol === "ESTUDIANTE" && usuarioInicial.estado === false;
   const boolPideCodigoSis = ROLES_CON_CODIGO_SIS.includes(objFormData.rol);
   const boolBloquearDuplicado = !boolEsEdicion && Object.values(objDuplicados).some(Boolean);
   useEffect(() => {
@@ -175,7 +176,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
     e.preventDefault();
     setStrError("");
 
-    if (boolEsEdicion && (cargandoGrupos || errorGrupos)) { setStrError(errorGrupos || "Espere a que carguen las asignaciones."); return; }
+    if (boolEsEdicion && !estudianteInactivo && (cargandoGrupos || errorGrupos)) { setStrError(errorGrupos || "Espere a que carguen las asignaciones."); return; }
     const errores = fnValidarFormulario();
     if (boolBloquearDuplicado) {
       if (objDuplicados.ci) errores.ci = "Este carnet de identidad ya está registrado.";
@@ -205,8 +206,8 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           apellido: strApellido,
           correo: objFormData.correo,
           telefono: intTelefono,
-          idGrupos: !boolRolCambio && objFormData.rol !== "ADMINISTRADOR" ? gruposAcademicos.map(g => g.idGrupo) : undefined,
-          idCarreras: [...new Set(gruposAcademicos.map(g=>g.idCarrera).filter(Boolean))],
+          idGrupos: !estudianteInactivo && !boolRolCambio && objFormData.rol !== "ADMINISTRADOR" ? gruposAcademicos.map(g => g.idGrupo) : undefined,
+          idCarreras: estudianteInactivo ? undefined : [...new Set(gruposAcademicos.map(g=>g.idCarrera).filter(Boolean))],
           rolCambio: boolRolCambio
             ? { nuevoRol: objFormData.rol, codigoSis: boolPideCodigoSis ? intCodigoSis : null }
             : null,
@@ -503,7 +504,8 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
             <p className="text-secondary mb-3">{boolEsEdicion ? "Quite el grupo incorrecto y seleccione el correcto, o agregue otras materias. Los cambios se aplican al guardar. Si quita todos, la cuenta quedará sin grupos." : "Los docentes, estudiantes y ayudantes deben registrarse con sus materias y grupos."}</p>
             {cargandoGrupos && <p role="status">Cargando asignaciones actuales…</p>}
             {errorGrupos && <p role="alert" className="text-accent-red">{errorGrupos} Cierre y vuelva a abrir para reintentar.</p>}
-            <SeleccionGrupos key={objFormData.rol} value={gruposAcademicos} onChange={setGruposAcademicos} disabled={boolIsSubmitting || cargandoGrupos || Boolean(errorGrupos)} required={!boolEsEdicion && ["DOCENTE", "ESTUDIANTE", "OPERADOR"].includes(objFormData.rol)} unGrupoPorAsignatura={objFormData.rol === "ESTUDIANTE"} />
+            {estudianteInactivo && <p>Reactiva la cuenta para editar sus asignaturas y grupos.</p>}
+            <SeleccionGrupos key={objFormData.rol} value={gruposAcademicos} onChange={setGruposAcademicos} disabled={estudianteInactivo || boolIsSubmitting || cargandoGrupos || Boolean(errorGrupos)} required={!boolEsEdicion && ["DOCENTE", "ESTUDIANTE", "OPERADOR"].includes(objFormData.rol)} unGrupoPorAsignatura={objFormData.rol === "ESTUDIANTE"} />
             {objErrores.grupos && <p role="alert" className="text-accent-red text-secondary mt-2">{objErrores.grupos}</p>}
           </div>
         )}
@@ -519,7 +521,7 @@ export default function UsuarioFormFields({ modo, usuarioInicial, onCerrar, onGu
           </button>
           <button
             type="submit"
-            disabled={boolIsSubmitting || cargandoGrupos || Boolean(errorGrupos) || boolBloquearDuplicado}
+            disabled={boolIsSubmitting || (!estudianteInactivo && (cargandoGrupos || Boolean(errorGrupos))) || boolBloquearDuplicado}
             className="px-5 py-2.5 rounded-xl text-secondary font-bold text-bg-card bg-gradient-to-r from-primary-blue to-primary-navy shadow-xs hover:opacity-95 transition-all disabled:opacity-60 active:scale-[0.99]"
           >
             {boolIsSubmitting ? "Guardando…" : "Guardar"}

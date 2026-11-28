@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
 class RegistroAcademicoTest {
+    @Mock HabilitacionCuentaInactiva habilitacionCuentaInactiva;
     @Mock UsuarioRepository usuarios;
     @Mock AdminRepository admins;
     @Mock DocenteRepository docentes;
@@ -91,7 +92,7 @@ class RegistroAcademicoTest {
         verify(usuarios, never()).save(any());
     }
     @Test void noDesactivaAlUnicoAdministrador() {
-        when(usuarios.findById(4)).thenReturn(Optional.of(persona(4, "admin@example.test")));
+        when(usuarios.bloquearPorId(4)).thenReturn(Optional.of(persona(4, "admin@example.test")));
         when(roles.resolver(4)).thenReturn("ADMINISTRADOR");
         when(admins.count()).thenReturn(1L);
         assertThrows(bo.edu.umss.windsoft.control_ingreso_backend.dominio.exception.SolicitudInvalidaException.class,
@@ -128,7 +129,7 @@ class RegistroAcademicoTest {
     @org.junit.jupiter.params.provider.ValueSource(strings = {"DOCENTE", "OPERADOR", "ESTUDIANTE"})
     void cambiarEstadoConservaLaCuentaYSusVinculos(String rol) {
         Usuario usuario = persona(4, "persona@example.test");
-        when(usuarios.findById(4)).thenReturn(Optional.of(usuario));
+        when(usuarios.bloquearPorId(4)).thenReturn(Optional.of(usuario));
         when(roles.resolver(4)).thenReturn(rol);
         when(usuarios.save(usuario)).thenReturn(usuario);
 
@@ -139,13 +140,15 @@ class RegistroAcademicoTest {
         assertEquals(4, usuario.getIdusuario());
         assertEquals("hash", usuario.getContraseniausuario());
         verifyNoInteractions(grupos, docentes, estudiantes, ayudantes, historial);
+        if ("ESTUDIANTE".equals(rol)) verify(habilitacionCuentaInactiva).alDesactivar(4);
+        else verifyNoInteractions(habilitacionCuentaInactiva);
         verify(usuarios, times(2)).save(usuario);
         verify(usuarios, never()).deleteById(any());
         verify(auditoria).registrarEnTransaccion(eq("DESACTIVACION_USUARIO"), any(), eq(usuario.getCorreousuario()), any(), any());
         verify(auditoria).registrarEnTransaccion(eq("ACTIVACION_USUARIO"), any(), eq(usuario.getCorreousuario()), any(), any());
     }
     @Test void edicionGuardaAsignacionesConLosDatosBasicos() {
-        Usuario u = persona(4, "estudiante@example.test"); when(usuarios.findById(4)).thenReturn(Optional.of(u));
+        Usuario u = persona(4, "estudiante@example.test"); when(usuarios.bloquearPorId(4)).thenReturn(Optional.of(u));
         when(roles.resolver(4)).thenReturn("ESTUDIANTE"); when(usuarios.save(u)).thenReturn(u);
         var dto = new bo.edu.umss.windsoft.control_ingreso_backend.presentacion.dto.ActualizarUsuarioDto();
         dto.setNombre("Nombre"); dto.setApellido("Apellido"); dto.setCorreo(u.getCorreousuario()); dto.setIdGrupos(List.of(8));

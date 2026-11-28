@@ -43,13 +43,15 @@ public class UsuarioService {
     private final AuditoriaService auditoriaService;
     private final UsuarioRespuestaMapper usuarioRespuestaMapper;
     private final TipoUsuarioResolver tipoUsuarioResolver;
+    private final HabilitacionCuentaInactiva habilitacionCuentaInactiva;
 
     public UsuarioService(UsuarioRepository usuarioRepository, AdminRepository adminRepository,
                            DocenteRepository docenteRepository, AyudanteRepository ayudanteRepository,
                            EstudianteRepository estudianteRepository, GrupoService grupoService,
                            UsuarioHistorialRepository usuarioHistorialRepository,
                            PasswordEncoder passwordEncoder, AuditoriaService auditoriaService,
-                           UsuarioRespuestaMapper usuarioRespuestaMapper, TipoUsuarioResolver tipoUsuarioResolver) {
+                           UsuarioRespuestaMapper usuarioRespuestaMapper, TipoUsuarioResolver tipoUsuarioResolver,
+                           HabilitacionCuentaInactiva habilitacionCuentaInactiva) {
         this.usuarioRepository = usuarioRepository;
         this.adminRepository = adminRepository;
         this.docenteRepository = docenteRepository;
@@ -61,6 +63,7 @@ public class UsuarioService {
         this.auditoriaService = auditoriaService;
         this.usuarioRespuestaMapper = usuarioRespuestaMapper;
         this.tipoUsuarioResolver = tipoUsuarioResolver;
+        this.habilitacionCuentaInactiva = habilitacionCuentaInactiva;
     }
 
     public List<UsuarioRespuestaDto> listar(String rol, Boolean estado, String busqueda) {
@@ -243,7 +246,7 @@ public class UsuarioService {
     @Transactional
     public UsuarioRespuestaDto actualizar(Integer id, ActualizarUsuarioDto dto,
                                            String executorCorreo, String ip) {
-        Usuario usuario = buscarOLanzar(id);
+        Usuario usuario = bloquearUsuario(id);
 
         if (!usuario.getCorreousuario().equalsIgnoreCase(dto.getCorreo().trim())) {
             if (usuarioRepository.existsByCorreousuario(dto.getCorreo().trim())) {
@@ -254,8 +257,13 @@ public class UsuarioService {
         if (dto.getIdGrupos() != null)
             grupoService.reemplazarGruposUsuario(id, tipoUsuarioResolver.resolver(id), dto.getIdGrupos());
         if(dto.getIdCarreras()!=null && !dto.getIdCarreras().isEmpty()) {
-            var carreras=grupoService.validarCarrerasRegistro(tipoUsuarioResolver.resolver(id),dto.getIdCarreras(),dto.getIdGrupos()==null ? List.of() : dto.getIdGrupos());
-            grupoService.guardarCarreras(id,carreras);
+            String rol = tipoUsuarioResolver.resolver(id);
+            if (TipoUsuarioResolver.ESTUDIANTE.equals(rol) && !Boolean.TRUE.equals(usuario.getEstadousuario())) {
+                grupoService.validarCarrerasSinCambios(id, dto.getIdCarreras());
+            } else {
+                var carreras=grupoService.validarCarrerasRegistro(rol,dto.getIdCarreras(),dto.getIdGrupos()==null ? List.of() : dto.getIdGrupos());
+                grupoService.guardarCarreras(id,carreras);
+            }
         }
         usuario.setNombreusuario(dto.getNombre().trim());
         usuario.setApellidousuario(dto.getApellido().trim());
@@ -272,12 +280,15 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioRespuestaDto cambiarEstado(Integer id, boolean activo, String executorCorreo, String ip) {
-        Usuario usuario = buscarOLanzar(id);
-        if (!activo && TipoUsuarioResolver.ADMINISTRADOR.equals(tipoUsuarioResolver.resolver(id))) {
+        Usuario usuario = bloquearUsuario(id);
+        String rol = activo ? null : tipoUsuarioResolver.resolver(id);
+        if (TipoUsuarioResolver.ADMINISTRADOR.equals(rol)) {
             PoliticaAdministrador.validarPuedeRetirarse(adminRepository.count());
         }
         usuario.setEstadousuario(activo);
         usuario = usuarioRepository.save(usuario);
+
+        if (TipoUsuarioResolver.ESTUDIANTE.equals(rol)) habilitacionCuentaInactiva.alDesactivar(id);
 
         String accion = activo ? "ACTIVACION_USUARIO" : "DESACTIVACION_USUARIO";
         auditoriaService.registrarEnTransaccion(accion, executorCorreo, usuario.getCorreousuario(),
@@ -288,6 +299,11 @@ public class UsuarioService {
 
     private Usuario buscarOLanzar(Integer id) {
         return usuarioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con id: " + id));
+    }
+
+    private Usuario bloquearUsuario(Integer id) {
+        return usuarioRepository.bloquearPorId(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con id: " + id));
     }
 

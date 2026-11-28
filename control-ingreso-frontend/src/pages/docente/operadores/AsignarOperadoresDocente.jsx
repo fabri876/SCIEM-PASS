@@ -200,6 +200,9 @@ export default function AsignarOperadoresDocente({
                                 idUsuario: r.idUsuario,
                                 nombre: r.nombreResponsable || "Responsable",
                                 rol: r.rol === "DOCENTE" ? "DOCENTE" : "OPERADOR",
+                                inactivo: r.activo === false,
+                                desdeGuardado: r.apellidoDesde,
+                                hastaGuardado: r.apellidoHasta,
                                 hasta: i < arr.length - 1 ? r.apellidoHasta : null,
                             }));
                         // Asignaciones antiguas guardadas como "lista completa" no traen cortes: se reparten en partes iguales
@@ -297,6 +300,10 @@ export default function AsignarOperadoresDocente({
             setResponsables((prev) => { const copia = { ...prev }; delete copia[aulas[idx].idAmbiente]; return copia; });
             return;
         }
+        if (!cantidades[idx]) {
+            setResponsables((prev) => ({ ...prev, [aulas[idx].idAmbiente]: restantes }));
+            return;
+        }
         fijarResponsables(idx, restantes);
     }
 
@@ -366,19 +373,24 @@ export default function AsignarOperadoresDocente({
     }
 
     const filasResumen = aulas.flatMap((aula, idx) => {
-        if (!cantidades[idx]) return [];
         const subs = subBloques(idx);
         const rangos = rangosPersonas(idx);
-        return responsablesDe(idx).map((r, i) => ({
-            aula: aula.nombre,
-            idAmbiente: aula.idAmbiente,
-            responsable: r,
-            desde: rangos[i].desde,
-            hasta: rangos[i].hasta,
-            rango: textoRango(rangos[i].desde, rangos[i].hasta),
-            cantidad: subs[i].length,
-            estudiantes: subs[i],
-        }));
+        return responsablesDe(idx).flatMap((r, i) => {
+            if (!cantidades[idx] && !r.inactivo) return [];
+            const desde = r.inactivo ? r.desdeGuardado : rangos[i].desde;
+            const hasta = r.inactivo ? r.hastaGuardado : rangos[i].hasta;
+            const estudiantes = subs[i] || [];
+            return [{
+                aula: aula.nombre,
+                idAmbiente: aula.idAmbiente,
+                responsable: r,
+                desde,
+                hasta,
+                rango: textoRango(desde, hasta),
+                cantidad: estudiantes.length,
+                estudiantes,
+            }];
+        });
     });
 
     async function guardar() {
@@ -539,14 +551,14 @@ export default function AsignarOperadoresDocente({
                         {avisoDivision && <div className="px-4 pt-3 text-xs font-bold text-[#B91C1C]">{avisoDivision}</div>}
 
                         {aulas.map((aula, idx) => {
-                            if (!cantidades[idx]) return null;
                             const lista = responsablesDe(idx);
+                            if (!cantidades[idx] && !lista.some((r) => r.inactivo)) return null;
                             const subs = subBloques(idx);
                             const rangos = rangosPersonas(idx);
                             const aulaR = rangosAulas[idx] || { desde: "A", hasta: "Z" };
                             const disponibles = operadores.filter((o) => !operadoresEnUso.has(o.idUsuario));
                             const docenteYaEsta = lista.some((r) => r.rol === "DOCENTE");
-                            const ajustando = idAulaAjustando === aula.idAmbiente && lista.length > 1;
+                            const ajustando = Boolean(cantidades[idx]) && idAulaAjustando === aula.idAmbiente && lista.length > 1;
                             const nombreDe = (r) => (r.rol === "DOCENTE" ? (boolVistaAdmin ? `${r.nombre} (docente)` : "Yo (docente)") : r.nombre);
                             return (
                                 <div key={aula.idAmbiente} className={`px-4 py-3 ${idx === aulas.findIndex((_, k) => cantidades[k]) ? "" : "border-t border-[#E2E8F0]"}`}>
@@ -577,8 +589,10 @@ export default function AsignarOperadoresDocente({
                                                     <span className={`w-[26px] h-[26px] shrink-0 rounded-full text-white font-extrabold text-[10px] flex items-center justify-center ${r.rol === "DOCENTE" ? "bg-[#B91C1C]" : "bg-[#003770]"}`}>
                                                         {textoInterfaz(iniciales(r.nombre))}
                                                     </span>
-                                                    <span className="flex-1 min-w-0 text-[13px] font-bold truncate">{nombreDe(r)}</span>
-                                                    {ajustando && !ultimo ? (
+                                                    <span className="flex-1 min-w-0 text-[13px] font-bold truncate">{nombreDe(r)}{r.inactivo && " (Inactivo)"}</span>
+                                                    {r.inactivo ? (
+                                                        <b className="shrink-0 text-xs text-slate-500">{r.desdeGuardado && r.hastaGuardado ? textoRango(r.desdeGuardado, r.hastaGuardado) : "—"}</b>
+                                                    ) : ajustando && !ultimo ? (
                                                         <span className="shrink-0 flex items-center gap-1 text-xs font-extrabold text-[#003770]">
                                                             {rangos[i].desde} –
                                                             <select
@@ -593,7 +607,7 @@ export default function AsignarOperadoresDocente({
                                                     ) : (
                                                         <b className="shrink-0 text-xs font-extrabold text-[#003770] whitespace-nowrap">{textoRango(rangos[i].desde, rangos[i].hasta)}</b>
                                                     )}
-                                                    <span className="w-14 shrink-0 text-xs text-slate-500 text-right">{subs[i].length} est.</span>
+                                                    <span className="w-14 shrink-0 text-xs text-slate-500 text-right">{subs[i]?.length ?? 0} est.</span>
                                                     {lista.length > 1 || r.rol === "OPERADOR" ? (
                                                         <button type="button" onClick={() => quitarResponsable(idx, i)} aria-label={`Quitar a ${r.nombre}`} className="w-5 shrink-0 text-slate-400 hover:text-[#B91C1C] text-base leading-none cursor-pointer">×</button>
                                                     ) : <span className="w-5 shrink-0" />}
@@ -613,7 +627,7 @@ export default function AsignarOperadoresDocente({
                                     <select
                                         value=""
                                         onChange={(e) => agregarResponsable(idx, e.target.value)}
-                                        disabled={disponibles.length === 0 && docenteYaEsta}
+                                        disabled={!cantidades[idx] || (disponibles.length === 0 && docenteYaEsta)}
                                         aria-label={`Agregar persona al ${aula.nombre}`}
                                         className="mt-2 w-full h-9 px-3 rounded-lg border-[1.5px] border-dashed border-[#94A3B8] bg-white font-extrabold text-xs text-[#003770] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
@@ -661,6 +675,7 @@ export default function AsignarOperadoresDocente({
                                             <td className="px-4 py-2 border-t border-[#E2E8F0] font-extrabold">{f.aula}</td>
                                             <td className="px-3 py-2 border-t border-[#E2E8F0]">
                                                 {textoInterfaz(f.responsable.rol === "DOCENTE" ? (boolVistaAdmin ? `${f.responsable.nombre} (docente)` : "Yo (docente)") : f.responsable.nombre)}
+                                                {f.responsable.inactivo && " (Inactivo)"}
                                             </td>
                                             <td className="px-3 py-2 border-t border-[#E2E8F0]">{f.rango}</td>
                                             <td className="px-4 py-2 border-t border-[#E2E8F0] text-right">{f.cantidad}</td>

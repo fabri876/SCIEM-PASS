@@ -32,16 +32,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
 public class HabilitacionService {
-    private static final long CACHE_MS = 15_000L;
-    private final Map<String, EntradaCache> cacheExamenes = new ConcurrentHashMap<>();
-
-    private record EntradaCache(long creado, List<HabilitacionResponseDto> datos) {}
-
     private final HabilitacionRepository habilitacionRepository;
     private final UsuarioRepository usuarioRepository;
     private final MotivoInhabilitacionRepository motivoInhabilitacionRepository;
@@ -50,6 +44,7 @@ public class HabilitacionService {
     private final AuditoriaService auditoriaService;
     private final IngresoRepository ingresoRepository;
     private final IncidenciaRepository incidenciaRepository;
+    private final HabilitacionCuentaInactiva habilitacionCuentaInactiva;
 
     public HabilitacionService(
             HabilitacionRepository habilitacionRepository,
@@ -59,7 +54,7 @@ public class HabilitacionService {
             ExamenRepository examenRepository,
             AuditoriaService auditoriaService,
             IngresoRepository ingresoRepository,
-            IncidenciaRepository incidenciaRepository) {
+            IncidenciaRepository incidenciaRepository, HabilitacionCuentaInactiva habilitacionCuentaInactiva) {
         this.habilitacionRepository = habilitacionRepository;
         this.usuarioRepository = usuarioRepository;
         this.motivoInhabilitacionRepository = motivoInhabilitacionRepository;
@@ -68,6 +63,7 @@ public class HabilitacionService {
         this.auditoriaService = auditoriaService;
         this.ingresoRepository = ingresoRepository;
         this.incidenciaRepository = incidenciaRepository;
+        this.habilitacionCuentaInactiva = habilitacionCuentaInactiva;
     }
 
     @Transactional
@@ -80,6 +76,7 @@ public class HabilitacionService {
         }
         var estudiante = estudianteRepository.findByCodsisestudiante(request.codigoSis())
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el estudiante."));
+        Usuario cuenta = habilitacionCuentaInactiva.bloquearCuenta(estudiante.getIdusuario());
 
         Habilitacion habilitacionActual = null;
         for (var examenAsignatura : examenRepository.findByIdAsignatura(request.idAsignatura())) {
@@ -103,6 +100,7 @@ public class HabilitacionService {
             nueva.setIdUsuario(estudiante.getIdusuario());
             nueva.setEstadohabilitacion(request.habilitado() == null || request.habilitado());
             nueva.setObservacionhabilitacion(request.observacion());
+            habilitacionCuentaInactiva.aplicarAlCrear(nueva, cuenta, examenAsignatura);
             var guardada = habilitacionRepository.save(nueva);
             if (examenAsignatura.getIdExamen().equals(request.idExamen())) {
                 habilitacionActual = guardada;
@@ -129,13 +127,8 @@ public class HabilitacionService {
 
     @Transactional(readOnly = true)
     public List<HabilitacionResponseDto> obtenerPorAsignaturaYExamen(Integer idAsignatura, Integer idExamen) {
-        String clave = idAsignatura + ":" + idExamen;
-        EntradaCache cache = cacheExamenes.get(clave);
-        if (cache != null && System.currentTimeMillis() - cache.creado < CACHE_MS) return cache.datos;
         List<Habilitacion> lista = habilitacionRepository.findHabilitacionesConEstudiante(idAsignatura, idExamen);
-        List<HabilitacionResponseDto> datos = mapearADtosBatch(lista);
-        cacheExamenes.put(clave, new EntradaCache(System.currentTimeMillis(), datos));
-        return datos;
+        return mapearADtosBatch(lista);
     }
 
     @Transactional(readOnly = true)
@@ -148,12 +141,22 @@ public class HabilitacionService {
     @Transactional
     public HabilitacionResponseDto actualizarHabilitacion(Integer idHabilitacion, HabilitacionRequestDto request,
                                                           String ejecutor, String ip) {
+        // Resolver la cuenta sin cargar la fila que otra transacción podría actualizar.
+        Usuario cuenta = habilitacionRepository.idCuentaDeHabilitacion(idHabilitacion)
+                .map(habilitacionCuentaInactiva::bloquearCuenta).orElse(null);
         Habilitacion habilitacion = habilitacionRepository.findById(idHabilitacion)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró la habilitación con ID: " + idHabilitacion));
-        examenRepository.findById(habilitacion.getIdExamen()).ifPresent(this::validarExamenNoCancelado);
-
         Boolean estadoAnterior = habilitacion.getEstadohabilitacion();
         Boolean nuevoEstado = request.resolverEstado();
+        if (habilitacion.getIdExamen() != null) {
+            examenRepository.findById(habilitacion.getIdExamen()).ifPresent(examen -> {
+                validarExamenNoCancelado(examen);
+                if (Boolean.TRUE.equals(nuevoEstado) && cuenta != null
+                        && habilitacionCuentaInactiva.impideHabilitar(cuenta, examen)) {
+                    throw new ConflictoEstadoException("No se puede habilitar a un estudiante inactivo.");
+                }
+            });
+        }
         if (nuevoEstado != null) {
             habilitacion.setEstadohabilitacion(nuevoEstado);
         }
@@ -178,7 +181,6 @@ public class HabilitacionService {
                 "habilitacion=" + idHabilitacion + ", estudiante=" + guardada.getIdUsuario()
                         + ", examen=" + guardada.getIdExamen() + ", estado_anterior=" + estadoAnterior
                         + ", estado_nuevo=" + guardada.getEstadohabilitacion(), ip);
-        cacheExamenes.remove(guardada.getIdAsignatura() + ":" + guardada.getIdExamen());
         return mapearADto(guardada);
     }
 
