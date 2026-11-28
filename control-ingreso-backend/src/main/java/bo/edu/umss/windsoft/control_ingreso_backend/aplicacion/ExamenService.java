@@ -57,6 +57,7 @@ public class ExamenService {
     private final IngresoRepository ingresoRepository;
     private final AuditoriaService auditoriaService;
     private final CredencialRepository credencialRepository;
+    private final HabilitacionCuentaInactiva habilitacionCuentaInactiva;
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -79,9 +80,11 @@ public class ExamenService {
             IngresoRepository ingresoRepository,
             CambioExamenService cambiosExamen,
             AuditoriaService auditoriaService,
-            CredencialRepository credencialRepository) {
+            CredencialRepository credencialRepository,
+            HabilitacionCuentaInactiva habilitacionCuentaInactiva) {
 
         this.cambiosExamen = cambiosExamen;
+        this.habilitacionCuentaInactiva = habilitacionCuentaInactiva;
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
         this.docenteAsignaturaRepository = docenteAsignaturaRepository;
@@ -159,6 +162,7 @@ public class ExamenService {
         examen.setFechaCancelacion(null);
         examen.setIdUsuarioCancelacion(null);
         examen.setEstadoExamen(true);
+        habilitacionCuentaInactiva.alReactivarExamen(examen);
         credencialRepository.findAllByIdExamen(idExamen).forEach(c -> c.setEstado("ACTIVO"));
         examenRepository.save(examen);
         auditoriaService.registrarEnTransaccion("REACTIVACION_EXAMEN", auth.getName(), String.valueOf(idUsuario),
@@ -379,13 +383,6 @@ public class ExamenService {
 
         Examen examenGuardado = examenRepository.save(examen);
 
-        // Las habilitaciones son por examen. Al crear un examen nuevo deben
-        // generarse aunque los estudiantes ya estuvieran inscritos antes.
-        // En una edición no se ejecuta para preservar decisiones previas del docente.
-        if (examenAActualizar == null) {
-            crearHabilitacionesDelExamen(examenGuardado);
-        }
-
         List<Integer> aulasSolicitadas = new ArrayList<>();
         aulasSolicitadas.add(idAula);
         if (aulasAdicionales != null) aulasSolicitadas.addAll(aulasAdicionales);
@@ -426,6 +423,8 @@ public class ExamenService {
             }
         }
 
+        // La primera hora de los ambientes determina si el examen es futuro.
+        if (examenAActualizar == null) crearHabilitacionesDelExamen(examenGuardado);
         return examenGuardado;
     }
 
@@ -446,7 +445,9 @@ public class ExamenService {
 
         if (codSisPorUsuario.isEmpty()) return;
 
-        estudianteRepository.findByIdusuarioIn(new ArrayList<>(codSisPorUsuario.keySet())).forEach(estudiante -> {
+        estudianteRepository.findByIdusuarioIn(new ArrayList<>(codSisPorUsuario.keySet())).stream()
+                .sorted(java.util.Comparator.comparing(Estudiante::getIdusuario)).forEach(estudiante -> {
+            Usuario cuenta = habilitacionCuentaInactiva.bloquearCuenta(estudiante.getIdusuario());
             boolean existe = habilitacionRepository
                     .existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(
                             examen.getIdAsignatura(), examen.getIdExamen(), estudiante.getCodsisestudiante());
@@ -459,6 +460,7 @@ public class ExamenService {
             habilitacion.setIdExamen(examen.getIdExamen());
             habilitacion.setEstadohabilitacion(true);
             habilitacion.setObservacionhabilitacion(null);
+            habilitacionCuentaInactiva.aplicarAlCrear(habilitacion, cuenta, examen);
             habilitacionRepository.save(habilitacion);
         });
     }

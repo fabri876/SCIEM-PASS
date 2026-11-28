@@ -11,6 +11,10 @@ import java.util.Optional;
 
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM Usuario u WHERE u.idusuario = :id")
+    Optional<Usuario> bloquearPorId(@Param("id") Integer id);
+
     @Query("SELECT u.ciusuario FROM Usuario u WHERE u.ciusuario IN :valores")
     List<String> buscarCisExistentes(@Param("valores") List<String> valores);
     @Query("SELECT u.correousuario FROM Usuario u WHERE u.correousuario IN :valores")

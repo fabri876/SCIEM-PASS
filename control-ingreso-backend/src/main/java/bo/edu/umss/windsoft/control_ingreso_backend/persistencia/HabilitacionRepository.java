@@ -12,6 +12,23 @@ import bo.edu.umss.windsoft.control_ingreso_backend.dominio.Habilitacion;
 
 @Repository
 public interface HabilitacionRepository extends JpaRepository<Habilitacion, Integer> {
+    @Query("SELECT h FROM Habilitacion h LEFT JOIN h.estudiante e "
+            + "WHERE COALESCE(e.idusuario, h.idUsuario) = :usuario AND h.estadohabilitacion = true")
+    List<Habilitacion> vigentesPorEstudiante(@Param("usuario") Integer usuario);
+
+    @Query("SELECT DISTINCT COALESCE(e.idusuario, h.idUsuario) FROM Habilitacion h LEFT JOIN h.estudiante e "
+            + "WHERE h.idExamen = :examen AND h.estadohabilitacion = true "
+            + "AND COALESCE(e.idusuario, h.idUsuario) IS NOT NULL ORDER BY COALESCE(e.idusuario, h.idUsuario)")
+    List<Integer> cuentasConHabilitacionVigente(@Param("examen") Integer examen);
+
+    @Query("SELECT h FROM Habilitacion h LEFT JOIN h.estudiante e WHERE h.idExamen = :examen "
+            + "AND COALESCE(e.idusuario, h.idUsuario) = :usuario AND h.estadohabilitacion = true")
+    List<Habilitacion> vigentesPorExamenYEstudiante(@Param("examen") Integer examen, @Param("usuario") Integer usuario);
+
+    @Query("SELECT COALESCE(e.idusuario, h.idUsuario) FROM Habilitacion h LEFT JOIN h.estudiante e "
+            + "WHERE h.idhabilitacion = :habilitacion")
+    Optional<Integer> idCuentaDeHabilitacion(@Param("habilitacion") Integer habilitacion);
+
 
     List<Habilitacion> findByEstudianteCodsisestudiante(Integer codsisestudiante);
 

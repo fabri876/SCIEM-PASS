@@ -59,6 +59,7 @@ public class AsignacionIngresoCompatController {
                 r.put("rol", "OPERADOR");
                 r.put("nombreResponsable", (a.nombreOperador() + " " + a.apellidoOperador()).trim());
                 r.put("apellidoDesde", a.apellidoDesde());
+                r.put("activo", a.operadorActivo());
                 r.put("apellidoHasta", a.apellidoHasta());
                 responsables.add(r);
             }

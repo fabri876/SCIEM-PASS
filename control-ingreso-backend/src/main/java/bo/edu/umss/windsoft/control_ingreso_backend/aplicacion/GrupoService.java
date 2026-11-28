@@ -47,6 +47,7 @@ public class GrupoService {
     private final DocenteAsignaturaRepository docenteAsignaturaRepository;
     private final ExamenRepository examenRepository;
     private final HabilitacionRepository habilitacionRepository;
+    private final HabilitacionCuentaInactiva habilitacionCuentaInactiva;
 
     public GrupoService(GrupoRepository grupoRepository,
             AsignaturaRepository asignaturaRepository,
@@ -59,7 +60,7 @@ public class GrupoService {
             AyudanteRepository ayudanteRepository,
             DocenteAsignaturaRepository docenteAsignaturaRepository,
             ExamenRepository examenRepository,
-            HabilitacionRepository habilitacionRepository) {
+            HabilitacionRepository habilitacionRepository, HabilitacionCuentaInactiva habilitacionCuentaInactiva) {
         this.grupoRepository = grupoRepository;
         this.asignaturaRepository = asignaturaRepository;
         this.docenteGrupoRepository = docenteGrupoRepository;
@@ -72,6 +73,7 @@ public class GrupoService {
         this.docenteAsignaturaRepository = docenteAsignaturaRepository;
         this.examenRepository = examenRepository;
         this.habilitacionRepository = habilitacionRepository;
+        this.habilitacionCuentaInactiva = habilitacionCuentaInactiva;
     }
 
     @Transactional
@@ -185,6 +187,7 @@ public class GrupoService {
 
     @Transactional
     public void inscribirEstudianteAGrupo(Integer idUsuarioEstudiante, Integer codSisEstudiante, Integer idGrupo) {
+        Usuario cuenta = bloquearCuentaEstudiante(idUsuarioEstudiante);
         Grupo grupo = grupoRepository.findById(idGrupo)
                 .orElseThrow(() -> new ValidacionNegocioException("El grupo con ID " + idGrupo + " no existe."));
 
@@ -198,10 +201,11 @@ public class GrupoService {
             throw new ValidacionNegocioException("El estudiante ya pertenece a otro grupo de esta asignatura.");
         }
         if (!estudianteGrupoRepository.existsByIdUsuarioAndIdGrupo(idUsuarioEstudiante, idGrupo)) {
+            exigirCuentaActiva(cuenta);
             estudianteGrupoRepository
                     .save(new EstudianteGrupo(idUsuarioEstudiante, estudiante.getCodsisestudiante(), idGrupo));
         }
-        crearHabilitacionesDeLaAsignatura(estudiante, grupo.getIdAsignatura());
+        crearHabilitacionesDeLaAsignatura(estudiante, grupo.getIdAsignatura(), cuenta);
     }
 
     /**
@@ -209,7 +213,7 @@ public class GrupoService {
      * todos los exámenes existentes de esa asignatura del semestre actual.
      * La operación es idempotente para no duplicar filas al volver a guardar.
      */
-    private void crearHabilitacionesDeLaAsignatura(Estudiante estudiante, Integer idAsignatura) {
+    private void crearHabilitacionesDeLaAsignatura(Estudiante estudiante, Integer idAsignatura, Usuario cuenta) {
         examenRepository.findByIdAsignatura(idAsignatura).forEach(examen -> {
             boolean existe = habilitacionRepository
                     .existsByIdAsignaturaAndIdExamenAndEstudianteCodsisestudiante(
@@ -222,6 +226,7 @@ public class GrupoService {
             habilitacion.setIdExamen(examen.getIdExamen());
             habilitacion.setEstadohabilitacion(true);
             habilitacion.setObservacionhabilitacion(null);
+            habilitacionCuentaInactiva.aplicarAlCrear(habilitacion, cuenta, examen);
             habilitacionRepository.save(habilitacion);
         });
     }
@@ -385,6 +390,7 @@ public class GrupoService {
                 }
             }
             case TipoUsuarioResolver.ESTUDIANTE -> {
+                exigirCuentaActiva(bloquearCuentaEstudiante(idUsuario));
                 estudianteRepository.bloquearParaInscripcion(idUsuario)
                         .orElseThrow(() -> new ValidacionNegocioException("El usuario no es estudiante."));
                 estudianteGrupoRepository.deleteByIdUsuarioAndIdGrupo(idUsuario, idGrupo);
@@ -411,6 +417,7 @@ public class GrupoService {
                 .noneMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority())))
             throw new AccessDeniedException("Solo el administrador puede editar asignaciones.");
         List<Integer> nuevos = new ArrayList<>(new java.util.LinkedHashSet<>(idsGrupos));
+        Usuario cuenta = TipoUsuarioResolver.ESTUDIANTE.equals(rol) ? bloquearCuentaEstudiante(idUsuario) : null;
         if (TipoUsuarioResolver.ESTUDIANTE.equals(rol))
             validarUnGrupoPorAsignatura(nuevos);
         List<Integer> anteriores = switch (rol) {
@@ -427,6 +434,10 @@ public class GrupoService {
             default -> throw new ValidacionNegocioException("Este rol no tiene asignaciones academicas.");
         };
         List<Integer> agregados = nuevos.stream().filter(idGrupo -> !anteriores.contains(idGrupo)).toList();
+        if (cuenta != null && !Boolean.TRUE.equals(cuenta.getEstadousuario())) {
+            if (!agregados.isEmpty() || !nuevos.containsAll(anteriores)) exigirCuentaActiva(cuenta);
+            return;
+        }
         validarAccesoRegistro(agregados, rol);
         for (Integer idGrupo : anteriores)
             if (!nuevos.contains(idGrupo))
@@ -440,6 +451,21 @@ public class GrupoService {
 
     public record Vinculacion(Integer idUsuario, String rol, Integer idGrupo, Integer idAsignatura,
             String nombreGrupo) {
+    }
+
+    void validarCarrerasSinCambios(Integer idUsuario, List<Integer> carreras) {
+        if (!grupoRepository.carrerasUsuario(idUsuario).containsAll(carreras))
+            throw new ValidacionNegocioException("No se pueden cambiar las asignaciones de un estudiante inactivo.");
+    }
+
+    private Usuario bloquearCuentaEstudiante(Integer idUsuario) {
+        return usuarioRepository.bloquearPorId(idUsuario)
+                .orElseThrow(() -> new ValidacionNegocioException("El usuario seleccionado no existe."));
+    }
+
+    private void exigirCuentaActiva(Usuario cuenta) {
+        if (!Boolean.TRUE.equals(cuenta.getEstadousuario()))
+            throw new ValidacionNegocioException("No se pueden cambiar las asignaciones de un estudiante inactivo.");
     }
 
     @Transactional(readOnly = true)

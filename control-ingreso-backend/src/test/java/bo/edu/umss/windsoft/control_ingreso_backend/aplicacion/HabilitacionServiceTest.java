@@ -23,6 +23,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class HabilitacionServiceTest {
+    @Mock
+    private HabilitacionCuentaInactiva habilitacionCuentaInactiva;
 
     @Mock
     private HabilitacionRepository habilitacionRepository;
