@@ -108,7 +108,7 @@ export default function CatalogoAcademicoTable({ revision = 0, docentes = [], us
     </form></div>}
     {seleccion && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div role="dialog" aria-modal="true" aria-labelledby="quitar-asignacion-titulo" className="w-full max-w-lg rounded-2xl bg-bg-card p-6 shadow-xl space-y-4">
       <h3 id="quitar-asignacion-titulo" className="font-bold text-primary-navy">¿Quitar esta asignación?</h3>
-      <p className="text-secondary">{nombreUsuario(seleccion)} · {textoInterfaz(asignaturas.find(a => a.idAsignatura === seleccion.idAsignatura)?.nombreAsignatura)} · Grupo {seleccion.nombreGrupo}.</p>
+      <p className="text-secondary">{nombreUsuario(seleccion)} · {textoAsignatura(asignaturas.find(a => a.idAsignatura === seleccion.idAsignatura)?.nombreAsignatura)} · Grupo {seleccion.nombreGrupo}.</p>
       <p className="text-secondary">Se conservan la cuenta y los registros de exámenes. Si esta es su última asignación, quedará sin grupos.</p>
       {error && <p role="alert" className="text-accent-red">{error}</p>}
       <div className="flex justify-end gap-3"><button type="button" disabled={quitando} onClick={() => setSeleccion(null)} className="rounded-xl border border-border px-4 py-2">Cancelar</button><button type="button" disabled={quitando} onClick={quitar} className="rounded-xl bg-accent-red text-white px-4 py-2 font-bold">{quitando ? "Quitando…" : "Confirmar"}</button></div>

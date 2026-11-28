@@ -173,7 +173,7 @@ function configurar(r, strRol) {
         strTono: "bad", Icono: UserX, strTitulo: "NO INSCRITO EN ESTE EXAMEN", strSub: "PERTENECE A OTRO EXAMEN",
         nota: r.otroExamen ? (
           <Nota>
-            <b className="font-bold">Está inscrito en {textoAsignatura(r.otroExamen.asignatura)}</b> · {textoInterfaz(r.otroExamen.nombre)} · {textoAula(r.otroExamen.aula)} · {r.otroExamen.hora}
+            <b className="font-bold">Está inscrito en {textoAsignatura(r.otroExamen.asignatura)}</b> · {textoAsignatura(r.otroExamen.nombre)} · {textoAula(r.otroExamen.aula)} · {r.otroExamen.hora}
           </Nota>
         ) : null,
       };
@@ -293,9 +293,9 @@ export default function TarjetaResultado({ objResultado, onCerrar, onRegistrarIn
 
       {/* Foto + datos del estudiante */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 px-4 sm:px-5 py-4 sm:py-[18px]">
-        <Foto idUsuario={e?.idusuario} codigoSis={e?.sis} idExamen={idExamen} strNombre={textoInterfaz(strNombre)} />
+        <Foto idUsuario={e?.idusuario} codigoSis={e?.sis} idExamen={idExamen} strNombre={textoNombre(strNombre)} />
         <div className="min-w-0">
-          <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{textoInterfaz(strNombre)}</div>
+          <div className="text-[22px] max-md:text-[19px] font-extrabold text-[#08264A] leading-tight">{textoNombre(strNombre)}</div>
           {/* Cómo se identificó al estudiante (no es un dato del estudiante) */}
           {objResultado.metodo && (
             <span className="mt-1 block text-[12px] font-semibold text-[#64748B]">

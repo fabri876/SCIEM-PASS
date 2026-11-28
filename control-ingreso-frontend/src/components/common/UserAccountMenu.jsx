@@ -1,3 +1,4 @@
+import { textoNombre } from './textoNombre.js';
 import { textoInterfaz } from '../../utils/textoInterfaz.js';
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -43,7 +44,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, onCambiarCont
         </div>
         <div className="min-w-0 max-w-40 lg:max-w-48 flex flex-col text-left">
           <span className="text-xs font-bold text-slate-800 leading-tight truncate">
-            {textoInterfaz(strNombre)} {strApellido}
+            {textoNombre([strNombre, strApellido].filter(Boolean).join(" "))}
           </span>
           <span className="text-[11px] text-primary-blue font-semibold leading-tight truncate">
             {textoInterfaz(usuario?.rol === "OPERADOR" ? "AYUDANTE" : (usuario?.rol || ""))}
@@ -57,7 +58,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, onCambiarCont
       {boolMenuAbierto && (
         <div className="relative md:absolute md:right-0 md:top-full mt-2 w-full md:w-64 bg-white rounded-2xl border border-slate-200 shadow-lg z-50 overflow-hidden">
           <div className="p-4 border-b border-slate-100">
-            <p className="font-bold text-sm text-slate-800 truncate">{textoInterfaz(strNombre)} {strApellido}</p>
+            <p className="font-bold text-sm text-slate-800 truncate">{textoNombre([strNombre, strApellido].filter(Boolean).join(" "))}</p>
             <p className="text-xs text-slate-500 truncate mt-0.5">{usuario?.correo || ""}</p>
           </div>
 
@@ -83,7 +84,7 @@ export default function UserAccountMenu({ usuario, onCerrarSesion, onCambiarCont
         </div>
       )}
 
-      {cuentaAbierta && createPortal(<VentanaEmergente boolAbierto onCerrar={() => setCuentaAbierta(false)}><section role="dialog" aria-label="Mi Cuenta" className="p-6 space-y-4"><h2 className="font-bold text-xl">Mi Cuenta</h2><dl><dt>Nombre</dt><dd>{textoInterfaz(strNombre)} {strApellido}</dd><dt>Correo</dt><dd className="break-all">{usuario?.correo}</dd><dt>Rol</dt><dd>{textoInterfaz(usuario?.rol === "OPERADOR" ? "AYUDANTE" : usuario?.rol)}</dd></dl><p>Para corregir sus datos personales, contacte al administrador.</p><button type="button" onClick={() => { setCuentaAbierta(false); onCambiarContrasena(); }}>Cambiar contraseña</button><button type="button" onClick={() => setCuentaAbierta(false)} className="ml-4">Cerrar</button></section></VentanaEmergente>, document.body)}
+      {cuentaAbierta && createPortal(<VentanaEmergente boolAbierto onCerrar={() => setCuentaAbierta(false)}><section role="dialog" aria-label="Mi Cuenta" className="p-6 space-y-4"><h2 className="font-bold text-xl">Mi Cuenta</h2><dl><dt>Nombre</dt><dd>{textoNombre([strNombre, strApellido].filter(Boolean).join(" "))}</dd><dt>Correo</dt><dd className="break-all">{usuario?.correo}</dd><dt>Rol</dt><dd>{textoInterfaz(usuario?.rol === "OPERADOR" ? "AYUDANTE" : usuario?.rol)}</dd></dl><p>Para corregir sus datos personales, contacte al administrador.</p><button type="button" onClick={() => { setCuentaAbierta(false); onCambiarContrasena(); }}>Cambiar contraseña</button><button type="button" onClick={() => setCuentaAbierta(false)} className="ml-4">Cerrar</button></section></VentanaEmergente>, document.body)}
     </div>
   );
 }

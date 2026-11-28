@@ -183,7 +183,7 @@ export default function NotificationsMenu({ boolVersionMobile = false, boolAbier
               setCarrera(e.target.value); setNivel(""); setAsignatura(""); setNiveles([]); setAsignaturas([]);
             }} className="block w-full mt-1 rounded-lg border border-[#E2E8F0] p-2 bg-white">
               <option value="">Todas las carreras</option>
-              {carreras.map(c => <option key={c.idCarrera} value={c.idCarrera}>{textoInterfaz(c.nombre)} ({c.codigo})</option>)}
+              {carreras.map(c => <option key={c.idCarrera} value={c.idCarrera}>{textoAsignatura(c.nombre)} ({c.codigo})</option>)}
             </select>
           </label>
           <label>Nivel

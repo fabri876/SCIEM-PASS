@@ -472,20 +472,20 @@ export function generarReporteOficialPdf(arrIntentos, objInfo = {}) {
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; color: #0f172a; }
         .header { display: flex; justify-content: space-between; border-bottom: 2px solid #003770; padding-bottom: 12px; margin-bottom: 20px; }
         .logo { font-size: 20px; font-weight: 900; color: #003770; letter-spacing: -0.5px; }
-        .sublogo { font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; }
+        .sublogo { font-size: 10px; color: #64748b; font-weight: bold; }
         .meta { text-align: right; font-size: 11px; color: #475569; }
         .title { font-size: 17px; font-weight: 800; color: #021B3B; margin-bottom: 4px; }
         .subtitle { font-size: 12px; color: #64748b; margin-bottom: 16px; }
         .kpi-container { display: flex; gap: 12px; margin-bottom: 20px; }
         .kpi-box { flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #f8fafc; }
-        .kpi-title { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #64748b; }
+        .kpi-title { font-size: 9px; font-weight: bold; color: #64748b; }
         .kpi-value { font-size: 20px; font-weight: 900; color: #003770; margin-top: 2px; }
         .kpi-sub { font-size: 9px; color: #475569; }
         table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; margin-top: 10px; }
         th, td { overflow-wrap: anywhere; vertical-align: top; }
         thead { display: table-header-group; }
         tr { break-inside: avoid; page-break-inside: avoid; }
-        th { background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 800; border-bottom: 2px solid #cbd5e1; }
+        th { background: #f1f5f9; padding: 8px 6px; font-size: 11px; color: #475569; font-weight: 800; border-bottom: 2px solid #cbd5e1; }
         .footer { margin-top: 30px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px; }
       </style>
     </head>

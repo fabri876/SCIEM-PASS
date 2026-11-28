@@ -1,3 +1,4 @@
+import { textoNombre } from '../../../components/common/textoNombre.js';
 import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 // Credencial QR de un examen: el código grande + datos del examen y del estudiante
@@ -62,7 +63,7 @@ async function descargarCredencial(svgQr, examen, usuario, objQr) {
   ctx.fillStyle = "#003770"; ctx.fillRect(0, 0, W, 110);
   ctx.fillStyle = "#FFFFFF"; ctx.textAlign = "center";
   ctx.font = "bold 26px sans-serif"; ctx.fillText("SCIEM-PASS · Credencial de ingreso", W / 2, 50);
-  ctx.font = "18px sans-serif"; ctx.fillText(`${examen.tipo} · ${examen.materia}`, W / 2, 85);
+  ctx.font = "18px sans-serif"; ctx.fillText(`${textoAsignatura(examen.tipo)} · ${textoAsignatura(examen.materia)}`, W / 2, 85);
   ctx.drawImage(img, (W - 420) / 2, 140, 420, 420);
   const strNombre = `${usuario?.nombre || ""} ${usuario?.apellido || ""}`.trim();
   ctx.fillStyle = "#08264A"; ctx.font = "bold 26px sans-serif"; ctx.fillText(strNombre, W / 2, 615);
@@ -150,7 +151,7 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
         <div className={"flex flex-wrap items-center justify-between gap-2 px-[22px] py-3.5 text-white max-md:px-4 " + strColorBanda}>
           <div>
             <b className="block text-[15px] font-bold tracking-[.3px]">Credencial de ingreso</b>
-            <span className="text-xs font-semibold tracking-[.5px] opacity-90">{textoInterfaz(examen.tipo.toUpperCase())} · {textoAsignatura(examen.materia)}</span>
+            <span className="text-xs font-semibold tracking-[.5px] opacity-90">{textoAsignatura(examen.tipo)} · {textoAsignatura(examen.materia)}</span>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-xs font-semibold">
             <i className={"w-[7px] h-[7px] rounded-full " + (boolDisponible ? "bg-[#83B7E2]" : "bg-[#CBD5E1]")} />
@@ -211,7 +212,7 @@ export default function VistaCredencialQr({ examen, usuario, onVolver }) {
 
             <div className="pt-4 border-t border-[#F1F5F9] grid grid-cols-3 max-md:grid-cols-2 gap-x-[18px] gap-y-3">
               <div className="col-span-3 max-md:col-span-2">
-                <Dato strEtiqueta="Estudiante">{textoInterfaz(strNombre || "—")}</Dato>
+                <Dato strEtiqueta="Estudiante">{textoNombre(strNombre) || "—"}</Dato>
               </div>
               <Dato strEtiqueta="C.I." boolMono>{usuario?.ci || "—"}</Dato>
               <Dato strEtiqueta="Código SIS" boolMono>{usuario?.codigoSis || "—"}</Dato>

@@ -22,3 +22,11 @@ export function textoAsignatura(valor) {
     .replace(/\p{L}/u, letra => letra.toLocaleUpperCase('es'));
   return frase.replace(/[\p{L}\d./-]+/gu, palabra => SIGLAS.has(palabra.toUpperCase()) ? palabra.toUpperCase() : palabra);
 }
+
+// El reporte junta materia y tipo de examen con la fecha y el aula.
+export function textoExamenAulaAsignada(valor) {
+  if (typeof valor !== 'string') return valor;
+  const inicioDetalle = valor.search(/(?:^|\s)(?:\d{4}-\d{2}-\d{2}\b|Aula\s+\d)/iu);
+  if (inicioDetalle <= 0) return textoInterfaz(valor);
+  return textoAsignatura(valor.slice(0, inicioDetalle)) + valor.slice(inicioDetalle);
+}

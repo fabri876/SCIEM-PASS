@@ -1,3 +1,5 @@
+import { textoNombre } from '../../../components/common/textoNombre.js';
+import { textoAsignatura } from '../../../utils/textoInterfaz.js';
 import { textoInterfaz } from '../../../utils/textoInterfaz.js';
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Camera, ScanFace, SwitchCamera, AlertCircle, CheckCircle2, ArrowLeft, ShieldAlert } from "lucide-react";
@@ -296,9 +298,9 @@ export default function ModalVerificacionFacialEstudiante({ examen, usuario, onV
             <p className="m-0 text-[11px] font-bold tracking-wider text-[#64748B]">
               Control de acceso · Verificación biométrica obligatoria
             </p>
-            <h3 className="m-0 text-[17px] font-bold text-[#08264A] truncate">{textoInterfaz(strNombre)}</h3>
+            <h3 className="m-0 text-[17px] font-bold text-[#08264A] truncate">{textoNombre(strNombre)}</h3>
             <p className="m-0 text-xs font-semibold text-[#64748B]">
-              SIS {strSis} · {textoInterfaz(examen?.materia || "Examen presencial")}
+              SIS {strSis} · {textoAsignatura(examen?.materia || "Examen presencial")}
             </p>
           </div>
           {onCancelar && (

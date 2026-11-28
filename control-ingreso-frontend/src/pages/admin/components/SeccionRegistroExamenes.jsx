@@ -751,7 +751,7 @@ export default function SeccionRegistroExamenes() {
                                                         <tr key={ex.idExamen} className="border-t border-[#EEF1F8] text-[13px] text-[#10294D]">
                                                             <td className="py-3.5 pr-3 font-bold">
                                                                 <span className="inline-flex items-center gap-2">
-                                                                    {textoInterfaz(ex.nombreAsignatura || `Asignatura #${ex.idAsignatura}`)}
+                                                                    {textoAsignatura(ex.nombreAsignatura || `Asignatura #${ex.idAsignatura}`)}
                                                                     {strGrupo && (
                                                                         <span className="bg-[#E8F0FB] text-[#003770] border border-[#BFD3F2] rounded-full text-[11px] font-bold px-2.5 py-px whitespace-nowrap">
                                                                             {strGrupo}
